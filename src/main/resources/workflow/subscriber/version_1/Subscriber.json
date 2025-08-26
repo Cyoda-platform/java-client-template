@@ -1,0 +1,119 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity based on functional requirements",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "transition_to_registered",
+          "next": "REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "send_verification",
+          "next": "VERIFICATION_SENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFICATION_SENT": {
+      "transitions": [
+        {
+          "name": "verification_response_received",
+          "next": "VERIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "activate_subscriber",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "initial_sync_requested",
+          "next": "INITIAL_SYNC_JOB_CREATED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.preferences.initialSyncRequested",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "deactivate_subscriber",
+          "next": "INACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "INITIAL_SYNC_JOB_CREATED": {
+      "transitions": [
+        {
+          "name": "create_initial_sync_job",
+          "next": "ACTIVE_POST_SYNC",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateInitialSyncJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE_POST_SYNC": {
+      "transitions": [
+        {
+          "name": "update_preferences",
+          "next": "PREFERENCES_UPDATED",
+          "manual": true
+        },
+        {
+          "name": "deactivate_subscriber_post_sync",
+          "next": "INACTIVE",
+          "manual": true
+        }
+      ]
+    },
+    "PREFERENCES_UPDATED": {
+      "transitions": []
+    },
+    "INACTIVE": {
+      "transitions": []
+    }
+  }
+}

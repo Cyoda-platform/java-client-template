@@ -1,0 +1,166 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity: validation, execution, retry decision, escalation and archival based on functional requirements. Designed as an acyclic FSM (no loops).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_job",
+          "next": "PENDING",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passed",
+          "next": "IN_PROGRESS",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "FAILED_PERMANENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "IN_PROGRESS": {
+      "transitions": [
+        {
+          "name": "execute_job",
+          "next": "EXECUTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "JobExecutionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "EXECUTED": {
+      "transitions": [
+        {
+          "name": "execution_succeeded",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "completed"
+          }
+        },
+        {
+          "name": "execution_retry_allowed",
+          "next": "RETRY_SCHEDULED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RetryCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "execution_failed_permanent",
+          "next": "FAILED_PERMANENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RetryExhaustedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "archive_completed",
+          "next": "ARCHIVED",
+          "manual": false
+        }
+      ]
+    },
+    "RETRY_SCHEDULED": {
+      "transitions": [
+        {
+          "name": "mark_scheduled_and_escalate",
+          "next": "ESCALATED",
+          "manual": false
+        }
+      ]
+    },
+    "FAILED_PERMANENT": {
+      "transitions": [
+        {
+          "name": "escalate_failure",
+          "next": "ESCALATED",
+          "manual": false
+        }
+      ]
+    },
+    "ESCALATED": {
+      "transitions": [
+        {
+          "name": "archive_escalated",
+          "next": "ARCHIVED",
+          "manual": false
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
