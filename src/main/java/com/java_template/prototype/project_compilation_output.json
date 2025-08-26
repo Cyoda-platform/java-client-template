@@ -3,9 +3,11 @@
     "files_with_errors": [
         {
             "errors": [
-                "Error running GitHub action: 'Config' object has no attribute 'GITHUB_ACTION_COMPILED'"
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/entity/pet/version_1/Pet.java:26: error: ';' expected",
+                "    private String status",
+                "                         ^"
             ],
-            "file_path": "src/main/java/com/java_template/prototype/project_compilation.log"
+            "file_path": "src/main/java/com/java_template/application/entity/pet/version_1/Pet.java"
         }
     ]
 }
