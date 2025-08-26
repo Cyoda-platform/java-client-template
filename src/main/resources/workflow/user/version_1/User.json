@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity: creation, verification, activation and suspension",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "start_verification",
+          "next": "VERIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFYING": {
+      "transitions": [
+        {
+          "name": "verification_to_active",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UserVerifiedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "suspend_user",
+          "next": "SUSPENDED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SuspendUserProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": []
+    }
+  }
+}

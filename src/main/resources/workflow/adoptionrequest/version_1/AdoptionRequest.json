@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "Workflow for AdoptionRequest based on functional requirements: creation, screening, manual decision (approve/decline), completion and notification.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_request",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "start_screening",
+          "next": "SCREENING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScreeningProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SCREENING": {
+      "transitions": [
+        {
+          "name": "screening_to_awaiting_decision",
+          "next": "AWAITING_DECISION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ScreeningCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AWAITING_DECISION": {
+      "transitions": [
+        {
+          "name": "approve_request_manual",
+          "next": "APPROVED",
+          "manual": true
+        },
+        {
+          "name": "decline_request_manual",
+          "next": "DECLINED",
+          "manual": true
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "complete_adoption",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CompleteAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DECLINED": {
+      "transitions": [
+        {
+          "name": "notify_user_on_decline",
+          "next": "NOTIFIED",
+          "manual": false
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "notify_user_on_completion",
+          "next": "NOTIFIED",
+          "manual": false
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    }
+  }
+}

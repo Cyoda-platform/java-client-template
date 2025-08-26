@@ -1,0 +1,127 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity based on functional requirements: creation, validation, optional enrichment, availability, reservation, adoption, and archival.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initial_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validating_to_enriching",
+          "next": "ENRICHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetSourcePresentCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validating_to_available",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetValidDataCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validating_to_archived_on_failure",
+          "next": "ARCHIVED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.valid",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enriching_to_available",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetEnrichmentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "available_to_reserved",
+          "next": "RESERVED",
+          "manual": true
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "reserved_to_adopted",
+          "next": "ADOPTED",
+          "manual": false
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "adopted_to_archived",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
