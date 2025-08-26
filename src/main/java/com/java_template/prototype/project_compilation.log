@@ -1,0 +1,1 @@
+Error running GitHub action: 'Config' object has no attribute 'GITHUB_ACTION_COMPILED'
