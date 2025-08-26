@@ -1,0 +1,60 @@
+{
+    "entities": [
+        {
+            "CommentAnalysisJob": {
+                "entity_data_example": {
+                    "completed_at": null,
+                    "metrics_config": {
+                        "metrics": [
+                            "count",
+                            "avg_length_words",
+                            "top_words",
+                            "sentiment_summary"
+                        ]
+                    },
+                    "post_id": 1,
+                    "recipient_email": "ops@example.com",
+                    "requested_at": "2025-08-26T12:00:00Z",
+                    "schedule": "immediate",
+                    "status": "ANALYZING"
+                }
+            }
+        },
+        {
+            "Comment": {
+                "entity_data_example": {
+                    "body": "This is a comment body.",
+                    "email": "Eliseo@gardner.biz",
+                    "fetched_at": "2025-08-26T12:00:05Z",
+                    "id": 1,
+                    "name": "Eliseo",
+                    "post_id": 1,
+                    "source": "https://jsonplaceholder.typicode.com/comments"
+                }
+            }
+        },
+        {
+            "AnalysisReport": {
+                "entity_data_example": {
+                    "generated_at": "2025-08-26T12:00:20Z",
+                    "job_id": "job_123456",
+                    "metrics": {
+                        "avg_length_words": 42,
+                        "count": 5,
+                        "sentiment_summary": "neutral",
+                        "top_words": [
+                            "voluptate",
+                            "quia"
+                        ]
+                    },
+                    "post_id": 1,
+                    "recipient_email": "ops@example.com",
+                    "report_id": "report_abc",
+                    "sent_at": "2025-08-26T12:01:00Z",
+                    "status": "SENT",
+                    "summary": "5 comments analyzed. Mostly neutral."
+                }
+            }
+        }
+    ]
+}
