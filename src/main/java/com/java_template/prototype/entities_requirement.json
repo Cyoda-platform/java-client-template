@@ -1,0 +1,50 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-26T10:00:00Z",
+                    "jobName": "DailyGeoMetIngest",
+                    "locations": [
+                        "LOC123",
+                        "LOC456"
+                    ],
+                    "parameters": {
+                        "retry": 3
+                    },
+                    "schedule": "every 15 minutes",
+                    "source": "MSC GeoMet",
+                    "status": "PENDING"
+                }
+            }
+        },
+        {
+            "Location": {
+                "entity_data_example": {
+                    "active": true,
+                    "latitude": 59.1,
+                    "locationId": "LOC123",
+                    "longitude": 18.0,
+                    "name": "Station A",
+                    "region": "Stockholm",
+                    "timezone": "Europe/Stockholm"
+                }
+            }
+        },
+        {
+            "WeatherObservation": {
+                "entity_data_example": {
+                    "humidity": 78,
+                    "locationId": "LOC123",
+                    "observationId": "OBS-20250826-1",
+                    "precipitation": 0.0,
+                    "processed": true,
+                    "rawSourceId": "raw-0001",
+                    "temperature": 12.3,
+                    "timestamp": "2025-08-26T09:45:00Z",
+                    "windSpeed": 3.2
+                }
+            }
+        }
+    ]
+}
