@@ -1,0 +1,69 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "avatarUrl": "https://cdn.example.com/pets/mittens.jpg",
+                    "breed": "Siamese",
+                    "color": "seal point",
+                    "healthNotes": "Vaccinated, no known conditions",
+                    "id": "pet-123",
+                    "name": "Mittens",
+                    "sourceMetadata": {
+                        "petstoreId": "123",
+                        "raw": {
+                            "category": "cat",
+                            "origin": "petstore"
+                        }
+                    },
+                    "species": "cat",
+                    "status": "available",
+                    "tags": [
+                        "playful",
+                        "lap cat"
+                    ]
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Cat Lane",
+                    "adoptedPetIds": [
+                        "pet-123"
+                    ],
+                    "contactInfo": {
+                        "email": "alex@example.com",
+                        "phone": "+123456789"
+                    },
+                    "favorites": [
+                        "pet-124",
+                        "pet-125"
+                    ],
+                    "id": "owner-45",
+                    "name": "Alex Doe",
+                    "profileBadges": [
+                        "FirstAdoption"
+                    ],
+                    "verificationStatus": "verified"
+                }
+            }
+        },
+        {
+            "ImportJob": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-26T10:00:00Z",
+                    "failedCount": 2,
+                    "jobId": "job-2025-08-26-01",
+                    "mode": "full",
+                    "notes": "Imported successfully with 2 minor issues",
+                    "processedCount": 120,
+                    "requestedBy": "admin@purrfectpets.local",
+                    "sourceUrl": "https://petstore.example/api/pets",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
