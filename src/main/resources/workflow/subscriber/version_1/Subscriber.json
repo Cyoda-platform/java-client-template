@@ -1,0 +1,116 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity based on functional requirements. Registration, activation, notification sending (with retries handled inside SendNotificationProcessor), and admin deactivation. No loops in transitions.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initialize_to_registered",
+          "next": "REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "register_subscriber",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RegisterSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "on_job_completion_event",
+          "next": "PENDING_NOTIFICATION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobCompletionEventCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "admin_deactivate_subscriber",
+          "next": "DEACTIVATED",
+          "manual": true
+        }
+      ]
+    },
+    "PENDING_NOTIFICATION": {
+      "transitions": [
+        {
+          "name": "queue_send_notification",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendNotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "send_success",
+          "next": "SENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SendSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "send_failure",
+          "next": "FAILED_NOTIFICATION",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SendFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    },
+    "FAILED_NOTIFICATION": {
+      "transitions": []
+    },
+    "DEACTIVATED": {
+      "transitions": []
+    }
+  }
+}
