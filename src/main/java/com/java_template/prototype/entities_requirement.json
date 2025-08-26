@@ -1,0 +1,91 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age_unit": "months",
+                    "age_value": 24,
+                    "availability_status": "available",
+                    "breed": "beagle",
+                    "created_at": "2024-06-01T12:00:00Z",
+                    "health_status": "vaccinated",
+                    "id": "pet-42",
+                    "location": {
+                        "city": "City",
+                        "lat": 52.1,
+                        "lon": 5.1,
+                        "postal": "12345"
+                    },
+                    "name": "Buddy",
+                    "photos": [
+                        "https://example.com/photos/pet-42-1.jpg",
+                        "https://example.com/photos/pet-42-2.jpg"
+                    ],
+                    "sex": "M",
+                    "size": "medium",
+                    "species": "dog",
+                    "temperament_tags": [
+                        "calm",
+                        "playful"
+                    ]
+                }
+            }
+        },
+        {
+            "SearchFilter": {
+                "entity_data_example": {
+                    "age_max": 24,
+                    "age_min": 0,
+                    "age_unit_preference": "months",
+                    "breeds": [
+                        "beagle"
+                    ],
+                    "created_at": "2024-06-01T12:05:00Z",
+                    "id": "sf-1",
+                    "is_active": true,
+                    "location_center": {
+                        "city": "City",
+                        "lat": 52.1,
+                        "lon": 5.1
+                    },
+                    "name": "Nearby Puppies",
+                    "page_size": 20,
+                    "radius_km": 30,
+                    "sex": "F",
+                    "size": [
+                        "small",
+                        "medium"
+                    ],
+                    "sort_by": "distance",
+                    "species": "dog",
+                    "temperament_tags": [
+                        "playful"
+                    ],
+                    "user_id": "user-123",
+                    "vaccination_required": true
+                }
+            }
+        },
+        {
+            "TransformJob": {
+                "entity_data_example": {
+                    "completed_at": "2024-06-01T12:15:00Z",
+                    "created_by": "user-123",
+                    "error_message": "",
+                    "id": "tj-1",
+                    "job_type": "search_transform",
+                    "output_location": "/results/tj-1.json",
+                    "priority": 5,
+                    "result_count": 12,
+                    "rule_names": [
+                        "normalize_age",
+                        "map_region"
+                    ],
+                    "search_filter_id": "sf-1",
+                    "started_at": "2024-06-01T12:10:00Z",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
