@@ -41,10 +41,10 @@ public class CreateAuditProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing HNItem for request: {}", request.getId());
 
-        return serializer.withRequest(request)
+        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
             .toEntity(HNItem.class)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic)
+            .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
 
@@ -69,7 +69,7 @@ public class CreateAuditProcessor implements CyodaProcessor {
                 jobRef = UUID.randomUUID().toString();
             }
 
-            // Read properties from HNItem using direct accessors
+            // Read properties from HNItem using accessors
             Long hnId = entity.getId();
             String status = entity.getStatus();
             String importTimestamp = entity.getImportTimestamp();
