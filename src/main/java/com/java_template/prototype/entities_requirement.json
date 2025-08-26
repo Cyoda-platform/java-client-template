@@ -1,0 +1,56 @@
+{
+    "entities": [
+        {
+            "DataFeed": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-01T11:50:00Z",
+                    "id": "df_12345",
+                    "lastChecksum": "sha256:abcdef1234567890",
+                    "lastFetchedAt": "2025-08-01T12:00:00Z",
+                    "name": "London Houses CSV",
+                    "recordCount": 1000,
+                    "schemaPreview": {
+                        "bedrooms": "integer",
+                        "price": "numeric"
+                    },
+                    "status": "VALIDATED",
+                    "updatedAt": "2025-08-01T12:00:00Z",
+                    "url": "https://raw.githubusercontent.com/.../london_houses.csv"
+                }
+            }
+        },
+        {
+            "AnalysisJob": {
+                "entity_data_example": {
+                    "completedAt": "2025-08-01T12:03:30Z",
+                    "createdAt": "2025-08-01T12:00:50Z",
+                    "dataFeedId": "df_12345",
+                    "id": "job_67890",
+                    "reportRef": "report_001",
+                    "requestedBy": "analyst@example.com",
+                    "runMode": "AD_HOC",
+                    "scheduleSpec": null,
+                    "startedAt": "2025-08-01T12:01:00Z",
+                    "status": "COMPLETED"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "createdAt": "2025-07-31T09:10:00Z",
+                    "email": "alice@example.com",
+                    "id": "sub_222",
+                    "lastDeliveryStatus": "SUCCESS",
+                    "name": "Alice",
+                    "optOutAt": null,
+                    "preferences": {
+                        "frequency": "daily",
+                        "reportType": "summary"
+                    }
+                }
+            }
+        }
+    ]
+}
