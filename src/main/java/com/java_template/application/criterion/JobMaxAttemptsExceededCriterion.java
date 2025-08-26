@@ -30,7 +30,7 @@ public class JobMaxAttemptsExceededCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -39,12 +39,14 @@ public class JobMaxAttemptsExceededCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name match (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
          Job entity = context.entity();
 
+         // attemptCount must be present and non-negative
          Integer attempts = entity.getAttemptCount();
          if (attempts == null) {
              return EvaluationOutcome.fail("attemptCount is required for retry evaluation", StandardEvalReasonCategories.VALIDATION_FAILURE);
@@ -53,13 +55,20 @@ public class JobMaxAttemptsExceededCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("attemptCount is negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // If attempts reached or exceeded the configured maximum, this is a business rule breach (needs manual escalation)
-         if (attempts >= MAX_ATTEMPTS) {
+         // status must be present for meaningful evaluation
+         String status = entity.getStatus();
+         if (status == null || status.isBlank()) {
+             return EvaluationOutcome.fail("status is required for retry evaluation", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Business rule: when a job is in FAILED state and attempts reached/exceeded max -> escalate (business rule failure)
+         if ("FAILED".equalsIgnoreCase(status) && attempts >= MAX_ATTEMPTS) {
              String msg = String.format("Max attempts exceeded: attemptCount=%d, maxAllowed=%d", attempts, MAX_ATTEMPTS);
-             logger.warn(msg + " for job with type=" + entity.getType() + " status=" + entity.getStatus());
+             logger.warn("{} for job type='{}' status='{}'", msg, entity.getType(), entity.getStatus());
              return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
+         // For other statuses or below max attempts, evaluation succeeds (no escalation)
          return EvaluationOutcome.success();
     }
 }

@@ -29,7 +29,7 @@ public class HasMatchesCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Subscriber.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class HasMatchesCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match the exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Subscriber> context) {
@@ -70,12 +71,36 @@ public class HasMatchesCriterion implements CyodaCriterion {
          if (contact == null || contact.getEmail() == null || contact.getEmail().isBlank()) {
              return EvaluationOutcome.fail("Subscriber has no contact email", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+         // Basic email format sanity check
+         String email = contact.getEmail();
+         int at = email.indexOf('@');
+         if (at <= 0 || at == email.length() - 1) {
+             logger.warn("Subscriber {} has an invalid email: {}", subscriber.getId(), email);
+             return EvaluationOutcome.fail("Subscriber contact email is invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         // Ensure there's a domain with a dot after '@'
+         String domain = email.substring(at + 1);
+         if (!domain.contains(".")) {
+             logger.warn("Subscriber {} has an invalid email domain: {}", subscriber.getId(), domain);
+             return EvaluationOutcome.fail("Subscriber contact email domain is invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
 
-         // If a year range is provided, both from and to must be present and non-blank
+         // If a year range is provided, both from and to must be present and non-blank and coherent
          Subscriber.YearRange yr = subscriber.getSubscribedYearRange();
          if (yr != null) {
              if (yr.getFrom() == null || yr.getFrom().isBlank() || yr.getTo() == null || yr.getTo().isBlank()) {
                  return EvaluationOutcome.fail("Subscriber subscribed year range is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+             // Try to interpret as integers and ensure from <= to; if not numeric, it's a data quality issue
+             try {
+                 int fromYear = Integer.parseInt(yr.getFrom());
+                 int toYear = Integer.parseInt(yr.getTo());
+                 if (fromYear > toYear) {
+                     return EvaluationOutcome.fail("Subscriber subscribed year range 'from' is after 'to'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+                 }
+             } catch (NumberFormatException nfe) {
+                 logger.warn("Subscriber {} has non-numeric year range: from='{}' to='{}'", subscriber.getId(), yr.getFrom(), yr.getTo());
+                 return EvaluationOutcome.fail("Subscriber subscribed year range is not numeric", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          }
 

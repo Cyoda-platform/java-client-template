@@ -282,7 +282,7 @@ public class LaureateController {
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UpdateLaureateResponse.class))),
             @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
             @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Internal Error", content = @Content)
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
     })
     @PutMapping("/{technicalId}")
     public ResponseEntity<?> updateLaureate(
@@ -330,7 +330,7 @@ public class LaureateController {
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = DeleteLaureateResponse.class))),
             @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
             @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Internal Error", content = @Content)
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
     })
     @DeleteMapping("/{technicalId}")
     public ResponseEntity<?> deleteLaureate(

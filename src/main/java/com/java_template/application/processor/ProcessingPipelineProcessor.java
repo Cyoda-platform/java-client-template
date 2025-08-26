@@ -24,6 +24,7 @@ public class ProcessingPipelineProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
+    private static final int MAX_ATTEMPTS = 3;
 
     @Autowired
     public ProcessingPipelineProcessor(SerializerFactory serializerFactory, EntityService entityService) {
@@ -57,22 +58,37 @@ public class ProcessingPipelineProcessor implements CyodaProcessor {
         if (entity == null) return null;
 
         try {
+            // Initialize createdAt if missing (safe for newly created jobs)
+            if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) {
+                entity.setCreatedAt(Instant.now().toString());
+            }
+
             // Ensure attempt count is initialized and increment
             Integer attempts = entity.getAttemptCount() != null ? entity.getAttemptCount() + 1 : 1;
             entity.setAttemptCount(attempts);
 
-            // If the job was pending, mark as running and set startedAt
+            // If too many attempts, mark as FAILED and stop processing
+            if (attempts > MAX_ATTEMPTS) {
+                logger.warn("Job exceeded max attempts ({}). Marking as FAILED. jobType={}, attempts={}", MAX_ATTEMPTS, entity.getType(), attempts);
+                entity.setStatus("FAILED");
+                entity.setCompletedAt(Instant.now().toString());
+                return entity;
+            }
+
+            // If the job was pending, mark as running and set startedAt if not already set
             String status = entity.getStatus() != null ? entity.getStatus().toUpperCase() : "";
-            if ("PENDING".equals(status)) {
-                entity.setStartedAt(Instant.now().toString());
+            if ("PENDING".equals(status) || status.isBlank()) {
+                if (entity.getStartedAt() == null || entity.getStartedAt().isBlank()) {
+                    entity.setStartedAt(Instant.now().toString());
+                }
                 entity.setStatus("RUNNING");
             }
 
             String type = entity.getType() != null ? entity.getType().toUpperCase() : "";
 
             switch (type) {
-                case "INGEST":
-                    // For INGEST jobs: enqueue a TRANSFORM job that will process the fetched payload.
+                case "INGEST": {
+                    // For INGEST jobs: create a TRANSFORM job that will process fetched payload.
                     Job transform = new Job();
                     transform.setType("TRANSFORM");
                     transform.setStatus("PENDING");
@@ -94,21 +110,25 @@ public class ProcessingPipelineProcessor implements CyodaProcessor {
                         logger.info("Created TRANSFORM job with id {}", created);
                         // Link created job reference to the ingest job resultRef
                         entity.setResultRef(created != null ? created.toString() : null);
+                        // Mark ingest job as completed successfully
+                        entity.setStatus("COMPLETED");
+                        entity.setCompletedAt(Instant.now().toString());
                     } catch (InterruptedException | ExecutionException ex) {
                         logger.error("Failed to create TRANSFORM job from INGEST job", ex);
                         entity.setStatus("FAILED");
                         entity.setCompletedAt(Instant.now().toString());
                     }
                     break;
+                }
 
-                case "TRANSFORM":
+                case "TRANSFORM": {
                     // For TRANSFORM jobs: create a NOTIFY job to dispatch results to subscribers
                     Job notify = new Job();
                     notify.setType("NOTIFY");
                     notify.setStatus("PENDING");
                     notify.setAttemptCount(0);
                     notify.setCreatedAt(Instant.now().toString());
-                    // Propagate any payload reference
+                    // Propagate any payload reference (keep same payload fields if present)
                     if (entity.getPayload() != null) {
                         Job.Payload p2 = new Job.Payload();
                         p2.setApiUrl(entity.getPayload().getApiUrl());
@@ -123,18 +143,23 @@ public class ProcessingPipelineProcessor implements CyodaProcessor {
                         ).get();
                         logger.info("Created NOTIFY job with id {}", createdNotify);
                         entity.setResultRef(createdNotify != null ? createdNotify.toString() : null);
+                        // Mark transform job as completed successfully
+                        entity.setStatus("COMPLETED");
+                        entity.setCompletedAt(Instant.now().toString());
                     } catch (InterruptedException | ExecutionException ex) {
                         logger.error("Failed to create NOTIFY job from TRANSFORM job", ex);
                         entity.setStatus("FAILED");
                         entity.setCompletedAt(Instant.now().toString());
                     }
                     break;
+                }
 
-                case "NOTIFY":
+                case "NOTIFY": {
                     // For NOTIFY jobs: mark as completed (actual notification dispatch handled by downstream processors/services)
                     entity.setCompletedAt(Instant.now().toString());
                     entity.setStatus("COMPLETED");
                     break;
+                }
 
                 default:
                     logger.warn("Unknown job type '{}', marking as FAILED", entity.getType());

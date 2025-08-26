@@ -30,7 +30,7 @@ public class LaureateValidationProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(Laureate.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Entity is null")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -41,7 +41,8 @@ public class LaureateValidationProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(Laureate entity) {
-        return entity != null && entity.isValid();
+        // Only ensure entity object exists here; detailed validation handled in processEntityLogic
+        return entity != null;
     }
 
     private ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> noopContext(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> ctx) {
@@ -76,8 +77,8 @@ public class LaureateValidationProcessor implements CyodaProcessor {
 
         if (missingName || missingCategory) {
             // If required fields missing, mark as REJECTED
-            logger.warn("Laureate missing required fields (fullName: {}, category: {}). Marking as REJECTED. id={}",
-                    !missingName, !missingCategory, entity.getId());
+            logger.warn("Laureate missing required fields (missingFullName: {}, missingCategory: {}). Marking as REJECTED. id={}",
+                    missingName, missingCategory, entity.getId());
             entity.setStatus("REJECTED");
             return entity;
         }

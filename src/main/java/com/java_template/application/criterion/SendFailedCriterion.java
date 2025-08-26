@@ -39,7 +39,8 @@ public class SendFailedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
@@ -89,6 +90,6 @@ public class SendFailedCriterion implements CyodaCriterion {
          // Otherwise the send failed but can be retried
          String msg = String.format("NOTIFY send failed (attempts=%d) - eligible for retry", attempts);
          logger.info(msg);
-         return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
     }
 }
