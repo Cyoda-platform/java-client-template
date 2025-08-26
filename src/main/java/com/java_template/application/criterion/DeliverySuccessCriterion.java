@@ -29,7 +29,7 @@ public class DeliverySuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(WeeklySendJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,9 @@ public class DeliverySuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // MUST use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<WeeklySendJob> context) {
@@ -52,8 +54,11 @@ public class DeliverySuccessCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Normalize for comparisons
+         String normalizedStatus = status.trim();
+
          // Success condition: job completed and has required delivery information
-         if ("COMPLETED".equalsIgnoreCase(status.trim())) {
+         if ("COMPLETED".equals(normalizedStatus)) {
              if (job.getCatfactRef() == null || job.getCatfactRef().isBlank()) {
                  return EvaluationOutcome.fail("Completed job must reference a CatFact (catfactRef missing)", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
              }
@@ -63,16 +68,20 @@ public class DeliverySuccessCriterion implements CyodaCriterion {
              if (job.getTargetCount() < 0) {
                  return EvaluationOutcome.fail("targetCount must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
              }
+             // If targetCount is zero, mark as data quality failure as no recipients were delivered to
+             if (job.getTargetCount() == 0) {
+                 return EvaluationOutcome.fail("Completed job reported zero recipients (targetCount == 0)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
              // All checks for a successful delivery job passed
              return EvaluationOutcome.success();
          }
 
          // Explicit failure state
-         if ("FAILED".equalsIgnoreCase(status.trim())) {
+         if ("FAILED".equals(normalizedStatus)) {
              return EvaluationOutcome.fail("Job ended in FAILED state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Any other state (SCHEDULED, FETCHING, READY, SENDING, etc.) is not considered a successful delivery
+         // Any other state (SCHEDULED, FETCHING, FACT_READY, SENDING, etc.) is not considered a successful delivery
          return EvaluationOutcome.fail("Delivery not completed. Current status: " + status, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }

@@ -46,7 +46,8 @@ public class SendEmailsProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(WeeklySendJob.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            // Validate minimal required state for sending: job metadata and catfact reference must be present.
+            .validate(this::isValidEntity, "Invalid WeeklySendJob state for sending")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -56,8 +57,19 @@ public class SendEmailsProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Validate only the minimal fields required for the SendEmailsProcessor to operate.
+     * We intentionally avoid calling entity.isValid() because that requires targetCount to be set
+     * which this processor computes.
+     */
     private boolean isValidEntity(WeeklySendJob entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getJobName() == null || entity.getJobName().isBlank()) return false;
+        if (entity.getScheduledDate() == null || entity.getScheduledDate().isBlank()) return false;
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) return false;
+        // catfactRef must be present to send emails
+        if (entity.getCatfactRef() == null || entity.getCatfactRef().isBlank()) return false;
+        return true;
     }
 
     private WeeklySendJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<WeeklySendJob> context) {

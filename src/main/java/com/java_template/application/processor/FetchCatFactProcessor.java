@@ -60,14 +60,25 @@ public class FetchCatFactProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Custom validation for FetchCatFactProcessor:
+     * We must allow processing of WeeklySendJob entities that don't yet have a catfactRef
+     * because this processor's purpose is to fetch/create the CatFact and link it.
+     * Therefore only validate required fields for the job itself (jobName, scheduledDate, status).
+     */
     private boolean isValidEntity(WeeklySendJob entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getJobName() == null || entity.getJobName().isBlank()) return false;
+        if (entity.getScheduledDate() == null || entity.getScheduledDate().isBlank()) return false;
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) return false;
+        // do NOT require catfactRef or targetCount here because they may be populated by this processor
+        return true;
     }
 
     private WeeklySendJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<WeeklySendJob> context) {
         WeeklySendJob job = context.entity();
 
-        // Ensure targetCount is not null to satisfy entity validation on persistence
+        // Ensure targetCount is not null to satisfy entity validation on persistence later
         if (job.getTargetCount() == null) {
             job.setTargetCount(0);
         }
@@ -110,7 +121,8 @@ public class FetchCatFactProcessor implements CyodaProcessor {
 
                     // Link the created CatFact to the job and mark job as ready
                     job.setCatfactRef(fact.getFactId());
-                    job.setStatus("FACT_READY");
+                    // Use READY to indicate fact is available for the next steps
+                    job.setStatus("READY");
                 } catch (Exception ex) {
                     logger.error("Failed to persist CatFact entity", ex);
                     job.setStatus("FAILED");
