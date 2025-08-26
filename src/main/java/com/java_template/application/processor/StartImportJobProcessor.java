@@ -16,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Field;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -55,7 +54,7 @@ public class StartImportJobProcessor implements CyodaProcessor {
 
     private boolean isValidEntity(ImportJob entity) {
         if (entity == null) return false;
-        Object itemJson = getFieldValue(entity, "itemJson");
+        Object itemJson = entity.getItemJson();
         return itemJson != null;
     }
 
@@ -63,8 +62,8 @@ public class StartImportJobProcessor implements CyodaProcessor {
         ImportJob job = context.entity();
         String jobRef = null;
         try {
-            Object rawItem = getFieldValue(job, "itemJson");
-            jobRef = safeGetStringField(job, "jobId");
+            Object rawItem = job.getItemJson();
+            jobRef = job.getJobId();
 
             JsonNode itemNode = objectMapper.valueToTree(rawItem == null ? objectMapper.createObjectNode() : rawItem);
 
@@ -89,14 +88,10 @@ public class StartImportJobProcessor implements CyodaProcessor {
             // Build HNItem entity to trigger HNItem workflow when persisted
             HNItem hnItem = new HNItem();
 
-            // Use reflection to set fields to avoid relying on generated Lombok methods at compile-time
-            if (hnId != null) setFieldValue(hnItem, "id", hnId);
-            setFieldValue(hnItem, "type", type);
-            // Persist the original JSON exactly as received
-            setFieldValue(hnItem, "originalJson", itemNode.toString());
-            // Initial status per workflow diagram
-            setFieldValue(hnItem, "status", "CREATED");
-            // importTimestamp will be enriched by HNItem workflow processor
+            if (hnId != null) hnItem.setId(hnId);
+            hnItem.setType(type);
+            hnItem.setOriginalJson(itemNode.toString());
+            hnItem.setStatus("CREATED");
 
             // Persist HNItem using EntityService (asynchronously)
             CompletableFuture<UUID> addFuture = entityService.addItem(
@@ -116,79 +111,20 @@ public class StartImportJobProcessor implements CyodaProcessor {
             });
 
             // Update job status to indicate processing has started.
-            setFieldValue(job, "status", "PROCESSING");
+            job.setStatus("PROCESSING");
 
         } catch (Exception e) {
             logger.error("Error while starting import for job {}: {}", jobRef == null ? "unknown" : jobRef, e.getMessage(), e);
             // mark job as failed; Cyoda will persist changes to this entity automatically
             if (job != null) {
                 try {
-                    setFieldValue(job, "status", "FAILED");
+                    job.setStatus("FAILED");
                 } catch (Exception ex) {
-                    logger.error("Unable to mark job FAILED via reflection: {}", ex.getMessage(), ex);
+                    logger.error("Unable to mark job FAILED: {}", ex.getMessage(), ex);
                 }
             }
         }
 
         return job;
-    }
-
-    // Reflection helpers
-
-    private Object getFieldValue(Object target, String fieldName) {
-        if (target == null) return null;
-        Field field = findField(target.getClass(), fieldName);
-        if (field == null) return null;
-        try {
-            field.setAccessible(true);
-            return field.get(target);
-        } catch (IllegalAccessException e) {
-            logger.debug("Unable to access field {} on {}: {}", fieldName, target.getClass().getSimpleName(), e.getMessage());
-            return null;
-        }
-    }
-
-    private void setFieldValue(Object target, String fieldName, Object value) {
-        if (target == null) return;
-        Field field = findField(target.getClass(), fieldName);
-        if (field == null) {
-            logger.debug("Field {} not found on {}", fieldName, target.getClass().getSimpleName());
-            return;
-        }
-        try {
-            field.setAccessible(true);
-            // handle primitive long vs Long
-            if (value != null) {
-                Class<?> fieldType = field.getType();
-                if ((fieldType == long.class || fieldType == Long.class) && value instanceof Number) {
-                    field.set(target, ((Number) value).longValue());
-                    return;
-                }
-                if (fieldType == String.class && !(value instanceof String)) {
-                    field.set(target, String.valueOf(value));
-                    return;
-                }
-            }
-            field.set(target, value);
-        } catch (IllegalAccessException e) {
-            logger.debug("Unable to set field {} on {}: {}", fieldName, target.getClass().getSimpleName(), e.getMessage());
-        }
-    }
-
-    private Field findField(Class<?> cls, String fieldName) {
-        Class<?> current = cls;
-        while (current != null && current != Object.class) {
-            try {
-                return current.getDeclaredField(fieldName);
-            } catch (NoSuchFieldException e) {
-                current = current.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    private String safeGetStringField(Object target, String fieldName) {
-        Object v = getFieldValue(target, fieldName);
-        return v == null ? null : String.valueOf(v);
     }
 }
