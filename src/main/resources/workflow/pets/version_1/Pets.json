@@ -1,0 +1,140 @@
+{
+  "version": "1.0",
+  "name": "Pets Workflow",
+  "desc": "Finite-state workflow for Pets entity covering creation, availability, adoption request, optional background check, approval/rejection and archival.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_pet",
+          "next": "registered",
+          "manual": false
+        }
+      ]
+    },
+    "registered": {
+      "transitions": [
+        {
+          "name": "validate_and_publish",
+          "next": "available",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidatePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "available": {
+      "transitions": [
+        {
+          "name": "request_adoption_requires_check",
+          "next": "background_check_pending",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RequiresBackgroundCheckCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "request_adoption_no_check",
+          "next": "adoption_requested",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RequiresBackgroundCheckCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "background_check_pending": {
+      "transitions": [
+        {
+          "name": "complete_background_check",
+          "next": "adoption_requested",
+          "manual": false,
+          "processors": [
+            {
+              "name": "BackgroundCheckProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "adoption_requested": {
+      "transitions": [
+        {
+          "name": "evaluate_request_approved",
+          "next": "approved",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.adoptionRequest.approved",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "evaluate_request_rejected",
+          "next": "rejected",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.adoptionRequest.approved",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "finalize_adoption",
+          "next": "adopted",
+          "manual": false
+        }
+      ]
+    },
+    "adopted": {
+      "transitions": [
+        {
+          "name": "archive_pet_after_adoption",
+          "next": "archived",
+          "manual": false
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": [
+        {
+          "name": "archive_pet_after_rejection",
+          "next": "archived",
+          "manual": false
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}

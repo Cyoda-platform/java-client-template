@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "name": "VisitAppointment Workflow",
+  "desc": "Minimal workflow for VisitAppointment based solely on the provided functional requirements: a visit must be scheduled and completed (attended) prior to approval. This workflow models scheduling, completion (attendance), verification, cancellation, and closure.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_schedule",
+          "next": "scheduled",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleNotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "mark_completed_when_attended",
+          "next": "completed",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.attended",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "cancel_if_status_canceled",
+          "next": "canceled",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "CANCELED"
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "verify_visit",
+          "next": "verified",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VisitVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "verified": {
+      "transitions": [
+        {
+          "name": "close_verified_appointment",
+          "next": "closed",
+          "manual": false
+        }
+      ]
+    },
+    "canceled": {
+      "transitions": []
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}

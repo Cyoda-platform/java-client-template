@@ -1,0 +1,1 @@
+{"version":"1.0","name":"AdoptionRequests Workflow","desc":"No workflow design for AdoptionRequests is defined in the provided functional requirements document.","initialState":"initial_state","active":false,"states":{"initial_state":{"transitions":[]}}}
