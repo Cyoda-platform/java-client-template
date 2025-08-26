@@ -1,0 +1,79 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "createdAt": "2025-08-25T12:01:00Z",
+                    "description": "A friendly tabby kitten",
+                    "id": "pet_123",
+                    "images": [
+                        "https://example.com/image1.jpg"
+                    ],
+                    "name": "Mittens",
+                    "sourceId": "ps_987",
+                    "sourceUpdatedAt": "2025-08-25T12:00:00Z",
+                    "species": "cat",
+                    "status": "available",
+                    "tags": [
+                        "kitten",
+                        "friendly"
+                    ],
+                    "updatedAt": "2025-08-25T12:01:00Z"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactDetails": "alex@example.com",
+                    "contactType": "email",
+                    "createdAt": "2025-08-25T12:05:00Z",
+                    "id": "sub_xyz789",
+                    "name": "Alex",
+                    "preferences": {
+                        "frequency": "immediate",
+                        "species": [
+                            "cat"
+                        ],
+                        "tags": [
+                            "kitten"
+                        ]
+                    },
+                    "updatedAt": "2025-08-25T12:05:00Z",
+                    "verified": false
+                }
+            }
+        },
+        {
+            "Job": {
+                "entity_data_example": {
+                    "attempts": 1,
+                    "createdAt": "2025-08-25T12:00:00Z",
+                    "id": "job_abc123",
+                    "lastError": "",
+                    "payload": {
+                        "since": "2025-08-25T00:00:00Z",
+                        "source": "petstore"
+                    },
+                    "petIds": [
+                        "pet_123",
+                        "pet_456"
+                    ],
+                    "result": {
+                        "fetched": 10
+                    },
+                    "scheduledAt": "2025-08-25T12:00:00Z",
+                    "status": "completed",
+                    "subscriberIds": [
+                        "sub_xyz789"
+                    ],
+                    "type": "ingest",
+                    "updatedAt": "2025-08-25T12:10:00Z"
+                }
+            }
+        }
+    ]
+}
