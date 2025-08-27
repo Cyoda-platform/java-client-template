@@ -37,7 +37,7 @@ public class ContactVerificationProcessorTest {
         // EntityService is required by constructor; mock it but no behavior needed for this sunny path
         EntityService entityService = mock(EntityService.class);
 
-        ContactVerificationProcessor processor = new ContactVerificationProcessor(serializerFactory, objectMapper, entityService);
+        ContactVerificationProcessor processor = new ContactVerificationProcessor(serializerFactory);
 
         // Build payload that satisfies Subscriber.isValid()
         ObjectNode contactDetails = objectMapper.createObjectNode();
