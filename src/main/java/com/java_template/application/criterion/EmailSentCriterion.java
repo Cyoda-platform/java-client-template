@@ -29,7 +29,7 @@ public class EmailSentCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(ReportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,11 +38,17 @@ public class EmailSentCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
          ReportJob entity = context.entity();
+         if (entity == null) {
+             logger.warn("EmailSentCriterion: entity is null in evaluation context");
+             return EvaluationOutcome.fail("ReportJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
 
          // status is required for evaluation
          if (entity.getStatus() == null || entity.getStatus().isBlank()) {
@@ -96,6 +102,7 @@ public class EmailSentCriterion implements CyodaCriterion {
 
     private boolean isValidEmail(String email) {
         // Simple validation: contains one '@' and at least one '.' after '@'
+        if (email == null) return false;
         int at = email.indexOf('@');
         if (at <= 0 || at == email.length() - 1) return false;
         String domain = email.substring(at + 1);

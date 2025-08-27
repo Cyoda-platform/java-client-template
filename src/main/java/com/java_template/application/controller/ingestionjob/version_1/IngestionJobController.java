@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.ingestionjob.version_1.IngestionJob;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -91,6 +93,65 @@ public class IngestionJobController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Unexpected error in createIngestionJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Create IngestionJobs bulk", description = "Create multiple IngestionJob entities in bulk. Returns list of technicalIds.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Created", content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreateResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PostMapping("/bulk")
+    public ResponseEntity<?> createIngestionJobsBulk(
+            @RequestBody(description = "List of IngestionJob create requests", required = true, content = @Content(array = @ArraySchema(schema = @Schema(implementation = IngestionJobRequest.class))))
+            @org.springframework.web.bind.annotation.RequestBody List<IngestionJobRequest> requests) {
+        try {
+            if (requests == null || requests.isEmpty()) {
+                throw new IllegalArgumentException("Request body is required and must contain at least one item");
+            }
+
+            List<IngestionJob> entities = new ArrayList<>();
+            for (IngestionJobRequest r : requests) {
+                entities.add(toEntityForCreate(r));
+            }
+
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
+                    IngestionJob.ENTITY_NAME,
+                    String.valueOf(IngestionJob.ENTITY_VERSION),
+                    entities
+            );
+
+            List<UUID> ids = idsFuture.get();
+            List<CreateResponse> out = new ArrayList<>();
+            if (ids != null) {
+                for (UUID id : ids) {
+                    CreateResponse cr = new CreateResponse();
+                    cr.setTechnicalId(id.toString());
+                    out.add(cr);
+                }
+            }
+            return ResponseEntity.status(HttpStatus.CREATED).body(out);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid request for createIngestionJobsBulk: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in createIngestionJobsBulk", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted in createIngestionJobsBulk", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in createIngestionJobsBulk", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
@@ -184,6 +245,59 @@ public class IngestionJobController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Unexpected error in getAllIngestionJobs", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Search IngestionJobs", description = "Search IngestionJob entities using a SearchConditionRequest. Returns matching entities.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = IngestionJobResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PostMapping("/search")
+    public ResponseEntity<?> searchIngestionJobs(
+            @RequestBody(description = "Search condition payload", required = true, content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody SearchConditionRequest condition) {
+        try {
+            if (condition == null) {
+                throw new IllegalArgumentException("Search condition is required");
+            }
+
+            CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
+                    IngestionJob.ENTITY_NAME,
+                    String.valueOf(IngestionJob.ENTITY_VERSION),
+                    condition,
+                    true
+            );
+
+            ArrayNode array = itemsFuture.get();
+            List<IngestionJobResponse> out = new ArrayList<>();
+            if (array != null) {
+                for (JsonNode n : array) {
+                    if (n.isObject()) {
+                        out.add(fromObjectNode((ObjectNode) n));
+                    }
+                }
+            }
+            return ResponseEntity.ok(out);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid request for searchIngestionJobs: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in searchIngestionJobs", e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted in searchIngestionJobs", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error in searchIngestionJobs", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }

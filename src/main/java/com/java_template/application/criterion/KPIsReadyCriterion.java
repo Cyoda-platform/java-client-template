@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.Objects;
 
 @Component
 public class KPIsReadyCriterion implements CyodaCriterion {
@@ -25,6 +26,7 @@ public class KPIsReadyCriterion implements CyodaCriterion {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
+    private static final String REQUIRED_STATUS = "GENERATING";
 
     public KPIsReadyCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -42,7 +44,9 @@ public class KPIsReadyCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // Use exact criterion name match (case-sensitive) as required
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
@@ -55,7 +59,7 @@ public class KPIsReadyCriterion implements CyodaCriterion {
 
          // Business rule: criterion applies when job is in GENERATING status
          String status = reportJob.getStatus();
-         if (status == null || !status.equalsIgnoreCase("GENERATING")) {
+         if (status == null || !REQUIRED_STATUS.equals(status)) {
              return EvaluationOutcome.fail("ReportJob must be in GENERATING status to evaluate KPI readiness", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
@@ -68,10 +72,11 @@ public class KPIsReadyCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("outputFormats is required (e.g., PDF,CSV)", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Ensure at least one supported output format is requested
+         // Ensure at least one supported output format is requested and formats are valid tokens
          String formats = reportJob.getOutputFormats();
          boolean supportsPdfOrCsv = Arrays.stream(formats.split(","))
              .map(String::trim)
+             .filter(f -> !f.isBlank())
              .anyMatch(f -> f.equalsIgnoreCase("PDF") || f.equalsIgnoreCase("CSV"));
          if (!supportsPdfOrCsv) {
              return EvaluationOutcome.fail("outputFormats must include at least PDF or CSV", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
@@ -81,10 +86,11 @@ public class KPIsReadyCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("recipients are required to send the generated report", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic recipients validation: at least one entry contains '@'
+         // Basic recipients validation: at least one entry contains '@' and a domain part
          boolean validRecipientFound = Arrays.stream(reportJob.getRecipients().split(","))
              .map(String::trim)
-             .anyMatch(r -> r.contains("@") && r.contains("."));
+             .filter(r -> !r.isBlank())
+             .anyMatch(r -> r.contains("@") && r.indexOf('@') > 0 && r.indexOf('.') > r.indexOf('@') );
          if (!validRecipientFound) {
              return EvaluationOutcome.fail("recipients must contain at least one valid email address", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
@@ -114,7 +120,13 @@ public class KPIsReadyCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("periodStart must be earlier than or equal to periodEnd", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // If all checks pass, KPIs are considered ready for attachment generation (the actual KPI table is kept in processing context)
+         // Additional sanity: period should not be excessively large (protecting against accidental huge ranges)
+         long days = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate);
+         if (days > 3650) { // arbitrary 10-year guard
+             return EvaluationOutcome.fail("period range is too large", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // If all checks pass, KPIs are considered ready for attachment generation
          return EvaluationOutcome.success();
     }
 }

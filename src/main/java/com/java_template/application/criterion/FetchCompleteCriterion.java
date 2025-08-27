@@ -29,7 +29,7 @@ public class FetchCompleteCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(IngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,11 @@ public class FetchCompleteCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) {
+            return false;
+        }
+        // Use exact match for criterion name as required
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestionJob> context) {
@@ -56,7 +60,7 @@ public class FetchCompleteCriterion implements CyodaCriterion {
 
          // This criterion guards the transition from FETCHING -> TRANSFORMING.
          // It should only succeed if the job is currently in FETCHING state.
-         if (!"FETCHING".equalsIgnoreCase(entity.getStatus())) {
+         if (!"FETCHING".equals(entity.getStatus())) {
              return EvaluationOutcome.fail(
                  String.format("Ingestion job is not in FETCHING state (current: %s)", entity.getStatus()),
                  StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
@@ -66,6 +70,12 @@ public class FetchCompleteCriterion implements CyodaCriterion {
          // Basic required fields verification (use only existing properties)
          if (entity.getSourceUrl() == null || entity.getSourceUrl().isBlank()) {
              return EvaluationOutcome.fail("sourceUrl is required for fetch completion", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Basic syntactic validation for sourceUrl: must start with http:// or https://
+         String src = entity.getSourceUrl().trim();
+         if (!(src.startsWith("http://") || src.startsWith("https://"))) {
+             return EvaluationOutcome.fail("sourceUrl must be a valid http(s) URL", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          if (entity.getDataFormats() == null || entity.getDataFormats().isBlank()) {
@@ -84,7 +94,17 @@ public class FetchCompleteCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("timeWindowDays must be a non-negative integer", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Optional: ensure creator metadata exists to help trace the job (use existing properties)
+         if (entity.getCreatedBy() == null || entity.getCreatedBy().isBlank()) {
+             return EvaluationOutcome.fail("createdBy is required for ingestion job traceability", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) {
+             return EvaluationOutcome.fail("createdAt timestamp is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
          // All basic checks passed — consider fetch complete and allow transition to TRANSFORMING.
+         logger.debug("FetchCompleteCriterion passed for IngestionJob id={}", entity.getId());
          return EvaluationOutcome.success();
     }
 }

@@ -25,7 +25,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
