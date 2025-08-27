@@ -33,7 +33,9 @@ public class LogPickProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(PickLedger.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            // Use a relaxed validation for incoming pick ledger events:
+            // PickLedger is an append-only audit entry so require only minimal fields (sku and delta).
+            .validate(this::isValidEntity, "Invalid PickLedger state: missing required audit fields")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -43,8 +45,16 @@ public class LogPickProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Relaxed validation: PickLedger entries are audit-only and may be created with missing
+     * non-critical fields. Require only core audit data: sku and delta must be present.
+     */
     private boolean isValidEntity(PickLedger entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getSku() == null || entity.getSku().isBlank()) return false;
+        if (entity.getDelta() == null) return false;
+        // 'at', 'actor', 'pickId', 'note' are optional and will be set/normalized by processing logic.
+        return true;
     }
 
     private PickLedger processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<PickLedger> context) {

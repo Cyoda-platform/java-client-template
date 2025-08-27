@@ -32,7 +32,7 @@ public class ShipmentsFullyPickedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Shipment.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -41,7 +41,8 @@ public class ShipmentsFullyPickedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Use exact criterion name match (case-sensitive) as required
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Shipment> context) {
@@ -51,6 +52,20 @@ public class ShipmentsFullyPickedCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Shipment entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
+         // If status is absent treat as data quality issue
+         String status = shipment.getStatus();
+         if (status == null || status.isBlank()) {
+             logger.debug("Shipment {} has no status", shipment.getShipmentId());
+             return EvaluationOutcome.fail("Shipment status is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Criterion only concerns shipments that are currently in PICKING state.
+         // If shipment is in any other state, consider the criterion satisfied (no picking required).
+         if (!"PICKING".equals(status)) {
+             logger.debug("Shipment {} in state '{}' - skipping pick validation", shipment.getShipmentId(), status);
+             return EvaluationOutcome.success();
+         }
+
          List<Shipment.Line> lines = shipment.getLines();
          if (lines == null || lines.isEmpty()) {
              logger.debug("Shipment {} has no lines", shipment.getShipmentId());
@@ -58,10 +73,13 @@ public class ShipmentsFullyPickedCriterion implements CyodaCriterion {
          }
 
          StringBuilder notFullyPicked = new StringBuilder();
+         boolean dataQualityIssue = false;
+
          for (Shipment.Line line : lines) {
              if (line == null) {
                  // unexpected but treat as data quality problem
                  logger.debug("Shipment {} contains null line element", shipment.getShipmentId());
+                 dataQualityIssue = true;
                  if (notFullyPicked.length() > 0) notFullyPicked.append("; ");
                  notFullyPicked.append("null-line");
                  continue;
@@ -72,16 +90,23 @@ public class ShipmentsFullyPickedCriterion implements CyodaCriterion {
 
              if (qtyOrdered == null) {
                  logger.debug("Shipment {} line {} has null qtyOrdered", shipment.getShipmentId(), sku);
+                 dataQualityIssue = true;
                  if (notFullyPicked.length() > 0) notFullyPicked.append("; ");
-                 notFullyPicked.append(String.format("%s:missing-qtyOrdered", sku));
+                 notFullyPicked.append(String.format("%s:missing-qtyOrdered", Objects.toString(sku, "<unknown>")));
                  continue;
              }
 
              int picked = (qtyPicked == null) ? 0 : qtyPicked;
-             if (picked != qtyOrdered) {
+             if (picked < qtyOrdered) {
                  if (notFullyPicked.length() > 0) notFullyPicked.append("; ");
                  notFullyPicked.append(String.format("%s(picked=%d/ordered=%d)", Objects.toString(sku, "<unknown>"), picked, qtyOrdered));
              }
+         }
+
+         if (dataQualityIssue) {
+             String msg = "Shipment contains invalid line data: " + notFullyPicked.toString();
+             logger.debug("Shipment {} data quality issues: {}", shipment.getShipmentId(), msg);
+             return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          if (notFullyPicked.length() > 0) {

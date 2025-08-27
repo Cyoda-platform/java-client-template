@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Set;
+
 @Component
 public class PaymentAmountMatchCriterion implements CyodaCriterion {
 
@@ -29,7 +31,7 @@ public class PaymentAmountMatchCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Payment.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +40,8 @@ public class PaymentAmountMatchCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // CRITICAL: use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Payment> context) {
@@ -60,6 +63,9 @@ public class PaymentAmountMatchCriterion implements CyodaCriterion {
          if (payment.getProvider() == null || payment.getProvider().isBlank()) {
              return EvaluationOutcome.fail("provider is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+         if (payment.getStatus() == null || payment.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
 
          // Business rule: provider must be the configured dummy provider for this system
          // (system uses "DUMMY" as the only supported provider in the functional spec)
@@ -67,13 +73,27 @@ public class PaymentAmountMatchCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("unsupported payment provider", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
+         // Business rule: allowed statuses
+         Set<String> allowedStatuses = Set.of("INITIATED", "PAID", "FAILED", "CANCELED");
+         String statusUpper = payment.getStatus().toUpperCase().trim();
+         if (!allowedStatuses.contains(statusUpper)) {
+             return EvaluationOutcome.fail("unknown payment status: " + payment.getStatus(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
          // Business rule: a payment with status PAID should have a positive amount
-         if ("PAID".equalsIgnoreCase(payment.getStatus()) && payment.getAmount() <= 0.0) {
+         if ("PAID".equals(statusUpper) && payment.getAmount() <= 0.0) {
              return EvaluationOutcome.fail("paid payment must have positive amount", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // For INITIATED payments, amount should be non-zero in normal flows (zero-amount payments are suspicious)
+         if ("INITIATED".equals(statusUpper) && payment.getAmount() == 0.0) {
+             // mark as data quality warning/failure depending on policy; choose DATA_QUALITY_FAILURE
+             return EvaluationOutcome.fail("initiated payment with zero amount is not allowed", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // All basic checks passed. Deeper consistency (e.g., matching cart.grandTotal) requires loading the cart entity
          // which is out of scope for this isolated entity evaluation. We therefore ensure payment fields are consistent.
+         logger.debug("Payment {} passed basic validation in {} check", payment.getPaymentId(), className);
          return EvaluationOutcome.success();
     }
 }

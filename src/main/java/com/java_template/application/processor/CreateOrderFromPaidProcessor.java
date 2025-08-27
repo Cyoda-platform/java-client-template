@@ -12,7 +12,6 @@ import com.java_template.application.entity.payment.version_1.Payment;
 import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.application.entity.reservation.version_1.Reservation;
 import com.java_template.application.entity.shipment.version_1.Shipment;
-import com.java_template.application.entity.shipment.version_1.Shipment.Line as ShipmentLine;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;

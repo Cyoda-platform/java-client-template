@@ -29,7 +29,7 @@ public class ShipmentFullyPickedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Shipment.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class ShipmentFullyPickedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match the exact criterion name used in operation specifications
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Shipment> context) {
@@ -52,6 +53,19 @@ public class ShipmentFullyPickedCriterion implements CyodaCriterion {
          if (entity.getLines() == null || entity.getLines().isEmpty()) {
              logger.warn("Shipment {} has no lines", entity.getShipmentId());
              return EvaluationOutcome.fail("Shipment has no lines", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+             logger.warn("Shipment {} missing status", entity.getShipmentId());
+             return EvaluationOutcome.fail("Shipment status is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Only evaluate business readiness when shipment is in PICKING state.
+         // If shipment is already beyond PICKING, consider it not applicable and return success.
+         String status = entity.getStatus().trim();
+         if (!"PICKING".equals(status)) {
+             logger.debug("Shipment {} status is '{}', criterion not applicable", entity.getShipmentId(), status);
+             return EvaluationOutcome.success();
          }
 
          StringBuilder notPickedSummary = new StringBuilder();
