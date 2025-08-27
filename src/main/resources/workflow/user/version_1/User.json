@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity (NEW -> VERIFIED -> AVAILABLE) based on functional requirements",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "transition_to_new",
+          "next": "NEW",
+          "manual": false
+        }
+      ]
+    },
+    "NEW": {
+      "transitions": [
+        {
+          "name": "validate_and_enrich",
+          "next": "VERIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateAndEnrichProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "finalize_user_record",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeUserRecordProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": []
+    }
+  }
+}
