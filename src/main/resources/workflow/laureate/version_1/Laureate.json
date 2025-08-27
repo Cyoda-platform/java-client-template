@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Finite-state workflow for Laureate entity: validation, enrichment/classification and final persistence. Processors consolidated to two to respect processor limits.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_persisted",
+          "next": "PERSISTED",
+          "manual": false
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "run_validation",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "to_enriched_if_valid",
+          "next": "ENRICHED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_invalid_if_invalid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.recordStatus",
+            "operation": "EQUALS",
+            "value": "INVALID"
+          }
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "persist_and_classify",
+          "next": "CLASSIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistFinalProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CLASSIFIED": {
+      "transitions": [
+        {
+          "name": "finalize_store",
+          "next": "STORED",
+          "manual": false
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": []
+    },
+    "INVALID": {
+      "transitions": []
+    }
+  }
+}

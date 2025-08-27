@@ -1,0 +1,162 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "FSM for Subscriber lifecycle: validation, notification delivery, retries and manual administrative actions",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "persisted_to_validation",
+          "next": "validation",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubscriptionValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validation": {
+      "transitions": [
+        {
+          "name": "validation_pass_to_active",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.contactValid",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "validation_fail_to_inactive",
+          "next": "inactive",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.contactValid",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "on_job_notify_to_receiving",
+          "next": "receiving_notification",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriberNotificationReadyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "admin_suspend_manual",
+          "next": "suspended",
+          "manual": true
+        }
+      ]
+    },
+    "receiving_notification": {
+      "transitions": [
+        {
+          "name": "dispatch_notification",
+          "next": "delivery_result",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationDispatcherProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delivery_result": {
+      "transitions": [
+        {
+          "name": "delivered_to_record_ack",
+          "next": "record_ack",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.lastDelivery.delivered",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "failed_to_delivery_retry",
+          "next": "delivery_retry",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.lastDelivery.delivered",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "record_ack": {
+      "transitions": []
+    },
+    "delivery_retry": {
+      "transitions": [
+        {
+          "name": "retry_success_to_record_ack",
+          "next": "record_ack",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.lastDelivery.delivered",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "retry_exhausted_to_suspended",
+          "next": "suspended",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.lastDelivery.retryExhausted",
+            "operation": "EQUALS",
+            "value": true
+          }
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "admin_reactivate_manual",
+          "next": "reactivated",
+          "manual": true
+        }
+      ]
+    },
+    "reactivated": {
+      "transitions": []
+    },
+    "inactive": {
+      "transitions": []
+    }
+  }
+}
