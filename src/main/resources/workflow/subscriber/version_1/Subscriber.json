@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity based on functional requirements (activation check and notification handling).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_active",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.active",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "created_to_inactive",
+          "next": "INACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.active",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "active_receive_notification",
+          "next": "RECEIVE_NOTIFICATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReceiveNotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RECEIVE_NOTIFICATION": {
+      "transitions": [
+        {
+          "name": "receive_notification_record_result",
+          "next": "NOTIFICATION_RECORDED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RecordDeliveryResultProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFICATION_RECORDED": {
+      "transitions": []
+    },
+    "INACTIVE": {
+      "transitions": []
+    }
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity based on functional requirements: schedule -> ingest -> decide outcome -> notify subscribers -> terminal",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_scheduled",
+          "next": "SCHEDULED",
+          "manual": false
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "start_ingestion",
+          "next": "INGESTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartIngestionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INGESTING": {
+      "transitions": [
+        {
+          "name": "ingesting_to_succeeded",
+          "next": "SUCCEEDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckJobOutcomeCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.recordsFailedCount",
+                "operation": "EQUALS",
+                "value": 0
+              }
+            }
+          }
+        },
+        {
+          "name": "ingesting_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CheckJobOutcomeCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.recordsFailedCount",
+                "operation": "GREATER_THAN",
+                "value": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "SUCCEEDED": {
+      "transitions": [
+        {
+          "name": "succeeded_to_notify",
+          "next": "NOTIFIED_SUBSCRIBERS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribersProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "failed_to_notify",
+          "next": "NOTIFIED_SUBSCRIBERS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifySubscribersProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED_SUBSCRIBERS": {
+      "transitions": []
+    }
+  }
+}
