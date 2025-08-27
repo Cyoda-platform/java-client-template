@@ -3,10 +3,10 @@
     "files_with_errors": [
         {
             "errors": [
-                "error: constructor TechnicalIdResponse(String) is already defined in class TechnicalIdResponse",
-                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/controller/subscriber/version_1/SubscriberController.java:545: error: constructor TechnicalIdResponse(String) is already defined in class TechnicalIdResponse\n    @AllArgsConstructor\n    ^"
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ContactVerificationProcessor.java:122: error: unreported exception NoSuchFieldException; must be caught or declared to be thrown",
+                "error location: logger.error(\"Unexpected error during contact verification for subscriber {}: {}\", entity != null ? safeString(getFieldValue(entity, \"id\")) : \"unknown\", ex.getMessage(), ex);"
             ],
-            "file_path": "src/main/java/com/java_template/application/controller/subscriber/version_1/SubscriberController.java"
+            "file_path": "src/main/java/com/java_template/application/processor/ContactVerificationProcessor.java"
         }
     ]
 }
