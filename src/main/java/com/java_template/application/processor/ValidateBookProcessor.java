@@ -45,19 +45,10 @@ public class ValidateBookProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(Book entity) {
-        if (entity == null) return false;
-        // initial structural validation from the entity itself
-        if (!entity.isValid()) return false;
-
-        // business rule: publishDate must be parseable as ISO date (yyyy-MM-dd)
-        try {
-            LocalDate.parse(entity.getPublishDate());
-        } catch (DateTimeParseException | NullPointerException e) {
-            logger.debug("Publish date is not parseable for book id {}: {}", entity.getId(), e.getMessage());
-            return false;
-        }
-
-        return true;
+        // Structural validation relies on entity.isValid() (uses available getters)
+        // Do not block processing on publishDate parseability here so processor can
+        // mark the entity for review or set safe defaults as needed.
+        return entity != null && entity.isValid();
     }
 
     private Book processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Book> context) {
@@ -69,7 +60,7 @@ public class ValidateBookProcessor implements CyodaProcessor {
             return null;
         }
 
-        // Re-validate publishDate parseability; if it fails, mark derived fields to indicate review-required.
+        // Validate publishDate parseability; if it fails, set review-indicative defaults.
         try {
             LocalDate.parse(book.getPublishDate());
             // If parse succeeds, ensure derived flags are initialized safely for downstream processors
@@ -86,6 +77,10 @@ public class ValidateBookProcessor implements CyodaProcessor {
             if (book.getIsPopular() == null) {
                 book.setIsPopular(false);
             }
+            // Ensure fetchTimestamp exists so downstream processors have a reference point
+            if (book.getFetchTimestamp() == null || book.getFetchTimestamp().isBlank()) {
+                book.setFetchTimestamp(Instant.now().toString());
+            }
         } catch (DateTimeParseException | NullPointerException e) {
             // publishDate invalid -> mark for review by setting safe defaults and ensuring fetchTimestamp exists
             logger.warn("Book validation failed (publishDate invalid) for id {}: {}", book.getId(), e.getMessage());
@@ -96,7 +91,9 @@ public class ValidateBookProcessor implements CyodaProcessor {
             // set derived fields to safe review-indicative defaults
             book.setPopularityScore(0.0);
             book.setIsPopular(false);
-            // Do not modify other source fields; manual review UI can rely on these defaults to surface the item.
+            // Note: Book entity has no explicit 'state' field; we avoid inventing fields.
+            // Downstream systems / UIs should treat books with defaulted derived values
+            // and an invalid publishDate as items needing manual review.
         }
 
         // Additional lightweight sanity adjustments:

@@ -21,6 +21,7 @@ import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Component
@@ -31,6 +32,12 @@ public class ValidationSuccessCriterion implements CyodaCriterion {
     private final String className = this.getClass().getSimpleName();
 
     private static final Pattern TIME_PATTERN = Pattern.compile("^(?:[01]\\d|2[0-3]):[0-5]\\d$");
+    private static final Set<String> VALID_WEEK_DAYS = Set.of(
+        "MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"
+    );
+    private static final Set<String> KNOWN_STATUSES = Set.of(
+        "PENDING","VALIDATING","SCHEDULED","RUNNING","COMPLETED","FAILED","NOTIFYING","SENT","ALERTING","REVIEW"
+    );
 
     public ValidationSuccessCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -39,7 +46,7 @@ public class ValidationSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(WeeklyJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -48,7 +55,9 @@ public class ValidationSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // MUST use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<WeeklyJob> context) {
@@ -56,6 +65,12 @@ public class ValidationSuccessCriterion implements CyodaCriterion {
 
          if (entity == null) {
              return EvaluationOutcome.fail("WeeklyJob entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Validate name
+         String name = entity.getName();
+         if (name == null || name.isBlank()) {
+             return EvaluationOutcome.fail("Job name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Validate recipients: must be present and each entry non-blank
@@ -76,6 +91,15 @@ public class ValidationSuccessCriterion implements CyodaCriterion {
          }
          if (!TIME_PATTERN.matcher(runTime).matches()) {
              return EvaluationOutcome.fail("runTime must be in 24-hour HH:MM format (e.g., 09:00)", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Validate recurrenceDay: must be a weekday name
+         String recurrenceDay = entity.getRecurrenceDay();
+         if (recurrenceDay == null || recurrenceDay.isBlank()) {
+             return EvaluationOutcome.fail("recurrenceDay is required and must specify a weekday (e.g., Wednesday)", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (!VALID_WEEK_DAYS.contains(recurrenceDay.trim().toUpperCase())) {
+             return EvaluationOutcome.fail("recurrenceDay must be a valid weekday name (e.g., Monday, Tuesday, ...)", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Validate timezone: required and must be a known ZoneId
@@ -105,6 +129,14 @@ public class ValidationSuccessCriterion implements CyodaCriterion {
              }
          } catch (URISyntaxException use) {
              return EvaluationOutcome.fail("apiEndpoint is not a valid URI: " + apiEndpoint, StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Validate status if present: should be a known lifecycle state
+         String status = entity.getStatus();
+         if (status != null && !status.isBlank()) {
+             if (!KNOWN_STATUSES.contains(status.trim().toUpperCase())) {
+                 return EvaluationOutcome.fail("status contains an unknown value: " + status, StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
          }
 
          // All validations passed
