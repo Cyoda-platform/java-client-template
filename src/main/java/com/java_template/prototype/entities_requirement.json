@@ -1,0 +1,49 @@
+{
+    "entities": [
+        {
+            "User": {
+                "entity_data_example": {
+                    "avatar": "https://reqres.in/img/faces/2-image.jpg",
+                    "email": "janet.weaver@reqres.in",
+                    "first_name": "Janet",
+                    "id": 2,
+                    "last_name": "Weaver",
+                    "retrieved_at": "2025-08-27T10:00:02Z",
+                    "source": "ReqRes"
+                }
+            }
+        },
+        {
+            "GetUserJob": {
+                "entity_data_example": {
+                    "completed_at": "2025-08-27T10:00:02Z",
+                    "created_at": "2025-08-27T10:00:00Z",
+                    "error_message": null,
+                    "request_user_id": "2",
+                    "response_code": 200,
+                    "started_at": "2025-08-27T10:00:01Z",
+                    "status": "COMPLETED"
+                }
+            }
+        },
+        {
+            "GetUserResult": {
+                "entity_data_example": {
+                    "error_message": null,
+                    "job_reference": "job-123e4567",
+                    "retrieved_at": "2025-08-27T10:00:02Z",
+                    "status": "SUCCESS",
+                    "user": {
+                        "avatar": "https://reqres.in/img/faces/2-image.jpg",
+                        "email": "janet.weaver@reqres.in",
+                        "first_name": "Janet",
+                        "id": 2,
+                        "last_name": "Weaver",
+                        "retrieved_at": "2025-08-27T10:00:02Z",
+                        "source": "ReqRes"
+                    }
+                }
+            }
+        }
+    ]
+}
