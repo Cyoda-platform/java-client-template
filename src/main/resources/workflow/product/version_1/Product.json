@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "name": "Product Workflow",
+  "desc": "Workflow for Product entity: creation by ingestion, persistence, performance evaluation and monitoring.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initial_to_new",
+          "next": "NEW",
+          "manual": false
+        }
+      ]
+    },
+    "NEW": {
+      "transitions": [
+        {
+          "name": "persist_product",
+          "next": "UPDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistProductProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UPDATED": {
+      "transitions": [
+        {
+          "name": "evaluate_performance",
+          "next": "EVALUATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EvaluatePerformanceProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "EVALUATED": {
+      "transitions": [
+        {
+          "name": "move_to_monitored",
+          "next": "MONITORED",
+          "manual": false
+        }
+      ]
+    },
+    "MONITORED": {
+      "transitions": []
+    }
+  }
+}

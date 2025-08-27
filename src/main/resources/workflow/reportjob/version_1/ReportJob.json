@@ -1,0 +1,108 @@
+{
+  "version": "1.0",
+  "name": "ReportJob Workflow",
+  "desc": "Workflow for ReportJob: generate KPIs, attach files, send emails, complete or fail.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_to_pending",
+          "next": "PENDING",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_generation",
+          "next": "GENERATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartGenerateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "GENERATING": {
+      "transitions": [
+        {
+          "name": "kpis_ready",
+          "next": "ATTACHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "KPIsReadyCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ATTACHING": {
+      "transitions": [
+        {
+          "name": "attach_and_initiate_send",
+          "next": "SENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendEmailProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENDING": {
+      "transitions": [
+        {
+          "name": "email_sent",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailSentCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "email_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    }
+  }
+}
