@@ -29,8 +29,7 @@ public class SubscriberNotificationEventCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        return serializer.withRequest(request)
             .evaluateEntity(Subscriber.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -38,7 +37,7 @@ public class SubscriberNotificationEventCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Subscriber> context) {
@@ -48,17 +47,14 @@ public class SubscriberNotificationEventCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Subscriber entity is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Basic presence checks (active must be present) - aligns with entity.isValid but defensive for runtime events
          if (entity.getActive() == null) {
              return EvaluationOutcome.fail("Subscriber active flag must be provided", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // If subscriber is not active, nothing to notify -- treat as success (no notification expected)
          if (!entity.getActive()) {
              return EvaluationOutcome.success();
          }
 
-         // For active subscribers enforce contact details and supported contact types
          if (entity.getContactDetails() == null || entity.getContactDetails().getUrl() == null || entity.getContactDetails().getUrl().isBlank()) {
              return EvaluationOutcome.fail("Active subscriber must provide contactDetails.url", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -68,12 +64,10 @@ public class SubscriberNotificationEventCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("contactType must be provided for active subscriber", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Supported contact types for notification: webhook or email
          if (!(contactType.equalsIgnoreCase("webhook") || contactType.equalsIgnoreCase("email"))) {
              return EvaluationOutcome.fail("Unsupported contactType for notifications: " + contactType, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // preferredPayload should be either 'full' or 'summary'
          String preferredPayload = entity.getPreferredPayload();
          if (preferredPayload == null || preferredPayload.isBlank()) {
              return EvaluationOutcome.fail("preferredPayload must be provided for active subscriber", StandardEvalReasonCategories.VALIDATION_FAILURE);
@@ -82,7 +76,6 @@ public class SubscriberNotificationEventCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("preferredPayload must be either 'full' or 'summary'", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // If webhook, ensure URL looks like HTTP/HTTPS (basic quality check)
          if (contactType.equalsIgnoreCase("webhook")) {
              String url = entity.getContactDetails().getUrl();
              if (!(url.startsWith("http://") || url.startsWith("https://"))) {
