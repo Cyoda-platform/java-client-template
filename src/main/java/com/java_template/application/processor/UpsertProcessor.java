@@ -11,6 +11,8 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -23,6 +25,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.Iterator;
+import java.util.Map;
 
 @Component
 public class UpsertProcessor implements CyodaProcessor {
@@ -66,13 +70,36 @@ public class UpsertProcessor implements CyodaProcessor {
         if (entity == null) return null;
 
         try {
-            // Ensure lastSeenAt is updated for this ingestion
-            entity.setLastSeenAt(Instant.now().toString());
+            // Work at JSON/node level to avoid direct compile-time getter/setter references on the entity class.
+            ObjectNode incomingNode = (ObjectNode) objectMapper.valueToTree(entity);
+
+            // Update lastSeenAt for this ingestion
+            incomingNode.put("lastSeenAt", Instant.now().toString());
+
+            // Ensure validationStatus has a sensible default if not present
+            JsonNode vsNode = incomingNode.get("validationStatus");
+            if (vsNode == null || vsNode.isNull() || vsNode.asText().isBlank()) {
+                incomingNode.put("validationStatus", "VALID");
+            }
+
+            // Extract source id value from incoming node (use "id" field as per entity definition)
+            String sourceId = null;
+            JsonNode idNode = incomingNode.get("id");
+            if (idNode != null && !idNode.isNull()) {
+                // treat as text for search condition
+                sourceId = idNode.asText();
+            }
+
+            if (sourceId == null || sourceId.isBlank()) {
+                logger.warn("Laureate entity missing source id, skipping upsert lookup; entity will be persisted as-is by workflow");
+                // Return mapped Laureate back for persistence by workflow
+                return objectMapper.treeToValue(incomingNode, Laureate.class);
+            }
 
             // Build search condition to find existing laureate by source id
             SearchConditionRequest condition = SearchConditionRequest.group(
                 "AND",
-                Condition.of("$.id", "EQUALS", String.valueOf(entity.getId()))
+                Condition.of("$.id", "EQUALS", sourceId)
             );
 
             CompletableFuture<List<DataPayload>> filteredItemsFuture = entityService.getItemsByCondition(
@@ -86,88 +113,105 @@ public class UpsertProcessor implements CyodaProcessor {
 
             if (dataPayloads == null || dataPayloads.isEmpty()) {
                 // No existing record found -> new record.
-                // Per system rules: do not call entityService.addItem for the entity that triggered the workflow.
-                // The current entity will be persisted automatically by Cyoda.
-                logger.info("No existing Laureate found for source id={}, marking as NEW (will be persisted by workflow)", entity.getId());
-                // Optionally set a normalization on the entity (no new fields available)
-                if (entity.getValidationStatus() == null || entity.getValidationStatus().isBlank()) {
-                    entity.setValidationStatus("VALID");
-                }
+                logger.info("No existing Laureate found for source id={}, will be persisted by workflow", sourceId);
+                // incomingNode already has lastSeenAt and validationStatus set above
             } else {
-                // Existing record(s) found -> perform an update on the stored entity.
-                // We will merge incoming data into the stored entity and update it via EntityService.
-                // Note: updating other stored entities via EntityService is allowed.
+                // Existing record(s) found -> merge incoming non-null values into stored entity and update via EntityService.
                 DataPayload existingPayload = dataPayloads.get(0);
-                Laureate existing = objectMapper.treeToValue(existingPayload.getData(), Laureate.class);
 
-                // Merge: prefer incoming (entity) non-null values, fall back to existing
-                if (entity.getFirstname() != null) existing.setFirstname(entity.getFirstname());
-                if (entity.getSurname() != null) existing.setSurname(entity.getSurname());
-                if (entity.getBorn() != null) existing.setBorn(entity.getBorn());
-                if (entity.getDied() != null) existing.setDied(entity.getDied());
-                if (entity.getBornCountry() != null) existing.setBornCountry(entity.getBornCountry());
-                if (entity.getBornCountryCode() != null) existing.setBornCountryCode(entity.getBornCountryCode());
-                if (entity.getBornCity() != null) existing.setBornCity(entity.getBornCity());
-                if (entity.getCategory() != null) existing.setCategory(entity.getCategory());
-                if (entity.getYear() != null) existing.setYear(entity.getYear());
-                if (entity.getMotivation() != null) existing.setMotivation(entity.getMotivation());
-                if (entity.getAffiliationName() != null) existing.setAffiliationName(entity.getAffiliationName());
-                if (entity.getAffiliationCity() != null) existing.setAffiliationCity(entity.getAffiliationCity());
-                if (entity.getAffiliationCountry() != null) existing.setAffiliationCountry(entity.getAffiliationCountry());
-                if (entity.getGender() != null) existing.setGender(entity.getGender());
-                if (entity.getAgeAtAward() != null) existing.setAgeAtAward(entity.getAgeAtAward());
-                if (entity.getNormalizedCountryCode() != null) existing.setNormalizedCountryCode(entity.getNormalizedCountryCode());
-
-                // Always update lastSeenAt on stored entity
-                existing.setLastSeenAt(Instant.now().toString());
-
-                // Preserve or update validationStatus if present on incoming entity
-                if (entity.getValidationStatus() != null && !entity.getValidationStatus().isBlank()) {
-                    existing.setValidationStatus(entity.getValidationStatus());
-                }
-
-                // Attempt to determine technical id for the existing payload.
-                // DataPayload typically contains metadata with the technical id; try common accessors.
-                String technicalIdStr = null;
-                try {
-                    // Try common patterns for metadata id extraction
-                    if (existingPayload.getMetadata() != null && existingPayload.getMetadata().getId() != null) {
-                        technicalIdStr = existingPayload.getMetadata().getId();
-                    } else if (existingPayload.getId() != null) {
-                        technicalIdStr = existingPayload.getId();
-                    }
-                } catch (Exception ex) {
-                    // ignore - will attempt to continue if null
-                }
-
-                if (technicalIdStr != null && !technicalIdStr.isBlank()) {
-                    try {
-                        CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
-                            UUID.fromString(technicalIdStr),
-                            existing
-                        );
-                        UUID updatedId = updatedIdFuture.get();
-                        logger.info("Updated existing Laureate (technicalId={}) for source id={}", updatedId, entity.getId());
-                    } catch (Exception e) {
-                        logger.error("Failed to update existing Laureate for source id={}: {}", entity.getId(), e.getMessage(), e);
-                    }
+                // Attempt to obtain the stored data JSON for the existing payload.
+                JsonNode payloadTree = objectMapper.valueToTree(existingPayload);
+                JsonNode existingDataNode = null;
+                if (payloadTree != null && payloadTree.has("data")) {
+                    existingDataNode = payloadTree.get("data").deepCopy();
                 } else {
-                    // Fallback: unable to determine technical id - log and skip update to avoid accidental adds of same entity
-                    logger.warn("Could not determine technical id for existing Laureate payload; skipping update for source id={}", entity.getId());
+                    // As a fallback, try to serialize the DataPayload via getData() if present at runtime
+                    try {
+                        JsonNode maybeData = objectMapper.valueToTree(existingPayload).get("data");
+                        existingDataNode = maybeData != null ? maybeData.deepCopy() : null;
+                    } catch (Exception ex) {
+                        existingDataNode = null;
+                    }
                 }
 
-                // Mark incoming entity's validation status to reflect it matched an existing record.
-                entity.setValidationStatus(entity.getValidationStatus() != null && !entity.getValidationStatus().isBlank()
-                    ? entity.getValidationStatus()
-                    : "VALID");
-            }
-        } catch (Exception e) {
-            logger.error("Error during upsert processing for Laureate id={}: {}", entity.getId(), e.getMessage(), e);
-            // Do not throw; mark entity as invalid outcome if necessary
-            String prev = entity.getValidationStatus();
-            entity.setValidationStatus("INVALID:upsert_error" + (prev != null ? ";" + prev : ""));
-        }
+                if (existingDataNode == null || existingDataNode.isNull() || !existingDataNode.isObject()) {
+                    logger.warn("Could not extract existing laureate 'data' node for source id={}, skipping update", sourceId);
+                } else {
+                    ObjectNode mergedNode = (ObjectNode) existingDataNode;
 
-        return entity;
+                    // Merge: incoming non-null fields overwrite existing ones.
+                    Iterator<Map.Entry<String, JsonNode>> fields = incomingNode.fields();
+                    while (fields.hasNext()) {
+                        Map.Entry<String, JsonNode> f = fields.next();
+                        String fname = f.getKey();
+                        JsonNode fval = f.getValue();
+                        if (fval != null && !fval.isNull()) {
+                            mergedNode.set(fname, fval);
+                        }
+                    }
+
+                    // Always update lastSeenAt on stored entity
+                    mergedNode.put("lastSeenAt", Instant.now().toString());
+
+                    // Determine technical id for the existing payload by inspecting serialized payload JSON.
+                    String technicalIdStr = null;
+                    if (payloadTree.has("metadata") && payloadTree.get("metadata").has("id")) {
+                        JsonNode mid = payloadTree.get("metadata").get("id");
+                        if (mid != null && !mid.isNull()) technicalIdStr = mid.asText();
+                    }
+                    if ((technicalIdStr == null || technicalIdStr.isBlank()) && payloadTree.has("id")) {
+                        JsonNode topId = payloadTree.get("id");
+                        if (topId != null && !topId.isNull()) technicalIdStr = topId.asText();
+                    }
+
+                    if (technicalIdStr != null && !technicalIdStr.isBlank()) {
+                        try {
+                            Laureate updated = objectMapper.treeToValue(mergedNode, Laureate.class);
+                            CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
+                                UUID.fromString(technicalIdStr),
+                                updated
+                            );
+                            UUID updatedId = updatedIdFuture.get();
+                            logger.info("Updated existing Laureate (technicalId={}) for source id={}", updatedId, sourceId);
+                        } catch (Exception e) {
+                            logger.error("Failed to update existing Laureate for source id={}: {}", sourceId, e.getMessage(), e);
+                        }
+                    } else {
+                        logger.warn("Could not determine technical id for existing Laureate payload; skipping update for source id={}", sourceId);
+                    }
+
+                    // Ensure incoming entity reflects the validationStatus (prefer incoming if present)
+                    JsonNode incomingVS = incomingNode.get("validationStatus");
+                    if (incomingVS == null || incomingVS.isNull() || incomingVS.asText().isBlank()) {
+                        // preserve existing validationStatus if present on stored entity
+                        JsonNode existingVS = mergedNode.get("validationStatus");
+                        if (existingVS != null && !existingVS.isNull() && !existingVS.asText().isBlank()) {
+                            incomingNode.put("validationStatus", existingVS.asText());
+                        } else {
+                            incomingNode.put("validationStatus", "VALID");
+                        }
+                    }
+                }
+            }
+
+            // Convert the incoming node back to Laureate for the workflow persistence
+            Laureate resultEntity = objectMapper.treeToValue(incomingNode, Laureate.class);
+            return resultEntity;
+
+        } catch (Exception e) {
+            logger.error("Error during upsert processing for Laureate: {}", e.getMessage(), e);
+            try {
+                // attempt to mark entity as invalid in a non-invasive way using JSON -> Laureate
+                ObjectNode incomingNode = (ObjectNode) objectMapper.valueToTree(entity);
+                String prev = null;
+                JsonNode prevNode = incomingNode.get("validationStatus");
+                if (prevNode != null && !prevNode.isNull()) prev = prevNode.asText();
+                incomingNode.put("validationStatus", "INVALID:upsert_error" + (prev != null ? ";" + prev : ""));
+                return objectMapper.treeToValue(incomingNode, Laureate.class);
+            } catch (Exception ex) {
+                // last resort: return original entity unchanged
+                return entity;
+            }
+        }
     }
 }

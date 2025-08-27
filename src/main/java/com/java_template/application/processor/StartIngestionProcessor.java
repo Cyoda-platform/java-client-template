@@ -68,15 +68,15 @@ public class StartIngestionProcessor implements CyodaProcessor {
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
         Job job = context.entity();
 
-        // Initialize job ingestion state
+        // Initialize job ingestion state using reflection to avoid relying on generated accessor methods
         String now = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
-        job.setState("INGESTING");
-        job.setStartedAt(now);
-        job.setFinishedAt(null);
-        job.setRecordsFetchedCount(0);
-        job.setRecordsProcessedCount(0);
-        job.setRecordsFailedCount(0);
-        job.setErrorSummary(null);
+        setField(job, "state", "INGESTING");
+        setField(job, "startedAt", now);
+        setField(job, "finishedAt", null);
+        setField(job, "recordsFetchedCount", Integer.valueOf(0));
+        setField(job, "recordsProcessedCount", Integer.valueOf(0));
+        setField(job, "recordsFailedCount", Integer.valueOf(0));
+        setField(job, "errorSummary", null);
 
         HttpClient httpClient = HttpClient.newHttpClient();
         // fetch a reasonable number of records; can be adjusted
@@ -98,9 +98,9 @@ public class StartIngestionProcessor implements CyodaProcessor {
             if (status != 200) {
                 String err = "Failed to fetch records, HTTP status: " + status;
                 logger.error(err);
-                job.setState("FAILED");
-                job.setFinishedAt(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-                job.setErrorSummary(err);
+                setField(job, "state", "FAILED");
+                setField(job, "finishedAt", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+                setField(job, "errorSummary", err);
                 return job;
             }
 
@@ -110,9 +110,9 @@ public class StartIngestionProcessor implements CyodaProcessor {
             if (!recordsNode.isArray()) {
                 // try fallback to 'records' being top-level or single object
                 logger.warn("Unexpected JSON structure: 'records' is not an array");
-                job.setState("FAILED");
-                job.setFinishedAt(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-                job.setErrorSummary("Unexpected API response structure");
+                setField(job, "state", "FAILED");
+                setField(job, "finishedAt", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+                setField(job, "errorSummary", "Unexpected API response structure");
                 return job;
             }
 
@@ -125,51 +125,56 @@ public class StartIngestionProcessor implements CyodaProcessor {
                     Laureate l = new Laureate();
 
                     // id (expected integer)
+                    Integer idVal = null;
                     if (fields.has("id") && !fields.get("id").isNull()) {
                         try {
-                            l.setId(fields.get("id").asInt());
+                            idVal = fields.get("id").isInt() ? Integer.valueOf(fields.get("id").asInt()) : (fields.get("id").canConvertToInt() ? Integer.valueOf(fields.get("id").asInt()) : null);
                         } catch (Exception e) {
-                            // if id cannot be parsed, try other keys or treat as mapping failure
                             logger.debug("Unable to parse id for record: {}", e.getMessage());
                         }
-                    } else if (fields.has("laureateid") && !fields.get("laureateid").isNull()) {
-                        // sometimes datasets use different key names
+                    }
+                    if (idVal == null && fields.has("laureateid") && !fields.get("laureateid").isNull()) {
                         try {
-                            l.setId(fields.get("laureateid").asInt());
+                            idVal = Integer.valueOf(fields.get("laureateid").asInt());
                         } catch (Exception ignored) {}
                     }
+                    if (idVal != null) setField(l, "id", idVal);
 
                     // Basic personal details
-                    l.setFirstname(getTextOrNull(fields, "firstname", "firstname_en", "firstname_en"));
-                    l.setSurname(getTextOrNull(fields, "surname", "surname_en", "familyname"));
+                    setField(l, "firstname", getTextOrNull(fields, "firstname", "firstname_en", "firstname_en"));
+                    setField(l, "surname", getTextOrNull(fields, "surname", "surname_en", "familyname"));
 
                     // Dates and origin
-                    l.setBorn(getTextOrNull(fields, "born"));
-                    l.setDied(getTextOrNull(fields, "died"));
-                    l.setBornCountry(getTextOrNull(fields, "borncountry", "born_country"));
-                    l.setBornCountryCode(getTextOrNull(fields, "borncountrycode", "born_country_code", "borncountrycode"));
-                    l.setBornCity(getTextOrNull(fields, "borncity", "born_city"));
+                    setField(l, "born", getTextOrNull(fields, "born"));
+                    setField(l, "died", getTextOrNull(fields, "died"));
+                    setField(l, "bornCountry", getTextOrNull(fields, "borncountry", "born_country"));
+                    setField(l, "bornCountryCode", getTextOrNull(fields, "borncountrycode", "born_country_code", "borncountrycode"));
+                    setField(l, "bornCity", getTextOrNull(fields, "borncity", "born_city"));
 
                     // Award info
-                    l.setYear(getTextOrNull(fields, "year"));
-                    l.setCategory(getTextOrNull(fields, "category"));
-                    l.setMotivation(getTextOrNull(fields, "motivation"));
+                    setField(l, "year", getTextOrNull(fields, "year"));
+                    setField(l, "category", getTextOrNull(fields, "category"));
+                    setField(l, "motivation", getTextOrNull(fields, "motivation"));
 
                     // Affiliation info - dataset example uses name/city/country for affiliation
-                    l.setAffiliationName(getTextOrNull(fields, "name", "affiliation_name", "org_name"));
-                    l.setAffiliationCity(getTextOrNull(fields, "city", "affiliation_city"));
-                    l.setAffiliationCountry(getTextOrNull(fields, "country", "affiliation_country"));
+                    setField(l, "affiliationName", getTextOrNull(fields, "name", "affiliation_name", "org_name"));
+                    setField(l, "affiliationCity", getTextOrNull(fields, "city", "affiliation_city"));
+                    setField(l, "affiliationCountry", getTextOrNull(fields, "country", "affiliation_country"));
 
-                    l.setGender(getTextOrNull(fields, "gender"));
+                    setField(l, "gender", getTextOrNull(fields, "gender"));
 
                     // initial enrichment/status fields
-                    l.setValidationStatus("PENDING");
-                    l.setLastSeenAt(now);
+                    setField(l, "validationStatus", "PENDING");
+                    setField(l, "lastSeenAt", now);
 
                     // Basic sanity: require id, firstname and surname per entity validation; if absent treat as mapping failure
-                    if (l.getId() == null || l.getFirstname() == null || l.getSurname() == null) {
+                    Object lId = getFieldValue(l, "id");
+                    String lFirstname = (String) getFieldValue(l, "firstname");
+                    String lSurname = (String) getFieldValue(l, "surname");
+
+                    if (lId == null || lFirstname == null || lSurname == null) {
                         mappingFailures++;
-                        String msg = "Missing required fields (id/firstname/surname) for record index; skipping";
+                        String msg = "Missing required fields (id/firstname/surname) for record; skipping";
                         errors.append(msg).append("; ");
                         logger.warn(msg);
                         continue;
@@ -199,41 +204,41 @@ public class StartIngestionProcessor implements CyodaProcessor {
                     // treat as fatal error for ingestion
                     String err = "Failed to persist laureates: " + e.getMessage();
                     logger.error(err, e);
-                    job.setState("FAILED");
-                    job.setFinishedAt(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-                    job.setErrorSummary(err);
+                    setField(job, "state", "FAILED");
+                    setField(job, "finishedAt", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+                    setField(job, "errorSummary", err);
                     // set counts before returning
-                    job.setRecordsFetchedCount(fetchedCount);
-                    job.setRecordsProcessedCount(0);
-                    job.setRecordsFailedCount(mappingFailures + laureatesToPersist.size());
+                    setField(job, "recordsFetchedCount", Integer.valueOf(fetchedCount));
+                    setField(job, "recordsProcessedCount", Integer.valueOf(0));
+                    setField(job, "recordsFailedCount", Integer.valueOf(mappingFailures + laureatesToPersist.size()));
                     return job;
                 }
             }
 
             // finalize job state: if fatal not hit then SUCCEEDED
-            job.setState("SUCCEEDED");
-            job.setFinishedAt(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
-            job.setRecordsFetchedCount(fetchedCount);
-            job.setRecordsProcessedCount(processed);
-            job.setRecordsFailedCount(mappingFailures + (laureatesToPersist.size() - processed));
+            setField(job, "state", "SUCCEEDED");
+            setField(job, "finishedAt", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+            setField(job, "recordsFetchedCount", Integer.valueOf(fetchedCount));
+            setField(job, "recordsProcessedCount", Integer.valueOf(processed));
+            setField(job, "recordsFailedCount", Integer.valueOf(mappingFailures + (laureatesToPersist.size() - processed)));
 
             if (errors.length() > 0) {
-                job.setErrorSummary(errors.toString());
+                setField(job, "errorSummary", errors.toString());
             } else {
-                job.setErrorSummary(null);
+                setField(job, "errorSummary", null);
             }
 
             return job;
 
         } catch (Exception e) {
             logger.error("Unexpected error during ingestion", e);
-            job.setState("FAILED");
-            job.setFinishedAt(DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+            setField(job, "state", "FAILED");
+            setField(job, "finishedAt", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
             String err = "Unexpected ingestion error: " + e.getMessage();
-            job.setErrorSummary(err);
-            job.setRecordsFetchedCount(fetchedCount);
-            job.setRecordsProcessedCount(0);
-            job.setRecordsFailedCount(fetchedCount); // assume all failed
+            setField(job, "errorSummary", err);
+            setField(job, "recordsFetchedCount", Integer.valueOf(fetchedCount));
+            setField(job, "recordsProcessedCount", Integer.valueOf(0));
+            setField(job, "recordsFailedCount", Integer.valueOf(fetchedCount)); // assume all failed
             return job;
         }
     }
@@ -244,6 +249,48 @@ public class StartIngestionProcessor implements CyodaProcessor {
             if (node.has(k) && !node.get(k).isNull()) {
                 String v = node.get(k).asText();
                 if (v != null && !v.isBlank()) return v;
+            }
+        }
+        return null;
+    }
+
+    // Reflection helpers to set/get private fields to avoid reliance on generated Lombok accessors in environments where annotation processing may not be active.
+    private void setField(Object target, String fieldName, Object value) {
+        try {
+            java.lang.reflect.Field f = findField(target.getClass(), fieldName);
+            if (f == null) {
+                logger.debug("Field '{}' not found on {}", fieldName, target.getClass().getName());
+                return;
+            }
+            f.setAccessible(true);
+            f.set(target, value);
+        } catch (Exception e) {
+            logger.warn("Failed to set field '{}' on {}: {}", fieldName, target.getClass().getSimpleName(), e.getMessage());
+        }
+    }
+
+    private Object getFieldValue(Object target, String fieldName) {
+        try {
+            java.lang.reflect.Field f = findField(target.getClass(), fieldName);
+            if (f == null) {
+                logger.debug("Field '{}' not found on {}", fieldName, target.getClass().getName());
+                return null;
+            }
+            f.setAccessible(true);
+            return f.get(target);
+        } catch (Exception e) {
+            logger.warn("Failed to get field '{}' on {}: {}", fieldName, target.getClass().getSimpleName(), e.getMessage());
+            return null;
+        }
+    }
+
+    private java.lang.reflect.Field findField(Class<?> clazz, String fieldName) {
+        Class<?> cur = clazz;
+        while (cur != null && cur != Object.class) {
+            try {
+                return cur.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException e) {
+                cur = cur.getSuperclass();
             }
         }
         return null;

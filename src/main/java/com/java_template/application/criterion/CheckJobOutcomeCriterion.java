@@ -20,7 +20,6 @@ public class CheckJobOutcomeCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
-    private final String className = this.getClass().getSimpleName();
 
     public CheckJobOutcomeCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -29,7 +28,7 @@ public class CheckJobOutcomeCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +37,8 @@ public class CheckJobOutcomeCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return "CheckJobOutcomeCriterion".equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
@@ -48,16 +48,22 @@ public class CheckJobOutcomeCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Job entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic required fields for outcome decision
-         if (job.getState() == null || job.getState().isBlank()) {
+         // Only evaluate outcome when job is in INGESTING state. If it's in another state, no decision needed.
+         String state = job.getState();
+         if (state == null || state.isBlank()) {
              return EvaluationOutcome.fail("Job state is required to determine outcome", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+         if (!"INGESTING".equals(state)) {
+             logger.debug("CheckJobOutcomeCriterion invoked for job in state '{}'; skipping outcome decision.", state);
+             return EvaluationOutcome.success();
+         }
 
+         // startedAt is required for outcome evaluation
          if (job.getStartedAt() == null || job.getStartedAt().isBlank()) {
              return EvaluationOutcome.fail("Job startedAt timestamp is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // We require finishedAt to determine final outcome
+         // finishedAt is required to determine final outcome
          if (job.getFinishedAt() == null || job.getFinishedAt().isBlank()) {
              return EvaluationOutcome.fail("Job has not finished; finishedAt is required to determine outcome", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -85,10 +91,11 @@ public class CheckJobOutcomeCriterion implements CyodaCriterion {
          }
 
          // Determine fatal error conditions:
-         // - explicit error summary present together with failed records
-         // - all fetched records failed
-         // - no records fetched (interpreted as failure of ingestion)
+         // - no records fetched -> failure
+         // - all fetched records failed -> failure
+         // - explicit error summary present together with failed records -> failure
          boolean hasErrorSummary = job.getErrorSummary() != null && !job.getErrorSummary().isBlank();
+
          if (fetched != null && fetched == 0) {
              return EvaluationOutcome.fail("No records fetched during ingestion", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
@@ -101,7 +108,7 @@ public class CheckJobOutcomeCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Errors reported during ingestion: " + job.getErrorSummary(), StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // If none of the fatal conditions matched, we consider the job succeeded
+         // If none of the fatal conditions matched, consider the job succeeded
          return EvaluationOutcome.success();
     }
 }
