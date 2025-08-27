@@ -1,0 +1,68 @@
+{
+    "entities": [
+        {
+            "InventoryItem": {
+                "entity_data_example": {
+                    "category": "Electronics",
+                    "dateAdded": "2025-08-20",
+                    "id": "inv-123-uuid",
+                    "location": "Warehouse 1 - Aisle 3",
+                    "name": "Widget A",
+                    "price": 19.99,
+                    "quantity": 100,
+                    "status": "VALIDATED",
+                    "supplier": "Supplier Co"
+                }
+            }
+        },
+        {
+            "ReportJob": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-27T12:00:00Z",
+                    "exportFormats": [
+                        "CSV"
+                    ],
+                    "filters": {
+                        "category": "all",
+                        "dateRange": "last_30_days"
+                    },
+                    "notify": "user@example.com",
+                    "requestedBy": "user@example.com",
+                    "status": "COMPLETED",
+                    "title": "Monthly Inventory Value",
+                    "visualization": "table_bar"
+                }
+            }
+        },
+        {
+            "Report": {
+                "entity_data_example": {
+                    "generatedAt": "2025-08-27T12:05:00Z",
+                    "id": "rep-0001-uuid",
+                    "jobReference": "rj-0001-uuid",
+                    "metrics": {
+                        "averagePrice": 12.34,
+                        "totalItems": 123,
+                        "totalQuantity": 456,
+                        "totalValue": 5600.12
+                    },
+                    "rows": [
+                        {
+                            "id": "A1",
+                            "name": "Item A",
+                            "price": 10.0,
+                            "quantity": 100,
+                            "value": 1000.0
+                        }
+                    ],
+                    "storageLocation": "s3://reports/rep-0001-uuid/",
+                    "summary": "Top category: Electronics with 40% of total value",
+                    "visuals": {
+                        "chartType": "bar",
+                        "reference": "chart-1"
+                    }
+                }
+            }
+        }
+    ]
+}
