@@ -1,5 +1,7 @@
 package com.java_template.common.workflow;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * Base interface for all Cyoda entities.
  * Provides common functionality for entity identification and validation.
@@ -11,12 +13,14 @@ public interface CyodaEntity {
      * This is used for processor selection and entity identification.
      * @return the OperationSpecification containing model operationName and version
      */
+    @JsonIgnore
     OperationSpecification getModelKey();
 
     /**
      * Validates the entity data.
      * @return true if the entity is valid, false otherwise
      */
+    @JsonIgnore
     default boolean isValid() {
         return true;
     }
