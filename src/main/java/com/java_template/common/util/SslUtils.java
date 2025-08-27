@@ -148,9 +148,13 @@ public class SslUtils {
         try {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             PermissiveTrustManager trustManager = new PermissiveTrustManager(shouldTrustAll);
-            sslContext.init(null, new TrustManager[]{trustManager}, new SecureRandom());
+            sslContext.init(null, new TrustManager[] {trustManager}, new SecureRandom());
 
-            logger.info("Created permissive SSL context (trustAll={}, trustedHosts={})", Config.SSL_TRUST_ALL, trustedHosts);
+            logger.info(
+                    "Created permissive SSL context (trustAll={}, trustedHosts={})",
+                    Config.SSL_TRUST_ALL,
+                    trustedHosts
+            );
             return sslContext;
         } catch (Exception e) {
             logger.error("Failed to create permissive SSL context, falling back to default: {}", e.getMessage());
@@ -163,14 +167,20 @@ public class SslUtils {
      */
     @SuppressWarnings("unused")
     private static SSLContext createTrustAllSSLContext() throws NoSuchAlgorithmException, KeyManagementException {
-        TrustManager[] trustAllCerts = new TrustManager[]{
+        TrustManager[] trustAllCerts = new TrustManager[] {
                 new X509TrustManager() {
                     @Override
-                    public X509Certificate[] getAcceptedIssuers() { return null; }
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return null;
+                    }
+
                     @Override
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
+                    }
+
                     @Override
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
+                    }
                 }
         };
 
@@ -233,43 +243,55 @@ public class SslUtils {
     /**
      * Creates a gRPC ManagedChannelBuilder with custom SSL configuration
      */
-    public static ManagedChannelBuilder<?> createGrpcChannelBuilder(String host, int port) {
+    public static ManagedChannelBuilder<?> createGrpcChannelBuilder(
+            final String host,
+            final int port,
+            final boolean avoidSsl
+    ) {
         try {
             if (Config.SSL_TRUST_ALL || shouldTrustHost(host)) {
                 logger.info("Configuring gRPC channel to trust host: {} (self-signed certificates allowed)", host);
 
                 // Create an SSL context that trusts all certificates
-                SslContext sslContext;
                 if (Config.SSL_TRUST_ALL) {
                     logger.warn("Creating gRPC channel with InsecureTrustManagerFactory - DEVELOPMENT ONLY!");
-                    sslContext = GrpcSslContexts.forClient()
-                            .trustManager(InsecureTrustManagerFactory.INSTANCE)
-                            .build();
                 } else {
                     // For specific trusted hosts, we still use the insecure trust manager
                     // In a production environment, you might want to implement a more sophisticated approach
                     logger.info("Creating gRPC channel with relaxed SSL for trusted host: {}", host);
-                    sslContext = GrpcSslContexts.forClient()
-                            .trustManager(InsecureTrustManagerFactory.INSTANCE)
-                            .build();
                 }
+                final SslContext sslContext = GrpcSslContexts.forClient()
+                        .trustManager(InsecureTrustManagerFactory.INSTANCE)
+                        .build();
 
-                return NettyChannelBuilder.forAddress(host, port)
-                        .sslContext(sslContext);
+                if (avoidSsl) {
+                    return NettyChannelBuilder.forAddress(host, port);
+                } else {
+                    return NettyChannelBuilder.forAddress(host, port).sslContext(sslContext);
+                }
             } else {
-                // Use default transport security for non-trusted hosts
-                logger.debug("Using default transport security for host: {}", host);
-                return ManagedChannelBuilder.forAddress(host, port)
-                        .useTransportSecurity();
+                if (avoidSsl) {
+                    logger.debug("Skip using security for host: {}", host);
+                    return ManagedChannelBuilder.forAddress(host, port).usePlaintext();
+                } else {
+                    logger.debug("Using default transport security for host: {}", host);
+                    return ManagedChannelBuilder.forAddress(host, port).useTransportSecurity();
+                }
             }
         } catch (Exception e) {
-            logger.error("Failed to configure gRPC SSL for {}:{}, falling back to default: {}", host, port, e.getMessage());
-            return ManagedChannelBuilder.forAddress(host, port)
-                    .useTransportSecurity();
+            logger.error(
+                    "Failed to configure gRPC SSL for {}:{}, falling back to default: {}",
+                    host,
+                    port,
+                    e.getMessage()
+            );
+            if (avoidSsl) {
+                return ManagedChannelBuilder.forAddress(host, port).usePlaintext();
+            } else {
+                return ManagedChannelBuilder.forAddress(host, port).useTransportSecurity();
+            }
         }
     }
-
-
 
     /**
      * Check if a host should be trusted based on configuration
