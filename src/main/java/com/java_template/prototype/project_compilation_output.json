@@ -1,12 +1,4 @@
 {
     "compilation_status": "FAILURE",
-    "files_with_errors": [
-        {
-            "errors": [
-                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ContactVerificationProcessor.java:122: error: unreported exception NoSuchFieldException; must be caught or declared to be thrown",
-                "error location: logger.error(\"Unexpected error during contact verification for subscriber {}: {}\", entity != null ? safeString(getFieldValue(entity, \"id\")) : \"unknown\", ex.getMessage(), ex);"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/ContactVerificationProcessor.java"
-        }
-    ]
+    "files_with_errors": []
 }
