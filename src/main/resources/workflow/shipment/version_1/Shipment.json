@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "name": "Shipment Workflow",
+  "desc": "FSM for Shipment: picking -> waiting to send -> sent -> delivered, based on functional requirements",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "start_to_picking",
+          "next": "PICKING",
+          "manual": false
+        }
+      ]
+    },
+    "PICKING": {
+      "transitions": [
+        {
+          "name": "to_waiting_to_send_when_fully_picked",
+          "next": "WAITING_TO_SEND",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ShipmentFullyPickedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "WAITING_TO_SEND": {
+      "transitions": [
+        {
+          "name": "assign_carrier_and_send",
+          "next": "SENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AssignCarrierProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "auto_mark_delivered_after_delay",
+          "next": "DELIVERED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoMarkDeliveredAfterDelayProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order entity based on the functional requirements: lifecycle from creation (waiting to fulfill) through picking, sending and delivery.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initialize_order",
+          "next": "WAITING_TO_FULFILL",
+          "manual": false
+        }
+      ]
+    },
+    "WAITING_TO_FULFILL": {
+      "transitions": [
+        {
+          "name": "process_paid_order_to_picking",
+          "next": "PICKING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateOrderFromPaidProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PICKING": {
+      "transitions": [
+        {
+          "name": "shipments_fully_picked_to_waiting_to_send",
+          "next": "WAITING_TO_SEND",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ShipmentsFullyPickedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "WAITING_TO_SEND": {
+      "transitions": [
+        {
+          "name": "send_shipment_to_sent",
+          "next": "SENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendShipmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "auto_deliver_after_delay",
+          "next": "DELIVERED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AutoDeliverAfterDelayCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    }
+  }
+}

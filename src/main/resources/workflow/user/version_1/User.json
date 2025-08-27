@@ -1,0 +1,39 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity: anonymous users (ANON) become IDENTIFIED when upserted (address updated inline).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initial_to_anon",
+          "next": "ANON",
+          "manual": false
+        }
+      ]
+    },
+    "ANON": {
+      "transitions": [
+        {
+          "name": "upsert_user_with_address_to_identified",
+          "next": "IDENTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UpsertUserWithAddressInlineProcessor",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "IDENTIFIED": {
+      "transitions": []
+    }
+  }
+}

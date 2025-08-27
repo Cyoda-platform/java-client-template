@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "Reservation Workflow",
+  "desc": "Workflow for Reservation entity derived from functional requirements: create reservation (ACTIVE), then transitions to COMMITTED, RELEASED or EXPIRED based on criteria.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_reservation",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateReservationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "to_committed",
+          "next": "COMMITTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReservationCommitCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_released",
+          "next": "RELEASED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReservationReleaseCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_expired",
+          "next": "EXPIRED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReservationExpirationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMMITTED": {
+      "transitions": []
+    },
+    "RELEASED": {
+      "transitions": []
+    },
+    "EXPIRED": {
+      "transitions": []
+    }
+  }
+}
