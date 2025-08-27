@@ -1,0 +1,114 @@
+{
+  "version": "1.0",
+  "name": "Report Workflow",
+  "desc": "Workflow for Report entity: rendering, publishing, optional export and archival based on functional requirements.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_generated",
+          "next": "GENERATED",
+          "manual": false
+        }
+      ]
+    },
+    "GENERATED": {
+      "transitions": [
+        {
+          "name": "generate_to_rendered",
+          "next": "RENDERED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RenderReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RENDERED": {
+      "transitions": [
+        {
+          "name": "rendered_to_published",
+          "next": "PUBLISHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PersistVisualizationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": [
+        {
+          "name": "publish_to_export_pending_manual",
+          "next": "EXPORT_PENDING",
+          "manual": true
+        },
+        {
+          "name": "publish_to_archived_by_age",
+          "next": "ARCHIVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AutoArchiveCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EXPORT_PENDING": {
+      "transitions": [
+        {
+          "name": "export_pending_to_exported_on_completion",
+          "next": "EXPORTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ExportCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EXPORTED": {
+      "transitions": [
+        {
+          "name": "exported_to_archived_by_policy",
+          "next": "ARCHIVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ArchiveCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
