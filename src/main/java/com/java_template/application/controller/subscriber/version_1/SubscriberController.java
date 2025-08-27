@@ -17,7 +17,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
+// removed import io.swagger.v3.oas.annotations.parameters.RequestBody; // avoid conflict with Spring's RequestBody
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -547,5 +547,10 @@ public class SubscriberController {
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id (UUID)", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
         private String technicalId;
+
+        // Provide explicit constructor to avoid relying solely on Lombok-generated constructors
+        public TechnicalIdResponse(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 }

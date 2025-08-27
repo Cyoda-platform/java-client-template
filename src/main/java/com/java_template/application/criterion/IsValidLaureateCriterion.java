@@ -32,7 +32,7 @@ public class IsValidLaureateCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Laureate.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -41,11 +41,17 @@ public class IsValidLaureateCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name match (case-sensitive)
+        String opName = modelSpec == null ? null : modelSpec.operationName();
+        return opName != null && className.equals(opName);
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
          Laureate entity = context.entity();
+
+         if (entity == null) {
+             return EvaluationOutcome.fail("entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
 
          // Required fields: id, firstname or surname, category, year
          if (entity.getId() == null) {
@@ -67,7 +73,7 @@ public class IsValidLaureateCriterion implements CyodaCriterion {
          } else {
              // year must be a valid integer (basic numeric check)
              try {
-                 int y = Integer.parseInt(entity.getYear());
+                 int y = Integer.parseInt(entity.getYear().trim());
                  if (y < 1000 || y > 9999) {
                      return EvaluationOutcome.fail("year is not a valid 4-digit year", StandardEvalReasonCategories.VALIDATION_FAILURE);
                  }
@@ -79,9 +85,18 @@ public class IsValidLaureateCriterion implements CyodaCriterion {
          // If born is provided, it must be a valid ISO date
          if (entity.getBorn() != null && !entity.getBorn().isBlank()) {
              try {
-                 LocalDate.parse(entity.getBorn());
+                 LocalDate.parse(entity.getBorn().trim());
              } catch (DateTimeParseException ex) {
                  return EvaluationOutcome.fail("born date must be ISO-8601 (yyyy-MM-dd)", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
+         }
+
+         // If died is present, it must be a valid ISO date (allow null)
+         if (entity.getDied() != null && !entity.getDied().isBlank()) {
+             try {
+                 LocalDate.parse(entity.getDied().trim());
+             } catch (DateTimeParseException ex) {
+                 return EvaluationOutcome.fail("died date must be ISO-8601 (yyyy-MM-dd) or null", StandardEvalReasonCategories.VALIDATION_FAILURE);
              }
          }
 
@@ -92,9 +107,23 @@ public class IsValidLaureateCriterion implements CyodaCriterion {
 
          // Basic data quality check: borncountrycode, if provided, should be 2-letter country code
          if (entity.getBorncountrycode() != null && !entity.getBorncountrycode().isBlank()) {
-             String code = entity.getBorncountrycode();
+             String code = entity.getBorncountrycode().trim();
              if (code.length() != 2) {
                  return EvaluationOutcome.fail("borncountrycode should be a 2-letter country code", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         // Basic logical check: if died is present and born is present ensure died >= born
+         if (entity.getBorn() != null && !entity.getBorn().isBlank()
+                 && entity.getDied() != null && !entity.getDied().isBlank()) {
+             try {
+                 LocalDate born = LocalDate.parse(entity.getBorn().trim());
+                 LocalDate died = LocalDate.parse(entity.getDied().trim());
+                 if (died.isBefore(born)) {
+                     return EvaluationOutcome.fail("died date is before born date", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 }
+             } catch (DateTimeParseException ex) {
+                 // If parsing failed earlier it would have been caught; ignore here
              }
          }
 

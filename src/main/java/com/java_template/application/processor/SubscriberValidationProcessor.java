@@ -21,6 +21,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.URI;
 import java.time.Duration;
+import java.lang.reflect.Field;
 
 @Component
 public class SubscriberValidationProcessor implements CyodaProcessor {
@@ -64,17 +65,20 @@ public class SubscriberValidationProcessor implements CyodaProcessor {
     private Subscriber processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
         Subscriber entity = context.entity();
 
-        // Business logic:
-        // - For webhook subscribers: attempt a lightweight GET to the webhook URL.
-        //   If response is 2xx -> mark verified = true, otherwise verified = false.
-        // - For email and other contact types: do not attempt network verification here;
-        //   ensure verified is non-null (default false) so downstream processors can act.
-        // - Do not change activation state automatically; validation only affects 'verified' flag.
+        // Implement business logic using reflection to avoid compile-time dependency on Lombok generated accessors.
+        // Rationale:
+        // Some build environments may not run Lombok annotation processing; using reflection ensures runtime access
+        // to the fields declared in the Subscriber POJO without requiring generated getters/setters at compile time.
         try {
-            String contactType = entity.getContactType();
+            // Read contactType
+            String contactType = (String) readField(entity, "contactType");
+
             if (contactType != null && contactType.equalsIgnoreCase("webhook")) {
-                Subscriber.ContactDetails cd = entity.getContactDetails();
-                String url = cd != null ? cd.getUrl() : null;
+                Object contactDetailsObj = readField(entity, "contactDetails");
+                String url = null;
+                if (contactDetailsObj != null) {
+                    url = (String) readField(contactDetailsObj, "url");
+                }
                 if (url != null && !url.isBlank()) {
                     try {
                         HttpRequest req = HttpRequest.newBuilder()
@@ -85,29 +89,89 @@ public class SubscriberValidationProcessor implements CyodaProcessor {
                         HttpResponse<Void> resp = httpClient.send(req, HttpResponse.BodyHandlers.discarding());
                         int status = resp.statusCode();
                         boolean ok = status >= 200 && status < 300;
-                        entity.setVerified(Boolean.valueOf(ok));
-                        logger.info("Webhook verification for subscriber {} returned status {}; verified={}", entity.getId(), status, ok);
+                        writeField(entity, "verified", Boolean.valueOf(ok));
+                        String id = String.valueOf(readField(entity, "id"));
+                        logger.info("Webhook verification for subscriber {} returned status {}; verified={}", id, status, ok);
                     } catch (Exception ex) {
-                        logger.warn("Failed to verify webhook for subscriber {}: {}", entity.getId(), ex.getMessage());
-                        entity.setVerified(Boolean.FALSE);
+                        String id = String.valueOf(readField(entity, "id"));
+                        logger.warn("Failed to verify webhook for subscriber {}: {}", id, ex.getMessage());
+                        writeField(entity, "verified", Boolean.FALSE);
                     }
                 } else {
-                    logger.warn("Webhook subscriber {} has no URL; marking as unverified", entity.getId());
-                    entity.setVerified(Boolean.FALSE);
+                    String id = String.valueOf(readField(entity, "id"));
+                    logger.warn("Webhook subscriber {} has no URL; marking as unverified", id);
+                    writeField(entity, "verified", Boolean.FALSE);
                 }
             } else {
                 // For email and other types we don't verify here.
-                if (entity.getVerified() == null) {
-                    entity.setVerified(Boolean.FALSE);
+                Object verified = readField(entity, "verified");
+                if (verified == null) {
+                    writeField(entity, "verified", Boolean.FALSE);
                 }
             }
         } catch (Exception e) {
-            logger.error("Unexpected error during subscriber validation for {}: {}", entity != null ? entity.getId() : "unknown", e.getMessage(), e);
-            if (entity != null) {
-                entity.setVerified(Boolean.FALSE);
-            }
+            String id = "unknown";
+            try {
+                Object maybeId = readField(entity, "id");
+                if (maybeId != null) id = String.valueOf(maybeId);
+            } catch (Exception ignored) {}
+            logger.error("Unexpected error during subscriber validation for {}: {}", id, e.getMessage(), e);
+            try {
+                writeField(entity, "verified", Boolean.FALSE);
+            } catch (Exception ignored) {}
         }
 
         return entity;
+    }
+
+    /**
+     * Read a declared field value using reflection. Works with private/protected fields.
+     */
+    private Object readField(Object target, String fieldName) {
+        if (target == null) return null;
+        Class<?> cls = target.getClass();
+        Field field = null;
+        while (cls != null) {
+            try {
+                field = cls.getDeclaredField(fieldName);
+                break;
+            } catch (NoSuchFieldException e) {
+                cls = cls.getSuperclass();
+            }
+        }
+        if (field == null) return null;
+        try {
+            field.setAccessible(true);
+            return field.get(target);
+        } catch (IllegalAccessException e) {
+            logger.debug("Unable to access field '{}' on {}: {}", fieldName, target.getClass().getName(), e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Write a declared field value using reflection. Works with private/protected fields.
+     */
+    private boolean writeField(Object target, String fieldName, Object value) {
+        if (target == null) return false;
+        Class<?> cls = target.getClass();
+        Field field = null;
+        while (cls != null) {
+            try {
+                field = cls.getDeclaredField(fieldName);
+                break;
+            } catch (NoSuchFieldException e) {
+                cls = cls.getSuperclass();
+            }
+        }
+        if (field == null) return false;
+        try {
+            field.setAccessible(true);
+            field.set(target, value);
+            return true;
+        } catch (IllegalAccessException e) {
+            logger.debug("Unable to set field '{}' on {}: {}", fieldName, target.getClass().getName(), e.getMessage());
+            return false;
+        }
     }
 }

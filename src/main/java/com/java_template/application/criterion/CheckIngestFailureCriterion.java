@@ -29,7 +29,7 @@ public class CheckIngestFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,20 +38,22 @@ public class CheckIngestFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
          Job job = context.entity();
 
          if (job == null) {
-             logger.debug("Job entity is null in CheckIngestFailureCriterion");
+             logger.debug("CheckIngestFailureCriterion: job entity is null - nothing to evaluate");
              return EvaluationOutcome.success();
          }
 
          // If job status explicitly indicates failure, mark as failed business rule
          String status = job.getStatus();
          if (status != null && status.equalsIgnoreCase("FAILED")) {
+             logger.info("CheckIngestFailureCriterion: job {} status indicates FAILED", job.getJobId());
              return EvaluationOutcome.fail("Job status is FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
@@ -64,10 +66,12 @@ public class CheckIngestFailureCriterion implements CyodaCriterion {
              if (firstError != null && !firstError.isBlank()) {
                  msg += ". First error: \"" + firstError + "\"";
              }
+             logger.info("CheckIngestFailureCriterion: job {} ingest reported errors: {}", job.getJobId(), msg);
              return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // No failure conditions met
+         logger.debug("CheckIngestFailureCriterion: no failure conditions met for job {}", job.getJobId());
          return EvaluationOutcome.success();
     }
 }

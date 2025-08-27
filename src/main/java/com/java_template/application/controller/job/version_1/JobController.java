@@ -14,7 +14,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 
@@ -53,7 +52,6 @@ public class JobController {
     })
     @PostMapping
     public ResponseEntity<JobCreateResponse> createJob(
-            @RequestBody(description = "Job creation payload", required = true, content = @Content(schema = @Schema(implementation = JobCreateRequest.class)))
             @org.springframework.web.bind.annotation.RequestBody JobCreateRequest request
     ) {
         try {

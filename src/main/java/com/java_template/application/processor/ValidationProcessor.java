@@ -34,10 +34,12 @@ public class ValidationProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Laureate for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        // Do not pre-validate using entity.isValid() here because the purpose of this processor
+        // is to evaluate the entity and set validationStatus/validationErrors accordingly.
+        // We must run the validation logic even if the entity is not initially valid.
+        return serializer.withRequest(request)
             .toEntity(Laureate.class)
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 

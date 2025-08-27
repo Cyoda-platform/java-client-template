@@ -16,7 +16,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 
 import lombok.Data;
 
@@ -32,8 +31,6 @@ import java.util.UUID;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 @Tag(name = "Laureate")
 @RestController
@@ -120,7 +117,7 @@ public class LaureateController {
             CompletableFuture<DataPayload> itemFuture = entityService.getItem(UUID.fromString(technicalId));
             DataPayload dataPayload = itemFuture.get();
             ObjectNode node = dataPayload != null ? (ObjectNode) dataPayload.getData() : null;
-            if (node == null || node.isEmpty(null)) {
+            if (node == null || node.isEmpty()) {
                 return ResponseEntity.status(404).body("Laureate not found");
             }
             LaureateResponse response = objectMapper.treeToValue(node, LaureateResponse.class);
