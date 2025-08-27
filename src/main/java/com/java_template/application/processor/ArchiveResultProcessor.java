@@ -32,7 +32,7 @@ public class ArchiveResultProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(GetUserResult.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid GetUserResult: missing required fields")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -42,21 +42,37 @@ public class ArchiveResultProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Custom validation for archive processor:
+     * - entity must be present
+     * - jobReference and status must be present (allow user to be null because NOT_FOUND/ERROR results are valid)
+     */
     private boolean isValidEntity(GetUserResult entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getJobReference() == null || entity.getJobReference().isBlank()) return false;
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) return false;
+        return true;
     }
 
     private GetUserResult processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<GetUserResult> context) {
         GetUserResult entity = context.entity();
 
         // Archive lifecycle transition:
-        // - mark the result as archived and update retrievedAt timestamp to indicate archival time.
+        // - Only perform archive when the result is in DELIVERED state.
+        // - mark the result as ARCHIVED and update retrievedAt timestamp to indicate archival time.
         // Note: do not perform any add/update/delete on this entity via EntityService; the entity state
         // will be persisted automatically by Cyoda as part of the workflow.
         try {
-            logger.info("Archiving GetUserResult jobReference={}", entity.getJobReference());
-            entity.setStatus("ARCHIVED");
-            entity.setRetrievedAt(Instant.now().toString());
+            String currentStatus = entity.getStatus();
+            logger.info("ArchiveResultProcessor invoked for jobReference={} currentStatus={}", entity.getJobReference(), currentStatus);
+
+            if (currentStatus != null && "DELIVERED".equalsIgnoreCase(currentStatus.trim())) {
+                logger.info("Archiving GetUserResult jobReference={}", entity.getJobReference());
+                entity.setStatus("ARCHIVED");
+                entity.setRetrievedAt(Instant.now().toString());
+            } else {
+                logger.info("Skipping archive for jobReference={} because status is not DELIVERED (status={})", entity.getJobReference(), currentStatus);
+            }
         } catch (Exception ex) {
             logger.error("Failed to archive GetUserResult jobReference={}: {}", entity.getJobReference(), ex.getMessage(), ex);
             // Preserve entity state; errors here will be visible in logs. Do not throw to avoid interrupting workflow.

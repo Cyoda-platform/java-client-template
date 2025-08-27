@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
+
 @Component
 public class ValidateUserIdProcessor implements CyodaProcessor {
 
@@ -51,7 +53,10 @@ public class ValidateUserIdProcessor implements CyodaProcessor {
         if (requestUserId == null || requestUserId.isBlank()) {
             entity.setStatus("FAILED");
             entity.setErrorMessage("User ID is required");
-            logger.warn("Validation failed for GetUserJob: requestUserId is missing");
+            // Ensure entity validity for terminal FAILED state: set completedAt and a response code
+            entity.setCompletedAt(Instant.now().toString());
+            entity.setResponseCode(400);
+            logger.warn("Validation failed for GetUserJob: requestUserId is missing (technicalId={})", context.request().getEntityId());
             return entity;
         }
 
@@ -62,20 +67,24 @@ public class ValidateUserIdProcessor implements CyodaProcessor {
             if (id <= 0) {
                 entity.setStatus("FAILED");
                 entity.setErrorMessage("User ID must be a positive integer");
-                logger.warn("Validation failed for GetUserJob: requestUserId is not a positive integer: {}", trimmed);
+                entity.setCompletedAt(Instant.now().toString());
+                entity.setResponseCode(400);
+                logger.warn("Validation failed for GetUserJob: requestUserId is not a positive integer: {} (technicalId={})", trimmed, context.request().getEntityId());
                 return entity;
             }
         } catch (NumberFormatException nfe) {
             entity.setStatus("FAILED");
             entity.setErrorMessage("User ID must be a positive integer");
-            logger.warn("Validation failed for GetUserJob: requestUserId is not numeric: {}", trimmed);
+            entity.setCompletedAt(Instant.now().toString());
+            entity.setResponseCode(400);
+            logger.warn("Validation failed for GetUserJob: requestUserId is not numeric: {} (technicalId={})", trimmed, context.request().getEntityId());
             return entity;
         }
 
         // Validation passed -> proceed to fetching stage
         entity.setStatus("FETCHING");
         entity.setErrorMessage(null);
-        logger.info("Validation passed for GetUserJob, moving to FETCHING for user id: {}", requestUserId);
+        logger.info("Validation passed for GetUserJob, moving to FETCHING for user id: {} (technicalId={})", requestUserId, context.request().getEntityId());
 
         return entity;
     }

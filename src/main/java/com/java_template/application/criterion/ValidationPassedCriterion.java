@@ -29,7 +29,7 @@ public class ValidationPassedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(GetUserJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,13 +38,24 @@ public class ValidationPassedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<GetUserJob> context) {
          GetUserJob job = context.entity();
          if (job == null) {
              return EvaluationOutcome.fail("Job entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Ensure the job is in the expected stage for this criterion (VALIDATING).
+         String status = job.getStatus();
+         if (status == null || status.isBlank()) {
+             return EvaluationOutcome.fail("Job status is required for validation", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (!"VALIDATING".equalsIgnoreCase(status)) {
+             // If job is not in VALIDATING state, this criterion should not pass validation for progression.
+             return EvaluationOutcome.fail("Job is not in VALIDATING state", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          String requestUserId = job.getRequestUserId();

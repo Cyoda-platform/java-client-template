@@ -29,8 +29,8 @@ public class ResponseSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in validateEntity method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        // This is a predefined chain. Business logic implemented in validateEntity method.
+        return serializer.withRequest(request)
             .evaluateEntity(GetUserJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -47,17 +47,35 @@ public class ResponseSuccessCriterion implements CyodaCriterion {
          // Ensure response code is present
          Integer code = entity.getResponseCode();
          if (code == null) {
+             logger.debug("GetUserJob {}: missing responseCode", entity);
              return EvaluationOutcome.fail("Missing response code from upstream", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Success when upstream returned HTTP 200
+         // If upstream returned HTTP 200 -> success, but verify job consistency
          if (code == 200) {
+             // If job status indicates failure despite 200, treat as business rule failure
+             String status = entity.getStatus();
+             if (status != null && status.equalsIgnoreCase("FAILED")) {
+                 return EvaluationOutcome.fail("Job marked as FAILED despite upstream 200 response", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             }
+
+             // If an error message is present on a successful response, treat as data quality issue
+             String err = entity.getErrorMessage();
+             if (err != null && !err.isBlank()) {
+                 return EvaluationOutcome.fail("Error message present on successful upstream response", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+
              return EvaluationOutcome.success();
          }
 
          // 404 is a known negative outcome (not found) - treat as business rule failure for downstream handling
          if (code == 404) {
              return EvaluationOutcome.fail("Upstream indicated resource not found (404)", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // Server errors (5xx) considered data quality / upstream stability issues
+         if (code >= 500 && code <= 599) {
+             return EvaluationOutcome.fail("Upstream server error returned: " + code, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // Any other non-200 response is treated as business rule failure
