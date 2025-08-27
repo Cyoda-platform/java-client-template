@@ -1,0 +1,116 @@
+{
+    "entities": [
+        {
+            "Booking": {
+                "entity_data_example": {
+                    "additionalNeeds": "Breakfast",
+                    "bookingDates": {
+                        "checkin": "2025-01-05",
+                        "checkout": "2025-01-08"
+                    },
+                    "bookingId": 101,
+                    "depositPaid": true,
+                    "firstName": "John",
+                    "lastName": "Doe",
+                    "persistedAt": "2025-08-27T12:00:30Z",
+                    "source": "ExternalBookingSource",
+                    "totalPrice": 250.5
+                }
+            }
+        },
+        {
+            "ReportJob": {
+                "entity_data_example": {
+                    "filterCriteria": {
+                        "customerName": "",
+                        "dateRange": {
+                            "from": "2025-01-01",
+                            "to": "2025-01-31"
+                        },
+                        "depositStatus": "paid",
+                        "maxPrice": 500,
+                        "minPrice": 50
+                    },
+                    "jobId": "job-123456",
+                    "requestedAt": "2025-08-27T12:00:00Z",
+                    "requestedBy": "alice@example.com",
+                    "resultReportId": "report-987",
+                    "schedule": "",
+                    "status": "COMPLETED",
+                    "visualization": "chart"
+                }
+            }
+        },
+        {
+            "Report": {
+                "entity_data_example": {
+                    "exportedAt": "2025-08-27T12:05:00Z",
+                    "generatedAt": "2025-08-27T12:01:00Z",
+                    "jobReference": "job-123456",
+                    "metrics": {
+                        "averagePrice": 234.56,
+                        "bookingCount": 53,
+                        "bookingsByRange": {
+                            "2025-01-01_to_2025-01-07": 10
+                        },
+                        "totalRevenue": 12345.67
+                    },
+                    "reportId": "report-987",
+                    "rows": [
+                        {
+                            "bookingDates": {
+                                "checkin": "2025-01-05",
+                                "checkout": "2025-01-08"
+                            },
+                            "bookingId": 101,
+                            "depositPaid": true,
+                            "firstName": "John",
+                            "lastName": "Doe",
+                            "totalPrice": 250.5
+                        }
+                    ],
+                    "scope": {
+                        "customerName": "",
+                        "dateRange": {
+                            "from": "2025-01-01",
+                            "to": "2025-01-31"
+                        },
+                        "depositStatus": "paid",
+                        "maxPrice": 500,
+                        "minPrice": 50
+                    },
+                    "visualizations": {
+                        "chartData": {
+                            "data": {
+                                "points": [
+                                    [
+                                        "2025-01-01",
+                                        5
+                                    ],
+                                    [
+                                        "2025-01-07",
+                                        10
+                                    ]
+                                ]
+                            },
+                            "type": "line"
+                        },
+                        "tableData": [
+                            {
+                                "bookingDates": {
+                                    "checkin": "2025-01-05",
+                                    "checkout": "2025-01-08"
+                                },
+                                "bookingId": 101,
+                                "depositPaid": true,
+                                "firstName": "John",
+                                "lastName": "Doe",
+                                "totalPrice": 250.5
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+}
