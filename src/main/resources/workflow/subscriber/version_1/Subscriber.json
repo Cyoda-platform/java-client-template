@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity based on functional requirements: registers subscribers and supports manual activation/deactivation. Terminal states represent active/inactive subscriber lifecycle.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "persist_to_registered",
+          "next": "REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "activate_subscriber",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ActivateSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "deactivate_subscriber",
+          "next": "INACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DeactivateSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": []
+    },
+    "INACTIVE": {
+      "transitions": []
+    }
+  }
+}
