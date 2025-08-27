@@ -29,7 +29,7 @@ public class GdprErasureRequestedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(User.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class GdprErasureRequestedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<User> context) {
@@ -57,7 +58,8 @@ public class GdprErasureRequestedCriterion implements CyodaCriterion {
 
          // Business rule: this criterion should pass only when the user's GDPR state indicates erasure requested / pending
          // Per workflow specification the state for a requested erasure is "erased_pending"
-         if ("erased_pending".equalsIgnoreCase(entity.getGdprState())) {
+         if ("erased_pending".equals(entity.getGdprState())) {
+             logger.debug("GDPR erasure requested for user {}", entity.getUserId());
              return EvaluationOutcome.success();
          }
 

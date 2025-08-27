@@ -67,6 +67,10 @@ public class AuditController {
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid request to createAudit: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while creating Audit", e);
+            return ResponseEntity.status(500).body(e.getMessage());
         } catch (ExecutionException e) {
             return handleExecutionException(e);
         } catch (Exception e) {
@@ -101,6 +105,10 @@ public class AuditController {
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid request to createAuditsBulk: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while creating Audits bulk", e);
+            return ResponseEntity.status(500).body(e.getMessage());
         } catch (ExecutionException e) {
             return handleExecutionException(e);
         } catch (Exception e) {
@@ -134,6 +142,10 @@ public class AuditController {
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid technicalId in getAuditById: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while getting Audit by id", e);
+            return ResponseEntity.status(500).body(e.getMessage());
         } catch (ExecutionException e) {
             return handleExecutionException(e);
         } catch (Exception e) {
@@ -162,10 +174,53 @@ public class AuditController {
                 }
             }
             return ResponseEntity.ok(list);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while getting all Audits", e);
+            return ResponseEntity.status(500).body(e.getMessage());
         } catch (ExecutionException e) {
             return handleExecutionException(e);
         } catch (Exception e) {
             logger.error("Unexpected error in getAllAudits", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Search Audits by condition", description = "Retrieve Audit entities matching the provided search condition. Uses in-memory filtering.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = AuditResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PostMapping(path = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> searchAudits(@io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(schema = @Schema(implementation = SearchConditionRequest.class))) @RequestBody SearchConditionRequest condition) {
+        try {
+            if (condition == null) throw new IllegalArgumentException("Search condition is required");
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                    Audit.ENTITY_NAME,
+                    String.valueOf(Audit.ENTITY_VERSION),
+                    condition,
+                    true
+            );
+            ArrayNode array = filteredItemsFuture.get();
+            List<AuditResponse> list = new ArrayList<>();
+            if (array != null) {
+                for (JsonNode n : array) {
+                    list.add(mapper.treeToValue(n, AuditResponse.class));
+                }
+            }
+            return ResponseEntity.ok(list);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid search condition in searchAudits: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while searching Audits", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        } catch (ExecutionException e) {
+            return handleExecutionException(e);
+        } catch (Exception e) {
+            logger.error("Unexpected error in searchAudits", e);
             return ResponseEntity.status(500).body(e.getMessage());
         }
     }
@@ -195,6 +250,10 @@ public class AuditController {
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid request to updateAudit: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while updating Audit", e);
+            return ResponseEntity.status(500).body(e.getMessage());
         } catch (ExecutionException e) {
             return handleExecutionException(e);
         } catch (Exception e) {
@@ -224,6 +283,10 @@ public class AuditController {
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid technicalId in deleteAudit: {}", e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while deleting Audit", e);
+            return ResponseEntity.status(500).body(e.getMessage());
         } catch (ExecutionException e) {
             return handleExecutionException(e);
         } catch (Exception e) {

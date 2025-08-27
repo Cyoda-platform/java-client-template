@@ -38,7 +38,7 @@ public class ProcessMedia implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(Media.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid media entity state")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -48,8 +48,32 @@ public class ProcessMedia implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Validate the incoming Media entity for processing.
+     *
+     * Note: Media.isValid() (entity-level validation) requires cdn_ref which will be
+     * populated by this processor. To allow processing of newly uploaded media that
+     * doesn't yet have a cdn_ref, validate only the essential fields required for processing.
+     */
     private boolean isValidEntity(Media entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        try {
+            String mediaId = entity.getMedia_id();
+            String filename = entity.getFilename();
+            String mime = entity.getMime();
+            String createdAt = entity.getCreated_at();
+
+            if (mediaId == null || mediaId.isBlank()) return false;
+            if (filename == null || filename.isBlank()) return false;
+            if (mime == null || mime.isBlank()) return false;
+            if (createdAt == null || createdAt.isBlank()) return false;
+
+            // status and cdn_ref may be absent at upload time; they will be created/updated by this processor.
+            return true;
+        } catch (Exception ex) {
+            logger.warn("Exception during media validation: {}", ex.getMessage(), ex);
+            return false;
+        }
     }
 
     private Media processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Media> context) {

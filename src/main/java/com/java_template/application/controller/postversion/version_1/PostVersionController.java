@@ -236,6 +236,104 @@ public class PostVersionController {
         }
     }
 
+    @Operation(summary = "Search PostVersions", description = "Retrieve PostVersion entities matching a search condition (in-memory).")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PostMapping("/search")
+    public ResponseEntity<?> searchPostVersions(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition", required = true,
+            content = @Content(schema = @Schema(implementation = SearchConditionRequest.class)))
+                                               @Valid @RequestBody SearchConditionRequest condition) {
+        try {
+            if (condition == null) {
+                throw new IllegalArgumentException("Search condition is required");
+            }
+
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                    PostVersion.ENTITY_NAME,
+                    String.valueOf(PostVersion.ENTITY_VERSION),
+                    condition,
+                    true
+            );
+
+            ArrayNode arr = filteredItemsFuture.get();
+            return ResponseEntity.ok(arr);
+
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request for searchPostVersions: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in searchPostVersions", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal error");
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while searching PostVersions", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception e) {
+            logger.error("Unexpected error in searchPostVersions", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal error");
+        }
+    }
+
+    @Operation(summary = "Get PostVersions by postId", description = "Convenience endpoint to retrieve PostVersions for a given postId.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ObjectNode.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @GetMapping("/by-post/{postId}")
+    public ResponseEntity<?> getPostVersionsByPostId(@Parameter(name = "postId", description = "Post id to filter by", required = true)
+                                                     @PathVariable("postId") String postId) {
+        try {
+            if (isBlank(postId)) {
+                throw new IllegalArgumentException("postId is required");
+            }
+
+            SearchConditionRequest cond = SearchConditionRequest.group("AND",
+                    Condition.of("$.postId", "EQUALS", postId)
+            );
+
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                    PostVersion.ENTITY_NAME,
+                    String.valueOf(PostVersion.ENTITY_VERSION),
+                    cond,
+                    true
+            );
+
+            ArrayNode arr = filteredItemsFuture.get();
+            return ResponseEntity.ok(arr);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request for getPostVersionsByPostId: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in getPostVersionsByPostId", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal error");
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while getting PostVersions by postId", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception e) {
+            logger.error("Unexpected error in getPostVersionsByPostId", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal error");
+        }
+    }
+
     @Operation(summary = "Update PostVersion", description = "Update an existing PostVersion by technicalId.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),

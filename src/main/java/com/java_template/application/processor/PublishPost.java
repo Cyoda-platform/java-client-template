@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.UUID;
 import java.util.Map;
 import java.util.HashMap;
@@ -59,24 +60,77 @@ public class PublishPost implements CyodaProcessor {
     private Post processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Post> context) {
         Post post = context.entity();
 
-        // Business logic: publish a Post
         // 1. Validate presence of a current version reference - publishing without a version is invalid
         if (post.getCurrentVersionId() == null || post.getCurrentVersionId().isBlank()) {
             logger.warn("PublishPost: post {} has no currentVersionId, aborting publish.", post.getId());
             return post;
         }
 
-        // 2. Prepare publish metadata: set published timestamp and cache control
-        String now = Instant.now().toString();
-        post.setPublishedAt(now);
+        Instant nowInstant = Instant.now();
+        String nowIso = nowInstant.toString();
+
+        // 2. If a publish_datetime exists in the future, mark scheduled and do not publish now.
+        String publishDatetime = post.getPublishDatetime();
+        if (publishDatetime != null && !publishDatetime.isBlank()) {
+            try {
+                Instant publishInstant = Instant.parse(publishDatetime);
+                if (publishInstant.isAfter(nowInstant)) {
+                    // The post is scheduled for future publishing
+                    post.setStatus("scheduled");
+                    // Ensure cache control has a sensible default even when scheduled
+                    if (post.getCacheControl() == null || post.getCacheControl().isBlank()) {
+                        post.setCacheControl("public, max-age=60, s-maxage=3600, stale-while-revalidate=86400");
+                    }
+
+                    // Append an audit entry indicating scheduling
+                    try {
+                        Audit scheduleAudit = new Audit();
+                        scheduleAudit.setAudit_id(UUID.randomUUID().toString());
+                        scheduleAudit.setAction("schedule_publish");
+                        scheduleAudit.setActor_id("system");
+                        scheduleAudit.setEntity_ref(post.getId() + ":Post");
+                        scheduleAudit.setTimestamp(nowIso);
+                        Map<String, Object> metadata = new HashMap<>();
+                        metadata.put("scheduledFor", publishDatetime);
+                        metadata.put("currentVersionId", post.getCurrentVersionId());
+                        scheduleAudit.setMetadata(metadata);
+
+                        CompletableFuture<UUID> af = entityService.addItem(
+                            Audit.ENTITY_NAME,
+                            String.valueOf(Audit.ENTITY_VERSION),
+                            scheduleAudit
+                        );
+                        af.whenComplete((id, ex) -> {
+                            if (ex != null) {
+                                logger.error("Failed to persist schedule_publish audit for post {}: {}", post.getId(), ex.getMessage());
+                            } else {
+                                logger.info("Persisted schedule_publish audit {} for post {}", id, post.getId());
+                            }
+                        });
+                    } catch (Exception e) {
+                        logger.error("Exception while creating schedule_publish audit for post {}: {}", post.getId(), e.getMessage());
+                    }
+
+                    logger.info("PublishPost: post {} scheduled for publish at {}, deferring actual publish.", post.getId(), publishDatetime);
+                    return post;
+                }
+            } catch (DateTimeParseException dtpe) {
+                logger.warn("PublishPost: post {} has invalid publishDatetime '{}', continuing to publish now. Error: {}", post.getId(), publishDatetime, dtpe.getMessage());
+                // continue to publish
+            } catch (Exception e) {
+                logger.warn("PublishPost: unexpected error parsing publishDatetime for post {}: {}, continuing to publish now.", post.getId(), e.getMessage());
+            }
+        }
+
+        // 3. Prepare publish metadata: set published timestamp and cache control, set status to published
+        post.setPublishedAt(nowIso);
         post.setStatus("published");
 
-        // If cacheControl not provided, set a sensible default for CDN caching
         if (post.getCacheControl() == null || post.getCacheControl().isBlank()) {
             post.setCacheControl("public, max-age=60, s-maxage=3600, stale-while-revalidate=86400");
         }
 
-        // 3. Append an Audit record for the publish action
+        // 4. Append an Audit record for the publish action
         try {
             Audit publishAudit = new Audit();
             publishAudit.setAudit_id(UUID.randomUUID().toString());
@@ -84,7 +138,7 @@ public class PublishPost implements CyodaProcessor {
             // Actor per functional requirement: Admin performed approval/publish
             publishAudit.setActor_id("Admin");
             publishAudit.setEntity_ref(post.getId() + ":Post");
-            publishAudit.setTimestamp(now);
+            publishAudit.setTimestamp(nowIso);
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("currentVersionId", post.getCurrentVersionId());
             metadata.put("title", post.getTitle());
@@ -106,7 +160,7 @@ public class PublishPost implements CyodaProcessor {
             logger.error("Exception while creating publish audit for post {}: {}", post.getId(), e.getMessage());
         }
 
-        // 4. Trigger finalization of the referenced PostVersion by appending an Audit for that action.
+        // 5. Trigger finalization of the referenced PostVersion by appending an Audit for that action.
         //    This acts as a durable event record which can be observed by processors responsible for PostVersion finalization.
         try {
             Audit versionAudit = new Audit();
@@ -114,9 +168,10 @@ public class PublishPost implements CyodaProcessor {
             versionAudit.setAction("finalize_version");
             versionAudit.setActor_id("system");
             versionAudit.setEntity_ref(post.getCurrentVersionId() + ":PostVersion");
-            versionAudit.setTimestamp(now);
+            versionAudit.setTimestamp(nowIso);
             Map<String, Object> vmeta = new HashMap<>();
             vmeta.put("triggeredByPost", post.getId());
+            vmeta.put("postStatus", post.getStatus());
             versionAudit.setMetadata(vmeta);
 
             CompletableFuture<UUID> vaFuture = entityService.addItem(
@@ -135,8 +190,7 @@ public class PublishPost implements CyodaProcessor {
             logger.error("Exception while creating finalize_version audit for version {}: {}", post.getCurrentVersionId(), e.getMessage());
         }
 
-        // 5. (Optional) For any referenced media, append an audit indicating they are referenced by a published post.
-        //    This leaves a durable signal for media processors to mark media as 'published' if needed.
+        // 6. For any referenced media, append an audit indicating they are referenced by a published post.
         if (post.getMediaRefs() != null && !post.getMediaRefs().isEmpty()) {
             for (String mediaRef : post.getMediaRefs()) {
                 if (mediaRef == null || mediaRef.isBlank()) continue;
@@ -146,9 +200,10 @@ public class PublishPost implements CyodaProcessor {
                     mediaAudit.setAction("referenced_by_published_post");
                     mediaAudit.setActor_id("system");
                     mediaAudit.setEntity_ref(mediaRef + ":Media");
-                    mediaAudit.setTimestamp(now);
+                    mediaAudit.setTimestamp(nowIso);
                     Map<String, Object> mmeta = new HashMap<>();
                     mmeta.put("postId", post.getId());
+                    mmeta.put("postStatus", post.getStatus());
                     mediaAudit.setMetadata(mmeta);
 
                     CompletableFuture<UUID> maFuture = entityService.addItem(

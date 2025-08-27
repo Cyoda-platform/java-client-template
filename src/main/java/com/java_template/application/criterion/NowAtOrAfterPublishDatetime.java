@@ -16,7 +16,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 
 @Component
@@ -33,7 +35,7 @@ public class NowAtOrAfterPublishDatetime implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Post.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -42,7 +44,8 @@ public class NowAtOrAfterPublishDatetime implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Post> context) {
@@ -69,8 +72,14 @@ public class NowAtOrAfterPublishDatetime implements CyodaCriterion {
                  // Fallback to OffsetDateTime if Instant.parse fails (handles offsets)
                  publishInstant = OffsetDateTime.parse(publishDatetime).toInstant();
              } catch (DateTimeParseException e2) {
-                 logger.warn("Post {} has invalid publishDatetime '{}'", entity.getId(), publishDatetime);
-                 return EvaluationOutcome.fail("publishDatetime is not a valid ISO-8601 timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 try {
+                     // Final fallback: accept local datetime without offset and assume UTC
+                     LocalDateTime ldt = LocalDateTime.parse(publishDatetime);
+                     publishInstant = ldt.toInstant(ZoneOffset.UTC);
+                 } catch (DateTimeParseException e3) {
+                     logger.warn("Post {} has invalid publishDatetime '{}'", entity.getId(), publishDatetime);
+                     return EvaluationOutcome.fail("publishDatetime is not a valid ISO-8601 timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+                 }
              }
          }
 

@@ -29,7 +29,7 @@ public class DoubleOptInRequiredCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Consent.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class DoubleOptInRequiredCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Consent> context) {
@@ -71,24 +72,39 @@ public class DoubleOptInRequiredCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("status is required for marketing consent", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Acceptable flows:
+         String s = status.trim().toLowerCase();
+
+         // Acceptable flows for marketing consent:
+         // - requested: initial persisted state (processor may move to pending_verification)
+         if ("requested".equals(s)) {
+             return EvaluationOutcome.success();
+         }
+
          // - pending_verification: waiting for user confirmation (expected)
-         if ("pending_verification".equalsIgnoreCase(status)) {
+         if ("pending_verification".equals(s)) {
              return EvaluationOutcome.success();
          }
 
          // - active: only allowed when verification evidence is present (double-opt-in completed)
-         if ("active".equalsIgnoreCase(status)) {
+         if ("active".equals(s)) {
              if (consent.getGrantedAt() == null || consent.getGrantedAt().isBlank()) {
                  return EvaluationOutcome.fail("marketing consent cannot be active without grantedAt (verification evidence)", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
              }
              if (consent.getEvidenceRef() == null || consent.getEvidenceRef().isBlank()) {
                  return EvaluationOutcome.fail("marketing consent cannot be active without evidenceRef (verification evidence)", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-            }
-            return EvaluationOutcome.success();
+             }
+             return EvaluationOutcome.success();
          }
 
-         // Any other status (including 'requested') is considered a violation: marketing consent must require double opt-in
-         return EvaluationOutcome.fail("marketing consent must require double opt-in (status should be 'pending_verification' until verified)", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // - revoked: allowed, but prefer having revokedAt for audit/quality
+         if ("revoked".equals(s)) {
+             if (consent.getRevokedAt() == null || consent.getRevokedAt().isBlank()) {
+                 return EvaluationOutcome.fail("revoked marketing consent should include revokedAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             return EvaluationOutcome.success();
+         }
+
+         // Any other status is considered a violation: marketing consent must follow double opt-in lifecycle
+         return EvaluationOutcome.fail("marketing consent must require double opt-in (expected statuses: requested, pending_verification, active (with evidence), or revoked)", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }

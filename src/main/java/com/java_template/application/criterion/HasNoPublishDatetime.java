@@ -29,7 +29,7 @@ public class HasNoPublishDatetime implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Post.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -44,17 +44,18 @@ public class HasNoPublishDatetime implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Post> context) {
          Post entity = context.entity();
          if (entity == null) {
+             logger.warn("HasNoPublishDatetime: entity is null in evaluation context");
              return EvaluationOutcome.fail("Entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          String publishDatetime = entity.getPublishDatetime();
-         // Success when there is no publishDatetime set (i.e., not scheduled)
-         if (publishDatetime == null) {
+         // Consider both null and blank as "not set". Success when there is no publishDatetime set (i.e., not scheduled)
+         if (publishDatetime == null || publishDatetime.isBlank()) {
              return EvaluationOutcome.success();
          }
 
-         // If publishDatetime is present (non-null), this criterion fails.
-         // Use BUSINESS_RULE_FAILURE since this represents a business rule: the post must not be scheduled.
+         // If publishDatetime is present (non-null and non-blank), this criterion fails.
+         // Use BUSINESS_RULE_FAILURE since this represents a business rule: the post must not be scheduled for this operation.
          return EvaluationOutcome.fail("publishDatetime must not be set for this operation", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }

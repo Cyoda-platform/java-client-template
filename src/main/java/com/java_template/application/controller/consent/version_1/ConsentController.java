@@ -102,6 +102,73 @@ public class ConsentController {
         }
     }
 
+    @Operation(summary = "Create multiple Consents", description = "Persist multiple Consent entities in bulk")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PostMapping("/bulk")
+    public ResponseEntity<TechnicalIdsResponse> createConsentsBulk(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Bulk consent create request", required = true,
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = ConsentCreateRequest.class)))) @RequestBody List<ConsentCreateRequest> requests) {
+        try {
+            if (requests == null || requests.isEmpty()) throw new IllegalArgumentException("Request body is required and must contain at least one item");
+
+            List<Consent> consents = new ArrayList<>();
+            for (ConsentCreateRequest request : requests) {
+                if (request == null) continue;
+                if (request.getUserId() == null || request.getUserId().isBlank())
+                    throw new IllegalArgumentException("userId is required for all items");
+                if (request.getType() == null || request.getType().isBlank())
+                    throw new IllegalArgumentException("type is required for all items");
+
+                Consent consent = new Consent();
+                consent.setConsentId(UUID.randomUUID().toString());
+                consent.setUserId(request.getUserId());
+                consent.setType(request.getType());
+                consent.setSource(request.getSource());
+                consent.setRequestedAt(Instant.now().toString());
+                consent.setStatus("requested");
+                consents.add(consent);
+            }
+
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
+                    Consent.ENTITY_NAME,
+                    String.valueOf(Consent.ENTITY_VERSION),
+                    consents
+            );
+
+            List<UUID> ids = idsFuture.get();
+            TechnicalIdsResponse resp = new TechnicalIdsResponse();
+            List<String> stringIds = new ArrayList<>();
+            if (ids != null) {
+                for (UUID id : ids) stringIds.add(id.toString());
+            }
+            resp.setTechnicalIds(stringIds);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid bulk request to create consents: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(404).build();
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().build();
+            } else {
+                logger.error("ExecutionException while creating consents bulk", e);
+                return ResponseEntity.status(500).build();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while creating consents bulk", e);
+            return ResponseEntity.status(500).build();
+        } catch (Exception e) {
+            logger.error("Unexpected error while creating consents bulk", e);
+            return ResponseEntity.status(500).build();
+        }
+    }
+
     @Operation(summary = "Get Consent by technicalId", description = "Retrieve a Consent entity by its technicalId")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ConsentResponse.class))),
@@ -185,6 +252,59 @@ public class ConsentController {
             return ResponseEntity.status(500).build();
         } catch (Exception e) {
             logger.error("Unexpected error while listing consents", e);
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    @Operation(summary = "Search Consents", description = "Retrieve Consent entities matching provided search condition")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ConsentResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PostMapping("/search")
+    public ResponseEntity<List<ConsentResponse>> searchConsents(@io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Search condition", required = true,
+            content = @Content(schema = @Schema(implementation = SearchConditionRequest.class))) @RequestBody SearchConditionRequest condition) {
+        try {
+            if (condition == null) throw new IllegalArgumentException("Search condition is required");
+
+            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+                    Consent.ENTITY_NAME,
+                    String.valueOf(Consent.ENTITY_VERSION),
+                    condition,
+                    true
+            );
+
+            ArrayNode array = filteredItemsFuture.get();
+            List<ConsentResponse> list = new ArrayList<>();
+            if (array != null) {
+                array.forEach(node -> {
+                    try {
+                        ConsentResponse cr = objectMapper.treeToValue(node, ConsentResponse.class);
+                        list.add(cr);
+                    } catch (Exception ex) {
+                        logger.warn("Failed to map consent node to response DTO", ex);
+                    }
+                });
+            }
+            return ResponseEntity.ok(list);
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid search request for consents: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().build();
+            } else {
+                logger.error("ExecutionException while searching consents", e);
+                return ResponseEntity.status(500).build();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while searching consents", e);
+            return ResponseEntity.status(500).build();
+        } catch (Exception e) {
+            logger.error("Unexpected error while searching consents", e);
             return ResponseEntity.status(500).build();
         }
     }
@@ -312,6 +432,12 @@ public class ConsentController {
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id of the persisted entity", example = "550e8400-e29b-41d4-a716-446655440000")
         private String technicalId;
+    }
+
+    @Data
+    public static class TechnicalIdsResponse {
+        @Schema(description = "List of technical ids of persisted entities")
+        private List<String> technicalIds;
     }
 
     @Data

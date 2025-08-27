@@ -38,7 +38,9 @@ public class DoubleOptInNotRequiredCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive)
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Consent> context) {
@@ -49,7 +51,7 @@ public class DoubleOptInNotRequiredCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Consent.type is required to evaluate double opt-in rules", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // If consent already granted, double opt-in is not required
+         // If consent already granted (evidence of verification), double opt-in is not required
          if (entity.getGrantedAt() != null && !entity.getGrantedAt().isBlank()) {
              return EvaluationOutcome.success();
          }

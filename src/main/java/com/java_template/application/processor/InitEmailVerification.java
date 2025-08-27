@@ -68,7 +68,8 @@ public class InitEmailVerification implements CyodaProcessor {
             consent.setConsentId(UUID.randomUUID().toString());
             consent.setUserId(user.getUserId());
             consent.setType("marketing");
-            consent.setStatus("requested");
+            // For double opt-in start with pending_verification (token generation + email send will follow)
+            consent.setStatus("pending_verification");
             consent.setRequestedAt(Instant.now().toString());
             consent.setSource("signup_form");
 
@@ -95,6 +96,7 @@ public class InitEmailVerification implements CyodaProcessor {
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("email", user.getEmail());
             metadata.put("emailVerified", user.getEmailVerified());
+            metadata.put("marketingEnabled", user.getMarketingEnabled());
             audit.setMetadata(metadata);
 
             entityService.addItem(

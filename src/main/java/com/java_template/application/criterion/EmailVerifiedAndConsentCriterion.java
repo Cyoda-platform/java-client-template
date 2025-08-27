@@ -29,7 +29,7 @@ public class EmailVerifiedAndConsentCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(User.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,31 +38,34 @@ public class EmailVerifiedAndConsentCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        return modelSpec != null && className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<User> context) {
          User entity = context.entity();
          // Ensure entity present
          if (entity == null) {
+             logger.warn("Validation failed: User entity is missing");
              return EvaluationOutcome.fail("User entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Email must be present and not blank (User.isValid ensures email non-blank in many cases,
-         // but perform a defensive check here using available getter)
+         // Email must be present and not blank
          if (entity.getEmail() == null || entity.getEmail().isBlank()) {
+             logger.warn("Validation failed for user {}: email is required", entity.getUserId());
              return EvaluationOutcome.fail("Email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Email must be verified
          Boolean emailVerified = entity.getEmailVerified();
          if (emailVerified == null || !emailVerified) {
+             logger.info("Validation failed for user {}: email not verified", entity.getUserId());
              return EvaluationOutcome.fail("Email not verified", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Marketing consent (double opt-in) must be granted. Use flattened marketing flag available on User.
          Boolean marketingEnabled = entity.getMarketingEnabled();
          if (marketingEnabled == null || !marketingEnabled) {
+             logger.info("Validation failed for user {}: required marketing consent not granted", entity.getUserId());
              return EvaluationOutcome.fail("Required marketing consent not granted", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 

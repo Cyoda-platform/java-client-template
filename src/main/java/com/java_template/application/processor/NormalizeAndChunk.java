@@ -37,7 +37,7 @@ public class NormalizeAndChunk implements CyodaProcessor {
 
         return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
             .toEntity(PostVersion.class)
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid PostVersion state for normalization")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
@@ -47,8 +47,19 @@ public class NormalizeAndChunk implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Custom validation for the incoming PostVersion prior to normalization.
+     * We avoid using entity.isValid() here because that requires chunksMeta to be non-null,
+     * which is the responsibility of this processor to create.
+     */
     private boolean isValidEntity(PostVersion entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getVersionId() == null || entity.getVersionId().isBlank()) return false;
+        if (entity.getPostId() == null || entity.getPostId().isBlank()) return false;
+        if (entity.getAuthorId() == null || entity.getAuthorId().isBlank()) return false;
+        if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) return false;
+        // contentRich may be empty at this stage, that's acceptable (we'll normalize to empty string)
+        return true;
     }
 
     private PostVersion processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<PostVersion> context) {
@@ -60,7 +71,8 @@ public class NormalizeAndChunk implements CyodaProcessor {
         String normalized = normalizePlaintext(contentRich);
         entity.setNormalizedText(normalized);
 
-        // 2) Chunking: split normalized text into chunks of DEFAULT_CHUNK_SIZE characters.
+        // 2) Chunking: split normalized text into chunks of ~DEFAULT_CHUNK_SIZE characters.
+        // Prefer splitting at whitespace to avoid cutting words when possible.
         List<Map<String, Object>> chunksMeta = new ArrayList<>();
         if (normalized != null && !normalized.isBlank()) {
             int len = normalized.length();
@@ -68,19 +80,36 @@ public class NormalizeAndChunk implements CyodaProcessor {
             int chunkIndex = 0;
             while (index < len) {
                 int end = Math.min(index + DEFAULT_CHUNK_SIZE, len);
-                String chunkText = normalized.substring(index, end);
+                // If we are not at the end, try to backtrack to the last whitespace to avoid splitting words
+                if (end < len) {
+                    int lastSpace = normalized.lastIndexOf(' ', end);
+                    if (lastSpace > index) {
+                        end = lastSpace;
+                    }
+                }
+                // Fallback safety: ensure we always advance
+                if (end == index) {
+                    end = Math.min(index + DEFAULT_CHUNK_SIZE, len);
+                }
+
+                String chunkText = normalized.substring(index, end).trim();
                 Map<String, Object> meta = new HashMap<>();
                 meta.put("chunk_index", chunkIndex);
                 meta.put("text", chunkText);
                 meta.put("length", chunkText.length());
-                // optional: reference to parent version
+                // reference to parent version
                 meta.put("version_id", entity.getVersionId());
                 chunksMeta.add(meta);
 
                 chunkIndex++;
                 index = end;
+                // Skip any leading whitespace for the next chunk
+                while (index < len && Character.isWhitespace(normalized.charAt(index))) {
+                    index++;
+                }
             }
         }
+
         // Ensure chunksMeta is never null (PostVersion.isValid expects non-null)
         entity.setChunksMeta(chunksMeta);
 
@@ -95,7 +124,7 @@ public class NormalizeAndChunk implements CyodaProcessor {
     // Basic normalization: remove HTML tags, replace a few common entities, collapse whitespace.
     private String normalizePlaintext(String rich) {
         if (rich == null) return "";
-        // Remove HTML tags
+        // Remove HTML tags (simple heuristic)
         String text = rich.replaceAll("(?s)<[^>]*>", " ");
         // Replace a few common HTML entities
         text = text.replace("&nbsp;", " ")
@@ -104,7 +133,6 @@ public class NormalizeAndChunk implements CyodaProcessor {
                    .replace("&gt;", ">")
                    .replace("&quot;", "\"")
                    .replace("&#39;", "'");
-
         // Collapse whitespace
         text = text.replaceAll("\\s+", " ").trim();
         return text;
