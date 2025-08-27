@@ -1,0 +1,114 @@
+{
+    "entities": [
+        {
+            "Post": {
+                "entity_data_example": {
+                    "author_id": "user-123",
+                    "cache_control": "max-age=3600",
+                    "current_version_id": "pv-456",
+                    "id": "post-123",
+                    "locale": "en-GB",
+                    "media_refs": [
+                        "media-789"
+                    ],
+                    "owner_id": "user-123",
+                    "publish_datetime": "2025-09-01T10:00:00Z",
+                    "published_at": "2025-09-01T10:00:00Z",
+                    "slug": "how-to-use-cyoda",
+                    "status": "published",
+                    "summary": "Short summary",
+                    "tags": [
+                        "cyoda",
+                        "cms"
+                    ],
+                    "title": "How to use Cyoda"
+                }
+            }
+        },
+        {
+            "PostVersion": {
+                "entity_data_example": {
+                    "author_id": "user-123",
+                    "change_summary": "Initial draft",
+                    "chunks_meta": [
+                        {}
+                    ],
+                    "content_rich": "<p>Example content</p>",
+                    "created_at": "2025-08-01T12:00:00Z",
+                    "embeddings_ref": "embed-001",
+                    "normalized_text": "example content",
+                    "post_id": "post-123",
+                    "version_id": "pv-456"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "audit_refs": [
+                        "audit-1"
+                    ],
+                    "email": "alice@example.com",
+                    "email_verified": true,
+                    "gdpr_state": "active",
+                    "marketing_flags": {
+                        "marketing_enabled": false
+                    },
+                    "owner_of_posts": [
+                        "post-123"
+                    ],
+                    "profile": {
+                        "bio": "Writer",
+                        "locale": "en-GB",
+                        "name": "Alice"
+                    },
+                    "user_id": "user-123"
+                }
+            }
+        },
+        {
+            "Consent": {
+                "entity_data_example": {
+                    "consent_id": "consent-321",
+                    "evidence_ref": "evidence-1",
+                    "granted_at": "2025-07-31T09:05:00Z",
+                    "requested_at": "2025-07-31T09:00:00Z",
+                    "revoked_at": "",
+                    "source": "signup_form",
+                    "status": "active",
+                    "type": "marketing",
+                    "user_id": "user-123"
+                }
+            }
+        },
+        {
+            "Media": {
+                "entity_data_example": {
+                    "cdn_ref": "cdn://media-789",
+                    "created_at": "2025-07-31T08:00:00Z",
+                    "filename": "image.jpg",
+                    "media_id": "media-789",
+                    "mime": "image/jpeg",
+                    "owner_id": "user-123",
+                    "status": "processed",
+                    "versions": [
+                        {}
+                    ]
+                }
+            }
+        },
+        {
+            "Audit": {
+                "entity_data_example": {
+                    "action": "submit_for_review",
+                    "actor_id": "user-123",
+                    "audit_id": "audit-1",
+                    "entity_ref": "post-123:Post",
+                    "evidence_ref": "evidence-1",
+                    "metadata": {},
+                    "timestamp": "2025-08-01T12:01:00Z"
+                }
+            }
+        }
+    ]
+}
