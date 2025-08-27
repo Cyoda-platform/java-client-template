@@ -1,0 +1,58 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "errorSummary": "2 invalid records",
+                    "finishedAt": "2025-08-01T10:00:10Z",
+                    "id": "job-2025-08-01",
+                    "recordsFailedCount": 2,
+                    "recordsFetchedCount": 200,
+                    "recordsProcessedCount": 198,
+                    "schedule": "manual",
+                    "startedAt": "2025-08-01T10:00:00Z",
+                    "state": "NOTIFIED_SUBSCRIBERS",
+                    "subscribersNotifiedCount": 5
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliation_city": "Sapporo",
+                    "affiliation_country": "Japan",
+                    "affiliation_name": "Hokkaido University",
+                    "ageAtAward": 71,
+                    "born": "1939-09-12",
+                    "borncity": "Hamamatsu",
+                    "borncountry": "Japan",
+                    "borncountrycode": "JP",
+                    "category": "Chemistry",
+                    "died": null,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "id": 853,
+                    "lastSeenAt": "2025-08-01T10:00:05Z",
+                    "motivation": "For contributions to cross-coupling reactions",
+                    "normalizedCountryCode": "JP",
+                    "surname": "Suzuki",
+                    "validationStatus": "VALID",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactDetails": "https://example.com/hook",
+                    "contactType": "webhook",
+                    "filterPreferences": "{\"category\":[\"Chemistry\"],\"years\":[\">=2000\"]}",
+                    "id": "sub-1",
+                    "lastNotifiedAt": "2025-08-01T10:00:15Z",
+                    "name": "Nobel Alerts"
+                }
+            }
+        }
+    ]
+}
