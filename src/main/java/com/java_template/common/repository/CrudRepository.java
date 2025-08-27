@@ -1,51 +1,70 @@
 package com.java_template.common.repository;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.common.repository.dto.Meta;
-
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
+import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
+import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
+import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
+
 public interface CrudRepository {
 
-    Meta getMeta(String token, String entityModel, String entityVersion);
+    CompletableFuture<EntityDeleteResponse> deleteById(@NotNull UUID id);
 
-    CompletableFuture<ObjectNode> count(Meta meta);
+    CompletableFuture<List<EntityDeleteAllResponse>> deleteAll(
+            @NotNull String modelName,
+            int modelVersion
+    );
 
-    CompletableFuture<ObjectNode> deleteById(Meta meta, UUID id);
+    CompletableFuture<List<DataPayload>> findAll(
+            @NotNull String modelName,
+            int modelVersion,
+            int pageSize,
+            int pageNumber,
+            @Nullable Date pointInTime
+    );
 
-    CompletableFuture<ObjectNode> delete(Meta meta, Object entity);
+    CompletableFuture<DataPayload> findById(@NotNull UUID id);
 
-    CompletableFuture<ArrayNode> deleteAll(Meta meta);
+    CompletableFuture<List<DataPayload>> findAllByCriteria(
+            @NotNull String modelName,
+            int modelVersion,
+            @NotNull GroupCondition criteria,
+            int pageSize,
+            int pageNumber,
+            boolean inMemory
+    );
 
-    CompletableFuture<ObjectNode> deleteAllEntities(Meta meta, List<Object> entities);
+    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> save(
+            @NotNull String modelName,
+            int modelVersion,
+            @NotNull ENTITY_TYPE entity
+    );
 
-    CompletableFuture<ObjectNode> deleteAllByKey(Meta meta, List<Object> keys);
+    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
+            @NotNull String modelName,
+            int modelVersion,
+            @NotNull Collection<ENTITY_TYPE> entity
+    );
 
-    CompletableFuture<ObjectNode> deleteByKey(Meta meta, Object key);
+    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> update(
+            @NotNull UUID id,
+            @NotNull ENTITY_TYPE entity,
+            @NotNull String transition
+    );
 
-    CompletableFuture<ObjectNode> existsByKey(Meta meta, Object key);
+    <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull Collection<ENTITY_TYPE> entities,
+            @NotNull String transition
+    );
 
-    CompletableFuture<ArrayNode> findAll(Meta meta);
-
-    CompletableFuture<ObjectNode> findAllByKey(Meta meta, List<Object> keys);
-
-    CompletableFuture<ObjectNode> findByKey(Meta meta, Object key);
-
-    CompletableFuture<ObjectNode> findById(Meta meta, UUID id);
-
-    CompletableFuture<ArrayNode> findAllByCriteria(Meta meta, Object criteria);
-
-    CompletableFuture<ArrayNode> findAllByCriteria(Meta meta, Object criteria, boolean inMemory);
-
-    CompletableFuture<ArrayNode> save(Meta meta, Object entity);
-
-    CompletableFuture<ArrayNode> saveAll(Meta meta, Object entities);
-
-    CompletableFuture<ObjectNode> update(Meta meta, UUID id, Object entity);
-
-    CompletableFuture<ObjectNode> updateAll(Meta meta, List<Object> entities);
+    CompletableFuture<EntityTransitionResponse> applyTransition(@NotNull UUID entityId, @NotNull String transitionName);
 }
-
