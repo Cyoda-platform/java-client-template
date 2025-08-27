@@ -1,0 +1,79 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-01T11:59:50Z",
+                    "finishedAt": "2025-08-01T12:00:10Z",
+                    "ingestResult": {
+                        "countAdded": 5,
+                        "countUpdated": 2,
+                        "errors": []
+                    },
+                    "jobId": "job-0001",
+                    "notifyOn": "BOTH",
+                    "retryPolicy": {
+                        "backoffSeconds": 60,
+                        "maxRetries": 3
+                    },
+                    "schedule": "ON_DEMAND",
+                    "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records",
+                    "startedAt": "2025-08-01T12:00:00Z",
+                    "status": "NOTIFIED_SUBSCRIBERS"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliationCity": "Sapporo",
+                    "affiliationCountry": "Japan",
+                    "affiliationName": "Hokkaido University",
+                    "born": "1930-09-12",
+                    "borncity": "Sapporo",
+                    "borncountry": "Japan",
+                    "borncountrycode": "JP",
+                    "category": "Chemistry",
+                    "died": null,
+                    "enrichedAgeAtAward": 80,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "id": 853,
+                    "motivation": "For development of cross-coupling reactions",
+                    "normalizedCountryCode": "JP",
+                    "surname": "Suzuki",
+                    "validationErrors": [],
+                    "validationStatus": "OK",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactDetails": {
+                        "url": "https://example.com/hook"
+                    },
+                    "contactType": "webhook",
+                    "createdAt": "2025-07-01T08:00:00Z",
+                    "filters": {
+                        "category": [
+                            "Chemistry"
+                        ],
+                        "country": [
+                            "JP"
+                        ],
+                        "yearRange": {
+                            "from": "2000",
+                            "to": "2015"
+                        }
+                    },
+                    "id": "sub-01",
+                    "lastNotifiedAt": "2025-08-01T12:00:11Z",
+                    "verified": true
+                }
+            }
+        }
+    ]
+}
