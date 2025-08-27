@@ -1,0 +1,56 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "errorDetails": null,
+                    "finishedAt": "2025-08-20T02:01:00Z",
+                    "jobId": "daily_nobel_ingest",
+                    "resultSummary": "Processed 100 records, 0 errors",
+                    "retryCount": 0,
+                    "schedule": "0 0 2 * * ?",
+                    "sourceEndpoint": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records",
+                    "startedAt": "2025-08-20T02:00:05Z",
+                    "state": "SUCCEEDED",
+                    "triggeredAt": "2025-08-20T02:00:00Z"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliation_city": "Sapporo",
+                    "affiliation_country": "Japan",
+                    "affiliation_name": "Hokkaido University",
+                    "born": "1930-09-12",
+                    "borncity": "Mukawa",
+                    "borncountry": "Japan",
+                    "borncountrycode": "JP",
+                    "category": "Chemistry",
+                    "derived_ageAtAward": 80,
+                    "died": null,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "id": 853,
+                    "motivation": "for palladium-catalyzed cross couplings in organic synthesis",
+                    "persistedAt": "2025-08-20T02:01:23Z",
+                    "recordStatus": "NEW",
+                    "surname": "Suzuki",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactAddress": "https://example.com/webhook",
+                    "contactType": "WEBHOOK",
+                    "filters": "category=Chemistry",
+                    "lastNotifiedAt": "2025-08-20T02:00:00Z",
+                    "subscriberId": "chemistry_team"
+                }
+            }
+        }
+    ]
+}
