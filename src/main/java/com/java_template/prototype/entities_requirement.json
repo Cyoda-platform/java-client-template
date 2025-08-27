@@ -1,0 +1,49 @@
+{
+    "entities": [
+        {
+            "IngestionJob": {
+                "entity_data_example": {
+                    "created_at": "2025-08-25T08:00:00Z",
+                    "created_by": "admin@example.com",
+                    "data_formats": "JSON,XML",
+                    "schedule_day": "Monday",
+                    "schedule_time": "08:00",
+                    "source_url": "https://petstore.swagger.io/v2/store",
+                    "status": "COMPLETED",
+                    "time_window_days": 7
+                }
+            }
+        },
+        {
+            "ReportJob": {
+                "entity_data_example": {
+                    "created_at": "2025-08-25T09:00:00Z",
+                    "generated_url": "s3://reports/report-67890.pdf",
+                    "name": "Weekly Product Performance",
+                    "output_formats": "PDF,CSV",
+                    "period_end": "2025-08-24",
+                    "period_start": "2025-08-18",
+                    "recipients": "victoria.sagdieva@cyoda.com",
+                    "status": "SENDING",
+                    "template_id": "weekly_v1"
+                }
+            }
+        },
+        {
+            "Product": {
+                "entity_data_example": {
+                    "category": "Toys",
+                    "cost": 3.5,
+                    "inventory_on_hand": 12,
+                    "last_updated": "2025-08-25T08:10:00Z",
+                    "name": "Dog Toy",
+                    "performance_flag": "RESTOCK",
+                    "price": 9.99,
+                    "product_id": "123",
+                    "total_revenue": 1498.5,
+                    "total_sales_volume": 150
+                }
+            }
+        }
+    ]
+}
