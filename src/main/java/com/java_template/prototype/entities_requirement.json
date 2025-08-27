@@ -1,0 +1,68 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "errorDetails": null,
+                    "finishedAt": "2025-08-27T09:02:30Z",
+                    "jobId": "job-20250827-001",
+                    "metadata": {
+                        "initiator": "scheduler",
+                        "priority": "normal"
+                    },
+                    "recordsFetchedCount": 12,
+                    "scheduledAt": "2025-08-27T09:00:00Z",
+                    "sourceEndpoint": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records?limit=100",
+                    "startedAt": "2025-08-27T09:01:00Z",
+                    "state": "NOTIFIED_SUBSCRIBERS"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliationCity": "Sendai",
+                    "affiliationCountry": "Japan",
+                    "affiliationName": "Tohoku University",
+                    "born": "1930-09-01",
+                    "borncity": "Hiroshima",
+                    "borncountry": "Japan",
+                    "borncountrycode": "JP",
+                    "category": "Chemistry",
+                    "derived_age_at_award": 80,
+                    "died": null,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "id": 853,
+                    "ingestJobId": "job-20250827-001",
+                    "motivation": "for palladium-catalyzed cross couplings",
+                    "normalized_country_code": "JP",
+                    "surname": "Suzuki",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactDetails": {
+                        "url": "https://example.com/webhook"
+                    },
+                    "contactType": "webhook",
+                    "filters": {
+                        "categories": [
+                            "Chemistry"
+                        ],
+                        "years": [
+                            "2010"
+                        ]
+                    },
+                    "lastNotifiedAt": "2025-08-27T10:00:00Z",
+                    "preferredPayload": "full",
+                    "subscriberId": "sub-abc"
+                }
+            }
+        }
+    ]
+}
