@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "name": "Book Workflow",
+  "desc": "Workflow for Book entity: ingestion, validation, enrichment, storage and optional manual review",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_ingested",
+          "next": "INGESTED",
+          "manual": false
+        }
+      ]
+    },
+    "INGESTED": {
+      "transitions": [
+        {
+          "name": "validate_book",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateBookProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "validation_success_to_enriched",
+          "next": "ENRICHED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failure_to_review",
+          "next": "REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "enrich_and_persist",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EnrichAndPersistProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REVIEW": {
+      "transitions": [
+        {
+          "name": "manual_review_complete",
+          "next": "STORED",
+          "manual": true
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": []
+    }
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "version": "1.0",
+  "name": "WeeklyJob Workflow",
+  "desc": "Workflow for WeeklyJob: creation, validation, scheduling, execution, completion/failure, and notification/alerting.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_to_pending",
+          "next": "PENDING",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "schedule_job",
+          "next": "SCHEDULED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduleJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "scheduled_trigger",
+          "next": "RUNNING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ScheduledTriggerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RUNNING": {
+      "transitions": [
+        {
+          "name": "to_completed_on_success",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "to_failed_on_error",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "JobFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "generate_report",
+          "next": "NOTIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GenerateReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFYING": {
+      "transitions": [
+        {
+          "name": "send_report",
+          "next": "SENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendReportProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "handle_failure",
+          "next": "ALERTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "HandleFailureProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ALERTING": {
+      "transitions": []
+    }
+  }
+}
