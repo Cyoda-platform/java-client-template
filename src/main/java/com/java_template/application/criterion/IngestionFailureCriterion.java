@@ -38,7 +38,8 @@ public class IngestionFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name match (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
@@ -64,7 +65,7 @@ public class IngestionFailureCriterion implements CyodaCriterion {
          }
 
          // Business rule: if the job is marked FAILED then this criterion should report failure
-         if ("FAILED".equalsIgnoreCase(state)) {
+         if ("FAILED".equals(state) || "FAILED".equalsIgnoreCase(state)) {
              StringBuilder msg = new StringBuilder("Ingestion failed");
              if (entity.getJobId() != null && !entity.getJobId().isBlank()) {
                  msg.append(" for job ").append(entity.getJobId());

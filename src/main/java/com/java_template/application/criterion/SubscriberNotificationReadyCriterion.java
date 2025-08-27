@@ -29,7 +29,7 @@ public class SubscriberNotificationReadyCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Subscriber.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class SubscriberNotificationReadyCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case sensitive)
+        return modelSpec != null && className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Subscriber> context) {
@@ -101,7 +102,7 @@ public class SubscriberNotificationReadyCriterion implements CyodaCriterion {
                  return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Filters are optional; no deep validation here. If provided ensure not blank
+         // Filters are optional; if provided ensure not blank
          String filters = subscriber.getFilters();
          if (filters != null && filters.isBlank()) {
              String msg = (sid != null ? "Subscriber [" + sid + "] has invalid filters value" : "Subscriber has invalid filters value");
