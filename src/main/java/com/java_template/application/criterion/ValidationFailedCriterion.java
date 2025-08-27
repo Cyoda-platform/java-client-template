@@ -15,6 +15,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.Set;
+
 @Component
 public class ValidationFailedCriterion implements CyodaCriterion {
 
@@ -29,7 +33,7 @@ public class ValidationFailedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(InventoryItem.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,30 +42,29 @@ public class ValidationFailedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<InventoryItem> context) {
          InventoryItem entity = context.entity();
          if (entity == null) {
+             logger.warn("ValidationFailedCriterion: entity is null in context {}", context);
              return EvaluationOutcome.fail("InventoryItem entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Validate required string fields
+         // Required string fields
          if (entity.getId() == null || entity.getId().isBlank()) {
              return EvaluationOutcome.fail("id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getName() == null || entity.getName().isBlank()) {
              return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (entity.getCategory() == null || entity.getCategory().isBlank()) {
-             return EvaluationOutcome.fail("category is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
          if (entity.getStatus() == null || entity.getStatus().isBlank()) {
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Validate numeric fields
+         // Numeric fields
          if (entity.getQuantity() == null) {
              return EvaluationOutcome.fail("quantity is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -75,6 +78,26 @@ public class ValidationFailedCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("price must be >= 0.0", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // dateAdded is optional but if present must be ISO date (yyyy-MM-dd)
+         if (entity.getDateAdded() != null && !entity.getDateAdded().isBlank()) {
+             try {
+                 LocalDate.parse(entity.getDateAdded()); // ISO_LOCAL_DATE
+             } catch (DateTimeParseException ex) {
+                 return EvaluationOutcome.fail("dateAdded must be ISO date (yyyy-MM-dd)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         }
+
+         // status should conform to expected workflow states (case-insensitive)
+         Set<String> allowedStatuses = Set.of("INGESTED", "VALIDATED", "INVALID", "INVALIDATED");
+         String statusUpper = entity.getStatus().toUpperCase();
+         if (!allowedStatuses.contains(statusUpper)) {
+             // Business rule: status must be one of allowed workflow values
+             return EvaluationOutcome.fail("status has invalid value", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // Category, location, supplier are optional per functional requirements - no validation here.
+
+         // All checks passed - entity is considered valid for this criterion
          return EvaluationOutcome.success();
     }
 }

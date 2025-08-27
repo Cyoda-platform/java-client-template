@@ -79,6 +79,13 @@ public class ExecuteReportJobProcessor implements CyodaProcessor {
 
         logger.info("Executing ReportJob '{}' requestedBy='{}'", job.getTitle(), job.getRequestedBy());
 
+        // Mark job as in progress so workflow reflects current processing state
+        try {
+            job.setStatus("IN_PROGRESS");
+        } catch (Exception ex) {
+            logger.warn("Unable to set job status to IN_PROGRESS: {}", ex.getMessage());
+        }
+
         try {
             // Fetch InventoryItem entities (all items). We respect filters if simple filter available, but default to all.
             CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
@@ -177,7 +184,7 @@ public class ExecuteReportJobProcessor implements CyodaProcessor {
             // Update job status to COMPLETED
             job.setStatus("COMPLETED");
 
-            // Note: ReportJob does not define a reportReference field per entity definition, so we cannot set it here.
+            // Note: ReportJob entity model does not include a reportReference field in current schema, so we cannot set it here.
             // Optionally log notification intent
             if (job.getNotify() != null && !job.getNotify().isBlank()) {
                 logger.info("Notify target present for job '{}': {}", job.getTitle(), job.getNotify());

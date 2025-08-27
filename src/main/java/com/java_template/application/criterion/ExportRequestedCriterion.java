@@ -33,7 +33,7 @@ public class ExportRequestedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(ReportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -42,17 +42,26 @@ public class ExportRequestedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
          ReportJob job = context.entity();
 
-         // Validate presence of essential fields
          if (job == null) {
              return EvaluationOutcome.fail("ReportJob entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Required identifying/requester fields for an export request
+         if (job.getRequestedBy() == null || job.getRequestedBy().isBlank()) {
+             return EvaluationOutcome.fail("requestedBy is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         if (job.getCreatedAt() == null || job.getCreatedAt().isBlank()) {
+             return EvaluationOutcome.fail("createdAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Status must be present
          if (job.getStatus() == null || job.getStatus().isBlank()) {
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
