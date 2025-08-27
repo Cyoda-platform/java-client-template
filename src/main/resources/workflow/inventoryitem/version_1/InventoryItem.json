@@ -1,0 +1,99 @@
+{
+  "version": "1.0",
+  "name": "InventoryItem Workflow",
+  "desc": "Workflow for InventoryItem based on functional requirements: ingestion, validation, enrichment, storage, and indexing (invalid items end in INVALID).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "ingest_to_ingested",
+          "next": "INGESTED",
+          "manual": false
+        }
+      ]
+    },
+    "INGESTED": {
+      "transitions": [
+        {
+          "name": "ingested_to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateInventoryItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_passed_to_enriching",
+          "next": "ENRICHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed_to_invalid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enriching_to_stored",
+          "next": "STORED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StoreInventoryItemProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "STORED": {
+      "transitions": [
+        {
+          "name": "stored_to_indexed",
+          "next": "INDEXED",
+          "manual": false
+        }
+      ]
+    },
+    "INDEXED": {
+      "transitions": []
+    },
+    "INVALID": {
+      "transitions": []
+    }
+  }
+}
