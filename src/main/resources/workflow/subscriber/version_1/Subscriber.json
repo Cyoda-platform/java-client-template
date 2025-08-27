@@ -1,0 +1,117 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity derived from functional requirements: registration, activation/deactivation, notification delivery and delivery status recording.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_registered",
+          "next": "REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "REGISTERED": {
+      "transitions": [
+        {
+          "name": "auto_to_active_if_flag_true",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.active",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "auto_to_deactivated_if_flag_false",
+          "next": "DEACTIVATED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.active",
+            "operation": "EQUALS",
+            "value": false
+          }
+        },
+        {
+          "name": "activate_manual",
+          "next": "ACTIVE",
+          "manual": true
+        },
+        {
+          "name": "deactivate_manual",
+          "next": "DEACTIVATED",
+          "manual": true
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "notify_on_external_event",
+          "next": "NOTIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubscriberNotificationEventCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "deactivate_manual_from_active",
+          "next": "DEACTIVATED",
+          "manual": true
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": [
+        {
+          "name": "deliver_to_subscriber",
+          "next": "DELIVERY_RECORDED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeliverToSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERY_RECORDED": {
+      "transitions": [
+        {
+          "name": "record_delivery_status",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RecordDeliveryStatusProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "DEACTIVATED": {
+      "transitions": []
+    }
+  }
+}
