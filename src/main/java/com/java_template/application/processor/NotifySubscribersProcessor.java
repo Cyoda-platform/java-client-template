@@ -13,6 +13,7 @@ import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.UUID;
 
@@ -96,15 +98,15 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
                         Condition.of("$.subscriberId", "EQUALS", subscriberBusinessId)
                 );
 
-                CompletableFuture<ArrayNode> itemsFuture = entityService.getItemsByCondition(
+                CompletableFuture<List<DataPayload>> itemsFuture = entityService.getItemsByCondition(
                         Subscriber.ENTITY_NAME,
-                        String.valueOf(Subscriber.ENTITY_VERSION),
+                        Subscriber.ENTITY_VERSION,
                         condition,
                         true
                 );
 
-                ArrayNode results = itemsFuture.join();
-                if (results == null || results.size() == 0) {
+                List<DataPayload> dataPayloads = itemsFuture.join();
+                if (dataPayloads == null || dataPayloads.isEmpty()) {
                     String err = "Subscriber not found: " + subscriberBusinessId;
                     logger.warn(err);
                     job.getErrorDetails().add(err);
@@ -112,9 +114,8 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
                 }
 
                 // There might be multiple matches; iterate each
-                Iterator<JsonNode> it = results.elements();
-                while (it.hasNext()) {
-                    JsonNode node = it.next();
+                for (DataPayload payload : dataPayloads) {
+                    JsonNode node = payload.getData();
 
                     // Extract technicalId if present to allow updating subscriber entity
                     JsonNode techNode = node.get("technicalId");
@@ -234,8 +235,6 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
                         subscriber.setLastNotificationStatus(notifStatus);
 
                         CompletableFuture<UUID> updateFuture = entityService.updateItem(
-                                Subscriber.ENTITY_NAME,
-                                String.valueOf(Subscriber.ENTITY_VERSION),
                                 technicalId,
                                 subscriber
                         );

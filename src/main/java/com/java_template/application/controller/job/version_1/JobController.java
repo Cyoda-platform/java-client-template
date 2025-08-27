@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.DataPayload;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -63,7 +64,7 @@ public class JobController {
 
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     Job.ENTITY_NAME,
-                    String.valueOf(Job.ENTITY_VERSION),
+                    Job.ENTITY_VERSION,
                     job
             );
 
@@ -107,13 +108,10 @@ public class JobController {
                 throw new IllegalArgumentException("technicalId is required");
             }
 
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                    Job.ENTITY_NAME,
-                    String.valueOf(Job.ENTITY_VERSION),
-                    UUID.fromString(technicalId)
-            );
+            CompletableFuture<DataPayload> itemFuture = entityService.getItem(UUID.fromString(technicalId));
 
-            ObjectNode node = itemFuture.get();
+            DataPayload dataPayload = itemFuture.get();
+            ObjectNode node = dataPayload != null ? (ObjectNode) dataPayload.getData() : null;
             if (node == null || node.isNull()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
             }

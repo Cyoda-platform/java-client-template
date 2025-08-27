@@ -177,7 +177,7 @@ public class StartIngestionProcessor implements CyodaProcessor {
                     try {
                         CompletableFuture<UUID> addF = entityService.addItem(
                                 Laureate.ENTITY_NAME,
-                                String.valueOf(Laureate.ENTITY_VERSION),
+                                Laureate.ENTITY_VERSION,
                                 laureate
                         );
                         futures.add(addF);
@@ -208,7 +208,7 @@ public class StartIngestionProcessor implements CyodaProcessor {
                     try {
                         CompletableFuture<UUID> addF = entityService.addItem(
                                 Laureate.ENTITY_NAME,
-                                String.valueOf(Laureate.ENTITY_VERSION),
+                                Laureate.ENTITY_VERSION,
                                 laureate
                         );
                         futures.add(addF);

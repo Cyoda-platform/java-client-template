@@ -9,6 +9,7 @@ import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import org.cyoda.cloud.api.event.common.DataPayload;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -62,7 +63,7 @@ public class SubscriberController {
 
             CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
                     Subscriber.ENTITY_NAME,
-                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    Subscriber.ENTITY_VERSION,
                     entity
             );
             UUID technicalId = idFuture.get();
@@ -109,7 +110,7 @@ public class SubscriberController {
 
             CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     Subscriber.ENTITY_NAME,
-                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    Subscriber.ENTITY_VERSION,
                     entities
             );
             List<UUID> ids = idsFuture.get();
@@ -153,12 +154,9 @@ public class SubscriberController {
         try {
             if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
 
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                    Subscriber.ENTITY_NAME,
-                    String.valueOf(Subscriber.ENTITY_VERSION),
-                    UUID.fromString(technicalId)
-            );
-            ObjectNode node = itemFuture.get();
+            CompletableFuture<DataPayload> itemFuture = entityService.getItem(UUID.fromString(technicalId));
+            DataPayload dataPayload = itemFuture.get();
+            ObjectNode node = dataPayload != null ? (ObjectNode) dataPayload.getData() : null;
             if (node == null || node.isNull()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Subscriber not found");
             }
@@ -191,15 +189,16 @@ public class SubscriberController {
     @GetMapping
     public ResponseEntity<?> getAllSubscribers() {
         try {
-            CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
+            CompletableFuture<List<DataPayload>> itemsFuture = entityService.getItems(
                     Subscriber.ENTITY_NAME,
-                    String.valueOf(Subscriber.ENTITY_VERSION)
+                    Subscriber.ENTITY_VERSION,
+                    null, null, null
             );
-            ArrayNode array = itemsFuture.get();
+            List<DataPayload> dataPayloads = itemsFuture.get();
             List<SubscriberResponse> resp = new ArrayList<>();
-            if (array != null) {
-                for (int i = 0; i < array.size(); i++) {
-                    resp.add(objectMapper.treeToValue(array.get(i), SubscriberResponse.class));
+            if (dataPayloads != null) {
+                for (DataPayload payload : dataPayloads) {
+                    resp.add(objectMapper.treeToValue(payload.getData(), SubscriberResponse.class));
                 }
             }
             return ResponseEntity.ok(resp);
@@ -231,17 +230,17 @@ public class SubscriberController {
         try {
             if (condition == null) throw new IllegalArgumentException("Search condition is required");
 
-            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+            CompletableFuture<List<DataPayload>> filteredItemsFuture = entityService.getItemsByCondition(
                     Subscriber.ENTITY_NAME,
-                    String.valueOf(Subscriber.ENTITY_VERSION),
+                    Subscriber.ENTITY_VERSION,
                     condition,
                     true
             );
-            ArrayNode array = filteredItemsFuture.get();
+            List<DataPayload> dataPayloads = filteredItemsFuture.get();
             List<SubscriberResponse> resp = new ArrayList<>();
-            if (array != null) {
-                for (int i = 0; i < array.size(); i++) {
-                    resp.add(objectMapper.treeToValue(array.get(i), SubscriberResponse.class));
+            if (dataPayloads != null) {
+                for (DataPayload payload : dataPayloads) {
+                    resp.add(objectMapper.treeToValue(payload.getData(), SubscriberResponse.class));
                 }
             }
             return ResponseEntity.ok(resp);
@@ -285,8 +284,6 @@ public class SubscriberController {
             Subscriber entity = mapToEntity(request);
 
             CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(
-                    Subscriber.ENTITY_NAME,
-                    String.valueOf(Subscriber.ENTITY_VERSION),
                     UUID.fromString(technicalId),
                     entity
             );
@@ -327,11 +324,7 @@ public class SubscriberController {
         try {
             if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
 
-            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(
-                    Subscriber.ENTITY_NAME,
-                    String.valueOf(Subscriber.ENTITY_VERSION),
-                    UUID.fromString(technicalId)
-            );
+            CompletableFuture<UUID> deletedIdFuture = entityService.deleteItem(UUID.fromString(technicalId));
             UUID deletedId = deletedIdFuture.get();
             IdResponse resp = new IdResponse();
             resp.setTechnicalId(deletedId.toString());

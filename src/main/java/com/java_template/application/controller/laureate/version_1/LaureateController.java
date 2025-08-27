@@ -2,12 +2,14 @@ package com.java_template.application.controller.laureate.version_1;
 
 import static com.java_template.common.config.Config.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
+import org.cyoda.cloud.api.event.common.DataPayload;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,9 +40,11 @@ public class LaureateController {
     private static final Logger logger = LoggerFactory.getLogger(LaureateController.class);
 
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public LaureateController(EntityService entityService) {
+    public LaureateController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     @Operation(summary = "Create Laureate", description = "Persist a single Laureate entity. Controller is a proxy to EntityService.")
@@ -59,7 +63,7 @@ public class LaureateController {
             if (request == null) throw new IllegalArgumentException("Request body is required");
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     Laureate.ENTITY_NAME,
-                    String.valueOf(Laureate.ENTITY_VERSION),
+                    Laureate.ENTITY_VERSION,
                     request
             );
             UUID technicalId = idFuture.get();
@@ -105,7 +109,7 @@ public class LaureateController {
             if (requests == null || requests.isEmpty()) throw new IllegalArgumentException("Request body must contain at least one Laureate");
             CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     Laureate.ENTITY_NAME,
-                    String.valueOf(Laureate.ENTITY_VERSION),
+                    Laureate.ENTITY_VERSION,
                     requests
             );
             List<UUID> ids = idsFuture.get();
@@ -153,12 +157,9 @@ public class LaureateController {
     ) {
         try {
             if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
-            CompletableFuture<ObjectNode> itemFuture = entityService.getItem(
-                    Laureate.ENTITY_NAME,
-                    String.valueOf(Laureate.ENTITY_VERSION),
-                    UUID.fromString(technicalId)
-            );
-            ObjectNode node = itemFuture.get();
+            CompletableFuture<DataPayload> itemFuture = entityService.getItem(UUID.fromString(technicalId));
+            DataPayload dataPayload = itemFuture.get();
+            ObjectNode node = dataPayload != null ? (ObjectNode) dataPayload.getData() : null;
             return ResponseEntity.ok(node);
         } catch (IllegalArgumentException iae) {
             logger.warn("Invalid request to get Laureate: {}", iae.getMessage());
@@ -191,11 +192,18 @@ public class LaureateController {
     @GetMapping
     public ResponseEntity<?> getAllLaureates() {
         try {
-            CompletableFuture<ArrayNode> itemsFuture = entityService.getItems(
+            CompletableFuture<List<DataPayload>> itemsFuture = entityService.getItems(
                     Laureate.ENTITY_NAME,
-                    String.valueOf(Laureate.ENTITY_VERSION)
+                    Laureate.ENTITY_VERSION,
+                    null, null, null
             );
-            ArrayNode nodes = itemsFuture.get();
+            List<DataPayload> dataPayloads = itemsFuture.get();
+            ArrayNode nodes = objectMapper.createArrayNode();
+            if (dataPayloads != null) {
+                for (DataPayload payload : dataPayloads) {
+                    nodes.add(payload.getData());
+                }
+            }
             return ResponseEntity.ok(nodes);
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
@@ -235,13 +243,19 @@ public class LaureateController {
                     Condition.of(jsonPath, operator, value)
             );
 
-            CompletableFuture<ArrayNode> filteredItemsFuture = entityService.getItemsByCondition(
+            CompletableFuture<List<DataPayload>> filteredItemsFuture = entityService.getItemsByCondition(
                     Laureate.ENTITY_NAME,
-                    String.valueOf(Laureate.ENTITY_VERSION),
+                    Laureate.ENTITY_VERSION,
                     condition,
                     true
             );
-            ArrayNode results = filteredItemsFuture.get();
+            List<DataPayload> dataPayloads = filteredItemsFuture.get();
+            ArrayNode results = objectMapper.createArrayNode();
+            if (dataPayloads != null) {
+                for (DataPayload payload : dataPayloads) {
+                    results.add(payload.getData());
+                }
+            }
             return ResponseEntity.ok(results);
         } catch (IllegalArgumentException iae) {
             logger.warn("Invalid search request for Laureates: {}", iae.getMessage());
@@ -283,8 +297,6 @@ public class LaureateController {
             if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
             if (request == null) throw new IllegalArgumentException("Request body is required");
             CompletableFuture<UUID> updatedId = entityService.updateItem(
-                    Laureate.ENTITY_NAME,
-                    String.valueOf(Laureate.ENTITY_VERSION),
                     UUID.fromString(technicalId),
                     request
             );
@@ -329,11 +341,7 @@ public class LaureateController {
     ) {
         try {
             if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
-            CompletableFuture<UUID> deletedId = entityService.deleteItem(
-                    Laureate.ENTITY_NAME,
-                    String.valueOf(Laureate.ENTITY_VERSION),
-                    UUID.fromString(technicalId)
-            );
+            CompletableFuture<UUID> deletedId = entityService.deleteItem(UUID.fromString(technicalId));
             UUID id = deletedId.get();
             TechnicalIdResponse resp = new TechnicalIdResponse();
             resp.setTechnicalId(id.toString());
