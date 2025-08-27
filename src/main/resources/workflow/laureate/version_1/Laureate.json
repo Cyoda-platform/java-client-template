@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "name": "Laureate Workflow",
+  "desc": "Workflow for Laureate entity based on functional requirements: receive, validate, enrich, deduplicate/upsert, complete. Invalid laureates are routed to an INVALID final state.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initial_to_received",
+          "next": "RECEIVED",
+          "manual": false
+        }
+      ]
+    },
+    "RECEIVED": {
+      "transitions": [
+        {
+          "name": "received_to_validated",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "validated_to_enriched_if_valid",
+          "next": "ENRICHED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsValidLaureateCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validated_to_invalid_if_not_valid",
+          "next": "INVALID",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.validationStatus",
+            "operation": "EQUALS",
+            "value": "INVALID"
+          }
+        }
+      ]
+    },
+    "ENRICHED": {
+      "transitions": [
+        {
+          "name": "enriched_to_dedup_upsert",
+          "next": "DEDUPED_UPSERT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DedupUpsertProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DEDUPED_UPSERT": {
+      "transitions": [
+        {
+          "name": "deduped_upsert_to_completed",
+          "next": "COMPLETED",
+          "manual": false
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "INVALID": {
+      "transitions": []
+    }
+  }
+}
