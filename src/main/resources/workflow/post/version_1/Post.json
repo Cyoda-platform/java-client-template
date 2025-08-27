@@ -1,0 +1,130 @@
+{
+  "version": "1.0",
+  "name": "Post Workflow",
+  "desc": "Workflow for Post entity covering create, review, approval, scheduling, publishing and archival",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_to_draft",
+          "next": "draft",
+          "manual": false
+        }
+      ]
+    },
+    "draft": {
+      "transitions": [
+        {
+          "name": "author_submits_for_review",
+          "next": "in_review",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SubmitForReview",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "in_review": {
+      "transitions": [
+        {
+          "name": "admin_requests_changes",
+          "next": "changes_requested",
+          "manual": true
+        },
+        {
+          "name": "admin_approves",
+          "next": "approved",
+          "manual": true
+        }
+      ]
+    },
+    "changes_requested": {
+      "transitions": []
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "approved_to_scheduled",
+          "next": "scheduled",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasPublishDatetime",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "approved_to_published",
+          "next": "published",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasNoPublishDatetime",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "PublishPost",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "scheduled_to_published_on_time",
+          "next": "published",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NowAtOrAfterPublishDatetime",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "PublishPost",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "published": {
+      "transitions": [
+        {
+          "name": "admin_archives",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}

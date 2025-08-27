@@ -1,0 +1,110 @@
+{
+  "version": "1.0",
+  "name": "User Workflow",
+  "desc": "Workflow for User entity covering registration, email verification, activation, suspension and GDPR erasure/transfer.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_registered",
+          "next": "registered",
+          "manual": false
+        }
+      ]
+    },
+    "registered": {
+      "transitions": [
+        {
+          "name": "init_email_verification",
+          "next": "email_unverified",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InitEmailVerification",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "email_unverified": {
+      "transitions": [
+        {
+          "name": "verify_email_and_consent",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailVerifiedAndConsentCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "admin_suspend",
+          "next": "suspended",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AdminSuspendRequestedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "gdpr_erasure_request",
+          "next": "erased_pending",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "GdprErasureRequestedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": []
+    },
+    "erased_pending": {
+      "transitions": [
+        {
+          "name": "gdpr_transfer_immediate",
+          "next": "transferred",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GdprTransfer",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "transferred": {
+      "transitions": []
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "version": "1.0",
+  "name": "PostVersion Workflow",
+  "desc": "Workflow for PostVersion: editing -> ready_for_publish -> finalize_requested -> finalized. Normalization runs when author marks ready; finalization and embedding enqueue occur after Post publish is requested.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_editing",
+          "next": "editing",
+          "manual": false
+        }
+      ]
+    },
+    "editing": {
+      "transitions": [
+        {
+          "name": "author_marks_ready",
+          "next": "ready_for_publish",
+          "manual": true,
+          "processors": [
+            {
+              "name": "NormalizeAndChunk",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ready_for_publish": {
+      "transitions": [
+        {
+          "name": "publish_requested_by_post",
+          "next": "finalize_requested",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PublishRequestedByPostFunction",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "finalize_requested": {
+      "transitions": [
+        {
+          "name": "process_finalization",
+          "next": "finalized",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FinalizeVersion",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "EnqueueEmbeddings",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "finalized": {
+      "transitions": []
+    }
+  }
+}

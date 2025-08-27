@@ -1,0 +1,123 @@
+{
+  "version": "1.0",
+  "name": "Consent Workflow",
+  "desc": "Workflow for Consent entity following functional requirements: requested -> (pending_verification if double opt-in) -> active -> revoked",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_requested",
+          "next": "requested",
+          "manual": false
+        }
+      ]
+    },
+    "requested": {
+      "transitions": [
+        {
+          "name": "requested_to_pending_verification",
+          "next": "pending_verification",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DoubleOptInRequiredCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "requested_to_active",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DoubleOptInNotRequiredCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "pending_verification": {
+      "transitions": [
+        {
+          "name": "pending_to_token_created",
+          "next": "verification_token_created",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateVerificationToken",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "verification_token_created": {
+      "transitions": [
+        {
+          "name": "token_to_active_on_verification",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationReceivedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "active_to_revoking_on_user_revoke",
+          "next": "revoking",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UserRevokesCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "revoking": {
+      "transitions": [
+        {
+          "name": "revoking_to_revoked",
+          "next": "revoked",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RevokeConsent",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "revoked": {
+      "transitions": []
+    }
+  }
+}
