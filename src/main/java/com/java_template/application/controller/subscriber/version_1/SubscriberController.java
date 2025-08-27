@@ -542,7 +542,6 @@ public class SubscriberController {
 
     @Data
     @NoArgsConstructor
-    @AllArgsConstructor
     @Schema(name = "TechnicalIdResponse", description = "Response containing created/updated/deleted technical id")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id (UUID)", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
