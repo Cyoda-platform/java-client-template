@@ -119,7 +119,16 @@ public class ContactVerificationProcessor implements CyodaProcessor {
             // Persist verification flag back into the entity using reflection so persistence picks it up.
             setFieldValue(entity, "verified", verified);
         } catch (Exception ex) {
-            logger.error("Unexpected error during contact verification for subscriber {}: {}", entity != null ? safeString(getFieldValue(entity, "id")) : "unknown", ex.getMessage(), ex);
+            String id = "unknown";
+            if (entity != null) {
+                try {
+                    Object idObj = getFieldValue(entity, "id");
+                    id = safeString(idObj);
+                } catch (Exception ignore) {
+                    id = "unknown";
+                }
+            }
+            logger.error("Unexpected error during contact verification for subscriber {}: {}", id, ex.getMessage(), ex);
             if (entity != null) {
                 try {
                     setFieldValue(entity, "verified", Boolean.FALSE);
