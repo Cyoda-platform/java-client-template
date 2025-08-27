@@ -1,0 +1,87 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "errorDetails": [],
+                    "finishedAt": "2025-08-27T12:00:30Z",
+                    "id": "job-2025-08-27-01",
+                    "notificationsSent": true,
+                    "resultSummary": {
+                        "errorCount": 1,
+                        "ingestedCount": 10,
+                        "updatedCount": 2
+                    },
+                    "schedule": "manual",
+                    "scope": "incremental",
+                    "source": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records",
+                    "startedAt": "2025-08-27T12:00:00Z",
+                    "status": "NOTIFIED_SUBSCRIBERS",
+                    "subscribersSnapshot": [
+                        "sub-1",
+                        "sub-2"
+                    ]
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliationCity": "Tokyo",
+                    "affiliationCountry": "Japan",
+                    "affiliationName": "Some University",
+                    "ageAtAward": 70,
+                    "awardYear": "2010",
+                    "born": "1940-09-01",
+                    "borncity": "Hamamatsu",
+                    "borncountry": "Japan",
+                    "borncountrycode": "JP",
+                    "category": "Chemistry",
+                    "died": null,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "laureateId": "853",
+                    "motivation": "For outstanding contributions",
+                    "processingStatus": "ENRICHED",
+                    "provenance": {
+                        "ingestionJobId": "job-2025-08-27-01",
+                        "sourceRecordId": "record-853",
+                        "sourceTimestamp": "2025-08-27T12:00:00Z"
+                    },
+                    "surname": "Suzuki",
+                    "validationErrors": []
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactMethods": {
+                        "email": "alerts@example.com",
+                        "webhookUrl": "https://example.com/webhook"
+                    },
+                    "interests": {
+                        "categories": [
+                            "Chemistry",
+                            "Physics"
+                        ],
+                        "countries": [
+                            "JP",
+                            "US"
+                        ],
+                        "years": [
+                            "2010",
+                            "2011"
+                        ]
+                    },
+                    "lastNotificationStatus": "SUCCESS",
+                    "lastNotifiedJobId": "job-2025-08-27-01",
+                    "name": "Nobel Alerts",
+                    "preferredPayload": "summary",
+                    "subscriberId": "sub-1"
+                }
+            }
+        }
+    ]
+}
