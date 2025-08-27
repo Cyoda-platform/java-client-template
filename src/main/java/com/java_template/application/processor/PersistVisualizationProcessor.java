@@ -83,18 +83,17 @@ public class PersistVisualizationProcessor implements CyodaProcessor {
         // Prepare points from bookingsByRange metric
         if (entity.getMetrics() != null && entity.getMetrics().getBookingsByRange() != null) {
             Map<String, Integer> bookingsByRange = entity.getMetrics().getBookingsByRange();
-            List<List<Object>> points = chartData.getData().getPoints();
-            if (points == null) {
-                points = new ArrayList<>();
-            } else {
-                points = new ArrayList<>(points); // copy to avoid unexpected shared mutable lists
-            }
+            // Obtain existing points (may be null) and create a single final mutable list for lambda use
+            List<List<Object>> existingPoints = chartData.getData().getPoints();
+            final List<List<Object>> points = existingPoints == null ? new ArrayList<>() : new ArrayList<>(existingPoints);
+
             bookingsByRange.forEach((range, count) -> {
                 List<Object> point = new ArrayList<>();
                 point.add(range);
                 point.add(count);
                 points.add(point);
             });
+
             chartData.getData().setPoints(points);
         } else {
             // ensure at least an empty points list so downstream renderers don't NPE

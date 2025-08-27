@@ -15,9 +15,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 
 @Component
 public class AutoArchiveCriterion implements CyodaCriterion {
@@ -33,7 +35,7 @@ public class AutoArchiveCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Report.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -42,7 +44,8 @@ public class AutoArchiveCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Report> context) {
@@ -64,13 +67,21 @@ public class AutoArchiveCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Report not exported; cannot auto-archive", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Parse exportedAt timestamp and ensure it's a valid ISO timestamp
+         // Parse exportedAt timestamp and ensure it's a valid ISO timestamp.
+         // Accept both OffsetDateTime and LocalDateTime representations (assume system zone if no offset).
          OffsetDateTime exportedDateTime;
          try {
              exportedDateTime = OffsetDateTime.parse(exportedAt);
          } catch (DateTimeParseException e) {
-             logger.warn("Invalid exportedAt timestamp for report {}: {}", report.getReportId(), exportedAt, e);
-             return EvaluationOutcome.fail("Invalid exportedAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             try {
+                 LocalDateTime ldt = LocalDateTime.parse(exportedAt);
+                 exportedDateTime = ldt.atZone(ZoneId.systemDefault()).toOffsetDateTime();
+                 logger.debug("Parsed exportedAt as LocalDateTime and converted to OffsetDateTime using system zone for report {}",
+                         report.getReportId());
+             } catch (DateTimeParseException e2) {
+                 logger.warn("Invalid exportedAt timestamp for report {}: {}", report.getReportId(), exportedAt, e2);
+                 return EvaluationOutcome.fail("Invalid exportedAt timestamp", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
          }
 
          // Business rule: auto-archive only if exportedAt is older than threshold (30 days)
@@ -92,6 +103,8 @@ public class AutoArchiveCriterion implements CyodaCriterion {
          }
 
          // All checks passed — eligible for auto-archive
+         logger.info("Report {} eligible for auto-archive (exportedAt={}, daysOld={})",
+                 report.getReportId(), exportedDateTime, daysOld);
          return EvaluationOutcome.success();
     }
 }

@@ -37,10 +37,12 @@ public class StartJobProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing ReportJob for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(ReportJob.class)
+            // First ensure we have requestedAt set so entity.isValid() can succeed when appropriate
+            .map(this::ensureRequestedAt)
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -53,15 +55,21 @@ public class StartJobProcessor implements CyodaProcessor {
         return entity != null && entity.isValid();
     }
 
-    private ReportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ReportJob> context) {
+    private ReportJob ensureRequestedAt(ProcessorSerializer.ProcessorEntityExecutionContext<ReportJob> context) {
         ReportJob job = context.entity();
-        logger.info("StartJobProcessor handling jobId={} currentStatus={}", job.getJobId(), job.getStatus());
-
-        // Ensure requestedAt is present; if absent set to now
+        if (job == null) return null;
         if (job.getRequestedAt() == null || job.getRequestedAt().isBlank()) {
             job.setRequestedAt(Instant.now().toString());
             logger.debug("requestedAt was missing; set to now for jobId={}", job.getJobId());
         }
+        return job;
+    }
+
+    private ReportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ReportJob> context) {
+        ReportJob job = context.entity();
+        if (job == null) return null;
+
+        logger.info("StartJobProcessor handling jobId={} currentStatus={}", job.getJobId(), job.getStatus());
 
         // Basic validation of filter criteria: price range and date range consistency.
         ReportJob.FilterCriteria fc = job.getFilterCriteria();

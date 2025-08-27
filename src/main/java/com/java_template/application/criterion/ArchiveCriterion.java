@@ -29,7 +29,7 @@ public class ArchiveCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Report.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,12 +38,14 @@ public class ArchiveCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Report> context) {
          Report entity = context.entity();
-         // Basic required fields check
+
+         // Validation: required identity and timestamps
          if (entity.getReportId() == null || entity.getReportId().isBlank()) {
              return EvaluationOutcome.fail("reportId is required for archival", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -51,12 +53,12 @@ public class ArchiveCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("generatedAt is required for archival", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // A report must have rows to be considered for archival (reports without rows are suspicious)
+         // Data quality: ensure report contains rows
          if (entity.getRows() == null || entity.getRows().isEmpty()) {
              return EvaluationOutcome.fail("report has no rows and cannot be archived", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Business rule: only exported reports should be archived.
+         // Business rule: only exported reports are eligible for archival
          if (entity.getExportedAt() == null || entity.getExportedAt().isBlank()) {
              return EvaluationOutcome.fail("report has not been exported; only exported reports may be archived", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }

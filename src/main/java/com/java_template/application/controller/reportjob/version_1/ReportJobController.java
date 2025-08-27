@@ -25,6 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -234,7 +235,8 @@ public class ReportJobController {
     ) {
         try {
             UUID tid = UUID.fromString(technicalId);
-            ReportJob reportJob = toReportJob(request.toCreateRequest());
+            CreateReportJobRequest payload = request.toCreateRequest();
+            ReportJob reportJob = toReportJob(payload);
             CompletableFuture<UUID> updatedFuture = entityService.updateItem(
                     ReportJob.ENTITY_NAME,
                     String.valueOf(ReportJob.ENTITY_VERSION),
