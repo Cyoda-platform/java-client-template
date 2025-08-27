@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -47,8 +46,6 @@ public class JobController {
     })
     @PostMapping
     public ResponseEntity<TechnicalIdResponse> createJob(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Job create request", required = true,
-                    content = @Content(schema = @Schema(implementation = CreateJobRequest.class)))
             @RequestBody CreateJobRequest request) {
         try {
             if (request == null) {
@@ -64,7 +61,7 @@ public class JobController {
                 job.setSubscribersSnapshot(request.getSubscribersSnapshot());
             }
 
-            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+            CompletableFuture<UUID> idFuture = entityService.addItem(
                     Job.ENTITY_NAME,
                     String.valueOf(Job.ENTITY_VERSION),
                     job
@@ -144,9 +141,8 @@ public class JobController {
         }
     }
 
-    // Request/Response DTOs
+    // Request/Response DTOs (implemented as plain POJOs to avoid Lombok dependency issues)
 
-    @Data
     @Schema(name = "CreateJobRequest", description = "Payload to create a Job")
     public static class CreateJobRequest {
         @Schema(description = "Business id supplied on create", example = "job-2025-08-27-01")
@@ -163,16 +159,63 @@ public class JobController {
 
         @Schema(description = "Snapshot of subscriber ids to notify", example = "[\"sub-1\",\"sub-2\"]")
         private List<String> subscribersSnapshot;
+
+        // getters & setters
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public String getSchedule() {
+            return schedule;
+        }
+
+        public void setSchedule(String schedule) {
+            this.schedule = schedule;
+        }
+
+        public String getSource() {
+            return source;
+        }
+
+        public void setSource(String source) {
+            this.source = source;
+        }
+
+        public String getScope() {
+            return scope;
+        }
+
+        public void setScope(String scope) {
+            this.scope = scope;
+        }
+
+        public List<String> getSubscribersSnapshot() {
+            return subscribersSnapshot;
+        }
+
+        public void setSubscribersSnapshot(List<String> subscribersSnapshot) {
+            this.subscribersSnapshot = subscribersSnapshot;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing the technicalId")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id of the persisted entity", example = "technicalId-abc123")
         private String technicalId;
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
-    @Data
     @Schema(name = "JobResponse", description = "Job read response")
     public static class JobResponse {
         @Schema(description = "Business id", example = "job-2025-08-27-01")
@@ -195,9 +238,65 @@ public class JobController {
 
         @Schema(description = "List of error messages")
         private List<String> errorDetails;
+
+        // getters & setters
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getStartedAt() {
+            return startedAt;
+        }
+
+        public void setStartedAt(String startedAt) {
+            this.startedAt = startedAt;
+        }
+
+        public String getFinishedAt() {
+            return finishedAt;
+        }
+
+        public void setFinishedAt(String finishedAt) {
+            this.finishedAt = finishedAt;
+        }
+
+        public ResultSummaryDto getResultSummary() {
+            return resultSummary;
+        }
+
+        public void setResultSummary(ResultSummaryDto resultSummary) {
+            this.resultSummary = resultSummary;
+        }
+
+        public List<String> getErrorDetails() {
+            return errorDetails;
+        }
+
+        public void setErrorDetails(List<String> errorDetails) {
+            this.errorDetails = errorDetails;
+        }
     }
 
-    @Data
     @Schema(name = "ResultSummary", description = "Summary of ingestion results")
     public static class ResultSummaryDto {
         @Schema(description = "Number ingested", example = "10")
@@ -208,5 +307,30 @@ public class JobController {
 
         @Schema(description = "Number of errors", example = "1")
         private Integer errorCount;
+
+        // getters & setters
+        public Integer getIngestedCount() {
+            return ingestedCount;
+        }
+
+        public void setIngestedCount(Integer ingestedCount) {
+            this.ingestedCount = ingestedCount;
+        }
+
+        public Integer getUpdatedCount() {
+            return updatedCount;
+        }
+
+        public void setUpdatedCount(Integer updatedCount) {
+            this.updatedCount = updatedCount;
+        }
+
+        public Integer getErrorCount() {
+            return errorCount;
+        }
+
+        public void setErrorCount(Integer errorCount) {
+            this.errorCount = errorCount;
+        }
     }
 }

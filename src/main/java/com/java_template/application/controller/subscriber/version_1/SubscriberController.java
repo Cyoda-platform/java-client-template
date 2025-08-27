@@ -17,7 +17,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -386,7 +385,6 @@ public class SubscriberController {
 
     // Static DTOs for requests/responses
 
-    @Data
     @Schema(name = "SubscriberRequest", description = "Payload to create/update a Subscriber")
     public static class SubscriberRequest {
         @Schema(description = "Business subscriber id", example = "sub-1")
@@ -406,16 +404,94 @@ public class SubscriberController {
         @Schema(description = "Last notification status", example = "SUCCEEDED")
         private String lastNotificationStatus;
 
-        @Data
+        public String getSubscriberId() {
+            return subscriberId;
+        }
+
+        public void setSubscriberId(String subscriberId) {
+            this.subscriberId = subscriberId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Boolean getActive() {
+            return active;
+        }
+
+        public void setActive(Boolean active) {
+            this.active = active;
+        }
+
+        public ContactMethodsDto getContactMethods() {
+            return contactMethods;
+        }
+
+        public void setContactMethods(ContactMethodsDto contactMethods) {
+            this.contactMethods = contactMethods;
+        }
+
+        public InterestsDto getInterests() {
+            return interests;
+        }
+
+        public void setInterests(InterestsDto interests) {
+            this.interests = interests;
+        }
+
+        public String getPreferredPayload() {
+            return preferredPayload;
+        }
+
+        public void setPreferredPayload(String preferredPayload) {
+            this.preferredPayload = preferredPayload;
+        }
+
+        public String getLastNotifiedJobId() {
+            return lastNotifiedJobId;
+        }
+
+        public void setLastNotifiedJobId(String lastNotifiedJobId) {
+            this.lastNotifiedJobId = lastNotifiedJobId;
+        }
+
+        public String getLastNotificationStatus() {
+            return lastNotificationStatus;
+        }
+
+        public void setLastNotificationStatus(String lastNotificationStatus) {
+            this.lastNotificationStatus = lastNotificationStatus;
+        }
+
         @Schema(name = "ContactMethods", description = "Contact methods for subscriber")
         public static class ContactMethodsDto {
             @Schema(description = "Email address", example = "alerts@example.com")
             private String email;
             @Schema(description = "Webhook URL", example = "https://example.com/webhook")
             private String webhookUrl;
+
+            public String getEmail() {
+                return email;
+            }
+
+            public void setEmail(String email) {
+                this.email = email;
+            }
+
+            public String getWebhookUrl() {
+                return webhookUrl;
+            }
+
+            public void setWebhookUrl(String webhookUrl) {
+                this.webhookUrl = webhookUrl;
+            }
         }
 
-        @Data
         @Schema(name = "Interests", description = "Subscriber interests")
         public static class InterestsDto {
             @Schema(description = "Categories of interest", example = "[\"physics\",\"chemistry\"]")
@@ -424,10 +500,33 @@ public class SubscriberController {
             private List<String> countries;
             @Schema(description = "Years of interest", example = "[\"2020\",\"2021\"]")
             private List<String> years;
+
+            public List<String> getCategories() {
+                return categories;
+            }
+
+            public void setCategories(List<String> categories) {
+                this.categories = categories;
+            }
+
+            public List<String> getCountries() {
+                return countries;
+            }
+
+            public void setCountries(List<String> countries) {
+                this.countries = countries;
+            }
+
+            public List<String> getYears() {
+                return years;
+            }
+
+            public void setYears(List<String> years) {
+                this.years = years;
+            }
         }
     }
 
-    @Data
     @Schema(name = "SubscriberResponse", description = "Subscriber response payload")
     public static class SubscriberResponse {
         @Schema(description = "Business subscriber id", example = "sub-1")
@@ -447,24 +546,133 @@ public class SubscriberController {
         @Schema(description = "Last notification status", example = "SUCCEEDED")
         private String lastNotificationStatus;
 
-        @Data
+        public String getSubscriberId() {
+            return subscriberId;
+        }
+
+        public void setSubscriberId(String subscriberId) {
+            this.subscriberId = subscriberId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public Boolean getActive() {
+            return active;
+        }
+
+        public void setActive(Boolean active) {
+            this.active = active;
+        }
+
+        public ContactMethodsDto getContactMethods() {
+            return contactMethods;
+        }
+
+        public void setContactMethods(ContactMethodsDto contactMethods) {
+            this.contactMethods = contactMethods;
+        }
+
+        public InterestsDto getInterests() {
+            return interests;
+        }
+
+        public void setInterests(InterestsDto interests) {
+            this.interests = interests;
+        }
+
+        public String getPreferredPayload() {
+            return preferredPayload;
+        }
+
+        public void setPreferredPayload(String preferredPayload) {
+            this.preferredPayload = preferredPayload;
+        }
+
+        public String getLastNotifiedJobId() {
+            return lastNotifiedJobId;
+        }
+
+        public void setLastNotifiedJobId(String lastNotifiedJobId) {
+            this.lastNotifiedJobId = lastNotifiedJobId;
+        }
+
+        public String getLastNotificationStatus() {
+            return lastNotificationStatus;
+        }
+
+        public void setLastNotificationStatus(String lastNotificationStatus) {
+            this.lastNotificationStatus = lastNotificationStatus;
+        }
+
         public static class ContactMethodsDto {
             private String email;
             private String webhookUrl;
+
+            public String getEmail() {
+                return email;
+            }
+
+            public void setEmail(String email) {
+                this.email = email;
+            }
+
+            public String getWebhookUrl() {
+                return webhookUrl;
+            }
+
+            public void setWebhookUrl(String webhookUrl) {
+                this.webhookUrl = webhookUrl;
+            }
         }
 
-        @Data
         public static class InterestsDto {
             private List<String> categories;
             private List<String> countries;
             private List<String> years;
+
+            public List<String> getCategories() {
+                return categories;
+            }
+
+            public void setCategories(List<String> categories) {
+                this.categories = categories;
+            }
+
+            public List<String> getCountries() {
+                return countries;
+            }
+
+            public void setCountries(List<String> countries) {
+                this.countries = countries;
+            }
+
+            public List<String> getYears() {
+                return years;
+            }
+
+            public void setYears(List<String> years) {
+                this.years = years;
+            }
         }
     }
 
-    @Data
     @Schema(name = "IdResponse", description = "Response containing technicalId")
     public static class IdResponse {
         @Schema(description = "Technical id returned by the system", example = "5f8d0d3a-2f2b-4a12-9f9a-1a2b3c4d5e6f")
         private String technicalId;
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 }

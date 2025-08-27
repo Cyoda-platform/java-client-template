@@ -15,6 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 @Component
 public class SourceUnavailableCriterion implements CyodaCriterion {
 
@@ -29,7 +32,7 @@ public class SourceUnavailableCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +41,9 @@ public class SourceUnavailableCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // Must use exact criterion name (case-sensitive) as required
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
@@ -48,25 +53,44 @@ public class SourceUnavailableCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Entity is missing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
+         // Use only existing entity properties
          String source = entity.getSource();
          if (source == null || source.isBlank()) {
              // Missing source prevents ingestion; this is a validation error on the Job
              return EvaluationOutcome.fail("Job source is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String trimmed = source.trim().toLowerCase();
-         if (!(trimmed.startsWith("http://") || trimmed.startsWith("https://"))) {
-             // Source value is present but not a reachable/valid endpoint format -> data quality issue
+         String trimmed = source.trim();
+         String lower = trimmed.toLowerCase();
+         if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
+             // Source value is present but not a valid endpoint format -> data quality issue
              return EvaluationOutcome.fail("Job source is not a valid URL (must start with http:// or https://)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Additional lightweight precondition: ensure job is scheduled before attempting ingestion
+         // Ensure the URL parses and has a host — lightweight precondition for availability
+         try {
+             URI uri = new URI(trimmed);
+             String host = uri.getHost();
+             if (host == null || host.isBlank()) {
+                 logger.debug("Job source URI has no host: {}", trimmed);
+                 return EvaluationOutcome.fail("Job source URL has no host component", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         } catch (URISyntaxException e) {
+             logger.debug("Job source URI parsing failed: {} -> {}", trimmed, e.getMessage());
+             return EvaluationOutcome.fail("Job source is not a well-formed URI: " + e.getMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Precondition: job must be in SCHEDULED state before ingestion is attempted.
          String status = entity.getStatus();
          if (status == null || status.isBlank()) {
              return EvaluationOutcome.fail("Job status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+         if (!"SCHEDULED".equals(status.trim())) {
+             // If job isn't scheduled, it's a business-rule violation to attempt ingestion now
+             return EvaluationOutcome.fail("Job is not in SCHEDULED state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
 
-         // If all simple checks pass we consider source as available from an entity-validation perspective.
+         // If all lightweight checks pass we consider source as available from an entity-validation perspective.
          return EvaluationOutcome.success();
     }
 }

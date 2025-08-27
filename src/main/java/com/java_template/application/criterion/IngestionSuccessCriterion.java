@@ -29,7 +29,7 @@ public class IngestionSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Job.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,38 +38,62 @@ public class IngestionSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name match
+        return modelSpec != null && className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
          Job entity = context.entity();
 
          // Basic presence checks
+         if (entity == null) {
+             logger.debug("IngestionSuccessCriterion: entity is null in context");
+             return EvaluationOutcome.fail("Entity missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
          if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+             logger.debug("IngestionSuccessCriterion: job status missing for job");
              return EvaluationOutcome.fail("Job status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // This criterion is intended to be evaluated while the job is in INGESTING state.
-         if (!"INGESTING".equalsIgnoreCase(entity.getStatus())) {
+         // This criterion is intended to be evaluated while the job is in INGESTING state and finished.
+         String status = entity.getStatus().trim();
+         if (!"INGESTING".equals(status) && !"INGESTING".equalsIgnoreCase(status)) {
+             // If the job is not in INGESTING state this criterion should not mark success
+             String msg = String.format("Job is not in INGESTING state (current='%s')", status);
+             logger.debug("IngestionSuccessCriterion: {}", msg);
              return EvaluationOutcome.fail("Job is not in INGESTING state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         }
+
+         // finishedAt must be set for an ingestion to be considered completed
+         if (entity.getFinishedAt() == null || entity.getFinishedAt().isBlank()) {
+             logger.debug("IngestionSuccessCriterion: job finishedAt not set yet");
+             return EvaluationOutcome.fail("Job ingestion not finished", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
          // resultSummary must be present and valid to decide success
          Job.ResultSummary summary = entity.getResultSummary();
          if (summary == null) {
+             logger.debug("IngestionSuccessCriterion: missing resultSummary for job");
              return EvaluationOutcome.fail("Missing resultSummary for ingestion outcome", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (!summary.isValid()) {
+             logger.debug("IngestionSuccessCriterion: invalid resultSummary: ingested=%s updated=%s errors=%s",
+                 summary.getIngestedCount(), summary.getUpdatedCount(), summary.getErrorCount());
              return EvaluationOutcome.fail("Invalid resultSummary counts", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // If any errors were recorded, consider ingestion not successful
-         if (summary.getErrorCount() != null && summary.getErrorCount() > 0) {
-             String msg = String.format("Ingestion completed with %d errors", summary.getErrorCount());
+         Integer errorCount = summary.getErrorCount();
+         if (errorCount != null && errorCount > 0) {
+             String msg = String.format("Ingestion completed with %d errors", errorCount);
+             logger.info("IngestionSuccessCriterion: {}", msg);
              return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // No errors -> success
+         logger.info("IngestionSuccessCriterion: ingestion considered successful (ingested={}, updated={})",
+             summary.getIngestedCount(), summary.getUpdatedCount());
          return EvaluationOutcome.success();
     }
 }
