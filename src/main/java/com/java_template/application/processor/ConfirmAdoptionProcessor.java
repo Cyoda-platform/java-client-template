@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 
 import com.java_template.application.entity.adoption.version_1.Adoption;
 import com.java_template.application.entity.pet.version_1.Pet;
+import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ErrorInfo;
@@ -20,7 +21,6 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -73,36 +73,34 @@ public class ConfirmAdoptionProcessor implements CyodaProcessor {
         CompletableFuture<DataPayload> petFuture = entityService.getItem(Pet.ENTITY_NAME, Pet.ENTITY_VERSION, UUID.fromString(entity.getPetId()));
         CompletableFuture<DataPayload> userFuture = entityService.getItem(User.ENTITY_NAME, User.ENTITY_VERSION, UUID.fromString(entity.getUserId()));
 
-        petFuture.join(); // Wait for pet future
-        userFuture.join(); // Wait for user future
+        return petFuture.thenCombine(userFuture, (petData, userData) -> {
+            if (petData == null || userData == null) {
+                logger.error("User or Pet does not exist for adoption: {}", entity);
+                throw new IllegalStateException("User or Pet does not exist for adoption");
+            }
 
-        if (petFuture.isCompletedExceptionally() || userFuture.isCompletedExceptionally()) {
-            logger.error("User or Pet does not exist for adoption: {}", entity);
-            throw new IllegalStateException("User or Pet does not exist for adoption");
-        }
-
-        // Change pet status to ADOPTED
-        CompletableFuture<Pet> petDataFuture = petFuture.thenApply(dataPayload -> {
-            Pet pet = objectMapper.convertValue(dataPayload.getData(), Pet.class);
+            // Change pet status to ADOPTED
+            Pet pet = objectMapper.convertValue(petData.getData(), Pet.class);
             pet.setStatus("ADOPTED");
-            return pet;
-        });
 
-        petDataFuture.thenAccept(pet -> {
+            // Update pet status
             try {
                 entityService.updateItem(UUID.fromString(pet.getId()), pet).get();
             } catch (Exception e) {
                 logger.error("Failed to update pet status to ADOPTED: {}", e.getMessage(), e);
             }
-        });
 
-        // Update adoption status to COMPLETED
-        entity.setStatus("COMPLETED");
-        CompletableFuture<UUID> updatedId = entityService.updateItem(UUID.fromString(entity.getId()), entity);
-        updatedId.join();
+            // Update adoption status to COMPLETED
+            entity.setStatus("COMPLETED");
+            try {
+                entityService.updateItem(UUID.fromString(entity.getId()), entity).get();
+            } catch (Exception e) {
+                logger.error("Failed to update adoption status to COMPLETED: {}", e.getMessage(), e);
+            }
 
-        logger.info("Adoption confirmed and updated for entity: {}", entity.getId());
-        return entity;
+            logger.info("Adoption confirmed and updated for entity: {}", entity.getId());
+            return entity;
+        }).join();
     }
 }
 ```
