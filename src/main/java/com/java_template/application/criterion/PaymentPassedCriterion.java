@@ -29,7 +29,7 @@ public class PaymentPassedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Order.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,18 +38,30 @@ public class PaymentPassedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // CRITICAL: Use exact criterion name match (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
          Order entity = context.entity();
 
-         // Basic required fields validation using only available getters
          if (entity == null) {
              logger.warn("Order entity is null in PaymentPassedCriterion");
              return EvaluationOutcome.fail("Order entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // If entity provides an isValid() method, prefer it as a quick sanity check.
+         try {
+             if (!entity.isValid()) {
+                 return EvaluationOutcome.fail("Order entity failed basic validity checks", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         } catch (Exception ex) {
+             // Defensive: if isValid throws, treat as data quality failure but keep processing safe.
+             logger.warn("Exception while validating Order.isValid(): {}", ex.getMessage(), ex);
+             return EvaluationOutcome.fail("Order entity validity could not be determined", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Required buyer information for payment validation
          String buyerContact = entity.getBuyerContact();
          if (buyerContact == null || buyerContact.isBlank()) {
              return EvaluationOutcome.fail("buyerContact is required for payment validation", StandardEvalReasonCategories.VALIDATION_FAILURE);
@@ -60,11 +72,13 @@ public class PaymentPassedCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("buyerName is required for payment validation", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Reference to pet
          String petId = entity.getPetId();
          if (petId == null || petId.isBlank()) {
              return EvaluationOutcome.fail("petId reference is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Basic order metadata
          String type = entity.getType();
          if (type == null || type.isBlank()) {
              return EvaluationOutcome.fail("order type is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
@@ -83,11 +97,11 @@ public class PaymentPassedCriterion implements CyodaCriterion {
 
          // Business rule: Payment validation should only be applied to newly placed orders
          // Expect status to be "PLACED" before payment is evaluated
-         if (!"PLACED".equalsIgnoreCase(status)) {
+         if (!"PLACED".equals(status)) {
              return EvaluationOutcome.fail("order not in PLACED state, current status: " + status, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // All local checks passed. Note: availability of the pet is checked elsewhere in OrderValidationProcessor
+         // All local checks passed. Note: pet availability and reservation are handled by OrderValidationProcessor / FulfillmentProcessor.
          return EvaluationOutcome.success();
     }
 }

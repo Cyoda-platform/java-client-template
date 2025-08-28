@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,14 +62,15 @@ public class PetEnrichmentProcessor implements CyodaProcessor {
         return entity != null && entity.isValid();
     }
 
+    @SuppressWarnings("unchecked")
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet entity = context.entity();
 
         if (entity == null) return null;
 
         try {
-            // Ensure tags list exists
-            List<String> existingTags = entity.getTags();
+            // Access fields reflectively to avoid relying on generated getters/setters
+            List<String> existingTags = getField(entity, "tags", List.class);
             if (existingTags == null) {
                 existingTags = new ArrayList<>();
             }
@@ -77,21 +79,22 @@ public class PetEnrichmentProcessor implements CyodaProcessor {
             Set<String> tagSet = new LinkedHashSet<>(existingTags);
 
             // Add species-based tags
-            String species = entity.getSpecies() != null ? entity.getSpecies().toLowerCase() : "";
-            if (species.contains("cat")) {
+            String species = getField(entity, "species", String.class);
+            String speciesLower = species != null ? species.toLowerCase() : "";
+            if (speciesLower.contains("cat")) {
                 tagSet.add("playful");
                 tagSet.add("lapcat");
-            } else if (species.contains("dog")) {
+            } else if (speciesLower.contains("dog")) {
                 tagSet.add("playful");
                 tagSet.add("loyal");
-            } else if (!species.isBlank()) {
+            } else if (!speciesLower.isBlank()) {
                 tagSet.add("friendly");
             } else {
                 tagSet.add("companion");
             }
 
             // Add age-related tag
-            Integer age = entity.getAge();
+            Integer age = getField(entity, "age", Integer.class);
             if (age != null) {
                 if (age < 1) {
                     tagSet.add("young");
@@ -107,21 +110,24 @@ public class PetEnrichmentProcessor implements CyodaProcessor {
             }
 
             // Add a tag indicating imported source if available
-            if (entity.getImportedFrom() != null && !entity.getImportedFrom().isBlank()) {
+            String importedFrom = getField(entity, "importedFrom", String.class);
+            if (importedFrom != null && !importedFrom.isBlank()) {
                 tagSet.add("imported");
             }
 
-            // Persist tags back to the entity
-            entity.setTags(new ArrayList<>(tagSet));
+            // Persist tags back to the entity (reflective set)
+            setField(entity, "tags", new ArrayList<>(tagSet));
 
             // Generate a friendly description if missing or blank
-            String desc = entity.getDescription();
+            String desc = getField(entity, "description", String.class);
             if (desc == null || desc.isBlank()) {
-                String name = (entity.getName() != null && !entity.getName().isBlank()) ? entity.getName() : "This pet";
-                String breed = (entity.getBreed() != null && !entity.getBreed().isBlank()) ? entity.getBreed() : "";
-                String speciesText = (entity.getSpecies() != null && !entity.getSpecies().isBlank()) ? entity.getSpecies() : "pet";
+                String name = getField(entity, "name", String.class);
+                name = (name != null && !name.isBlank()) ? name : "This pet";
+                String breed = getField(entity, "breed", String.class);
+                breed = (breed != null && !breed.isBlank()) ? breed : "";
+                String speciesText = (species != null && !species.isBlank()) ? species : "pet";
                 String ageText = (age == null) ? "of unknown age" : ("about " + age + " year" + (age == 1 ? "" : "s") + " old");
-                String imported = (entity.getImportedFrom() != null && !entity.getImportedFrom().isBlank()) ? " Imported from " + entity.getImportedFrom() + "." : "";
+                String imported = (importedFrom != null && !importedFrom.isBlank()) ? " Imported from " + importedFrom + "." : "";
                 String tagSummary = String.join(", ", tagSet);
 
                 StringBuilder sb = new StringBuilder();
@@ -134,15 +140,65 @@ public class PetEnrichmentProcessor implements CyodaProcessor {
                 sb.append("Looks like a ").append(tagSummary).append(".");
                 sb.append(imported);
 
-                entity.setDescription(sb.toString().trim());
+                setField(entity, "description", sb.toString().trim());
             }
 
             // Do not change availability/status here — publishing processor will set status AVAILABLE.
-            logger.info("Enriched pet {} with tags={} and description present={}", entity.getPetId(), entity.getTags(), entity.getDescription() != null && !entity.getDescription().isBlank());
+            String petId = getField(entity, "petId", String.class);
+            logger.info("Enriched pet {} with tags={} and description present={}", petId, getField(entity, "tags", List.class), getField(entity, "description", String.class) != null && !getField(entity, "description", String.class).isBlank());
         } catch (Exception ex) {
-            logger.error("Failed to enrich Pet {}: {}", entity.getPetId(), ex.getMessage(), ex);
+            // Try to log petId if available
+            String pid = null;
+            try { pid = getField(entity, "petId", String.class); } catch (Exception e) { /* ignore */ }
+            logger.error("Failed to enrich Pet {}: {}", pid != null ? pid : "unknown", ex.getMessage(), ex);
         }
 
         return entity;
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T getField(Object target, String fieldName, Class<T> clazz) {
+        if (target == null) return null;
+        try {
+            Field f = findField(target.getClass(), fieldName);
+            if (f == null) return null;
+            f.setAccessible(true);
+            Object val = f.get(target);
+            if (val == null) return null;
+            if (clazz.isInstance(val)) {
+                return (T) val;
+            }
+            // handle primitive wrappers and casting
+            return clazz.cast(val);
+        } catch (Exception e) {
+            logger.debug("Unable to read field '{}' on {}: {}", fieldName, target.getClass().getSimpleName(), e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean setField(Object target, String fieldName, Object value) {
+        if (target == null) return false;
+        try {
+            Field f = findField(target.getClass(), fieldName);
+            if (f == null) return false;
+            f.setAccessible(true);
+            f.set(target, value);
+            return true;
+        } catch (Exception e) {
+            logger.debug("Unable to set field '{}' on {}: {}", fieldName, target.getClass().getSimpleName(), e.getMessage());
+            return false;
+        }
+    }
+
+    private Field findField(Class<?> cls, String name) {
+        Class<?> current = cls;
+        while (current != null && current != Object.class) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException ex) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
     }
 }

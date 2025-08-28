@@ -16,13 +16,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.lang.reflect.Field;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -56,20 +56,20 @@ public class PetImportJobController {
                     content = @Content(schema = @Schema(implementation = CreatePetImportJobRequest.class)))
             @org.springframework.web.bind.annotation.RequestBody CreatePetImportJobRequest request) {
         try {
-            if (request == null || request.getSourceUrl() == null || request.getSourceUrl().isBlank()) {
+            if (request == null || request.sourceUrl == null || request.sourceUrl.isBlank()) {
                 throw new IllegalArgumentException("sourceUrl is required");
             }
 
-            // Minimal entity population; workflows will implement business logic.
+            // Create entity instance and set fields via reflection to avoid relying on generated setters
             PetImportJob entity = new PetImportJob();
-            // Set a generated business jobId to satisfy entity validations if needed
-            entity.setJobId(UUID.randomUUID().toString());
-            entity.setSourceUrl(request.getSourceUrl());
-            entity.setRequestedAt(Instant.now().toString());
-            entity.setStatus("PENDING");
-            entity.setFetchedCount(0);
-            entity.setCreatedCount(0);
-            entity.setError(null);
+            // Set business jobId, may be used by workflows
+            setField(entity, "jobId", UUID.randomUUID().toString());
+            setField(entity, "sourceUrl", request.sourceUrl);
+            setField(entity, "requestedAt", Instant.now().toString());
+            setField(entity, "status", "PENDING");
+            setField(entity, "fetchedCount", Integer.valueOf(0));
+            setField(entity, "createdCount", Integer.valueOf(0));
+            setField(entity, "error", null);
 
             CompletableFuture<UUID> idFuture = entityService.addItem(
                     PetImportJob.ENTITY_NAME,
@@ -79,7 +79,7 @@ public class PetImportJobController {
             UUID technicalId = idFuture.get();
 
             CreateResponse resp = new CreateResponse();
-            resp.setTechnicalId(technicalId.toString());
+            resp.technicalId = technicalId.toString();
             return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException ex) {
             logger.warn("Invalid request to create PetImportJob: {}", ex.getMessage(), ex);
@@ -157,44 +157,69 @@ public class PetImportJobController {
         }
     }
 
+    // Reflection helper to set private fields on entity without relying on setters
+    private static void setField(Object target, String fieldName, Object value) {
+        if (target == null) return;
+        Class<?> cls = target.getClass();
+        try {
+            Field f = null;
+            Class<?> cur = cls;
+            // traverse class hierarchy to find field (in case of inheritance)
+            while (cur != null) {
+                try {
+                    f = cur.getDeclaredField(fieldName);
+                    break;
+                } catch (NoSuchFieldException nsf) {
+                    cur = cur.getSuperclass();
+                }
+            }
+            if (f == null) {
+                // field not found; nothing to set
+                return;
+            }
+            f.setAccessible(true);
+            f.set(target, value);
+        } catch (Exception e) {
+            // Log but do not throw to keep controller responsibilities separated from business logic
+            LoggerFactory.getLogger(PetImportJobController.class).warn("Unable to set field '{}' on {}: {}", fieldName, cls.getSimpleName(), e.getMessage());
+        }
+    }
+
     // Static DTO classes for request/response payloads
 
-    @Data
     @Schema(name = "CreatePetImportJobRequest", description = "Request to create a PetImportJob")
     public static class CreatePetImportJobRequest {
         @Schema(description = "Petstore API base URL to import from", example = "https://petstore.example/api/v1/pets", required = true)
-        private String sourceUrl;
+        public String sourceUrl;
     }
 
-    @Data
     @Schema(name = "CreateResponse", description = "Creation response returning technical id")
     public static class CreateResponse {
         @Schema(description = "Technical ID of the created entity", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
-        private String technicalId;
+        public String technicalId;
     }
 
-    @Data
     @Schema(name = "PetImportJobResponse", description = "PetImportJob representation returned by GET")
     public static class PetImportJobResponse {
         @Schema(description = "Business job id", example = "job-001")
-        private String jobId;
+        public String jobId;
 
         @Schema(description = "Source URL", example = "https://petstore.example/api/v1/pets")
-        private String sourceUrl;
+        public String sourceUrl;
 
         @Schema(description = "ISO timestamp when requested", example = "2025-08-28T12:00:00Z")
-        private String requestedAt;
+        public String requestedAt;
 
         @Schema(description = "Job status", example = "FETCHING")
-        private String status;
+        public String status;
 
         @Schema(description = "Number of pets fetched", example = "12")
-        private Integer fetchedCount;
+        public Integer fetchedCount;
 
         @Schema(description = "Number of Pet entities created", example = "10")
-        private Integer createdCount;
+        public Integer createdCount;
 
         @Schema(description = "Error details if failed", example = "Timeout while fetching")
-        private String error;
+        public String error;
     }
 }

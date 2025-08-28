@@ -18,9 +18,6 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
-
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -83,37 +80,60 @@ public class OrderValidationProcessor implements CyodaProcessor {
         }
 
         try {
-            // Build simple search condition by petId field
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                    Condition.of("$.petId", "EQUALS", petRefId)
-            );
-
-            CompletableFuture<List<DataPayload>> itemsFuture = entityService.getItemsByCondition(
+            // Fetch all pets and find by business petId field to avoid SearchConditionRequest issues
+            CompletableFuture<List<DataPayload>> itemsFuture = entityService.getItems(
                     Pet.ENTITY_NAME,
                     Pet.ENTITY_VERSION,
-                    condition,
-                    true
+                    null, null, null
             );
 
             List<DataPayload> dataPayloads = itemsFuture.get();
 
             if (dataPayloads == null || dataPayloads.isEmpty()) {
+                logger.info("No pets found in store while validating order {}. Cancelling order.", entity.getOrderId());
+                entity.setStatus("CANCELLED");
+                return entity;
+            }
+
+            Pet matchedPet = null;
+            for (DataPayload payload : dataPayloads) {
+                if (payload == null || payload.getData() == null) continue;
+                // Try to read petId from the payload JSON node first (avoid full mapping cost)
+                try {
+                    String payloadPetId = null;
+                    if (payload.getData().has("petId") && !payload.getData().get("petId").isNull()) {
+                        payloadPetId = payload.getData().get("petId").asText(null);
+                    }
+                    if (payloadPetId != null && payloadPetId.equals(petRefId)) {
+                        // map to Pet for additional checks
+                        matchedPet = objectMapper.treeToValue(payload.getData(), Pet.class);
+                        break;
+                    } else {
+                        // sometimes petId might be nested or not present as string; attempt full mapping and compare
+                        Pet temp = objectMapper.treeToValue(payload.getData(), Pet.class);
+                        if (temp != null && temp.getPetId() != null && temp.getPetId().equals(petRefId)) {
+                            matchedPet = temp;
+                            break;
+                        }
+                    }
+                } catch (Exception mapEx) {
+                    logger.debug("Failed to parse pet payload while searching for petId {}: {}", petRefId, mapEx.getMessage());
+                }
+            }
+
+            if (matchedPet == null) {
                 logger.info("Referenced pet {} not found for order {}. Cancelling order.", petRefId, entity.getOrderId());
                 entity.setStatus("CANCELLED");
                 return entity;
             }
 
-            // Take first matching pet (petId is expected unique)
-            DataPayload payload = dataPayloads.get(0);
-            Pet pet = objectMapper.treeToValue(payload.getData(), Pet.class);
-
-            if (pet == null || !pet.isValid()) {
+            if (!matchedPet.isValid()) {
                 logger.info("Referenced pet {} is invalid for order {}. Cancelling order.", petRefId, entity.getOrderId());
                 entity.setStatus("CANCELLED");
                 return entity;
             }
 
-            String petStatus = pet.getStatus();
+            String petStatus = matchedPet.getStatus();
             if (petStatus != null && petStatus.equalsIgnoreCase("AVAILABLE")) {
                 // Pet is available — mark order as confirmed (payment validation passed)
                 logger.info("Pet {} is available. Confirming order {}", petRefId, entity.getOrderId());

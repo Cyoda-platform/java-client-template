@@ -15,7 +15,7 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,7 +131,7 @@ public class FulfillmentProcessor implements CyodaProcessor {
 
             // Persist pet update using technicalId from payload meta
             String technicalId = null;
-            ObjectNode meta = petPayload.getMeta();
+            JsonNode meta = petPayload.getMeta();
             if (meta != null && meta.has("entityId")) {
                 technicalId = meta.get("entityId").asText();
             }

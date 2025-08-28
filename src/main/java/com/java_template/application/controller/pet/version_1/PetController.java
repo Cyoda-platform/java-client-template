@@ -22,7 +22,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -206,7 +205,6 @@ public class PetController {
 
     // --- DTOs ---
 
-    @Data
     @Schema(name = "PetRequest", description = "Request payload to create or update a Pet")
     public static class PetRequest {
         @Schema(description = "Public business pet id", example = "pet-123")
@@ -241,9 +239,98 @@ public class PetController {
 
         @Schema(description = "Tags", example = "[\"playful\",\"lapcat\"]")
         private List<String> tags;
+
+        public PetRequest() {}
+
+        public String getPetId() {
+            return petId;
+        }
+
+        public void setPetId(String petId) {
+            this.petId = petId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getSpecies() {
+            return species;
+        }
+
+        public void setSpecies(String species) {
+            this.species = species;
+        }
+
+        public String getBreed() {
+            return breed;
+        }
+
+        public void setBreed(String breed) {
+            this.breed = breed;
+        }
+
+        public Integer getAge() {
+            return age;
+        }
+
+        public void setAge(Integer age) {
+            this.age = age;
+        }
+
+        public String getGender() {
+            return gender;
+        }
+
+        public void setGender(String gender) {
+            this.gender = gender;
+        }
+
+        public String getImportedFrom() {
+            return importedFrom;
+        }
+
+        public void setImportedFrom(String importedFrom) {
+            this.importedFrom = importedFrom;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public List<String> getPhotoUrls() {
+            return photoUrls;
+        }
+
+        public void setPhotoUrls(List<String> photoUrls) {
+            this.photoUrls = photoUrls;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public List<String> getTags() {
+            return tags;
+        }
+
+        public void setTags(List<String> tags) {
+            this.tags = tags;
+        }
     }
 
-    @Data
     @Schema(name = "PetResponse", description = "Pet entity response payload")
     public static class PetResponse {
         @Schema(description = "Technical id (entity store id)")
@@ -281,12 +368,119 @@ public class PetController {
 
         @Schema(description = "Tags", example = "[\"playful\",\"lapcat\"]")
         private List<String> tags;
+
+        public PetResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getPetId() {
+            return petId;
+        }
+
+        public void setPetId(String petId) {
+            this.petId = petId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getSpecies() {
+            return species;
+        }
+
+        public void setSpecies(String species) {
+            this.species = species;
+        }
+
+        public String getBreed() {
+            return breed;
+        }
+
+        public void setBreed(String breed) {
+            this.breed = breed;
+        }
+
+        public Integer getAge() {
+            return age;
+        }
+
+        public void setAge(Integer age) {
+            this.age = age;
+        }
+
+        public String getGender() {
+            return gender;
+        }
+
+        public void setGender(String gender) {
+            this.gender = gender;
+        }
+
+        public String getImportedFrom() {
+            return importedFrom;
+        }
+
+        public void setImportedFrom(String importedFrom) {
+            this.importedFrom = importedFrom;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public List<String> getPhotoUrls() {
+            return photoUrls;
+        }
+
+        public void setPhotoUrls(List<String> photoUrls) {
+            this.photoUrls = photoUrls;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public List<String> getTags() {
+            return tags;
+        }
+
+        public void setTags(List<String> tags) {
+            this.tags = tags;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing technicalId")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id of created entity", example = "b3d7f3a2-...-9f3a")
         private String technicalId;
+
+        public TechnicalIdResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 }

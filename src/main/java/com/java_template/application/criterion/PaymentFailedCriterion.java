@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentFailedCriterion implements CyodaCriterion {
 
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+    private final Logger logger = LoggerFactory.getLogger(PaymentFailedCriterion.class);
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
@@ -29,7 +29,7 @@ public class PaymentFailedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Order.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class PaymentFailedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name match (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
@@ -49,7 +50,7 @@ public class PaymentFailedCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Order entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Basic required fields for payment validation
+         // Required buyer information for payment processing
          if (entity.getBuyerContact() == null || entity.getBuyerContact().isBlank()) {
              return EvaluationOutcome.fail("buyerContact is required for payment validation", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }

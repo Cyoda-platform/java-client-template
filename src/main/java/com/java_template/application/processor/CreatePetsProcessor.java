@@ -12,9 +12,10 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -26,11 +27,10 @@ import java.net.http.HttpResponse;
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.io.IOException;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.UUID;
-import java.io.IOException;
 
 @Component
 public class CreatePetsProcessor implements CyodaProcessor {
@@ -64,6 +64,7 @@ public class CreatePetsProcessor implements CyodaProcessor {
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
+
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return className.equalsIgnoreCase(modelSpec.operationName());
@@ -74,24 +75,33 @@ public class CreatePetsProcessor implements CyodaProcessor {
     }
 
     private PetImportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<PetImportJob> context) {
-        PetImportJob job = context.entity();
-        if (job == null) return null;
+        Object jobObj = context.entity();
+        if (jobObj == null) return null;
 
-        // Mark job as CREATING while we persist pets
-        try {
-            job.setStatus("CREATING");
-        } catch (Exception ex) {
-            logger.warn("Unable to set status to CREATING: {}", ex.getMessage());
-        }
+        // Work with JsonNode representation to avoid compile-time coupling to Lombok-generated getters/setters.
+        ObjectNode jobNode = objectMapper.valueToTree(jobObj);
+        String jobId = jobNode.hasNonNull("jobId") ? jobNode.get("jobId").asText() : null;
+        String sourceUrl = jobNode.hasNonNull("sourceUrl") ? jobNode.get("sourceUrl").asText(null) : null;
 
-        String sourceUrl = job.getSourceUrl();
+        // Prepare result node as a mutable copy of original
+        ObjectNode resultNode = jobNode.deepCopy();
+
+        // Default safe values
+        resultNode.put("createdCount", 0);
+        resultNode.put("fetchedCount", 0);
+
         if (sourceUrl == null || sourceUrl.isBlank()) {
-            logger.error("Source URL is missing for job {}", job.getJobId());
-            job.setStatus("FAILED");
-            job.setError("Missing sourceUrl");
-            job.setFetchedCount(0);
-            job.setCreatedCount(0);
-            return job;
+            logger.error("Source URL is missing for job {}", jobId != null ? jobId : "unknown");
+            resultNode.put("status", "FAILED");
+            resultNode.put("error", "Missing sourceUrl");
+            resultNode.put("fetchedCount", 0);
+            resultNode.put("createdCount", 0);
+            try {
+                return objectMapper.treeToValue(resultNode, PetImportJob.class);
+            } catch (Exception ex) {
+                logger.error("Failed to build PetImportJob result object: {}", ex.getMessage(), ex);
+                return context.entity(); // fallback to original
+            }
         }
 
         List<Pet> petsToCreate = new ArrayList<>();
@@ -108,132 +118,146 @@ public class CreatePetsProcessor implements CyodaProcessor {
             if (statusCode < 200 || statusCode >= 300) {
                 String msg = "Failed to fetch pets from sourceUrl. HTTP status: " + statusCode;
                 logger.error(msg);
-                job.setStatus("FAILED");
-                job.setError(msg);
-                job.setFetchedCount(0);
-                job.setCreatedCount(0);
-                return job;
+                resultNode.put("status", "FAILED");
+                resultNode.put("error", msg);
+                resultNode.put("fetchedCount", 0);
+                resultNode.put("createdCount", 0);
+                try {
+                    return objectMapper.treeToValue(resultNode, PetImportJob.class);
+                } catch (Exception ex) {
+                    logger.error("Failed to build PetImportJob result object: {}", ex.getMessage(), ex);
+                    return context.entity();
+                }
             }
 
             String body = response.body();
             JsonNode root = objectMapper.readTree(body);
+            List<JsonNode> sourceItems = new ArrayList<>();
+
             if (root == null || root.isNull()) {
-                logger.warn("Empty response body when fetching pets for job {}", job.getJobId());
+                logger.warn("Empty response body when fetching pets for job {}", jobId != null ? jobId : "unknown");
             } else if (root.isArray()) {
-                for (JsonNode node : root) {
-                    Pet pet = mapNodeToPet(node, job);
-                    if (pet != null) {
-                        petsToCreate.add(pet);
-                    }
-                }
+                for (JsonNode node : root) sourceItems.add(node);
             } else if (root.isObject()) {
-                // If API returns an object with a data array or pets field, try common fields
                 if (root.has("pets") && root.get("pets").isArray()) {
-                    for (JsonNode node : root.get("pets")) {
-                        Pet pet = mapNodeToPet(node, job);
-                        if (pet != null) petsToCreate.add(pet);
-                    }
+                    for (JsonNode node : root.get("pets")) sourceItems.add(node);
                 } else if (root.has("data") && root.get("data").isArray()) {
-                    for (JsonNode node : root.get("data")) {
-                        Pet pet = mapNodeToPet(node, job);
-                        if (pet != null) petsToCreate.add(pet);
-                    }
+                    for (JsonNode node : root.get("data")) sourceItems.add(node);
                 } else {
-                    // single pet object
-                    Pet pet = mapNodeToPet(root, job);
-                    if (pet != null) petsToCreate.add(pet);
+                    sourceItems.add(root);
+                }
+            }
+
+            for (JsonNode node : sourceItems) {
+                ObjectNode mapped = mapNodeToPetNode(node, jobNode);
+                if (mapped != null) {
+                    // Convert to Pet using Jackson (avoids calling setters directly)
+                    try {
+                        Pet pet = objectMapper.treeToValue(mapped, Pet.class);
+                        if (pet != null) petsToCreate.add(pet);
+                    } catch (Exception e) {
+                        logger.warn("Failed to convert mapped node to Pet for job {}: {}", jobId != null ? jobId : "unknown", e.getMessage(), e);
+                    }
                 }
             }
 
             fetched = petsToCreate.size();
-            job.setFetchedCount(fetched);
+            resultNode.put("fetchedCount", fetched);
 
             if (petsToCreate.isEmpty()) {
-                job.setCreatedCount(0);
-                job.setStatus("COMPLETED");
-                return job;
+                resultNode.put("createdCount", 0);
+                resultNode.put("status", "COMPLETED");
+                resultNode.putNull("error");
+                try {
+                    return objectMapper.treeToValue(resultNode, PetImportJob.class);
+                } catch (Exception ex) {
+                    logger.error("Failed to build PetImportJob result object: {}", ex.getMessage(), ex);
+                    return context.entity();
+                }
             }
 
             // Persist pets using EntityService (this will trigger Pet workflows)
-            CompletableFuture<List<java.util.UUID>> idsFuture = entityService.addItems(
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     Pet.ENTITY_NAME,
                     Pet.ENTITY_VERSION,
                     petsToCreate
             );
-            List<java.util.UUID> createdIds = idsFuture.get();
-            job.setCreatedCount(createdIds != null ? createdIds.size() : 0);
-            job.setStatus("COMPLETED");
-            job.setError(null);
-            logger.info("Job {} created {} pets (fetched {}).", job.getJobId(), job.getCreatedCount(), job.getFetchedCount());
+            List<UUID> createdIds = idsFuture.get();
+            resultNode.put("createdCount", createdIds != null ? createdIds.size() : 0);
+            resultNode.put("status", "COMPLETED");
+            resultNode.putNull("error");
+            logger.info("Job {} created {} pets (fetched {}).", jobId != null ? jobId : "unknown", resultNode.get("createdCount").asInt(), resultNode.get("fetchedCount").asInt());
         } catch (IOException | InterruptedException e) {
-            logger.error("IO/Interrupted while creating pets for job {}: {}", job.getJobId(), e.getMessage(), e);
-            job.setStatus("FAILED");
-            job.setError("Fetch error: " + e.getMessage());
-            job.setCreatedCount(0);
-            job.setFetchedCount(fetched);
+            logger.error("IO/Interrupted while creating pets for job {}: {}", jobId != null ? jobId : "unknown", e.getMessage(), e);
+            resultNode.put("status", "FAILED");
+            resultNode.put("error", "Fetch error: " + e.getMessage());
+            resultNode.put("createdCount", 0);
+            resultNode.put("fetchedCount", fetched);
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
-            logger.error("Execution error while persisting pets for job {}: {}", job.getJobId(), e.getMessage(), e);
-            job.setStatus("FAILED");
-            job.setError("Persistence error: " + e.getMessage());
-            job.setCreatedCount(0);
-            job.setFetchedCount(fetched);
+            logger.error("Execution error while persisting pets for job {}: {}", jobId != null ? jobId : "unknown", e.getMessage(), e);
+            resultNode.put("status", "FAILED");
+            resultNode.put("error", "Persistence error: " + e.getMessage());
+            resultNode.put("createdCount", 0);
+            resultNode.put("fetchedCount", fetched);
         } catch (Exception e) {
-            logger.error("Unexpected error in CreatePetsProcessor for job {}: {}", job.getJobId(), e.getMessage(), e);
-            job.setStatus("FAILED");
-            job.setError("Unexpected error: " + e.getMessage());
-            job.setCreatedCount(0);
-            job.setFetchedCount(fetched);
+            logger.error("Unexpected error in CreatePetsProcessor for job {}: {}", jobId != null ? jobId : "unknown", e.getMessage(), e);
+            resultNode.put("status", "FAILED");
+            resultNode.put("error", "Unexpected error: " + e.getMessage());
+            resultNode.put("createdCount", 0);
+            resultNode.put("fetchedCount", fetched);
         }
 
-        return job;
+        try {
+            return objectMapper.treeToValue(resultNode, PetImportJob.class);
+        } catch (Exception ex) {
+            logger.error("Failed to convert result node back to PetImportJob: {}", ex.getMessage(), ex);
+            return context.entity();
+        }
     }
 
-    private Pet mapNodeToPet(JsonNode node, PetImportJob job) {
+    private ObjectNode mapNodeToPetNode(JsonNode node, ObjectNode jobNode) {
         if (node == null || node.isNull()) return null;
         try {
-            Pet pet = new Pet();
+            ObjectNode petNode = objectMapper.createObjectNode();
 
             // petId: try common fields id or petId, otherwise generate
             String petId = null;
             if (node.hasNonNull("petId")) petId = node.get("petId").asText(null);
             if ((petId == null || petId.isBlank()) && node.hasNonNull("id")) petId = node.get("id").asText(null);
             if (petId == null || petId.isBlank()) petId = UUID.randomUUID().toString();
-            pet.setPetId(petId);
+            petNode.put("petId", petId);
 
             // name
             String name = node.hasNonNull("name") ? node.get("name").asText() : ("pet-" + petId);
-            pet.setName(name);
+            petNode.put("name", name);
 
             // species
             String species = node.hasNonNull("species") ? node.get("species").asText() : "unknown";
-            pet.setSpecies(species);
+            petNode.put("species", species);
 
             // breed
-            String breed = node.hasNonNull("breed") ? node.get("breed").asText(null) : null;
-            pet.setBreed(breed);
+            if (node.hasNonNull("breed")) petNode.put("breed", node.get("breed").asText(null));
+            else petNode.putNull("breed");
 
             // age
-            Integer age = null;
-            if (node.hasNonNull("age") && node.get("age").canConvertToInt()) {
-                age = node.get("age").asInt();
-            }
-            pet.setAge(age);
+            if (node.hasNonNull("age") && node.get("age").canConvertToInt()) petNode.put("age", node.get("age").asInt());
+            else petNode.putNull("age");
 
             // gender
-            String gender = node.hasNonNull("gender") ? node.get("gender").asText(null) : null;
-            pet.setGender(gender);
+            if (node.hasNonNull("gender")) petNode.put("gender", node.get("gender").asText(null));
+            else petNode.putNull("gender");
 
             // importedFrom
-            String importedFrom = job != null && job.getSourceUrl() != null ? job.getSourceUrl() : "external";
-            pet.setImportedFrom(importedFrom);
+            String importedFrom = jobNode != null && jobNode.hasNonNull("sourceUrl") ? jobNode.get("sourceUrl").asText() : "external";
+            petNode.put("importedFrom", importedFrom);
 
             // description
-            String description = node.hasNonNull("description") ? node.get("description").asText(null) : null;
-            pet.setDescription(description);
+            if (node.hasNonNull("description")) petNode.put("description", node.get("description").asText(null));
+            else petNode.putNull("description");
 
             // photoUrls - ensure non-null list and non-blank entries
-            List<String> photoUrls = new ArrayList<>();
+            ArrayNode photoUrls = objectMapper.createArrayNode();
             if (node.has("photoUrls") && node.get("photoUrls").isArray()) {
                 for (JsonNode urlNode : node.get("photoUrls")) {
                     if (urlNode != null && !urlNode.isNull()) {
@@ -245,14 +269,13 @@ public class CreatePetsProcessor implements CyodaProcessor {
                 String single = node.get("photoUrl").asText(null);
                 if (single != null && !single.isBlank()) photoUrls.add(single);
             }
-            // Ensure at least empty list
-            pet.setPhotoUrls(photoUrls);
+            petNode.set("photoUrls", photoUrls);
 
             // status - set available by default for created pets
-            pet.setStatus("AVAILABLE");
+            petNode.put("status", "AVAILABLE");
 
             // tags - ensure non-null list; add imported tag
-            List<String> tags = new ArrayList<>();
+            ArrayNode tags = objectMapper.createArrayNode();
             if (node.has("tags") && node.get("tags").isArray()) {
                 for (JsonNode tnode : node.get("tags")) {
                     if (tnode != null && !tnode.isNull()) {
@@ -261,22 +284,21 @@ public class CreatePetsProcessor implements CyodaProcessor {
                     }
                 }
             }
-            // add a marker tag to indicate import source
-            String sourceTag = job != null && job.getJobId() != null ? ("imported:" + job.getJobId()) : "imported";
+            String sourceTag = jobNode != null && jobNode.hasNonNull("jobId") ? ("imported:" + jobNode.get("jobId").asText()) : "imported";
             tags.add(sourceTag);
-            pet.setTags(tags);
+            petNode.set("tags", tags);
 
-            // Validate minimal Pet structure to avoid failing isValid later when persisted by Cyoda
-            if (pet.getPhotoUrls() == null) pet.setPhotoUrls(new ArrayList<>());
-            if (pet.getTags() == null) pet.setTags(new ArrayList<>());
-            if (pet.getName() == null || pet.getName().isBlank()) pet.setName("Unnamed Pet");
-            if (pet.getSpecies() == null || pet.getSpecies().isBlank()) pet.setSpecies("unknown");
-            if (pet.getStatus() == null || pet.getStatus().isBlank()) pet.setStatus("AVAILABLE");
-            if (pet.getPetId() == null || pet.getPetId().isBlank()) pet.setPetId(UUID.randomUUID().toString());
+            // Ensure minimal required fields are present so Jackson mapping won't fail at persistence
+            if (!petNode.has("photoUrls")) petNode.set("photoUrls", objectMapper.createArrayNode());
+            if (!petNode.has("tags")) petNode.set("tags", objectMapper.createArrayNode());
+            if (petNode.hasNonNull("name") == false || petNode.get("name").asText("").isBlank()) petNode.put("name", "Unnamed Pet");
+            if (petNode.hasNonNull("species") == false || petNode.get("species").asText("").isBlank()) petNode.put("species", "unknown");
+            if (petNode.hasNonNull("status") == false || petNode.get("status").asText("").isBlank()) petNode.put("status", "AVAILABLE");
+            if (petNode.hasNonNull("petId") == false || petNode.get("petId").asText("").isBlank()) petNode.put("petId", UUID.randomUUID().toString());
 
-            return pet;
+            return petNode;
         } catch (Exception e) {
-            logger.warn("Failed to map node to Pet: {}", e.getMessage(), e);
+            logger.warn("Failed to map node to Pet node: {}", e.getMessage(), e);
             return null;
         }
     }
