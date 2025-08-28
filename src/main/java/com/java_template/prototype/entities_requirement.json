@@ -1,0 +1,57 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "description": "Playful cat",
+                    "gender": "female",
+                    "healthNotes": "Vaccinated",
+                    "id": "pet-source-123",
+                    "location": "Shelter A",
+                    "name": "Mittens",
+                    "photos": [
+                        "https://example.com/photos/mittens1.jpg"
+                    ],
+                    "source": "PetstoreAPI",
+                    "species": "cat",
+                    "status": "available"
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Main St",
+                    "adoptedPets": [],
+                    "contactInfo": {
+                        "email": "alice@example.com",
+                        "phone": "+1-555-0100"
+                    },
+                    "name": "Alice Doe",
+                    "ownerId": "owner-external-456",
+                    "role": "user",
+                    "savedPets": [
+                        "pet-source-123"
+                    ],
+                    "verificationStatus": "pending"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "decisionAt": null,
+                    "notes": "I have a fenced yard and previous experience",
+                    "petId": "pet-source-123",
+                    "requestId": "request-789",
+                    "requesterId": "owner-external-456",
+                    "reviewerId": null,
+                    "status": "submitted",
+                    "submittedAt": "2025-08-28T12:34:56Z"
+                }
+            }
+        }
+    ]
+}
