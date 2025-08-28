@@ -146,5 +146,11 @@ public class ImageOptimizeProcessor implements CyodaProcessor {
 
     private static class MapEntity extends HashMap<String, Object> implements CyodaEntity {
         private static final long serialVersionUID = 1L;
+
+        @Override
+        public String getModelKey() {
+            Object v = this.get("modelKey");
+            return v != null ? v.toString() : null;
+        }
     }
 }
