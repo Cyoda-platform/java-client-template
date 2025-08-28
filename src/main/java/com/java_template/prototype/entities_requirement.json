@@ -1,0 +1,56 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "ageMonths": 14,
+                    "breed": "tabby",
+                    "id": "pet-77",
+                    "metadata": {
+                        "enrichedAt": "2025-08-01T12:00:10Z",
+                        "images": [
+                            "https://cdn.example.com/pets/pet-77/1.jpg"
+                        ],
+                        "tags": [
+                            "friendly",
+                            "indoor"
+                        ]
+                    },
+                    "name": "Mittens",
+                    "species": "cat",
+                    "status": "available"
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "email": "ava@example.com",
+                    "id": "owner-42",
+                    "name": "Ava Catlover",
+                    "petsOwned": [
+                        "pet-77"
+                    ],
+                    "phone": "+123456789",
+                    "verified": false
+                }
+            }
+        },
+        {
+            "IngestionJob": {
+                "entity_data_example": {
+                    "completedAt": "2025-08-01T12:00:45Z",
+                    "requestedBy": "user-123",
+                    "sourceUrl": "https://petstore.example/api/pets",
+                    "startedAt": "2025-08-01T12:00:00Z",
+                    "status": "COMPLETED",
+                    "summary": {
+                        "created": 24,
+                        "failed": 1,
+                        "updated": 3
+                    }
+                }
+            }
+        }
+    ]
+}
