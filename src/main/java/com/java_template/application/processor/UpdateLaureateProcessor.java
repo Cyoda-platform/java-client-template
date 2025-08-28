@@ -98,17 +98,10 @@ public class UpdateLaureateProcessor implements CyodaProcessor {
                 // Pick the first existing match (assumes id unique)
                 DataPayload existingPayload = results.get(0);
 
-                // Attempt to extract technical id from payload metadata if present
-                String technicalId = null;
-                try {
-                    Object maybeId = existingPayload.getId();
-                    if (maybeId != null) {
-                        technicalId = maybeId.toString();
-                    }
-                } catch (Throwable t) {
-                    // fallback: maybe payload has technicalId field or no accessible id
-                    logger.debug("Could not access payload id via getId(): {}", t.getMessage());
-                }
+                // We cannot rely on a specific DataPayload metadata accessor (it may vary across implementations).
+                // Therefore we will attempt to deserialize the stored data and only update via EntityService
+                // if we can determine a technical UUID (not available via public DataPayload API here).
+                String technicalId = null; // left null because DataPayload accessor is not guaranteed
 
                 // Deserialize stored laureate
                 Laureate stored = null;

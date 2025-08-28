@@ -29,7 +29,7 @@ public class IsDuplicateCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Laureate.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,44 +38,48 @@ public class IsDuplicateCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // must match the exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
          Laureate entity = context.entity();
 
-         // Basic required fields validation
+         // Ensure required identity fields are present before attempting duplicate detection.
          if (entity.getId() == null) {
-             return EvaluationOutcome.fail("Laureate id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.debug("Laureate id missing during duplicate check");
+             return EvaluationOutcome.fail("Laureate id is required for duplicate detection", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getFirstname() == null || entity.getFirstname().isBlank()) {
-             return EvaluationOutcome.fail("Laureate firstname is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.debug("Laureate firstname missing during duplicate check (id={})", entity.getId());
+             return EvaluationOutcome.fail("Laureate firstname is required for duplicate detection", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getSurname() == null || entity.getSurname().isBlank()) {
-             return EvaluationOutcome.fail("Laureate surname is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getYear() == null || entity.getYear().isBlank()) {
-             return EvaluationOutcome.fail("Laureate year is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
-         }
-         if (entity.getCategory() == null || entity.getCategory().isBlank()) {
-             return EvaluationOutcome.fail("Laureate category is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             logger.debug("Laureate surname missing during duplicate check (id={})", entity.getId());
+             return EvaluationOutcome.fail("Laureate surname is required for duplicate detection", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          /*
-          Business rule for duplicate detection (heuristic):
-          - If we have a persisted snapshot (sourceSnapshot) and a lastUpdatedAt timestamp,
-            we assume this record has been seen before and treat it as a duplicate.
-          - If either of these pieces is missing, consider it a new record (not a duplicate).
-          This implements a deterministic, reproducible check using only the entity's available fields.
+          Duplicate detection heuristic:
+          - If the incoming laureate contains a sourceSnapshot and a lastUpdatedAt timestamp,
+            we treat this as evidence that the record was previously seen (duplicate).
+          - If either sourceSnapshot or lastUpdatedAt is missing/blank we consider it a new record (not a duplicate).
+          Rationale: we must rely only on available entity properties (no external DB access here).
          */
-         if (entity.getSourceSnapshot() == null || entity.getSourceSnapshot().isBlank()) {
-             return EvaluationOutcome.fail("No source snapshot available — treat as new record", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         }
-         if (entity.getLastUpdatedAt() == null || entity.getLastUpdatedAt().isBlank()) {
-             return EvaluationOutcome.fail("No lastUpdatedAt timestamp — treat as new record", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         boolean hasSnapshot = entity.getSourceSnapshot() != null && !entity.getSourceSnapshot().isBlank();
+         boolean hasLastUpdated = entity.getLastUpdatedAt() != null && !entity.getLastUpdatedAt().isBlank();
+
+         if (!hasSnapshot || !hasLastUpdated) {
+             // Not enough evidence to consider this a duplicate -> criterion fails (i.e., "IsDuplicate" == false)
+             String reason = String.format("Insufficient evidence for duplicate (sourceSnapshot=%s, lastUpdatedAt=%s)",
+                     hasSnapshot ? "present" : "missing",
+                     hasLastUpdated ? "present" : "missing");
+             logger.debug("Laureate considered new record: {} (id={})", reason, entity.getId());
+             return EvaluationOutcome.fail("No prior snapshot/timestamp found — treat as new record", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // If we reach here, heuristics indicate the incoming record matches an existing snapshot/timestamp -> duplicate
+         // Both pieces present: treat as duplicate
+         logger.debug("Laureate considered duplicate (id={})", entity.getId());
          return EvaluationOutcome.success();
     }
 }

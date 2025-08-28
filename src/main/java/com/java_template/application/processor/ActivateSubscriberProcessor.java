@@ -1,21 +1,17 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.cyoda.cloud.api.event.common.DataPayload;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.common.service.EntityService;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ActivateSubscriberProcessor implements CyodaProcessor {
@@ -36,26 +32,41 @@ public class ActivateSubscriberProcessor implements CyodaProcessor {
         return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
             .toEntity(Subscriber.class)
             .withErrorHandler((error, entity) -> {
-                    logger.error("Failed to extract entity: {}", error.getMessage(), error);
-                    return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
-                })
-            .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+                logger.error("Failed to extract entity: {}", error.getMessage(), error);
+                return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
+            })
+            // Use processor-level validation tuned to business rules instead of the entity's isValid()
+            .validate(this::isValidEntity, "Invalid subscriber payload")
+            .map(this::processEntityLogic)
             .complete();
     }
+
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Validate minimal subscriber shape according to business rules:
+     * - id, name and createdAt must be present
+     * - contact details (email or webhookUrl) are optional here; activation logic will decide final active flag
+     *
+     * We intentionally do not rely on Subscriber.isValid() because the entity-level validation in the
+     * model requires email/filters which is stricter than the subscribe/activation workflow allows.
+     */
     private boolean isValidEntity(Subscriber entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getId() == null || entity.getId().isBlank()) return false;
+        if (entity.getName() == null || entity.getName().isBlank()) return false;
+        if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) return false;
+        // filters, email, webhookUrl and active may be set or null at persisted time; accept and handle downstream.
+        return true;
     }
 
     private Subscriber processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
         Subscriber entity = context.entity();
 
-        // Validate contact: consider contact valid if either a plausible email or a webhook URL is present.
+        // Validate contact: contact valid if either a plausible email or a webhook URL is present.
         boolean contactValid = false;
 
         String email = entity.getEmail();

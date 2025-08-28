@@ -8,17 +8,15 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -53,9 +51,11 @@ public class DuplicateDetectorProcessor implements CyodaProcessor {
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            // capture request to avoid performing updates on the triggering entity itself
+            .map(ctx -> processEntityLogic(ctx, request))
             .complete();
     }
+
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return className.equalsIgnoreCase(modelSpec.operationName());
@@ -65,7 +65,7 @@ public class DuplicateDetectorProcessor implements CyodaProcessor {
         return entity != null && entity.isValid();
     }
 
-    private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
+    private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context, EntityProcessorCalculationRequest request) {
         Laureate entity = context.entity();
 
         // Build search condition: find laureates with same source id
@@ -110,37 +110,67 @@ public class DuplicateDetectorProcessor implements CyodaProcessor {
                     existing.setLastUpdatedAt(entity.getLastUpdatedAt() != null ? entity.getLastUpdatedAt() : Instant.now().toString());
 
                     // Attempt to retrieve technical id from payload to perform update.
-                    // DataPayload is expected to provide an id that can be parsed as UUID.
+                    // Use reflection to avoid compile-time dependency on DataPayload impl details.
                     String technicalId = null;
                     try {
-                        // Many payload implementations expose getId(); try to call it
-                        technicalId = (String) payload.getClass().getMethod("getId").invoke(payload);
-                    } catch (Exception ex) {
-                        // Fallback: try getTechnicalId
+                        Object maybeId = null;
                         try {
-                            technicalId = (String) payload.getClass().getMethod("getTechnicalId").invoke(payload);
-                        } catch (Exception ex2) {
-                            logger.warn("Unable to extract technical id from DataPayload for existing laureate. Skipping update. Payload class: {}", payload.getClass().getName());
+                            // try common getter names via reflection
+                            java.lang.reflect.Method m = payload.getClass().getMethod("getTechnicalId");
+                            maybeId = m.invoke(payload);
+                        } catch (NoSuchMethodException nm1) {
+                            try {
+                                java.lang.reflect.Method m2 = payload.getClass().getMethod("getId");
+                                maybeId = m2.invoke(payload);
+                            } catch (NoSuchMethodException nm2) {
+                                // last resort: try method name "getPayloadId"
+                                try {
+                                    java.lang.reflect.Method m3 = payload.getClass().getMethod("getPayloadId");
+                                    maybeId = m3.invoke(payload);
+                                } catch (NoSuchMethodException nm3) {
+                                    // nothing found
+                                }
+                            }
                         }
+                        if (maybeId != null) technicalId = String.valueOf(maybeId);
+                    } catch (Exception ex) {
+                        logger.warn("Unable to extract technical id from DataPayload via reflection: {}", ex.getMessage());
                     }
 
-                    if (technicalId != null) {
-                        try {
-                            UUID existingUuid = UUID.fromString(technicalId);
-                            entityService.updateItem(existingUuid, existing).get();
-                            logger.info("Updated existing Laureate (technicalId={}) with id={}", technicalId, existing.getId());
-                        } catch (IllegalArgumentException iae) {
-                            logger.warn("Existing payload id is not a valid UUID ({}). Skipping update.", technicalId);
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                            logger.error("Interrupted while updating existing laureate: {}", ie.getMessage(), ie);
-                        } catch (ExecutionException ee) {
-                            logger.error("Execution error while updating existing laureate: {}", ee.getMessage(), ee);
-                        } catch (Exception e) {
-                            logger.error("Unexpected error while updating existing laureate: {}", e.getMessage(), e);
-                        }
-                    } else {
-                        logger.warn("Technical id for existing laureate not found; cannot perform update.");
+                    // If we could not find technical id, avoid silent failure: log and continue
+                    if (technicalId == null) {
+                        logger.warn("Technical id for existing laureate not found; cannot perform update. Laureate source id={}", existing.getId());
+                        continue;
+                    }
+
+                    // Do not perform update on the entity that triggered this workflow
+                    String triggeringEntityId = null;
+                    try {
+                        triggeringEntityId = request.getEntityId();
+                    } catch (Exception ex) {
+                        // defensive - request may not expose entity id; if not available, proceed but be cautious
+                        triggeringEntityId = null;
+                    }
+
+                    if (triggeringEntityId != null && triggeringEntityId.equalsIgnoreCase(technicalId)) {
+                        logger.debug("Existing payload technical id equals triggering entity id ({}). Skipping update to avoid mutating the triggering entity.", technicalId);
+                        continue;
+                    }
+
+                    // perform update
+                    try {
+                        UUID existingUuid = UUID.fromString(technicalId);
+                        entityService.updateItem(existingUuid, existing).get();
+                        logger.info("Updated existing Laureate (technicalId={}) with id={}", technicalId, existing.getId());
+                    } catch (IllegalArgumentException iae) {
+                        logger.warn("Existing payload id is not a valid UUID ({}). Skipping update.", technicalId);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        logger.error("Interrupted while updating existing laureate: {}", ie.getMessage(), ie);
+                    } catch (ExecutionException ee) {
+                        logger.error("Execution error while updating existing laureate: {}", ee.getMessage(), ee);
+                    } catch (Exception e) {
+                        logger.error("Unexpected error while updating existing laureate: {}", e.getMessage(), e);
                     }
                 } else {
                     logger.debug("Existing laureate (id={}) identical to incoming; no update required.", existing.getId());

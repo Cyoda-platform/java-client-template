@@ -20,6 +20,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
@@ -95,7 +97,7 @@ public class LaureateController {
 
     @Operation(summary = "Get all Laureates", description = "Retrieve all Laureates (paged retrieval not implemented; returns all available)")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @io.swagger.v3.oas.annotations.media.ArraySchema(schema = @Schema(implementation = LaureateResponse.class)))),
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = LaureateResponse.class)))),
             @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
     })
     @GetMapping(produces = "application/json")
@@ -136,7 +138,7 @@ public class LaureateController {
 
     @Operation(summary = "Search Laureates by simple condition", description = "Search Laureates using a simple single-field condition. Use query params: field, operator, value")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @io.swagger.v3.oas.annotations.media.ArraySchema(schema = @Schema(implementation = LaureateResponse.class)))),
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = LaureateResponse.class)))),
             @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
             @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
     })
@@ -191,10 +193,243 @@ public class LaureateController {
         }
     }
 
+    @Operation(summary = "Add a Laureate", description = "Create a new Laureate entity")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = AddResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @PostMapping(consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> addLaureate(
+            @RequestBody(description = "Laureate to add") @org.springframework.web.bind.annotation.RequestBody LaureateRequest request
+    ) {
+        try {
+            if (request == null) {
+                throw new IllegalArgumentException("Request body must not be null");
+            }
+            Laureate entity = objectMapper.convertValue(request, Laureate.class);
+            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+                    Laureate.ENTITY_NAME,
+                    Laureate.ENTITY_VERSION,
+                    entity
+            );
+            UUID id = idFuture.get();
+            AddResponse resp = new AddResponse();
+            resp.setTechnicalId(id != null ? id.toString() : null);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid addLaureate request: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            logger.error("ExecutionException in addLaureate", ee);
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while adding laureate", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error in addLaureate", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        }
+    }
+
+    @Operation(summary = "Add multiple Laureates", description = "Create multiple Laureate entities in a single request")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = BulkAddResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @PostMapping(value = "/bulk", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> addLaureates(
+            @RequestBody(description = "List of laureates to add") @org.springframework.web.bind.annotation.RequestBody List<LaureateRequest> requests
+    ) {
+        try {
+            if (requests == null || requests.isEmpty()) {
+                throw new IllegalArgumentException("Request body must contain at least one laureate");
+            }
+            List<Laureate> entities = new ArrayList<>();
+            for (LaureateRequest r : requests) {
+                entities.add(objectMapper.convertValue(r, Laureate.class));
+            }
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
+                    Laureate.ENTITY_NAME,
+                    Laureate.ENTITY_VERSION,
+                    entities
+            );
+            List<UUID> ids = idsFuture.get();
+            BulkAddResponse resp = new BulkAddResponse();
+            List<String> technicalIds = new ArrayList<>();
+            if (ids != null) {
+                for (UUID u : ids) {
+                    technicalIds.add(u != null ? u.toString() : null);
+                }
+            }
+            resp.setTechnicalIds(technicalIds);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid addLaureates request: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            logger.error("ExecutionException in addLaureates", ee);
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            }
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while adding laureates", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error in addLaureates", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        }
+    }
+
+    @Operation(summary = "Update a Laureate", description = "Update an existing Laureate by technicalId")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = UpdateResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @PutMapping(value = "/{technicalId}", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> updateLaureate(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId,
+            @RequestBody(description = "Laureate update payload") @org.springframework.web.bind.annotation.RequestBody LaureateRequest request
+    ) {
+        try {
+            if (technicalId == null || technicalId.isBlank()) {
+                throw new IllegalArgumentException("technicalId must be provided");
+            }
+            if (request == null) {
+                throw new IllegalArgumentException("Request body must not be null");
+            }
+            Laureate entity = objectMapper.convertValue(request, Laureate.class);
+            CompletableFuture<UUID> updatedFuture = entityService.updateItem(UUID.fromString(technicalId), entity);
+            UUID updatedId = updatedFuture.get();
+            UpdateResponse resp = new UpdateResponse();
+            resp.setTechnicalId(updatedId != null ? updatedId.toString() : null);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid updateLaureate request: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in updateLaureate", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while updating laureate", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error in updateLaureate", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        }
+    }
+
+    @Operation(summary = "Delete a Laureate", description = "Delete an existing Laureate by technicalId")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = DeleteResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Not Found", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error", content = @Content)
+    })
+    @DeleteMapping(value = "/{technicalId}", produces = "application/json")
+    public ResponseEntity<?> deleteLaureate(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity") @PathVariable String technicalId
+    ) {
+        try {
+            if (technicalId == null || technicalId.isBlank()) {
+                throw new IllegalArgumentException("technicalId must be provided");
+            }
+            CompletableFuture<UUID> deletedFuture = entityService.deleteItem(UUID.fromString(technicalId));
+            UUID deletedId = deletedFuture.get();
+            DeleteResponse resp = new DeleteResponse();
+            resp.setTechnicalId(deletedId != null ? deletedId.toString() : null);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid deleteLaureate request: {}", iae.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in deleteLaureate", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while deleting laureate", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Interrupted");
+        } catch (Exception ex) {
+            logger.error("Unexpected error in deleteLaureate", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        }
+    }
+
+    // Request DTOs
+
+    @Data
+    @Schema(name = "LaureateRequest", description = "Laureate request payload for create/update")
+    public static class LaureateRequest {
+        @Schema(description = "Source id", example = "853")
+        private Integer id;
+
+        @Schema(description = "First name", example = "Akira")
+        private String firstname;
+
+        @Schema(description = "Surname", example = "Suzuki")
+        private String surname;
+
+        @Schema(description = "Award year", example = "2010")
+        private String year;
+
+        @Schema(description = "Category", example = "Chemistry")
+        private String category;
+
+        @Schema(description = "Age at award (enriched)", example = "80")
+        private Integer ageAtAward;
+
+        @Schema(description = "Normalized country code (enriched)", example = "JP")
+        private String normalizedCountryCode;
+
+        @Schema(description = "Last updated timestamp", example = "2025-08-01T12:00:00Z")
+        private String lastUpdatedAt;
+
+        // Additional fields may be present but are optional for request mapping
+        private String born;
+        private String bornCity;
+        private String bornCountry;
+        private String bornCountryCode;
+        private String died;
+        private String gender;
+        private String motivation;
+        private String normalizedCountryCodeFull;
+        private String sourceSnapshot;
+        private String affiliationName;
+        private String affiliationCity;
+        private String affiliationCountry;
+        private String affiliation;
+    }
+
     // Response DTOs
 
     @Data
-    @io.swagger.v3.oas.annotations.media.Schema(name = "LaureateResponse", description = "Laureate response payload")
+    @Schema(name = "LaureateResponse", description = "Laureate response payload")
     public static class LaureateResponse {
         @Schema(description = "Source id", example = "853")
         private Integer id;
@@ -219,5 +454,33 @@ public class LaureateController {
 
         @Schema(description = "Last updated timestamp", example = "2025-08-01T12:00:00Z")
         private String lastUpdatedAt;
+    }
+
+    @Data
+    @Schema(name = "AddResponse", description = "Response returned after creating an entity")
+    public static class AddResponse {
+        @Schema(description = "Technical id (UUID) of created entity", example = "d290f1ee-6c54-4b01-90e6-d701748f0851")
+        private String technicalId;
+    }
+
+    @Data
+    @Schema(name = "BulkAddResponse", description = "Response returned after creating multiple entities")
+    public static class BulkAddResponse {
+        @Schema(description = "List of technical ids (UUID) of created entities")
+        private List<String> technicalIds;
+    }
+
+    @Data
+    @Schema(name = "UpdateResponse", description = "Response returned after updating an entity")
+    public static class UpdateResponse {
+        @Schema(description = "Technical id (UUID) of updated entity", example = "d290f1ee-6c54-4b01-90e6-d701748f0851")
+        private String technicalId;
+    }
+
+    @Data
+    @Schema(name = "DeleteResponse", description = "Response returned after deleting an entity")
+    public static class DeleteResponse {
+        @Schema(description = "Technical id (UUID) of deleted entity", example = "d290f1ee-6c54-4b01-90e6-d701748f0851")
+        private String technicalId;
     }
 }
