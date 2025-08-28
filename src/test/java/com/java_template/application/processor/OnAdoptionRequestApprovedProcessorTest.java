@@ -55,8 +55,7 @@ public class OnAdoptionRequestApprovedProcessorTest {
 
         DataPayload petPayload = new DataPayload();
         petPayload.setData(objectMapper.valueToTree(pet));
-        // setTechnicalId should be available on DataPayload
-        petPayload.setTechnicalId(technicalId.toString());
+        // setTechnicalId is not available on DataPayload in this project
 
         when(entityService.getItemsByCondition(anyString(), anyInt(), any(), anyBoolean()))
                 .thenReturn(CompletableFuture.completedFuture(List.of(petPayload)));

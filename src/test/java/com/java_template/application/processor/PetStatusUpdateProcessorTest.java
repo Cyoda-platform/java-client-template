@@ -62,9 +62,8 @@ public class PetStatusUpdateProcessorTest {
         // set data node
         JsonNode petDataNode = objectMapper.valueToTree(pet);
         petPayload.setData(petDataNode);
-        // set both technicalId and id fields used by processor
-        petPayload.setTechnicalId(petTechnicalId);
-        petPayload.setId(petBusinessId);
+        // Note: DataPayload does not expose setTechnicalId/setId in the current API,
+        // so we avoid calling those methods.
 
         when(entityService.getItemsByCondition(
                 eq(Pet.ENTITY_NAME),
@@ -134,7 +133,9 @@ public class PetStatusUpdateProcessorTest {
         Pet updatedPet = petCaptor.getValue();
         assertNotNull(updatedPet);
         assertEquals("pending", updatedPet.getStatus());
-        // Ensure update was invoked for the technicalId we provided
+        // Ensure update was invoked for the technicalId we provided (test variable)
+        // Note: Even though DataPayload setters for technical id weren't called above,
+        // this assertion compares the captured UUID to the generated technical id string.
         assertEquals(UUID.fromString(petTechnicalId), uuidCaptor.getValue());
     }
 }
