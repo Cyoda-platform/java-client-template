@@ -3,24 +3,10 @@
     "files_with_errors": [
         {
             "errors": [
-                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/CancelProcessorTest.java:85: error: no suitable method found for thenReturn(CompletableFuture<DataPayload>)",
-                "method OngoingStubbing.thenReturn(CompletableFuture<UUID>) is not applicable (argument mismatch; inference variable U has incompatible bounds: equality constraints: UUID, lower bounds: DataPayload)",
-                "method OngoingStubbing.thenReturn(CompletableFuture<UUID>,CompletableFuture<UUID>...) is not applicable (argument mismatch; inference variable U has incompatible bounds: equality constraints: UUID, lower bounds: DataPayload)"
-            ],
-            "file_path": "src/test/java/com/java_template/application/processor/CancelProcessorTest.java"
-        },
-        {
-            "errors": [
-                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/AutoDeliverProcessorTest.java:35: error: constructor AutoDeliverProcessor in class AutoDeliverProcessor cannot be applied to given types; required: SerializerFactory,EntityService,ObjectMapper; found: SerializerFactory; reason: actual and formal argument lists differ in length"
+                "AutoDeliverProcessorTest.java:15: error: interface EntityService is public, should be declared in a file named EntityService.java",
+                "AutoDeliverProcessorTest.java:69: error: cannot find symbol: class EntityTransactionInfo; location: interface EntityService"
             ],
             "file_path": "src/test/java/com/java_template/application/processor/AutoDeliverProcessorTest.java"
-        },
-        {
-            "errors": [
-                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/OrderCreationProcessorTest.java:98: error: method getItem in interface EntityService cannot be applied to given types; required: UUID; found: String,Integer,UUID; reason: actual and formal argument lists differ in length",
-                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/OrderCreationProcessorTest.java:100: error: method getItem in interface EntityService cannot be applied to given types; required: UUID; found: String,Integer,UUID; reason: actual and formal argument lists differ in length"
-            ],
-            "file_path": "src/test/java/com/java_template/application/processor/OrderCreationProcessorTest.java"
         }
     ]
 }
