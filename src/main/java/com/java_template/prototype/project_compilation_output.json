@@ -1,0 +1,23 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "/src/main/java/com/java_template/application/processor/IngestionProcessor.java:9: error: cannot find symbol - import com.java_template.common.workflow.ErrorInfo; (symbol: class ErrorInfo, location: package com.java_template.common.workflow)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/IngestionProcessor.java"
+        },
+        {
+            "errors": [
+                "/src/main/java/com/java_template/application/processor/NotificationProcessor.java:11: error: cannot find symbol - import com.java_template.common.workflow.ErrorInfo; (symbol: class ErrorInfo, location: package com.java_template.common.workflow)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/NotificationProcessor.java"
+        },
+        {
+            "errors": [
+                "/src/main/java/com/java_template/application/processor/LaureateValidationProcessor.java:11: error: cannot find symbol - import org.cyoda.cloud.api.event.processing.ErrorInfo; (symbol: class ErrorInfo, location: package org.cyoda.cloud.api.event.processing)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/LaureateValidationProcessor.java"
+        }
+    ]
+}
