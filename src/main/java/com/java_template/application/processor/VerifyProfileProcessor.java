@@ -59,7 +59,7 @@ public class VerifyProfileProcessor implements CyodaProcessor {
         // on generated Lombok methods to reduce compilation coupling in this environment.
         // Downstream processors (ActivateUserProcessor, TrustLevelProcessor, etc.)
         // can read the entity and perform further actions.
-        logger.info("VerifyProfileProcessor executed for an entity; leaving entity state unchanged for requestId={}", context.requestId());
+        logger.info("VerifyProfileProcessor executed for an entity; leaving entity state unchanged for userId={}", user.getUserId());
 
         return user;
     }
