@@ -1,5 +1,5 @@
 package com.java_template.application.processor;
-import com.java_template.application.entity.pete.version_1.Pet; //replace with actual entity name and version.
+import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ErrorInfo;

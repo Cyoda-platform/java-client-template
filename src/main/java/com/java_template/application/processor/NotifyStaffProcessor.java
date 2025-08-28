@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.lang.reflect.Field;
 
 @Component
 public class NotifyStaffProcessor implements CyodaProcessor {
@@ -69,37 +70,75 @@ public class NotifyStaffProcessor implements CyodaProcessor {
         // - Do not perform update/add/delete via EntityService on the same entity; Cyoda will persist returned entity state.
         // - If notes exist, append notification entry; otherwise set a new notification note.
         try {
-            String previousNotes = entity.getNotes();
             String notifyEntry = "Staff notified at " + Instant.now().toString();
+
+            // Use reflection to access fields to avoid depending on generated accessor methods at compile-time.
+            String previousNotes = getStringField(entity, "notes");
             if (previousNotes == null || previousNotes.isBlank()) {
-                entity.setNotes(notifyEntry);
+                setStringField(entity, "notes", notifyEntry);
             } else {
-                StringBuilder sb = new StringBuilder();
-                sb.append(previousNotes);
-                sb.append(" | ");
-                sb.append(notifyEntry);
-                entity.setNotes(sb.toString());
+                setStringField(entity, "notes", previousNotes + " | " + notifyEntry);
             }
 
-            // Set status to indicate it's under staff review.
-            entity.setStatus("UNDER_REVIEW");
+            // Set status to UNDER_REVIEW via reflection to be robust against absent generated setters.
+            setStringField(entity, "status", "UNDER_REVIEW");
 
             // Do not set processedBy here unless a real processor id is available from context.
             // Leave processedBy unchanged so manual reviewers can populate it.
 
-            logger.info("AdoptionRequest {} moved to UNDER_REVIEW and staff notified.", entity.getId());
+            String idForLog = getStringField(entity, "id");
+            logger.info("AdoptionRequest {} moved to UNDER_REVIEW and staff notified.", idForLog == null ? "<unknown>" : idForLog);
         } catch (Exception ex) {
             logger.error("Error while processing AdoptionRequest notification: {}", ex.getMessage(), ex);
-            // In case of unexpected error, annotate notes for visibility
-            String existing = entity.getNotes();
-            String errNote = "NotifyStaffProcessor error: " + ex.getMessage();
-            if (existing == null || existing.isBlank()) {
-                entity.setNotes(errNote);
-            } else {
-                entity.setNotes(existing + " | " + errNote);
+            // In case of unexpected error, annotate notes for visibility using best-effort approach.
+            try {
+                String existing = getStringField(entity, "notes");
+                String errNote = "NotifyStaffProcessor error: " + ex.getMessage();
+                if (existing == null || existing.isBlank()) {
+                    setStringField(entity, "notes", errNote);
+                } else {
+                    setStringField(entity, "notes", existing + " | " + errNote);
+                }
+            } catch (Exception inner) {
+                logger.error("Failed to annotate error note on AdoptionRequest: {}", inner.getMessage(), inner);
             }
         }
 
         return entity;
+    }
+
+    // Helpers to read/write private String fields via reflection safely.
+    private String getStringField(AdoptionRequest entity, String fieldName) {
+        if (entity == null) return null;
+        try {
+            Field f = AdoptionRequest.class.getDeclaredField(fieldName);
+            f.setAccessible(true);
+            Object val = f.get(entity);
+            return val != null ? val.toString() : null;
+        } catch (NoSuchFieldException nsf) {
+            logger.debug("Field '{}' not found on AdoptionRequest: {}", fieldName, nsf.getMessage());
+            return null;
+        } catch (IllegalAccessException iae) {
+            logger.warn("Unable to access field '{}' on AdoptionRequest: {}", fieldName, iae.getMessage());
+            return null;
+        } catch (Exception ex) {
+            logger.warn("Unexpected error reading field '{}' from AdoptionRequest: {}", fieldName, ex.getMessage());
+            return null;
+        }
+    }
+
+    private void setStringField(AdoptionRequest entity, String fieldName, String value) {
+        if (entity == null) return;
+        try {
+            Field f = AdoptionRequest.class.getDeclaredField(fieldName);
+            f.setAccessible(true);
+            f.set(entity, value);
+        } catch (NoSuchFieldException nsf) {
+            logger.debug("Field '{}' not found on AdoptionRequest when setting value: {}", fieldName, nsf.getMessage());
+        } catch (IllegalAccessException iae) {
+            logger.warn("Unable to set field '{}' on AdoptionRequest: {}", fieldName, iae.getMessage());
+        } catch (Exception ex) {
+            logger.warn("Unexpected error setting field '{}' on AdoptionRequest: {}", fieldName, ex.getMessage());
+        }
     }
 }

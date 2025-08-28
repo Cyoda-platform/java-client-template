@@ -15,6 +15,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+
 @Component
 public class SourceReachableCriterion implements CyodaCriterion {
 
@@ -29,7 +36,7 @@ public class SourceReachableCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PetIngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +45,8 @@ public class SourceReachableCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetIngestionJob> context) {
@@ -67,7 +75,48 @@ public class SourceReachableCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Job is marked as FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // No definitive network check here; the criterion ensures configuration looks valid for reachability.
-         return EvaluationOutcome.success();
+         // Attempt a lightweight network check (HEAD) to verify reachability and basic responsiveness.
+         try {
+             HttpClient client = HttpClient.newBuilder()
+                 .followRedirects(HttpClient.Redirect.NORMAL)
+                 .connectTimeout(Duration.ofSeconds(5))
+                 .build();
+
+             HttpRequest req = HttpRequest.newBuilder()
+                 .uri(URI.create(sourceUrl))
+                 .timeout(Duration.ofSeconds(5))
+                 // Use HEAD to avoid downloading large payloads; fallback to GET if server doesn't support HEAD.
+                 .method("HEAD", HttpRequest.BodyPublishers.noBody())
+                 .build();
+
+             HttpResponse<Void> resp;
+             try {
+                 resp = client.send(req, HttpResponse.BodyHandlers.discarding());
+             } catch (UnsupportedOperationException | IOException | InterruptedException headEx) {
+                 // Try GET as fallback for servers that reject HEAD
+                 HttpRequest getReq = HttpRequest.newBuilder()
+                     .uri(URI.create(sourceUrl))
+                     .timeout(Duration.ofSeconds(5))
+                     .GET()
+                     .build();
+                 resp = client.send(getReq, HttpResponse.BodyHandlers.discarding());
+             }
+
+             int code = resp.statusCode();
+             if (code >= 200 && code < 400) {
+                 // reachable
+                 return EvaluationOutcome.success();
+             } else {
+                 logger.warn("PetIngestionJob {} sourceUrl responded with status {} for URL {}", job.getJobName(), code, sourceUrl);
+                 return EvaluationOutcome.fail("sourceUrl not reachable (HTTP " + code + ")", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+         } catch (IOException | InterruptedException ex) {
+             Thread.currentThread().interrupt();
+             logger.warn("PetIngestionJob {} sourceUrl check failed: {} - {}", job.getJobName(), ex.getClass().getSimpleName(), ex.getMessage());
+             return EvaluationOutcome.fail("sourceUrl not reachable: " + ex.getMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         } catch (Exception ex) {
+             logger.warn("Unexpected error while checking sourceUrl for job {}: {}", job.getJobName(), ex.getMessage(), ex);
+             return EvaluationOutcome.fail("Unexpected error checking sourceUrl: " + ex.getMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
     }
 }

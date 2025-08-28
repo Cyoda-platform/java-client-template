@@ -18,7 +18,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import lombok.Data;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -52,7 +51,7 @@ public class AdoptionRequestController {
     })
     @PostMapping
     public ResponseEntity<TechnicalIdResponse> createAdoptionRequest(
-            @RequestBody(description = "Adoption request payload", required = true,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Adoption request payload", required = true,
                     content = @Content(schema = @Schema(implementation = CreateAdoptionRequestDto.class)))
             @Valid @RequestBody CreateAdoptionRequestDto requestBody) {
         try {

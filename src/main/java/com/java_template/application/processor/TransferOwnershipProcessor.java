@@ -68,18 +68,13 @@ public class TransferOwnershipProcessor implements CyodaProcessor {
     private AdoptionRequest processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AdoptionRequest> context) {
         AdoptionRequest request = context.entity();
 
-        // Business logic:
-        // - Only proceed when adoption request is approved.
-        // - Find referenced Pet by technical id (request.getPetId()).
-        // - If pet exists and is AVAILABLE -> set pet.status = "ADOPTED", add adopter info to tags (pet has no owner field).
-        // - Persist the Pet update via EntityService.updateItem(...)
-        // - Mark the AdoptionRequest as COMPLETED on success or FAILED with notes on error.
+        // Basic null check
         if (request == null) {
             logger.warn("AdoptionRequest is null in execution context");
             return request;
         }
 
-        // Only transfer ownership when request is approved
+        // Only proceed when adoption request is approved.
         if (request.getStatus() == null || !"APPROVED".equalsIgnoreCase(request.getStatus())) {
             logger.info("AdoptionRequest {} is not APPROVED. Current status: {}", request.getId(), request.getStatus());
             return request;
@@ -94,8 +89,8 @@ public class TransferOwnershipProcessor implements CyodaProcessor {
         }
 
         try {
-            // Retrieve Pet by technical id
-            CompletableFuture<DataPayload> itemFuture = entityService.getItem(Pet.ENTITY_NAME, Pet.ENTITY_VERSION, UUID.fromString(petTechnicalId));
+            // EntityService.getItem expects a UUID only (technicalId). Use the single-arg form.
+            CompletableFuture<DataPayload> itemFuture = entityService.getItem(UUID.fromString(petTechnicalId));
             DataPayload payload = itemFuture.get();
             if (payload == null || payload.getData() == null) {
                 logger.error("Pet not found for id {}", petTechnicalId);

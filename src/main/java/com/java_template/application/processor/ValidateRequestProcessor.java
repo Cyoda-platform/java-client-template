@@ -79,13 +79,15 @@ public class ValidateRequestProcessor implements CyodaProcessor {
             return entity;
         }
 
-        // 2) Ensure contactEmail is present (isValid already checks this) - additional check for safety
-        if (entity.getContactEmail() == null || entity.getContactEmail().isBlank()) {
+        // 2) Ensure contactEmail or contactPhone is present (isValid already checks contactEmail, but be permissive)
+        boolean hasEmail = entity.getContactEmail() != null && !entity.getContactEmail().isBlank();
+        boolean hasPhone = entity.getContactPhone() != null && !entity.getContactPhone().isBlank();
+        if (!hasEmail && !hasPhone) {
             entity.setStatus("REJECTED");
             if (notesBuilder.length() > 0) notesBuilder.append(" | ");
-            notesBuilder.append("Missing contact email.");
+            notesBuilder.append("Missing contact information (email or phone).");
             entity.setNotes(notesBuilder.toString());
-            logger.info("AdoptionRequest {} rejected: missing contact email", entity.getId());
+            logger.info("AdoptionRequest {} rejected: missing contact information", entity.getId());
             return entity;
         }
 
@@ -101,7 +103,8 @@ public class ValidateRequestProcessor implements CyodaProcessor {
 
         try {
             UUID petUuid = UUID.fromString(entity.getPetId());
-            CompletableFuture<DataPayload> itemFuture = entityService.getItem(Pet.ENTITY_NAME, Pet.ENTITY_VERSION, petUuid);
+            // EntityService#getItem expects only the UUID (per compilation diagnostics)
+            CompletableFuture<DataPayload> itemFuture = entityService.getItem(petUuid);
             DataPayload payload = itemFuture.get();
 
             if (payload == null || payload.getData() == null) {

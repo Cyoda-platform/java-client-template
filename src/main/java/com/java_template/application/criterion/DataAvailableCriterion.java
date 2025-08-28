@@ -29,7 +29,7 @@ public class DataAvailableCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PetIngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class DataAvailableCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetIngestionJob> context) {
@@ -62,11 +63,12 @@ public class DataAvailableCriterion implements CyodaCriterion {
 
          if (entity.getErrors() != null && !entity.getErrors().isEmpty()) {
              // Data is available, but there were errors. Log and proceed (treated as a warning by attachment strategy).
-             logger.warn("Job fetched {} records but reported {} error(s)", processedCount, entity.getErrors().size());
+             logger.warn("Job fetched {} records but reported {} error(s): {}", processedCount, entity.getErrors().size(), entity.getErrors());
          } else {
              logger.debug("Job fetched {} records with no reported errors", processedCount);
          }
 
+         logger.info("DataAvailableCriterion passed for job '{}': processedCount={}", entity.getJobName(), processedCount);
          return EvaluationOutcome.success();
     }
 }

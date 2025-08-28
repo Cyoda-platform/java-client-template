@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.service.EntityService;
-import lombok.Data;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,8 +17,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,10 +41,10 @@ public class PetController {
     }
 
     @Operation(summary = "Create Pet", description = "Create a Pet entity. This controller proxies the request to the EntityService. Returns only technicalId.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Bad Request"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping
     public ResponseEntity<?> createPet(
@@ -71,6 +68,9 @@ public class PetController {
             if (cause instanceof IllegalArgumentException) {
                 logger.warn("Execution caused IllegalArgumentException: {}", cause.getMessage(), cause);
                 return ResponseEntity.badRequest().body(cause.getMessage());
+            } else if (cause instanceof NoSuchElementException) {
+                logger.info("Entity not found during create operation (unexpected): {}", cause.getMessage());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else {
                 logger.error("ExecutionException when creating Pet", ee);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ee.getMessage());
@@ -82,11 +82,11 @@ public class PetController {
     }
 
     @Operation(summary = "Get Pet by technicalId", description = "Retrieve a Pet by its technicalId. Proxies to EntityService.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = PetResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = PetResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Bad Request"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Not Found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @GetMapping("/{technicalId}")
     public ResponseEntity<?> getPetById(
@@ -127,9 +127,9 @@ public class PetController {
     }
 
     @Operation(summary = "Get all Pets", description = "Retrieve all Pet entities. Proxies to EntityService.getItems.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @io.swagger.v3.oas.annotations.media.ArraySchema(schema = @Schema(implementation = PetResponse.class)))),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @io.swagger.v3.oas.annotations.media.ArraySchema(schema = @Schema(implementation = PetResponse.class)))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @GetMapping
     public ResponseEntity<?> getAllPets() {
@@ -141,7 +141,6 @@ public class PetController {
                 for (DataPayload payload : dataPayloads) {
                     if (payload == null || payload.getData() == null) continue;
                     Pet pet = objectMapper.treeToValue(payload.getData(), Pet.class);
-                    // technical id might be stored in pet.id or available as metadata; we use pet.id if present
                     String technicalId = pet != null && pet.getId() != null ? pet.getId() : null;
                     responses.add(toResponse(technicalId, pet));
                 }
@@ -157,11 +156,11 @@ public class PetController {
     }
 
     @Operation(summary = "Update Pet", description = "Update a Pet entity by technicalId. Proxies to EntityService.updateItem. Returns technicalId.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Bad Request"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Not Found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PutMapping("/{technicalId}")
     public ResponseEntity<?> updatePet(
@@ -203,11 +202,11 @@ public class PetController {
     }
 
     @Operation(summary = "Delete Pet", description = "Delete a Pet entity by technicalId. Proxies to EntityService.deleteItem. Returns technicalId.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @io.swagger.v3.oas.annotations.responses.ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Bad Request"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Not Found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @DeleteMapping("/{technicalId}")
     public ResponseEntity<?> deletePet(
@@ -282,14 +281,13 @@ public class PetController {
         return r;
     }
 
-    // Static DTOs for requests and responses
+    // Static DTOs for requests and responses (explicit getters/setters to avoid relying on Lombok)
 
-    @Data
     @Schema(name = "PetRequest", description = "Pet request payload")
     public static class PetRequest {
         @Schema(description = "Technical id (optional on create)", example = "petrec_555")
         private String id;
-        @Schema(description = "Pet id (source id)", example = "42")
+        @Schema(description = "Pet name", example = "Mr Whiskers")
         private String name;
         @Schema(description = "Species of the pet", example = "cat")
         private String species;
@@ -315,9 +313,52 @@ public class PetController {
         private List<String> photos;
         @Schema(description = "Tags")
         private List<String> tags;
+
+        public PetRequest() {}
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getSpecies() { return species; }
+        public void setSpecies(String species) { this.species = species; }
+
+        public String getBreed() { return breed; }
+        public void setBreed(String breed) { this.breed = breed; }
+
+        public String getSex() { return sex; }
+        public void setSex(String sex) { this.sex = sex; }
+
+        public String getSize() { return size; }
+        public void setSize(String size) { this.size = size; }
+
+        public String getAge() { return age; }
+        public void setAge(String age) { this.age = age; }
+
+        public String getBio() { return bio; }
+        public void setBio(String bio) { this.bio = bio; }
+
+        public String getHealthNotes() { return healthNotes; }
+        public void setHealthNotes(String healthNotes) { this.healthNotes = healthNotes; }
+
+        public String getSource() { return source; }
+        public void setSource(String source) { this.source = source; }
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+
+        public String getImportedAt() { return importedAt; }
+        public void setImportedAt(String importedAt) { this.importedAt = importedAt; }
+
+        public List<String> getPhotos() { return photos; }
+        public void setPhotos(List<String> photos) { this.photos = photos; }
+
+        public List<String> getTags() { return tags; }
+        public void setTags(List<String> tags) { this.tags = tags; }
     }
 
-    @Data
     @Schema(name = "PetResponse", description = "Pet response payload")
     public static class PetResponse {
         @Schema(description = "Technical id", example = "petrec_555")
@@ -350,16 +391,67 @@ public class PetController {
         private List<String> photos;
         @Schema(description = "Tags")
         private List<String> tags;
+
+        public PetResponse() {}
+
+        public String getTechnicalId() { return technicalId; }
+        public void setTechnicalId(String technicalId) { this.technicalId = technicalId; }
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getSpecies() { return species; }
+        public void setSpecies(String species) { this.species = species; }
+
+        public String getBreed() { return breed; }
+        public void setBreed(String breed) { this.breed = breed; }
+
+        public String getSex() { return sex; }
+        public void setSex(String sex) { this.sex = sex; }
+
+        public String getSize() { return size; }
+        public void setSize(String size) { this.size = size; }
+
+        public String getAge() { return age; }
+        public void setAge(String age) { this.age = age; }
+
+        public String getBio() { return bio; }
+        public void setBio(String bio) { this.bio = bio; }
+
+        public String getHealthNotes() { return healthNotes; }
+        public void setHealthNotes(String healthNotes) { this.healthNotes = healthNotes; }
+
+        public String getSource() { return source; }
+        public void setSource(String source) { this.source = source; }
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+
+        public String getImportedAt() { return importedAt; }
+        public void setImportedAt(String importedAt) { this.importedAt = importedAt; }
+
+        public List<String> getPhotos() { return photos; }
+        public void setPhotos(List<String> photos) { this.photos = photos; }
+
+        public List<String> getTags() { return tags; }
+        public void setTags(List<String> tags) { this.tags = tags; }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing only technicalId")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id", example = "uuid-or-id-string")
         private String technicalId;
 
+        public TechnicalIdResponse() {}
+
         public TechnicalIdResponse(String technicalId) {
             this.technicalId = technicalId;
         }
+
+        public String getTechnicalId() { return technicalId; }
+        public void setTechnicalId(String technicalId) { this.technicalId = technicalId; }
     }
 }

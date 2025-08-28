@@ -21,8 +21,6 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import lombok.Data;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -166,7 +164,6 @@ public class PetIngestionJobController {
         }
     }
 
-    @Data
     @Schema(name = "CreatePetIngestionJobRequest", description = "Request payload to create a PetIngestionJob")
     public static class CreatePetIngestionJobRequest {
         @Schema(description = "Job name", example = "PetstoreSync", required = true)
@@ -174,16 +171,42 @@ public class PetIngestionJobController {
 
         @Schema(description = "Source URL to fetch pets from", example = "https://petstore.example/api/pets", required = true)
         private String sourceUrl;
+
+        public CreatePetIngestionJobRequest() {}
+
+        public String getJobName() {
+            return jobName;
+        }
+
+        public void setJobName(String jobName) {
+            this.jobName = jobName;
+        }
+
+        public String getSourceUrl() {
+            return sourceUrl;
+        }
+
+        public void setSourceUrl(String sourceUrl) {
+            this.sourceUrl = sourceUrl;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing only the technicalId of the created entity")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical ID of the created entity", example = "job_abc123")
         private String technicalId;
+
+        public TechnicalIdResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
-    @Data
     @Schema(name = "PetIngestionJobResponse", description = "Response payload for PetIngestionJob")
     public static class PetIngestionJobResponse {
         @Schema(description = "Technical ID of the entity", example = "job_abc123")
@@ -209,5 +232,71 @@ public class PetIngestionJobController {
 
         @Schema(description = "List of error messages, if any")
         private List<String> errors = new ArrayList<>();
+
+        public PetIngestionJobResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getJobName() {
+            return jobName;
+        }
+
+        public void setJobName(String jobName) {
+            this.jobName = jobName;
+        }
+
+        public String getSourceUrl() {
+            return sourceUrl;
+        }
+
+        public void setSourceUrl(String sourceUrl) {
+            this.sourceUrl = sourceUrl;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getStartedAt() {
+            return startedAt;
+        }
+
+        public void setStartedAt(String startedAt) {
+            this.startedAt = startedAt;
+        }
+
+        public String getCompletedAt() {
+            return completedAt;
+        }
+
+        public void setCompletedAt(String completedAt) {
+            this.completedAt = completedAt;
+        }
+
+        public Integer getProcessedCount() {
+            return processedCount;
+        }
+
+        public void setProcessedCount(Integer processedCount) {
+            this.processedCount = processedCount;
+        }
+
+        public List<String> getErrors() {
+            return errors;
+        }
+
+        public void setErrors(List<String> errors) {
+            this.errors = errors;
+        }
     }
 }

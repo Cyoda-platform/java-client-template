@@ -29,8 +29,8 @@ public class PersistSuccessCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        // This is a predefined chain. Business logic lives in validateEntity method.
+        return serializer.withRequest(request) // always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PetIngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -38,40 +38,54 @@ public class PersistSuccessCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetIngestionJob> context) {
          PetIngestionJob entity = context.entity();
 
-         // Basic presence checks
+         if (entity == null) {
+             logger.warn("PersistSuccessCriterion - entity payload is null");
+             return EvaluationOutcome.fail("Entity payload is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Presence validation
          if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+             logger.debug("PersistSuccessCriterion - job status missing for jobName='{}'", entity.getJobName());
              return EvaluationOutcome.fail("Job status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Business rule: status must indicate completion for a successful persist
+         // Business rule: job must be completed to be considered a successful persist
          if (!"COMPLETED".equalsIgnoreCase(entity.getStatus())) {
+             logger.debug("PersistSuccessCriterion - job not completed (status='{}') for jobName='{}'", entity.getStatus(), entity.getJobName());
              return EvaluationOutcome.fail("Ingestion job is not completed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Data quality: completedAt must be present when status is COMPLETED
+         // Data quality: completedAt must be present for COMPLETED jobs
          if (entity.getCompletedAt() == null || entity.getCompletedAt().isBlank()) {
+             logger.debug("PersistSuccessCriterion - completedAt missing for completed job '{}'", entity.getJobName());
              return EvaluationOutcome.fail("completedAt must be provided for a completed job", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Data quality: processedCount must exist and be non-negative
+         // Data quality: processedCount must be present and positive (a completed persist should have processed items)
          if (entity.getProcessedCount() == null) {
+             logger.debug("PersistSuccessCriterion - processedCount missing for job '{}'", entity.getJobName());
              return EvaluationOutcome.fail("processedCount is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-         if (entity.getProcessedCount() < 0) {
-             return EvaluationOutcome.fail("processedCount must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         if (entity.getProcessedCount() <= 0) {
+             logger.debug("PersistSuccessCriterion - processedCount not positive ({} ) for job '{}'", entity.getProcessedCount(), entity.getJobName());
+             return EvaluationOutcome.fail("processedCount must be greater than zero for a successful persist", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Data quality: there should be no recorded errors for a successful persist
+         // Data quality: there should be no errors recorded for a successful persist
          if (entity.getErrors() != null && !entity.getErrors().isEmpty()) {
+             logger.debug("PersistSuccessCriterion - job '{}' completed but contains {} error(s)", entity.getJobName(), entity.getErrors().size());
              return EvaluationOutcome.fail("Errors present in job result", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
+         // All checks passed -> success
+         logger.info("PersistSuccessCriterion - ingestion job '{}' marked as successful persist (processedCount={})", entity.getJobName(), entity.getProcessedCount());
          return EvaluationOutcome.success();
     }
 }

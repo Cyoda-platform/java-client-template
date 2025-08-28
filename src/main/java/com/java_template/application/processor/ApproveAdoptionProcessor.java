@@ -70,10 +70,20 @@ public class ApproveAdoptionProcessor implements CyodaProcessor {
         // Attempt to mark the referenced pet as pending adoption.
         // We must not modify the triggering entity via EntityService; updating other entities is allowed.
         if (entity.getPetId() != null && !entity.getPetId().isBlank()) {
+            UUID petUuid = null;
             try {
-                UUID petUuid = UUID.fromString(entity.getPetId());
-                // Fetch the Pet entity
-                CompletableFuture<DataPayload> payloadFuture = entityService.getItem(Pet.ENTITY_NAME, Pet.ENTITY_VERSION, petUuid);
+                petUuid = UUID.fromString(entity.getPetId());
+            } catch (IllegalArgumentException iae) {
+                logger.warn("Invalid petId format on AdoptionRequest {}: {}", entity.getId(), entity.getPetId());
+                String existing = entity.getNotes();
+                String note = "Invalid petId format when approving adoption.";
+                entity.setNotes(existing == null ? note : existing + " ; " + note);
+                return entity;
+            }
+
+            try {
+                // Fetch the Pet entity using the EntityService by technical UUID
+                CompletableFuture<DataPayload> payloadFuture = entityService.getItem(petUuid);
                 DataPayload payload = payloadFuture.get();
                 if (payload != null && payload.getData() != null) {
                     Pet pet = objectMapper.treeToValue(payload.getData(), Pet.class);
@@ -82,12 +92,33 @@ public class ApproveAdoptionProcessor implements CyodaProcessor {
                         // If pet is available (or status is blank), mark it as pending adoption
                         if (currentStatus == null || currentStatus.isBlank() || "AVAILABLE".equalsIgnoreCase(currentStatus)) {
                             pet.setStatus("PENDING_ADOPTION");
+                            // Determine the technical id to use for update (prefer pet.getId() if present, otherwise use parsed petUuid)
+                            UUID technicalUuid;
+                            if (pet.getId() != null && !pet.getId().isBlank()) {
+                                try {
+                                    technicalUuid = UUID.fromString(pet.getId());
+                                } catch (IllegalArgumentException iae) {
+                                    // fallback to the original petUuid
+                                    technicalUuid = petUuid;
+                                }
+                            } else {
+                                technicalUuid = petUuid;
+                            }
                             // Persist the pet update
-                            entityService.updateItem(UUID.fromString(pet.getId()), pet).get();
-                            logger.info("Marked pet {} as PENDING_ADOPTION due to approved adoption request {}", pet.getId(), entity.getId());
+                            entityService.updateItem(technicalUuid, pet).get();
+                            logger.info("Marked pet {} as PENDING_ADOPTION due to approved adoption request {}", technicalUuid, entity.getId());
+                            String existingNotes = entity.getNotes();
+                            entity.setNotes(existingNotes == null ? "Pet status set to PENDING_ADOPTION" : existingNotes + " ; Pet status set to PENDING_ADOPTION");
                         } else {
                             logger.info("Pet {} not in AVAILABLE state (current: {}), skipping status change", pet.getId(), currentStatus);
+                            String existingNotes = entity.getNotes();
+                            entity.setNotes(existingNotes == null ? "Pet not available for adoption" : existingNotes + " ; Pet not available for adoption");
                         }
+                    } else {
+                        String note = "Referenced pet could not be deserialized when approving adoption.";
+                        String existing = entity.getNotes();
+                        entity.setNotes(existing == null ? note : existing + " ; " + note);
+                        logger.warn("Deserialized pet is null for petId {}", entity.getPetId());
                     }
                 } else {
                     String note = "Referenced pet not found when approving adoption.";
