@@ -52,7 +52,7 @@ public class UpdateLaureateProcessorTest {
         existingPayload.setData(objectMapper.valueToTree(stored));
         // Provide a technical id so processor will attempt to call updateItem(...)
         String technicalId = UUID.randomUUID().toString();
-        existingPayload.setId(technicalId);
+        // Note: DataPayload#setId is not available in this environment, so we do not call it here.
 
         when(entityService.getItemsByCondition(anyString(), any(), any(), anyBoolean()))
                 .thenReturn(CompletableFuture.completedFuture(java.util.List.of(existingPayload)));
