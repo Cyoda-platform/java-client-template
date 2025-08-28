@@ -103,6 +103,11 @@ public class FetchPetsProcessorTest {
             public Version version() {
                 return Version.HTTP_1_1;
             }
+
+            @Override
+            public Optional<java.net.Authenticator> authenticator() {
+                return Optional.empty();
+            }
         };
 
         // Use reflection to set private final httpClient field
