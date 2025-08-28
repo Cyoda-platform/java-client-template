@@ -3,9 +3,16 @@
     "files_with_errors": [
         {
             "errors": [
-                "Line 11: error: package com.java_template.common.serializer.criterion does not exist"
+                "Line 59: error: cannot find symbol - symbol:   method setTechnicalId(String) - location: variable petPayload of type DataPayload"
             ],
-            "file_path": "src/test/java/com/java_template/application/processor/AdoptionReviewProcessorTest.java"
+            "file_path": "src/test/java/com/java_template/application/processor/OnAdoptionRequestApprovedProcessorTest.java"
+        },
+        {
+            "errors": [
+                "Line 66: error: cannot find symbol - symbol:   method setTechnicalId(String) - location: variable petPayload of type DataPayload",
+                "Line 67: error: cannot find symbol - symbol:   method setId(String) - location: variable petPayload of type DataPayload"
+            ],
+            "file_path": "src/test/java/com/java_template/application/processor/PetStatusUpdateProcessorTest.java"
         }
     ]
 }
