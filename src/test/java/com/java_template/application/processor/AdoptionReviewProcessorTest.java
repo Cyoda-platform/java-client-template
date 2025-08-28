@@ -8,7 +8,7 @@ import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRe
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.serializer.criterion.CriterionSerializer;
+import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.jackson.JacksonCriterionSerializer;
 import com.java_template.common.serializer.jackson.JacksonProcessorSerializer;
 import com.java_template.common.workflow.CyodaEventContext;
