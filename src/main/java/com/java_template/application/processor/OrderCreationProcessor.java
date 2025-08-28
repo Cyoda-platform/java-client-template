@@ -84,7 +84,7 @@ public class OrderCreationProcessor implements CyodaProcessor {
                 logger.warn("Payment {} has no cartId, skipping.", payment.getId());
                 return payment;
             }
-            CompletableFuture<DataPayload> cartFuture = entityService.getItem(Cart.ENTITY_NAME, Cart.ENTITY_VERSION, UUID.fromString(payment.getCartId()));
+            CompletableFuture<DataPayload> cartFuture = entityService.getItem(UUID.fromString(payment.getCartId()));
             DataPayload cartPayload = cartFuture.get();
             if (cartPayload == null || cartPayload.getData() == null) {
                 logger.warn("Cart not found for payment {} cartId={}", payment.getId(), payment.getCartId());
@@ -96,7 +96,7 @@ public class OrderCreationProcessor implements CyodaProcessor {
             User user = null;
             if (cart.getUserId() != null && !cart.getUserId().isBlank()) {
                 try {
-                    CompletableFuture<DataPayload> userFuture = entityService.getItem(User.ENTITY_NAME, User.ENTITY_VERSION, UUID.fromString(cart.getUserId()));
+                    CompletableFuture<DataPayload> userFuture = entityService.getItem(UUID.fromString(cart.getUserId()));
                     DataPayload userPayload = userFuture.get();
                     if (userPayload != null && userPayload.getData() != null) {
                         user = objectMapper.treeToValue(userPayload.getData(), User.class);

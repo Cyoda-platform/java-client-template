@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -48,6 +50,7 @@ public class CheckoutGuardCriterion implements CyodaCriterion {
         return className.equals(opName);
     }
 
+    @SuppressWarnings("unchecked")
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Cart> context) {
          Cart cart = context.entity();
 
@@ -59,16 +62,26 @@ public class CheckoutGuardCriterion implements CyodaCriterion {
          // Guard 2: All reservations for this cart must be ACTIVE
          List<Reservation> reservations;
          try {
-             // Try a best-effort method on the context to obtain related Reservation entities.
-             // If the evaluation context exposes a helper to fetch related entities use it.
-             // Fallback: attempt to fetch Reservation payloads via a generic fetch (implementation-dependent).
-             reservations = context.relatedEntities(Reservation.class);
-         } catch (NoSuchMethodError | RuntimeException e) {
-             // If relatedEntities is not supported by the runtime evaluation context, attempt alternate fetch
+             // Attempt to call context.relatedEntities(Reservation.class) via reflection if available
+             Method relatedMethod = context.getClass().getMethod("relatedEntities", Class.class);
+             Object result = relatedMethod.invoke(context, Reservation.class);
+             if (result instanceof List) {
+                 reservations = (List<Reservation>) result;
+             } else {
+                 reservations = null;
+             }
+         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+             // Fallback to a second possible method name: fetchEntities(Class)
              try {
-                 reservations = context.fetchEntities(Reservation.class);
-             } catch (Exception ex) {
-                 logger.debug("Unable to load related reservations for cart {}", cart == null ? "<null>" : cart.getId(), ex);
+                 Method fetchMethod = context.getClass().getMethod("fetchEntities", Class.class);
+                 Object result = fetchMethod.invoke(context, Reservation.class);
+                 if (result instanceof List) {
+                     reservations = (List<Reservation>) result;
+                 } else {
+                     reservations = null;
+                 }
+             } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ex) {
+                 logger.debug("Unable to load related reservations for cart {}: {}", cart == null ? "<null>" : cart.getId(), ex.getMessage());
                  return EvaluationOutcome.fail("Could not validate reservations for cart", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          }

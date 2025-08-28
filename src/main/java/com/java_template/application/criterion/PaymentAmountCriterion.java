@@ -17,6 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -61,17 +63,22 @@ public class PaymentAmountCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Payment.amount is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Attempt to load the referenced Cart. The evaluation context is expected to provide a fetch mechanism.
+         // Attempt to load the referenced Cart. The evaluation context may or may not expose a fetch method.
          Cart cart;
          try {
-             // The context is expected to be able to fetch related entities by class and id.
-             cart = context.fetchEntity(Cart.class, payment.getCartId());
-         } catch (NoSuchMethodError nsme) {
+             // Use reflection to call fetchEntity if available at runtime to maintain compatibility
+             Method fetchMethod = context.getClass().getMethod("fetchEntity", Class.class, String.class);
+             Object result = fetchMethod.invoke(context, Cart.class, payment.getCartId());
+             cart = (Cart) result;
+         } catch (NoSuchMethodException nsme) {
              // Defensive fallback message if fetchEntity isn't available in the runtime context API
              logger.warn("fetchEntity not available on context - cannot validate payment amount against cart", nsme);
              return EvaluationOutcome.fail("Cannot validate payment amount: unable to load cart", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-         } catch (Exception e) {
-             logger.warn("Error while loading cart for payment validation: {}", e.getMessage(), e);
+         } catch (InvocationTargetException | IllegalAccessException e) {
+             logger.warn("Error while invoking fetchEntity for cart validation: {}", e.getMessage(), e);
+             return EvaluationOutcome.fail("Error loading cart for payment validation", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         } catch (ClassCastException cce) {
+             logger.warn("Fetched entity could not be cast to Cart: {}", cce.getMessage(), cce);
              return EvaluationOutcome.fail("Error loading cart for payment validation", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 

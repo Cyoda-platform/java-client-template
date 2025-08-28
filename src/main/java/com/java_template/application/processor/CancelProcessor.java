@@ -120,12 +120,8 @@ public class CancelProcessor implements CyodaProcessor {
                             // Attempt to return reserved qty to Product.availableQuantity
                             try {
                                 if (reservation.getProductId() != null && !reservation.getProductId().isBlank()) {
-                                    // Use entityService.getItem with explicit entity name/version to fetch Product payload
-                                    CompletableFuture<DataPayload> prodFuture = entityService.getItem(
-                                        Product.ENTITY_NAME,
-                                        Product.ENTITY_VERSION,
-                                        UUID.fromString(reservation.getProductId())
-                                    );
+                                    // Use entityService.getItem with explicit entity id (interface supports single-arg getItem)
+                                    CompletableFuture<DataPayload> prodFuture = entityService.getItem(UUID.fromString(reservation.getProductId()));
                                     DataPayload prodPayload = prodFuture.get();
                                     if (prodPayload != null && prodPayload.getData() != null) {
                                         Product product = objectMapper.treeToValue(prodPayload.getData(), Product.class);
