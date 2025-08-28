@@ -134,11 +134,12 @@ public class OnAdoptionRequestApprovedProcessor implements CyodaProcessor {
             pet.setStatus("adopted");
             pet.setUpdatedAt(Instant.now().toString());
 
-            // Persist pet update using technical id from payload meta
+            // Persist pet update using technical id from payload
             String technicalId = null;
             JsonNode meta = petPayload.getMeta();
-            if (meta != null) {
+            if (meta != null && !meta.isNull()) {
                 JsonNode techNode = meta.get("technicalId");
+                if (techNode == null) techNode = meta.get("technical_id");
                 if (techNode == null) techNode = meta.get("id");
                 if (techNode != null && !techNode.isNull()) {
                     technicalId = techNode.asText();
