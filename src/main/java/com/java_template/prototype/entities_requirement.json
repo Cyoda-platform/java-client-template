@@ -1,0 +1,53 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "finishedAt": "2025-09-01T10:00:20Z",
+                    "jobId": "daily-nobel-ingest",
+                    "scheduledAt": "2025-09-01T10:00:00Z",
+                    "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records",
+                    "startedAt": "2025-09-01T10:00:05Z",
+                    "status": "NOTIFIED_SUBSCRIBERS",
+                    "summary": "ingested 5 laureates"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliation_city": "Paris",
+                    "affiliation_country": "France",
+                    "affiliation_name": "University of Paris",
+                    "age_at_award": 36,
+                    "born": "1867-11-07",
+                    "borncity": "Warsaw",
+                    "borncountry": "Poland",
+                    "borncountrycode": "PL",
+                    "category": "Physics",
+                    "died": "1934-07-04",
+                    "firstname": "Marie",
+                    "gender": "female",
+                    "id": 12345,
+                    "motivation": "in recognition of the extraordinary services they have rendered by their joint researches on the radiation phenomena",
+                    "normalized_country_code": "PL",
+                    "surname": "Curie",
+                    "validated": "VALIDATED",
+                    "year": "1903"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contact_email": "team@example.com",
+                    "delivery_preference": "webhook",
+                    "name": "Research Team",
+                    "subscriberId": "s-123",
+                    "webhook_url": "https://example.com/webhook"
+                }
+            }
+        }
+    ]
+}
