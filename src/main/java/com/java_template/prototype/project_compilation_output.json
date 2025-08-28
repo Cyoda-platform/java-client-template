@@ -1,0 +1,12 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/FieldFormatCriterion.java:39: error: method toEntity in interface ProcessingChain cannot be applied to given types;\\n            .toEntity(ObjectNode.class)\\n            ^\\n  required: Class<T>\\n  found:    Class<ObjectNode>\\n  reason: inference variable T has incompatible bounds\\n    equality constraints: ObjectNode\\n    upper bounds: CyodaEntity\\n  where T is a type-variable:\\n    T extends CyodaEntity declared in method <T>toEntity(Class<T>)",
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/FieldFormatCriterion.java:72: error: type argument ObjectNode is not within bounds of type-variable T\\n    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode> context) {\\n                                                                                               ^\\n  where T is a type-variable:\\n    T extends CyodaEntity declared in record ProcessorEntityExecutionContext"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/FieldFormatCriterion.java"
+        }
+    ]
+}
