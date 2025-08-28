@@ -1,5 +1,6 @@
 package com.java_template.common.grpc.client;
 
+import com.java_template.common.grpc.client.event_handling.AbstractEventStrategy;
 import io.cloudevents.v1.proto.CloudEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
