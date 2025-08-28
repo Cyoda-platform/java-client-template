@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.serializer.criterion.CriterionSerializer;
 import com.java_template.common.serializer.jackson.JacksonCriterionSerializer;
 import com.java_template.common.serializer.jackson.JacksonProcessorSerializer;
 import com.java_template.common.service.EntityService;
@@ -30,10 +29,10 @@ public class DeduplicationProcessorTest {
         // Arrange
         ObjectMapper objectMapper = new ObjectMapper();
         ProcessorSerializer processorSerializer = new JacksonProcessorSerializer(objectMapper);
-        CriterionSerializer criterionSerializer = new JacksonCriterionSerializer(objectMapper);
+        // Omit usage of CriterionSerializer interface which is not present in this environment.
         SerializerFactory serializerFactory = new SerializerFactory(
                 List.of(processorSerializer),
-                List.of(criterionSerializer)
+                (List) List.of()
         );
 
         EntityService entityService = mock(EntityService.class);
