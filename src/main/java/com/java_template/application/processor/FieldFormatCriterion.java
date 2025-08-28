@@ -1,20 +1,25 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.serializer.ErrorInfo;
+import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.cyoda.cloud.api.event.common.DataPayload;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.TextNode;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -36,7 +41,7 @@ public class FieldFormatCriterion implements CyodaProcessor {
         logger.info("Processing Laureate field formats for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(ObjectNode.class)
+            .toEntity(JsonNodeEntity.class)
             .withErrorHandler((error, entity) -> {
                 logger.error("Failed to extract entity as ObjectNode: {}", error.getMessage(), error);
                 return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
@@ -51,7 +56,8 @@ public class FieldFormatCriterion implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntity(ObjectNode node) {
+    private boolean isValidEntity(JsonNodeEntity wrapper) {
+        ObjectNode node = wrapper == null ? null : wrapper.getNode();
         if (node == null) return false;
         // Required fields according to Laureate entity: id, firstname, surname, category, year
         JsonNode id = node.get("id");
@@ -69,8 +75,8 @@ public class FieldFormatCriterion implements CyodaProcessor {
         return true;
     }
 
-    private ObjectNode processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode> context) {
-        ObjectNode node = context.entity();
+    private JsonNodeEntity processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<JsonNodeEntity> context) {
+        ObjectNode node = context.entity().getNode();
         String technicalId = node.path("id").asText(null);
 
         boolean allFormatsOk = true;
@@ -159,6 +165,38 @@ public class FieldFormatCriterion implements CyodaProcessor {
             logger.info("Laureate {} field formats invalid", technicalId);
         }
 
-        return node;
+        return context.entity();
+    }
+
+    private static final class JsonNodeEntity implements CyodaEntity {
+        private final ObjectNode node;
+
+        @JsonCreator
+        public JsonNodeEntity(JsonNode json) {
+            if (json instanceof ObjectNode) {
+                this.node = (ObjectNode) json;
+            } else {
+                ObjectMapper mapper = new ObjectMapper();
+                this.node = mapper.createObjectNode();
+            }
+        }
+
+        @JsonValue
+        public ObjectNode getNode() {
+            return node;
+        }
+
+        @Override
+        public OperationSpecification getModelKey() {
+            ModelSpec spec = new ModelSpec();
+            spec.setName("");
+            spec.setVersion(0);
+            return new OperationSpecification.Entity(spec, "");
+        }
+
+        @Override
+        public boolean isValid() {
+            return node != null;
+        }
     }
 }
