@@ -1,0 +1,45 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "ageMonths": 14,
+                    "breed": "Tabby",
+                    "color": "brown",
+                    "ingestedAt": "2025-08-28T10:01:00Z",
+                    "name": "Whiskers",
+                    "petId": "pet-987",
+                    "source": "PETSTORE_API",
+                    "species": "cat",
+                    "status": "AVAILABLE"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "decisionAt": null,
+                    "message": "I have a fenced yard and previous experience with cats.",
+                    "petId": "pet-987",
+                    "requestedAt": "2025-08-28T10:05:00Z",
+                    "requesterContact": "alice@example.com",
+                    "requesterName": "Alice Smith",
+                    "status": "PENDING_REVIEW"
+                }
+            }
+        },
+        {
+            "IngestionJob": {
+                "entity_data_example": {
+                    "completedAt": "2025-08-28T10:02:00Z",
+                    "jobName": "PetstoreFullSync",
+                    "mode": "FULL",
+                    "processedCount": 124,
+                    "sourceUrl": "https://petstore.example/api/pets",
+                    "startedAt": "2025-08-28T10:00:00Z",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
