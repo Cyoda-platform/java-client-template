@@ -1,8 +1,9 @@
 package com.java_template.application.processor;
 
+import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRequest;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -47,14 +48,14 @@ public class ApprovalProcessor implements CyodaProcessor {
         logger.info("Processing AdoptionRequest for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            // Work with raw JSON node to avoid relying on generated getters/setters at compile-time.
-            .toEntity(ObjectNode.class)
+            // Work with concrete AdoptionRequest entity type (implements CyodaEntity)
+            .toEntity(AdoptionRequest.class)
             .withErrorHandler((error, entity) -> {
                 logger.error("Failed to extract entity: {}", error.getMessage(), error);
                 return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
             })
-            .validate(this::isValidEntityNode, "Invalid entity state")
-            .map(this::processEntityLogicNode)
+            .validate(this::isValidAdoptionRequest, "Invalid entity state")
+            .map(this::processEntityLogic)
             .complete();
     }
 
@@ -63,24 +64,13 @@ public class ApprovalProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntityNode(ObjectNode node) {
-        if (node == null) return false;
-        // Required: requestId, petId, requesterId, status, submittedAt
-        String requestId = getText(node, "requestId");
-        String petId = getText(node, "petId");
-        String requesterId = getText(node, "requesterId");
-        String status = getText(node, "status");
-        String submittedAt = getText(node, "submittedAt");
-
-        return requestId != null && !requestId.isBlank()
-            && petId != null && !petId.isBlank()
-            && requesterId != null && !requesterId.isBlank()
-            && status != null && !status.isBlank()
-            && submittedAt != null && !submittedAt.isBlank();
+    private boolean isValidAdoptionRequest(AdoptionRequest request) {
+        return request != null && request.isValid();
     }
 
-    private ObjectNode processEntityLogicNode(ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode> context) {
-        ObjectNode node = context.entity();
+    private AdoptionRequest processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AdoptionRequest> context) {
+        AdoptionRequest entity = context.entity();
+        ObjectNode node = objectMapper.valueToTree(entity);
 
         try {
             String currentStatus = getText(node, "status");
@@ -91,13 +81,13 @@ public class ApprovalProcessor implements CyodaProcessor {
                 if (getText(node, "reviewerId") == null || getText(node, "reviewerId").isBlank()) {
                     node.put("reviewerId", "system");
                 }
-                return node;
+                return convertNodeToEntity(node, entity);
             }
 
             String statusLower = currentStatus.trim().toLowerCase();
             if (!"under_review".equalsIgnoreCase(statusLower) && !"submitted".equalsIgnoreCase(statusLower)) {
                 logger.info("AdoptionRequest {} is in status '{}' and not eligible for approval; skipping state change", getText(node, "requestId"), currentStatus);
-                return node;
+                return convertNodeToEntity(node, entity);
             }
 
             // Fetch Pet by petId (match external id field 'id' on Pet)
@@ -205,7 +195,28 @@ public class ApprovalProcessor implements CyodaProcessor {
             node.put("notes", (existingNotes == null ? "" : existingNotes + " ") + "Unexpected error: " + e.getMessage());
         }
 
-        return node;
+        return convertNodeToEntity(node, entity);
+    }
+
+    private AdoptionRequest convertNodeToEntity(ObjectNode node, AdoptionRequest fallback) {
+        try {
+            return objectMapper.treeToValue(node, AdoptionRequest.class);
+        } catch (Exception e) {
+            logger.error("Failed to convert processed node back to AdoptionRequest, applying best-effort mapping: {}", e.getMessage(), e);
+            // best-effort: update some known fields on fallback and return it
+            if (fallback == null) {
+                fallback = new AdoptionRequest();
+            }
+            String status = getText(node, "status");
+            if (status != null) fallback.setStatus(status);
+            String reviewerId = getText(node, "reviewerId");
+            if (reviewerId != null) fallback.setReviewerId(reviewerId);
+            String decisionAt = getText(node, "decisionAt");
+            if (decisionAt != null) fallback.setDecisionAt(decisionAt);
+            String notes = getText(node, "notes");
+            if (notes != null) fallback.setNotes(notes);
+            return fallback;
+        }
     }
 
     private static String getText(JsonNode node, String field) {
