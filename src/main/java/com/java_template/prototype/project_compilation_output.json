@@ -1,0 +1,25 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "Line 109: error: cannot find symbol - symbol:   method getTechnicalId() - location: variable petPayload of type DataPayload",
+                "Line 109: error: cannot find symbol - symbol:   method getTechnicalId() - location: variable petPayload of type DataPayload",
+                "Line 109: error: cannot find symbol - symbol:   method getId() - location: variable petPayload of type DataPayload"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/PetStatusUpdateProcessor.java"
+        },
+        {
+            "errors": [
+                "Line 137: error: cannot find symbol - symbol:   method getTechnicalId() - location: variable petPayload of type DataPayload"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/OnAdoptionRequestApprovedProcessor.java"
+        },
+        {
+            "errors": [
+                "Line 179: error: cannot find symbol - symbol:   method getTechnicalId() - location: variable payload of type DataPayload"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/pet/version_1/PetController.java"
+        }
+    ]
+}
