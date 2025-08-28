@@ -2,6 +2,7 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRequest; 
+import com.java_template.application.entity.pet.version_1.Pet; 
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ErrorInfo;
