@@ -3,7 +3,7 @@
     "files_with_errors": [
         {
             "errors": [
-                "<anonymous com.java_template.application.processor.FetchPetsProcessorTest$1> is not abstract and does not override abstract method version() in HttpClient (at src/test/java/com/java_template/application/processor/FetchPetsProcessorTest.java:62)"
+                "<anonymous com.java_template.application.processor.FetchPetsProcessorTest$1> is not abstract and does not override abstract method authenticator() in HttpClient (at src/test/java/com/java_template/application/processor/FetchPetsProcessorTest.java:62)"
             ],
             "file_path": "src/test/java/com/java_template/application/processor/FetchPetsProcessorTest.java"
         }
