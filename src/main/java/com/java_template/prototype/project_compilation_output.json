@@ -1,0 +1,61 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/ValidateAdoptionProcessor.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/ConfirmAdoptionProcessor.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/UpdateProfileProcessor.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/AdoptionRequestProcessor.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/ProcessAdoptionProcessor.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/adoption/version_1/AdoptionController.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/user/version_1/UserController.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/pet/version_1/PetController.java"
+        }
+    ]
+}
