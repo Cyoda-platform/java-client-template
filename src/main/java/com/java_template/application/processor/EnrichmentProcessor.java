@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -8,11 +9,6 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.cyoda.cloud.api.event.common.DataPayload;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,28 +29,43 @@ public class EnrichmentProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Pet for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        return serializer.withRequest(request)
             .toEntity(Pet.class)
             .withErrorHandler((error, entity) -> {
-                    logger.error("Failed to extract entity: {}", error.getMessage(), error);
-                    return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
-                })
+                logger.error("Failed to extract entity: {}", error.getMessage(), error);
+                return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
+            })
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
+
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Validate the minimal required fields for enrichment.
+     * Note: Do not rely on Pet.isValid() here because status may be populated by enrichment itself.
+     */
     private boolean isValidEntity(Pet entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        // id and name must be present
+        String id = entity.getId();
+        if (id == null || id.isBlank()) return false;
+        String name = entity.getName();
+        if (name == null || name.isBlank()) return false;
+        // age must be non-null and non-negative
+        Integer age = entity.getAge();
+        if (age == null || age < 0) return false;
+        // breed and description may be missing and will be normalized/enriched
+        return true;
     }
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet entity = context.entity();
-        
+
         // Normalize breed: trim, collapse spaces, title case
         try {
             String breed = entity.getBreed();
@@ -126,7 +137,7 @@ public class EnrichmentProcessor implements CyodaProcessor {
         } catch (Exception ex) {
             logger.warn("Failed to determine status for pet id {}: {}", entity.getId(), ex.getMessage());
         }
-        
+
         return entity;
     }
 
