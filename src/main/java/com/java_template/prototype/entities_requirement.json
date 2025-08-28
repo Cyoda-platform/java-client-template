@@ -1,0 +1,57 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "errorSummary": "",
+                    "failedCount": 0,
+                    "finishedAt": null,
+                    "id": "job-001",
+                    "processedCount": 0,
+                    "schedule": "0 0 * * *",
+                    "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records",
+                    "startedAt": null,
+                    "state": "SCHEDULED"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliationCity": "Sendai",
+                    "affiliationCountry": "Japan",
+                    "affiliationName": "Tohoku University",
+                    "ageAtAward": 80,
+                    "born": "1940-09-12",
+                    "borncity": "Mukawa",
+                    "borncountry": "Japan",
+                    "borncountrycode": "JP",
+                    "category": "Chemistry",
+                    "died": null,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "id": 853,
+                    "lastUpdatedAt": "2025-08-01T12:00:00Z",
+                    "motivation": "for development of palladium-catalysed cross couplings in organic synthesis",
+                    "normalizedCountryCode": "JP",
+                    "sourceSnapshot": "{\"id\":853,\"firstname\":\"Akira\",\"surname\":\"Suzuki\",\"born\":\"1940-09-12\",\"borncountry\":\"Japan\",\"year\":\"2010\",\"category\":\"Chemistry\"}",
+                    "surname": "Suzuki",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "createdAt": "2025-07-01T09:00:00Z",
+                    "email": "alerts@example.com",
+                    "filters": "category=Chemistry",
+                    "id": "sub-01",
+                    "name": "Chemistry Feed",
+                    "webhookUrl": null
+                }
+            }
+        }
+    ]
+}
