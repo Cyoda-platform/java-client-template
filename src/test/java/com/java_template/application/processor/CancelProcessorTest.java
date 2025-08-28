@@ -82,7 +82,7 @@ public class CancelProcessorTest {
 
         // - updateItem for reservation and product -> return completed future (payload not used)
         when(entityService.updateItem(any(UUID.class), any()))
-                .thenReturn(CompletableFuture.completedFuture(new DataPayload()));
+                .thenReturn(CompletableFuture.completedFuture(UUID.randomUUID()));
 
         // Build a valid Cart entity that will be processed
         Cart cart = new Cart();

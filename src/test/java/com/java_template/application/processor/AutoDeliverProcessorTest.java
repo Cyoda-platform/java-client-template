@@ -1,85 +1,87 @@
-package com.java_template.application.processor;
+package com.java_template.common.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.application.entity.shipment.version_1.Shipment;
-import com.java_template.common.serializer.CriterionSerializer;
-import com.java_template.common.serializer.ProcessorSerializer;
-import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.serializer.jackson.JacksonCriterionSerializer;
-import com.java_template.common.serializer.jackson.JacksonProcessorSerializer;
-import com.java_template.common.workflow.CyodaEventContext;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.cyoda.cloud.api.event.common.DataPayload;
-import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
-import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.junit.jupiter.api.Test;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
+import java.util.Date;
 import java.util.List;
-import java.util.ArrayList;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
-import static org.junit.jupiter.api.Assertions.*;
+public interface EntityService {
 
-public class AutoDeliverProcessorTest {
+    // Retrieve a single item based on its ID.
+    CompletableFuture<DataPayload> getItem(@NotNull UUID entityId);
 
-    @Test
-    void sunnyDay_process_test() {
-        // Arrange
-        ObjectMapper objectMapper = new ObjectMapper();
-        ProcessorSerializer processorSerializer = new JacksonProcessorSerializer(objectMapper);
-        CriterionSerializer criterionSerializer = new JacksonCriterionSerializer(objectMapper);
-        SerializerFactory serializerFactory = new SerializerFactory(
-                List.of(processorSerializer),
-                List.of(criterionSerializer)
-        );
+    // Retrieve an item based on a condition.
+    CompletableFuture<Optional<DataPayload>> getFirstItemByCondition(
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @NotNull Object condition,
+            boolean inMemory
+    );
 
-        AutoDeliverProcessor processor = new AutoDeliverProcessor(serializerFactory);
+    // Retrieve multiple items based on the entity model and version.
+    CompletableFuture<List<DataPayload>> getItems(
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @Nullable Integer pageSize,
+            @Nullable Integer pageNumber,
+            @Nullable Date pointTime
+    );
 
-        // Build a valid Shipment entity that passes isValid()
-        Shipment.ShipmentItem item = new Shipment.ShipmentItem();
-        item.setProductId("prod-1");
-        item.setQty(1);
-        List<Shipment.ShipmentItem> items = new ArrayList<>();
-        items.add(item);
+    // Retrieve items based on a condition with option for in-memory search.
+    CompletableFuture<List<DataPayload>> getItemsByCondition(
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @NotNull Object condition,
+            boolean inMemory
+    );
 
-        Shipment shipment = new Shipment();
-        shipment.setId("s1");
-        shipment.setShipmentNumber("SN-1");
-        shipment.setOrderId("o1");
-        shipment.setStatus("SENT"); // Eligible for auto-deliver sunny path
-        shipment.setCreatedAt("2020-01-01T00:00:00Z");
-        shipment.setWarehouseId("w1");
-        shipment.setItems(items);
+    // Add a new item to the repository and return the entity's unique ID.
+    <ENTITY_TYPE> CompletableFuture<UUID> addItem(
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @NotNull ENTITY_TYPE entity
+    );
 
-        JsonNode entityJson = objectMapper.valueToTree(shipment);
+    // Add a new item to the repository and return the entity ID along with the
+    // transaction ID.
+    <ENTITY_TYPE> CompletableFuture<ObjectNode> addItemAndReturnTransactionInfo(
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @NotNull ENTITY_TYPE entity
+    );
 
-        EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
-        request.setId("r1");
-        request.setRequestId("r1");
-        request.setEntityId(shipment.getId());
-        request.setProcessorName("AutoDeliverProcessor");
-        DataPayload payload = new DataPayload();
-        payload.setData(entityJson);
-        request.setPayload(payload);
+    // Add a list of items to the repository and return the entities' IDs.
+    <ENTITY_TYPE> CompletableFuture<List<UUID>> addItems(
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @NotNull Collection<ENTITY_TYPE> entities
+    );
 
-        CyodaEventContext<EntityProcessorCalculationRequest> context = new CyodaEventContext<>() {
-            @Override
-            public io.cloudevents.v1.proto.CloudEvent getCloudEvent() { return null; }
-            @Override
-            public EntityProcessorCalculationRequest getEvent() { return request; }
-        };
+    // Add a list of items to the repository and return the entities' IDs along with
+    // the transaction ID.
+    <ENTITY_TYPE> CompletableFuture<EntityTransactionInfo> addItemsAndReturnTransactionInfo(
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @NotNull Collection<ENTITY_TYPE> entities
+    );
 
-        // Act
-        EntityProcessorCalculationResponse response = processor.process(context);
+    // Update an existing item in the repository.
+    <ENTITY_TYPE> CompletableFuture<UUID> updateItem(@NotNull UUID entityId, @NotNull ENTITY_TYPE entity);
 
-        // Assert
-        assertNotNull(response);
-        assertTrue(response.getSuccess());
+    <ENTITY_TYPE> CompletableFuture<List<UUID>> updateItems(@NotNull Collection<ENTITY_TYPE> entities);
 
-        JsonNode out = response.getPayload().getData();
-        assertNotNull(out);
-        assertEquals("DELIVERED", out.get("status").asText());
-        assertNotNull(out.get("trackingInfo"));
-        assertNotNull(out.get("trackingInfo").get("deliveredAt"));
-        assertFalse(out.get("trackingInfo").get("deliveredAt").asText().isBlank());
-    }
+    CompletableFuture<List<String>> applyTransition(@NotNull UUID entityId, @NotNull String transitionName);
+
+    // Delete an item by ID.
+    CompletableFuture<UUID> deleteItem(@NotNull UUID entityId);
+
+    // Delete all items by modelName and modelVersion.
+    CompletableFuture<Integer> deleteItems(@NotNull String modelName, @NotNull Integer modelVersion);
 }

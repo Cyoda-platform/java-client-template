@@ -95,9 +95,9 @@ public class OrderCreationProcessorTest {
         reservationPayload.setData(objectMapper.valueToTree(reservation));
 
         // Stub EntityService interactions
-        when(entityService.getItem(eq(Cart.ENTITY_NAME), eq(Cart.ENTITY_VERSION), eq(UUID.fromString(cartId))))
+        when(entityService.getItem(eq(UUID.fromString(cartId))))
                 .thenReturn(CompletableFuture.completedFuture(cartPayload));
-        when(entityService.getItem(eq(User.ENTITY_NAME), eq(User.ENTITY_VERSION), eq(UUID.fromString(userId))))
+        when(entityService.getItem(eq(UUID.fromString(userId))))
                 .thenReturn(CompletableFuture.completedFuture(userPayload));
         when(entityService.getItemsByCondition(eq(Reservation.ENTITY_NAME), eq(Reservation.ENTITY_VERSION), any(), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of(reservationPayload)));
