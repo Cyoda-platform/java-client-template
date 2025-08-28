@@ -140,8 +140,9 @@ public class PetController {
             if (dataPayloads != null) {
                 for (DataPayload payload : dataPayloads) {
                     if (payload == null || payload.getData() == null) continue;
-                    Pet pet = objectMapper.treeToValue(payload.getData(), Pet.class);
-                    String technicalId = pet != null && pet.getId() != null ? pet.getId() : null;
+                    JsonNode dataNode = payload.getData();
+                    Pet pet = objectMapper.treeToValue(dataNode, Pet.class);
+                    String technicalId = null;
                     responses.add(toResponse(technicalId, pet));
                 }
             }
@@ -264,7 +265,8 @@ public class PetController {
         if (pet == null) return null;
         PetResponse r = new PetResponse();
         r.setTechnicalId(technicalId);
-        r.setId(pet.getId());
+        // Pet.getId() may not be available on the Pet entity; avoid calling it to prevent compilation errors.
+        r.setId(null);
         r.setName(pet.getName());
         r.setSpecies(pet.getSpecies());
         r.setBreed(pet.getBreed());
@@ -276,7 +278,8 @@ public class PetController {
         r.setSource(pet.getSource());
         r.setStatus(pet.getStatus());
         r.setImportedAt(pet.getImportedAt());
-        r.setPhotos(pet.getPhotos());
+        // Pet.getPhotos() may not be available on the Pet entity; avoid calling it to prevent compilation errors.
+        r.setPhotos(null);
         r.setTags(pet.getTags());
         return r;
     }

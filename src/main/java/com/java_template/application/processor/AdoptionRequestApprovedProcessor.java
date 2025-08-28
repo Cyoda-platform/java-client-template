@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.lang.reflect.Field;
 
 @Component
 public class AdoptionRequestApprovedProcessor implements CyodaProcessor {
@@ -73,13 +74,18 @@ public class AdoptionRequestApprovedProcessor implements CyodaProcessor {
         // 2. Attempt to set the referenced Pet status to PENDING_ADOPTION only if the Pet exists and is currently AVAILABLE.
         // 3. If Pet does not exist or is not AVAILABLE, mark the request as REJECTED and note reason.
 
-        entity.setStatus("APPROVED");
+        // Set status to APPROVED (use reflective field set in case setter is not present)
+        setEntityField(entity, "status", "APPROVED");
 
         String petId = entity.getPetId();
         if (petId == null || petId.isBlank()) {
-            logger.error("AdoptionRequest missing petId, rejecting request id={}", entity.getId());
-            entity.setStatus("REJECTED");
-            entity.setNotes("PetId missing for approval");
+            logger.error("AdoptionRequest missing petId, rejecting request id={}", getEntityFieldAsString(entity, "id"));
+            setEntityField(entity, "status", "REJECTED");
+            if (hasField(entity, "notes")) {
+                setEntityField(entity, "notes", "PetId missing for approval");
+            } else {
+                entity.setNotes("PetId missing for approval");
+            }
             return entity;
         }
 
@@ -88,9 +94,13 @@ public class AdoptionRequestApprovedProcessor implements CyodaProcessor {
             petUuid = UUID.fromString(petId);
         } catch (IllegalArgumentException ex) {
             // petId is not a valid UUID - cannot proceed
-            logger.error("Invalid petId format for AdoptionRequest id={}: {}", entity.getId(), petId);
-            entity.setStatus("REJECTED");
-            entity.setNotes("Invalid petId format");
+            logger.error("Invalid petId format for AdoptionRequest id={}: {}", getEntityFieldAsString(entity, "id"), petId);
+            setEntityField(entity, "status", "REJECTED");
+            if (hasField(entity, "notes")) {
+                setEntityField(entity, "notes", "Invalid petId format");
+            } else {
+                entity.setNotes("Invalid petId format");
+            }
             return entity;
         }
 
@@ -99,9 +109,13 @@ public class AdoptionRequestApprovedProcessor implements CyodaProcessor {
             CompletableFuture<DataPayload> petFuture = entityService.getItem(petUuid);
             DataPayload petPayload = petFuture.get();
             if (petPayload == null || petPayload.getData() == null) {
-                logger.warn("Referenced pet not found for AdoptionRequest id={}, petId={}", entity.getId(), petId);
-                entity.setStatus("REJECTED");
-                entity.setNotes("Referenced pet not found");
+                logger.warn("Referenced pet not found for AdoptionRequest id={}, petId={}", getEntityFieldAsString(entity, "id"), petId);
+                setEntityField(entity, "status", "REJECTED");
+                if (hasField(entity, "notes")) {
+                    setEntityField(entity, "notes", "Referenced pet not found");
+                } else {
+                    entity.setNotes("Referenced pet not found");
+                }
                 return entity;
             }
 
@@ -109,8 +123,12 @@ public class AdoptionRequestApprovedProcessor implements CyodaProcessor {
             Pet pet = objectMapper.treeToValue(petPayload.getData(), Pet.class);
             if (pet == null) {
                 logger.warn("Unable to convert pet payload to Pet object for petId={}", petId);
-                entity.setStatus("REJECTED");
-                entity.setNotes("Failed to retrieve pet data");
+                setEntityField(entity, "status", "REJECTED");
+                if (hasField(entity, "notes")) {
+                    setEntityField(entity, "notes", "Failed to retrieve pet data");
+                } else {
+                    entity.setNotes("Failed to retrieve pet data");
+                }
                 return entity;
             }
 
@@ -121,39 +139,118 @@ public class AdoptionRequestApprovedProcessor implements CyodaProcessor {
                 try {
                     CompletableFuture<UUID> updated = entityService.updateItem(petUuid, pet);
                     UUID updatedId = updated.get();
-                    logger.info("Pet {} status updated to PENDING_ADOPTION (update id={}) for adoption request id={}", petId, updatedId, entity.getId());
-                    entity.setNotes("Pet status set to PENDING_ADOPTION");
+                    logger.info("Pet {} status updated to PENDING_ADOPTION (update id={}) for adoption request id={}", petId, updatedId, getEntityFieldAsString(entity, "id"));
+                    if (hasField(entity, "notes")) {
+                        setEntityField(entity, "notes", "Pet status set to PENDING_ADOPTION");
+                    } else {
+                        entity.setNotes("Pet status set to PENDING_ADOPTION");
+                    }
                     // Leave entity.status as APPROVED
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
-                    logger.error("Interrupted while updating pet for AdoptionRequest id={}", entity.getId(), ie);
-                    entity.setStatus("REJECTED");
-                    entity.setNotes("Internal error while updating pet");
+                    logger.error("Interrupted while updating pet for AdoptionRequest id={}", getEntityFieldAsString(entity, "id"), ie);
+                    setEntityField(entity, "status", "REJECTED");
+                    if (hasField(entity, "notes")) {
+                        setEntityField(entity, "notes", "Internal error while updating pet");
+                    } else {
+                        entity.setNotes("Internal error while updating pet");
+                    }
                 } catch (ExecutionException ee) {
-                    logger.error("Failed to update pet for AdoptionRequest id={}", entity.getId(), ee);
-                    entity.setStatus("REJECTED");
-                    entity.setNotes("Failed to update pet status");
+                    logger.error("Failed to update pet for AdoptionRequest id={}", getEntityFieldAsString(entity, "id"), ee);
+                    setEntityField(entity, "status", "REJECTED");
+                    if (hasField(entity, "notes")) {
+                        setEntityField(entity, "notes", "Failed to update pet status");
+                    } else {
+                        entity.setNotes("Failed to update pet status");
+                    }
                 }
             } else {
-                logger.warn("Pet not available for adoption (current status='{}') for petId={}, rejecting request id={}", petStatus, petId, entity.getId());
-                entity.setStatus("REJECTED");
-                entity.setNotes("Pet not available for adoption. Current status: " + (petStatus == null ? "unknown" : petStatus));
+                logger.warn("Pet not available for adoption (current status='{}') for petId={}, rejecting request id={}", petStatus, petId, getEntityFieldAsString(entity, "id"));
+                setEntityField(entity, "status", "REJECTED");
+                String reason = "Pet not available for adoption. Current status: " + (petStatus == null ? "unknown" : petStatus);
+                if (hasField(entity, "notes")) {
+                    setEntityField(entity, "notes", reason);
+                } else {
+                    entity.setNotes(reason);
+                }
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while fetching pet for AdoptionRequest id={}", entity.getId(), ie);
-            entity.setStatus("REJECTED");
-            entity.setNotes("Internal error while fetching pet");
+            logger.error("Interrupted while fetching pet for AdoptionRequest id={}", getEntityFieldAsString(entity, "id"), ie);
+            setEntityField(entity, "status", "REJECTED");
+            if (hasField(entity, "notes")) {
+                setEntityField(entity, "notes", "Internal error while fetching pet");
+            } else {
+                entity.setNotes("Internal error while fetching pet");
+            }
         } catch (ExecutionException ee) {
-            logger.error("Error fetching pet for AdoptionRequest id={}", entity.getId(), ee);
-            entity.setStatus("REJECTED");
-            entity.setNotes("Error fetching pet information");
+            logger.error("Error fetching pet for AdoptionRequest id={}", getEntityFieldAsString(entity, "id"), ee);
+            setEntityField(entity, "status", "REJECTED");
+            if (hasField(entity, "notes")) {
+                setEntityField(entity, "notes", "Error fetching pet information");
+            } else {
+                entity.setNotes("Error fetching pet information");
+            }
         } catch (Exception ex) {
-            logger.error("Unexpected error processing AdoptionRequest id={}", entity.getId(), ex);
-            entity.setStatus("REJECTED");
-            entity.setNotes("Unexpected error processing approval");
+            logger.error("Unexpected error processing AdoptionRequest id={}", getEntityFieldAsString(entity, "id"), ex);
+            setEntityField(entity, "status", "REJECTED");
+            if (hasField(entity, "notes")) {
+                setEntityField(entity, "notes", "Unexpected error processing approval");
+            } else {
+                entity.setNotes("Unexpected error processing approval");
+            }
         }
 
         return entity;
+    }
+
+    private void setEntityField(Object entity, String fieldName, Object value) {
+        try {
+            Field field = findField(entity.getClass(), fieldName);
+            if (field == null) {
+                logger.debug("Field '{}' not present on {}; skipping set", fieldName, entity.getClass().getName());
+                return;
+            }
+            field.setAccessible(true);
+            field.set(entity, value);
+        } catch (IllegalAccessException iae) {
+            logger.warn("Unable to set field '{}' on {}: {}", fieldName, entity.getClass().getName(), iae.getMessage());
+        } catch (Exception e) {
+            logger.warn("Unexpected error setting field '{}' on {}: {}", fieldName, entity.getClass().getName(), e.getMessage());
+        }
+    }
+
+    private String getEntityFieldAsString(Object entity, String fieldName) {
+        try {
+            Field field = findField(entity.getClass(), fieldName);
+            if (field == null) {
+                return null;
+            }
+            field.setAccessible(true);
+            Object val = field.get(entity);
+            return val == null ? null : val.toString();
+        } catch (IllegalAccessException iae) {
+            logger.warn("Unable to access field '{}' on {}: {}", fieldName, entity.getClass().getName(), iae.getMessage());
+            return null;
+        } catch (Exception e) {
+            logger.warn("Unexpected error accessing field '{}' on {}: {}", fieldName, entity.getClass().getName(), e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean hasField(Object entity, String fieldName) {
+        return findField(entity.getClass(), fieldName) != null;
+    }
+
+    private Field findField(Class<?> clazz, String fieldName) {
+        Class<?> current = clazz;
+        while (current != null && current != Object.class) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException e) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
     }
 }

@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -53,22 +55,28 @@ public class ValidPetDataCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Use reflection to adapt to possible differences in getter names between versions
+         String id = getStringProperty(entity, "getId", "getPetId", "id");
+         String name = getStringProperty(entity, "getName", "getPetName", "name");
+         String species = getStringProperty(entity, "getSpecies", "species");
+         String status = getStringProperty(entity, "getStatus", "status");
+
          // Required core fields (based on Pet.isValid())
-         if (entity.getId() == null || entity.getId().isBlank()) {
+         if (id == null || id.isBlank()) {
              return EvaluationOutcome.fail("id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (entity.getName() == null || entity.getName().isBlank()) {
+         if (name == null || name.isBlank()) {
              return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (entity.getSpecies() == null || entity.getSpecies().isBlank()) {
+         if (species == null || species.isBlank()) {
              return EvaluationOutcome.fail("species is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+         if (status == null || status.isBlank()) {
              return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Photos: if present, entries must be non-blank and look like URLs
-         List<String> photos = entity.getPhotos();
+         List<String> photos = getProperty(entity, List.class, "getPhotos", "photos");
          if (photos != null) {
              for (String p : photos) {
                  if (p == null || p.isBlank()) {
@@ -82,7 +90,7 @@ public class ValidPetDataCriterion implements CyodaCriterion {
          }
 
          // Tags: if present, entries must be non-blank
-         List<String> tags = entity.getTags();
+         List<String> tags = getProperty(entity, List.class, "getTags", "tags");
          if (tags != null) {
              for (String t : tags) {
                  if (t == null || t.isBlank()) {
@@ -92,7 +100,7 @@ public class ValidPetDataCriterion implements CyodaCriterion {
          }
 
          // importedAt: if present, must be ISO-8601 parseable
-         String importedAt = entity.getImportedAt();
+         String importedAt = getStringProperty(entity, "getImportedAt", "importedAt");
          if (importedAt != null && !importedAt.isBlank()) {
              try {
                  OffsetDateTime.parse(importedAt);
@@ -103,7 +111,7 @@ public class ValidPetDataCriterion implements CyodaCriterion {
          }
 
          // sex: if present, must be one of expected values
-         String sex = entity.getSex();
+         String sex = getStringProperty(entity, "getSex", "sex");
          if (sex != null && !sex.isBlank()) {
              String s = sex.trim().toLowerCase();
              if (!(s.equals("m") || s.equals("f") || s.equals("unknown"))) {
@@ -112,7 +120,7 @@ public class ValidPetDataCriterion implements CyodaCriterion {
          }
 
          // size: if present, validate allowed values
-         String size = entity.getSize();
+         String size = getStringProperty(entity, "getSize", "size");
          if (size != null && !size.isBlank()) {
              String sz = size.trim().toLowerCase();
              if (!(sz.equals("small") || sz.equals("medium") || sz.equals("large"))) {
@@ -122,10 +130,48 @@ public class ValidPetDataCriterion implements CyodaCriterion {
 
          // Age: allow free-form but reject obviously invalid blanks handled above by isValid() requirements (not mandatory here)
          // Business rule example: species should be reasonable short value (avoid extremely long species strings)
-         if (entity.getSpecies() != null && entity.getSpecies().length() > 100) {
+         if (species != null && species.length() > 100) {
              return EvaluationOutcome.fail("species value is unusually long", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
         return EvaluationOutcome.success();
+    }
+
+    private String getStringProperty(Object obj, String... methodNames) {
+        Object val = getProperty(obj, Object.class, methodNames);
+        return val != null ? String.valueOf(val) : null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T getProperty(Object obj, Class<T> returnType, String... methodNames) {
+        if (obj == null) return null;
+        Class<?> cls = obj.getClass();
+        for (String name : methodNames) {
+            if (name == null) continue;
+            String methodName = name;
+            // If a plain field name provided, try getter convention
+            if (!methodName.startsWith("get") && !methodName.startsWith("is")) {
+                String cap = Character.toUpperCase(methodName.charAt(0)) + methodName.substring(1);
+                methodName = "get" + cap;
+            }
+            try {
+                Method m = cls.getMethod(methodName);
+                Object res = m.invoke(obj);
+                if (res == null) continue;
+                if (returnType.isInstance(res)) {
+                    return (T) res;
+                } else {
+                    // try string conversion if expected return type is String
+                    if (returnType.equals(String.class)) {
+                        return (T) String.valueOf(res);
+                    }
+                }
+            } catch (NoSuchMethodException ignored) {
+                // try next
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                logger.debug("Failed to access property {} on {}: {}", methodName, cls.getName(), e.getMessage());
+            }
+        }
+        return null;
     }
 }

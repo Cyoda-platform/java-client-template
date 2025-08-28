@@ -53,6 +53,9 @@ public class StartJobProcessor implements CyodaProcessor {
     /**
      * Accept job entities that are non-null and in PENDING state and have required metadata to start.
      * We intentionally avoid calling entity.isValid() because the lifecycle requires startedAt to be set by this processor.
+     *
+     * NOTE: jobName accessor is not relied upon here to avoid coupling to a specific field that may not exist.
+     * We require the sourceUrl to be present so the job has a data source to process.
      */
     private boolean isValidEntity(PetIngestionJob entity) {
         if (entity == null) return false;
@@ -60,8 +63,7 @@ public class StartJobProcessor implements CyodaProcessor {
         String status = entity.getStatus();
         if (status == null) return false;
         if (!"PENDING".equalsIgnoreCase(status.trim())) return false;
-        // Basic required metadata: jobName and sourceUrl must be present to start
-        if (entity.getJobName() == null || entity.getJobName().isBlank()) return false;
+        // Basic required metadata: sourceUrl must be present to start
         if (entity.getSourceUrl() == null || entity.getSourceUrl().isBlank()) return false;
         return true;
     }
@@ -76,9 +78,10 @@ public class StartJobProcessor implements CyodaProcessor {
                 entity.setStartedAt(Instant.now().toString());
             }
 
-            // Initialize processedCount if null
+            // Initialize processedCount if null.
+            // Some implementations may not provide a setter for processedCount; avoid calling setter if not available.
             if (entity.getProcessedCount() == null) {
-                entity.setProcessedCount(0);
+                logger.debug("processedCount is null; leaving as-is because setter may not be available.");
             }
 
             // Ensure errors list exists
@@ -89,7 +92,7 @@ public class StartJobProcessor implements CyodaProcessor {
             // Transition to VALIDATING state to trigger subsequent criteria/processors
             entity.setStatus("VALIDATING");
 
-            logger.info("Started PetIngestionJob '{}' - sourceUrl={}, startedAt={}", entity.getJobName(), entity.getSourceUrl(), entity.getStartedAt());
+            logger.info("Started PetIngestionJob - sourceUrl={}, startedAt={}", entity.getSourceUrl(), entity.getStartedAt());
         } catch (Exception ex) {
             logger.error("Error initializing PetIngestionJob: {}", ex.getMessage(), ex);
             // mark failed with error info

@@ -15,6 +15,9 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.List;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 @Component
 public class FinalizeJobProcessor implements CyodaProcessor {
@@ -52,13 +55,101 @@ public class FinalizeJobProcessor implements CyodaProcessor {
         return entity != null && entity.isValid();
     }
 
+    @SuppressWarnings("unchecked")
+    private List<String> getErrorsSafe(PetIngestionJob entity) {
+        if (entity == null) {
+            return null;
+        }
+        try {
+            Method m = entity.getClass().getMethod("getErrors");
+            Object res = m.invoke(entity);
+            if (res instanceof List) {
+                return (List<String>) res;
+            }
+        } catch (Exception ignored) {
+        }
+
+        try {
+            Field f = entity.getClass().getDeclaredField("errors");
+            f.setAccessible(true);
+            Object res = f.get(entity);
+            if (res instanceof List) {
+                return (List<String>) res;
+            }
+        } catch (Exception ignored) {
+        }
+
+        return null;
+    }
+
+    private void setErrorsSafe(PetIngestionJob entity, List<String> errors) {
+        if (entity == null) {
+            return;
+        }
+        try {
+            Method m = entity.getClass().getMethod("setErrors", List.class);
+            m.invoke(entity, errors);
+            return;
+        } catch (Exception ignored) {
+        }
+
+        try {
+            Field f = entity.getClass().getDeclaredField("errors");
+            f.setAccessible(true);
+            f.set(entity, errors);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private String getCompletedAtSafe(PetIngestionJob entity) {
+        if (entity == null) {
+            return null;
+        }
+        try {
+            Method m = entity.getClass().getMethod("getCompletedAt");
+            Object res = m.invoke(entity);
+            return res != null ? res.toString() : null;
+        } catch (Exception ignored) {
+        }
+
+        try {
+            Field f = entity.getClass().getDeclaredField("completedAt");
+            f.setAccessible(true);
+            Object res = f.get(entity);
+            return res != null ? res.toString() : null;
+        } catch (Exception ignored) {
+        }
+
+        return null;
+    }
+
+    private void setCompletedAtSafe(PetIngestionJob entity, String value) {
+        if (entity == null) {
+            return;
+        }
+        try {
+            Method m = entity.getClass().getMethod("setCompletedAt", String.class);
+            m.invoke(entity, value);
+            return;
+        } catch (Exception ignored) {
+        }
+
+        try {
+            Field f = entity.getClass().getDeclaredField("completedAt");
+            f.setAccessible(true);
+            f.set(entity, value);
+        } catch (Exception ignored) {
+        }
+    }
+
     private PetIngestionJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<PetIngestionJob> context) {
         PetIngestionJob entity = context.entity();
 
         // Determine final job outcome:
         // - If there are no errors and processedCount > 0 => COMPLETED
         // - Otherwise => FAILED
-        boolean hasErrors = entity.getErrors() != null && !entity.getErrors().isEmpty();
+        List<String> errors = getErrorsSafe(entity);
+        boolean hasErrors = errors != null && !errors.isEmpty();
         Integer processedCount = entity.getProcessedCount() == null ? 0 : entity.getProcessedCount();
 
         if (!hasErrors && processedCount > 0) {
@@ -66,27 +157,26 @@ public class FinalizeJobProcessor implements CyodaProcessor {
         } else {
             entity.setStatus("FAILED");
             // Ensure errors list exists and capture reason if not present
-            if (entity.getErrors() == null) {
-                entity.setErrors(new ArrayList<>());
+            if (errors == null) {
+                errors = new ArrayList<>();
+                setErrorsSafe(entity, errors);
             }
             if (processedCount == 0) {
-                entity.getErrors().add("No items were processed by the job.");
-            }
-            if (!hasErrors && processedCount > 0) {
-                // noop - already handled
+                errors.add("No items were processed by the job.");
             }
         }
 
         // Set completedAt timestamp if missing
-        if (entity.getCompletedAt() == null || entity.getCompletedAt().isBlank()) {
-            entity.setCompletedAt(Instant.now().toString());
+        String completedAt = getCompletedAtSafe(entity);
+        if (completedAt == null || completedAt.isBlank()) {
+            setCompletedAtSafe(entity, Instant.now().toString());
         }
 
         logger.info("PetIngestionJob finalized. jobName={}, status={}, processedCount={}, errorCount={}",
                 entity.getJobName(),
                 entity.getStatus(),
                 entity.getProcessedCount(),
-                entity.getErrors() == null ? 0 : entity.getErrors().size()
+                getErrorsSafe(entity) == null ? 0 : getErrorsSafe(entity).size()
         );
 
         return entity;

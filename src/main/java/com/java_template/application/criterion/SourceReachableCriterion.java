@@ -16,6 +16,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -56,22 +58,32 @@ public class SourceReachableCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Job entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String sourceUrl = job.getSourceUrl();
+         String jobName = getStringProperty(job, "jobName");
+         String sourceUrl = getStringProperty(job, "sourceUrl");
+
          if (sourceUrl == null || sourceUrl.isBlank()) {
-             logger.debug("PetIngestionJob {} has no sourceUrl", job.getJobName());
+             logger.debug("PetIngestionJob {} has no sourceUrl", jobName != null ? jobName : "<unknown>");
              return EvaluationOutcome.fail("sourceUrl is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          String lower = sourceUrl.toLowerCase();
          if (!(lower.startsWith("http://") || lower.startsWith("https://"))) {
-             logger.debug("PetIngestionJob {} has invalid sourceUrl: {}", job.getJobName(), sourceUrl);
+             logger.debug("PetIngestionJob {} has invalid sourceUrl: {}", jobName != null ? jobName : "<unknown>", sourceUrl);
              return EvaluationOutcome.fail("sourceUrl must be a valid http/https URL", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // Basic defensive checks: if job already marked FAILED, surface as business rule failure
-         String status = job.getStatus();
+         String status = null;
+         try {
+             Method statusMethod = job.getClass().getMethod("getStatus");
+             Object statusObj = statusMethod.invoke(job);
+             if (statusObj != null) status = String.valueOf(statusObj);
+         } catch (Exception ignored) {
+             // If getStatus doesn't exist or fails, leave status as null and continue
+         }
+
          if (status != null && status.equalsIgnoreCase("FAILED")) {
-             logger.debug("PetIngestionJob {} is already FAILED", job.getJobName());
+             logger.debug("PetIngestionJob {} is already FAILED", jobName != null ? jobName : "<unknown>");
              return EvaluationOutcome.fail("Job is marked as FAILED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
@@ -107,16 +119,43 @@ public class SourceReachableCriterion implements CyodaCriterion {
                  // reachable
                  return EvaluationOutcome.success();
              } else {
-                 logger.warn("PetIngestionJob {} sourceUrl responded with status {} for URL {}", job.getJobName(), code, sourceUrl);
+                 logger.warn("PetIngestionJob {} sourceUrl responded with status {} for URL {}", jobName != null ? jobName : "<unknown>", code, sourceUrl);
                  return EvaluationOutcome.fail("sourceUrl not reachable (HTTP " + code + ")", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          } catch (IOException | InterruptedException ex) {
              Thread.currentThread().interrupt();
-             logger.warn("PetIngestionJob {} sourceUrl check failed: {} - {}", job.getJobName(), ex.getClass().getSimpleName(), ex.getMessage());
+             logger.warn("PetIngestionJob {} sourceUrl check failed: {} - {}", jobName != null ? jobName : "<unknown>", ex.getClass().getSimpleName(), ex.getMessage());
              return EvaluationOutcome.fail("sourceUrl not reachable: " + ex.getMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          } catch (Exception ex) {
-             logger.warn("Unexpected error while checking sourceUrl for job {}: {}", job.getJobName(), ex.getMessage(), ex);
+             logger.warn("Unexpected error while checking sourceUrl for job {}: {}", jobName != null ? jobName : "<unknown>", ex.getMessage(), ex);
              return EvaluationOutcome.fail("Unexpected error checking sourceUrl: " + ex.getMessage(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
+    }
+
+    private String getStringProperty(Object obj, String property) {
+        if (obj == null || property == null || property.isBlank()) return null;
+        Class<?> cls = obj.getClass();
+        String cap = Character.toUpperCase(property.charAt(0)) + property.substring(1);
+        String[] methodNames = new String[] { "get" + cap, property, "is" + cap };
+        for (String mName : methodNames) {
+            try {
+                Method m = cls.getMethod(mName);
+                Object val = m.invoke(obj);
+                if (val != null) return String.valueOf(val);
+            } catch (NoSuchMethodException ignored) {
+            } catch (Exception e) {
+                logger.debug("Error invoking method {} on {}: {}", mName, cls.getName(), e.getMessage());
+            }
+        }
+        try {
+            Field f = cls.getDeclaredField(property);
+            f.setAccessible(true);
+            Object val = f.get(obj);
+            if (val != null) return String.valueOf(val);
+        } catch (NoSuchFieldException ignored) {
+        } catch (Exception e) {
+            logger.debug("Error accessing field {} on {}: {}", property, cls.getName(), e.getMessage());
+        }
+        return null;
     }
 }

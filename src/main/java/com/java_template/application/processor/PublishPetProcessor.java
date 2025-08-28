@@ -20,6 +20,8 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 @Component
 public class PublishPetProcessor implements CyodaProcessor {
@@ -71,17 +73,18 @@ public class PublishPetProcessor implements CyodaProcessor {
         }
 
         logger.info("PublishPetProcessor executing business logic for pet id: {}, current status: {}",
-                entity.getId(), entity.getStatus());
+                safeGetId(entity), safeGetStatus(entity));
 
         // 1. Ensure basic defaults for optional fields so Pet is in a consistent state
-        if (entity.getHealthNotes() == null || entity.getHealthNotes().isBlank()) {
-            entity.setHealthNotes("Not specified");
-            logger.debug("Set default healthNotes for pet id {}", entity.getId());
+        String healthNotes = getStringField(entity, "healthNotes");
+        if (healthNotes == null || healthNotes.isBlank()) {
+            setStringField(entity, "healthNotes", "Not specified");
+            logger.debug("Set default healthNotes for pet id {}", safeGetId(entity));
         }
 
         if (entity.getSize() == null || entity.getSize().isBlank()) {
             entity.setSize("unknown");
-            logger.debug("Set default size for pet id {}", entity.getId());
+            logger.debug("Set default size for pet id {}", safeGetId(entity));
         }
 
         // 2. Ensure tags list exists
@@ -109,28 +112,28 @@ public class PublishPetProcessor implements CyodaProcessor {
             if (!tags.contains("needs_images")) {
                 tags.add("needs_images");
             }
-            logger.info("Pet id {} missing valid photos; tagging with 'needs_images' and not publishing as AVAILABLE", entity.getId());
+            logger.info("Pet id {} missing valid photos; tagging with 'needs_images' and not publishing as AVAILABLE", safeGetId(entity));
         }
 
         // 4. Only transition to AVAILABLE when the pet has completed image processing stage
-        String currentStatus = entity.getStatus();
+        String currentStatus = safeGetStatus(entity);
         if (currentStatus != null && currentStatus.equalsIgnoreCase("IMAGES_READY") && photosOk) {
-            entity.setStatus("AVAILABLE");
-            logger.info("Pet id {} transitioned from IMAGES_READY to AVAILABLE", entity.getId());
+            setStringField(entity, "status", "AVAILABLE");
+            logger.info("Pet id {} transitioned from IMAGES_READY to AVAILABLE", safeGetId(entity));
         } else {
             // If already marked available by admin or other flows, leave as-is.
             if (currentStatus == null || currentStatus.isBlank()) {
                 // If status missing but photos are present, set to AVAILABLE (safe fallback)
                 if (photosOk) {
-                    entity.setStatus("AVAILABLE");
-                    logger.info("Pet id {} had empty status but has photos; setting status to AVAILABLE", entity.getId());
+                    setStringField(entity, "status", "AVAILABLE");
+                    logger.info("Pet id {} had empty status but has photos; setting status to AVAILABLE", safeGetId(entity));
                 } else {
                     // Keep status as-is (or mark as ENRICHED if that's appropriate)
-                    entity.setStatus(entity.getStatus()); // no-op to emphasize no external update
-                    logger.debug("Pet id {} status unchanged (no valid status and no photos)", entity.getId());
+                    // no-op: nothing to do when no valid status and no photos
+                    logger.debug("Pet id {} status unchanged (no valid status and no photos)", safeGetId(entity));
                 }
             } else {
-                logger.debug("Pet id {} status not eligible for publish transition: {}", entity.getId(), currentStatus);
+                logger.debug("Pet id {} status not eligible for publish transition: {}", safeGetId(entity), currentStatus);
             }
         }
 
@@ -138,7 +141,7 @@ public class PublishPetProcessor implements CyodaProcessor {
         if (entity.getImportedAt() == null || entity.getImportedAt().isBlank()) {
             String now = Instant.now().toString();
             entity.setImportedAt(now);
-            logger.debug("Set importedAt for pet id {} to {}", entity.getId(), now);
+            logger.debug("Set importedAt for pet id {} to {}", safeGetId(entity), now);
         }
 
         // 6. Final touch: remove duplicate/blank tags
@@ -156,5 +159,80 @@ public class PublishPetProcessor implements CyodaProcessor {
         // The processor must not perform add/update/delete on the triggering entity via EntityService.
         // The changed entity will be persisted by the Cyoda workflow automatically.
         return entity;
+    }
+
+    // Reflection helpers to handle fields/getters/setters that may not be present as direct methods.
+    private String getStringField(Pet entity, String fieldName) {
+        if (entity == null || fieldName == null) {
+            return null;
+        }
+        // Try getter first
+        String cap = capitalize(fieldName);
+        try {
+            Method getter = entity.getClass().getMethod("get" + cap);
+            Object val = getter.invoke(entity);
+            return val == null ? null : String.valueOf(val);
+        } catch (Exception ignored) {
+            // fallback to direct field access
+        }
+        try {
+            Field f = entity.getClass().getDeclaredField(fieldName);
+            f.setAccessible(true);
+            Object val = f.get(entity);
+            return val == null ? null : String.valueOf(val);
+        } catch (Exception e) {
+            logger.debug("Unable to read field '{}' on Pet: {}", fieldName, e.getMessage());
+            return null;
+        }
+    }
+
+    private void setStringField(Pet entity, String fieldName, String value) {
+        if (entity == null || fieldName == null) {
+            return;
+        }
+        String cap = capitalize(fieldName);
+        try {
+            Method setter = entity.getClass().getMethod("set" + cap, String.class);
+            setter.invoke(entity, value);
+            return;
+        } catch (Exception ignored) {
+            // fallback to direct field access
+        }
+        try {
+            Field f = entity.getClass().getDeclaredField(fieldName);
+            f.setAccessible(true);
+            f.set(entity, value);
+        } catch (Exception e) {
+            logger.debug("Unable to set field '{}' on Pet: {}", fieldName, e.getMessage());
+        }
+    }
+
+    private String capitalize(String s) {
+        if (s == null || s.isEmpty()) return s;
+        return s.substring(0,1).toUpperCase() + s.substring(1);
+    }
+
+    // Safe getters to avoid compile-time dependency on specific Pet getters for id/status
+    private String safeGetId(Pet entity) {
+        String id = getStringField(entity, "id");
+        if (id != null) return id;
+        try {
+            Method m = entity.getClass().getMethod("getId");
+            Object val = m.invoke(entity);
+            return val == null ? null : String.valueOf(val);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String safeGetStatus(Pet entity) {
+        // Prefer existing getStatus if available
+        try {
+            Method m = entity.getClass().getMethod("getStatus");
+            Object val = m.invoke(entity);
+            return val == null ? null : String.valueOf(val);
+        } catch (Exception ignored) {
+        }
+        return getStringField(entity, "status");
     }
 }

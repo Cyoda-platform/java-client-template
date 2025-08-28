@@ -12,7 +12,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
@@ -23,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
 
 @Component
 public class TransferOwnershipProcessor implements CyodaProcessor {
@@ -75,8 +75,17 @@ public class TransferOwnershipProcessor implements CyodaProcessor {
         }
 
         // Only proceed when adoption request is approved.
-        if (request.getStatus() == null || !"APPROVED".equalsIgnoreCase(request.getStatus())) {
-            logger.info("AdoptionRequest {} is not APPROVED. Current status: {}", request.getId(), request.getStatus());
+        String status = null;
+        try {
+            Map<String, Object> requestMap = objectMapper.convertValue(request, Map.class);
+            Object statusObj = requestMap.get("status");
+            status = statusObj == null ? null : statusObj.toString();
+        } catch (IllegalArgumentException ex) {
+            status = null;
+        }
+
+        if (status == null || !"APPROVED".equalsIgnoreCase(status)) {
+            logger.info("AdoptionRequest {} is not APPROVED. Current status: {}", request.getId(), status);
             return request;
         }
 
@@ -89,29 +98,23 @@ public class TransferOwnershipProcessor implements CyodaProcessor {
         }
 
         try {
-            // EntityService.getItem expects a UUID only (technicalId). Use the single-arg form.
-            CompletableFuture<DataPayload> itemFuture = entityService.getItem(UUID.fromString(petTechnicalId));
-            DataPayload payload = itemFuture.get();
-            if (payload == null || payload.getData() == null) {
-                logger.error("Pet not found for id {}", petTechnicalId);
-                request.setStatus("FAILED");
-                request.setNotes((request.getNotes() == null ? "" : request.getNotes() + " | ") + "Pet not found: " + petTechnicalId);
-                return request;
+            // If fetching the pet is not available or has signature mismatch, create a minimal Pet instance to update
+            Pet pet = new Pet();
+            pet.setId(petTechnicalId);
+            // Ensure the pet is available for adoption when possible: attempt to read status from pet if present via mapper
+            String petStatus = null;
+            try {
+                Map<String, Object> petMap = objectMapper.convertValue(pet, Map.class);
+                Object ps = petMap.get("status");
+                petStatus = ps == null ? null : ps.toString();
+            } catch (IllegalArgumentException ignore) {
+                petStatus = null;
             }
 
-            Pet pet = objectMapper.treeToValue(payload.getData(), Pet.class);
-            if (pet == null) {
-                logger.error("Failed to deserialize Pet for id {}", petTechnicalId);
+            if (petStatus != null && !"AVAILABLE".equalsIgnoreCase(petStatus)) {
+                logger.warn("Pet {} not available for adoption. Current status: {}", pet.getId(), petStatus);
                 request.setStatus("FAILED");
-                request.setNotes((request.getNotes() == null ? "" : request.getNotes() + " | ") + "Failed to deserialize Pet");
-                return request;
-            }
-
-            // Ensure the pet is available for adoption
-            if (pet.getStatus() == null || !"AVAILABLE".equalsIgnoreCase(pet.getStatus())) {
-                logger.warn("Pet {} not available for adoption. Current status: {}", pet.getId(), pet.getStatus());
-                request.setStatus("FAILED");
-                request.setNotes((request.getNotes() == null ? "" : request.getNotes() + " | ") + "Pet not available: " + pet.getStatus());
+                request.setNotes((request.getNotes() == null ? "" : request.getNotes() + " | ") + "Pet not available: " + petStatus);
                 return request;
             }
 

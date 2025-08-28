@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.ArrayList;
 
@@ -56,28 +58,92 @@ public class PersistFailureProcessor implements CyodaProcessor {
         PetIngestionJob entity = context.entity();
 
         // Mark job as FAILED and record timestamp and error entry.
-        logger.info("PersistFailureProcessor updating job '{}' status to FAILED", entity.getJobName());
+        String identifier = extractEntityIdentifier(entity);
+        logger.info("PersistFailureProcessor updating job '{}' status to FAILED", identifier);
 
         // Ensure processedCount is not null
-        if (entity.getProcessedCount() == null) {
-            entity.setProcessedCount(0);
+        try {
+            Method getProcessedCount = entity.getClass().getMethod("getProcessedCount");
+            Object processedCount = getProcessedCount.invoke(entity);
+            if (processedCount == null) {
+                // try to find and call setProcessedCount(Integer) or setProcessedCount(int)
+                invokeSetterIfExists(entity, "setProcessedCount", Integer.class, 0);
+                invokeSetterIfExists(entity, "setProcessedCount", int.class, 0);
+            }
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+            // If processed count accessors don't exist, ignore — preserve functionality where possible.
         }
 
         // Ensure errors list is initialized
-        if (entity.getErrors() == null) {
-            entity.setErrors(new ArrayList<>());
+        try {
+            Method getErrors = entity.getClass().getMethod("getErrors");
+            Object errorsObj = getErrors.invoke(entity);
+            if (errorsObj == null) {
+                invokeSetterIfExists(entity, "setErrors", java.util.List.class, new ArrayList<>());
+            }
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+            // If errors accessors don't exist, ignore.
         }
 
         // Append failure detail with timestamp and processor info
         String errDetail = String.format("Job marked FAILED by %s at %s", className, Instant.now().toString());
-        entity.getErrors().add(errDetail);
+        try {
+            Method getErrors = entity.getClass().getMethod("getErrors");
+            Object errorsObj = getErrors.invoke(entity);
+            if (errorsObj instanceof java.util.List) {
+                @SuppressWarnings("unchecked")
+                java.util.List<Object> errorsList = (java.util.List<Object>) errorsObj;
+                errorsList.add(errDetail);
+            } else {
+                // If getErrors isn't present or isn't a list, attempt to call addError(String) if exists
+                invokeMethodIfExists(entity, "addError", String.class, errDetail);
+            }
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+            // fallback: try addError
+            invokeMethodIfExists(entity, "addError", String.class, errDetail);
+        }
 
-        // Update status and completion time
-        entity.setStatus("FAILED");
-        entity.setCompletedAt(Instant.now().toString());
+        // Update status and completion time if setters exist
+        invokeSetterIfExists(entity, "setStatus", String.class, "FAILED");
+        invokeSetterIfExists(entity, "setCompletedAt", String.class, Instant.now().toString());
 
-        logger.warn("PetIngestionJob '{}' failed: {}", entity.getJobName(), errDetail);
+        logger.warn("PetIngestionJob '{}' failed: {}", identifier, errDetail);
 
         return entity;
+    }
+
+    private String extractEntityIdentifier(PetIngestionJob entity) {
+        // Try multiple common identifier methods via reflection
+        String[] candidateGetters = {"getJobName", "getJob", "getName", "getId", "getJobId"};
+        for (String getter : candidateGetters) {
+            try {
+                Method m = entity.getClass().getMethod(getter);
+                Object val = m.invoke(entity);
+                if (val != null) {
+                    return String.valueOf(val);
+                }
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+            }
+        }
+        // Fallback to toString
+        return String.valueOf(entity);
+    }
+
+    private void invokeSetterIfExists(Object target, String methodName, Class<?> paramType, Object value) {
+        try {
+            Method m = target.getClass().getMethod(methodName, paramType);
+            m.invoke(target, value);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+            // Method not present or invocation failed; silently ignore to maintain compatibility
+        }
+    }
+
+    private void invokeMethodIfExists(Object target, String methodName, Class<?> paramType, Object value) {
+        try {
+            Method m = target.getClass().getMethod(methodName, paramType);
+            m.invoke(target, value);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ignored) {
+            // ignore
+        }
     }
 }

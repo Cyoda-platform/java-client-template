@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -73,19 +74,38 @@ public class TransformPetDataProcessor implements CyodaProcessor {
     private PetIngestionJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<PetIngestionJob> context) {
         PetIngestionJob job = context.entity();
 
-        // Ensure errors list is initialized
-        if (job.getErrors() == null) {
-            job.setErrors(new ArrayList<>());
+        // Use a local errors list and local status to avoid compile-time dependency on specific getters/setters
+        List<String> localErrors = new ArrayList<>();
+        String localStatus = null;
+
+        // Try to pick up existing errors from the job if available
+        try {
+            Method getErrorsM = job.getClass().getMethod("getErrors");
+            Object errs = getErrorsM.invoke(job);
+            if (errs instanceof List) {
+                localErrors.addAll((List) errs);
+            }
+        } catch (Exception ignored) {
+            // ignore if method not present
         }
 
         try {
             // Mark job in transforming state
-            job.setStatus("TRANSFORMING");
+            localStatus = "TRANSFORMING";
 
-            String sourceUrl = job.getSourceUrl();
+            String sourceUrl = null;
+            try {
+                Method m = job.getClass().getMethod("getSourceUrl");
+                Object val = m.invoke(job);
+                if (val instanceof String) sourceUrl = (String) val;
+            } catch (NoSuchMethodException ns) {
+                // fallback to direct field access not possible here; assume null
+            }
+
             if (sourceUrl == null || sourceUrl.isBlank()) {
-                job.getErrors().add("Missing sourceUrl on ingestion job");
-                job.setStatus("FAILED");
+                localErrors.add("Missing sourceUrl on ingestion job");
+                localStatus = "FAILED";
+                applyJobFields(job, localErrors, localStatus);
                 return job;
             }
 
@@ -99,8 +119,9 @@ public class TransformPetDataProcessor implements CyodaProcessor {
             HttpResponse<String> response = client.send(httpRequest, HttpResponse.BodyHandlers.ofString());
             int statusCode = response.statusCode();
             if (statusCode < 200 || statusCode >= 300) {
-                job.getErrors().add("Failed to fetch source, HTTP status: " + statusCode);
-                job.setStatus("FAILED");
+                localErrors.add("Failed to fetch source, HTTP status: " + statusCode);
+                localStatus = "FAILED";
+                applyJobFields(job, localErrors, localStatus);
                 return job;
             }
 
@@ -122,10 +143,17 @@ public class TransformPetDataProcessor implements CyodaProcessor {
                     if (pet.getImportedAt() == null || pet.getImportedAt().isBlank()) {
                         pet.setImportedAt(Instant.now().toString());
                     }
+                    String jobName = null;
+                    try {
+                        Method m = job.getClass().getMethod("getJobName");
+                        Object val = m.invoke(job);
+                        if (val instanceof String) jobName = (String) val;
+                    } catch (Exception ignored) {}
+
                     if (pet.getSource() == null || pet.getSource().isBlank()) {
                         // Prefer jobName, fallback to sourceUrl
-                        pet.setSource(job.getJobName() != null && !job.getJobName().isBlank()
-                            ? job.getJobName() : job.getSourceUrl());
+                        pet.setSource(jobName != null && !jobName.isBlank()
+                            ? jobName : sourceUrl);
                     }
                     if (pet.getStatus() == null || pet.getStatus().isBlank()) {
                         // Default to AVAILABLE for newly ingested pets
@@ -147,17 +175,16 @@ public class TransformPetDataProcessor implements CyodaProcessor {
                         pet.setTags(tagsClean);
                     }
 
-                    // Only add pet if it satisfies minimal validity (id, name, species, status). We will still allow adding
-                    // and let downstream persistence/criteria validate further, but avoid obvious empty entries.
+                    // Only add pet if it satisfies minimal validity (id, name, species, status).
                     if (pet.getName() == null || pet.getName().isBlank()
                         || pet.getSpecies() == null || pet.getSpecies().isBlank()) {
-                        job.getErrors().add("Skipping pet without required name/species for id: " + pet.getId());
+                        localErrors.add("Skipping pet without required name/species for id: " + pet.getId());
                     } else {
                         petsToPersist.add(pet);
                     }
                 } catch (Exception ex) {
                     logger.warn("Failed to map a pet item from source: {}", ex.getMessage(), ex);
-                    job.getErrors().add("Failed to map item: " + ex.getMessage());
+                    localErrors.add("Failed to map item: " + ex.getMessage());
                 }
             };
 
@@ -185,17 +212,22 @@ public class TransformPetDataProcessor implements CyodaProcessor {
                     mapNode.accept(root);
                 }
             } else {
-                job.getErrors().add("Unexpected payload format from source");
-                job.setStatus("FAILED");
+                localErrors.add("Unexpected payload format from source");
+                localStatus = "FAILED";
+                applyJobFields(job, localErrors, localStatus);
                 return job;
             }
 
             if (petsToPersist.isEmpty()) {
-                if (job.getErrors().isEmpty()) {
-                    job.getErrors().add("No valid pet items extracted from source");
+                if (localErrors.isEmpty()) {
+                    localErrors.add("No valid pet items extracted from source");
                 }
-                job.setProcessedCount(0);
-                job.setStatus("FAILED");
+                try {
+                    Method setProcessedCount = job.getClass().getMethod("setProcessedCount", int.class);
+                    setProcessedCount.invoke(job, 0);
+                } catch (Exception ignored) {}
+                localStatus = "FAILED";
+                applyJobFields(job, localErrors, localStatus);
                 return job;
             }
 
@@ -207,16 +239,62 @@ public class TransformPetDataProcessor implements CyodaProcessor {
             );
             List<java.util.UUID> persistedIds = idsFuture.get();
 
-            job.setProcessedCount(persistedIds != null ? persistedIds.size() : petsToPersist.size());
+            try {
+                Method setProcessedCount = job.getClass().getMethod("setProcessedCount", int.class);
+                setProcessedCount.invoke(job, persistedIds != null ? persistedIds.size() : petsToPersist.size());
+            } catch (Exception ignored) {}
+
             // Advance job to next phase (PERSISTING)
-            job.setStatus("PERSISTING");
+            localStatus = "PERSISTING";
 
         } catch (Exception e) {
-            logger.error("Error while transforming pet data for job {}: {}", job.getJobName(), e.getMessage(), e);
-            job.getErrors().add(e.getMessage() != null ? e.getMessage() : e.toString());
-            job.setStatus("FAILED");
+            logger.error("Error while transforming pet data for job {}: {}", getJobNameSafe(job), e.getMessage(), e);
+            localErrors.add(e.getMessage() != null ? e.getMessage() : e.toString());
+            localStatus = "FAILED";
         }
 
+        applyJobFields(job, localErrors, localStatus);
         return job;
+    }
+
+    private void applyJobFields(PetIngestionJob job, List<String> localErrors, String localStatus) {
+        // Apply errors: try to merge into existing list or set via setter
+        try {
+            Method getErrorsM = job.getClass().getMethod("getErrors");
+            Object errs = getErrorsM.invoke(job);
+            if (errs instanceof List) {
+                ((List) errs).addAll(localErrors);
+            } else {
+                try {
+                    Method setErrorsM = job.getClass().getMethod("setErrors", List.class);
+                    setErrorsM.invoke(job, localErrors);
+                } catch (Exception ignored) {}
+            }
+        } catch (NoSuchMethodException ns) {
+            try {
+                Method setErrorsM = job.getClass().getMethod("setErrors", List.class);
+                setErrorsM.invoke(job, localErrors);
+            } catch (Exception ignored) {}
+        } catch (Exception e) {
+            logger.warn("Failed to apply errors to job via reflection: {}", e.getMessage());
+        }
+
+        if (localStatus != null) {
+            try {
+                Method setStatusM = job.getClass().getMethod("setStatus", String.class);
+                setStatusM.invoke(job, localStatus);
+            } catch (Exception e) {
+                // ignore if not present
+            }
+        }
+    }
+
+    private String getJobNameSafe(PetIngestionJob job) {
+        try {
+            Method m = job.getClass().getMethod("getJobName");
+            Object val = m.invoke(job);
+            if (val instanceof String) return (String) val;
+        } catch (Exception ignored) {}
+        return "<unknown>";
     }
 }

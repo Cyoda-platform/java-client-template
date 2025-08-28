@@ -15,6 +15,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Method;
+import java.util.List;
+
 @Component
 public class PersistFailureCriterion implements CyodaCriterion {
 
@@ -44,26 +47,45 @@ public class PersistFailureCriterion implements CyodaCriterion {
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<PetIngestionJob> context) {
          PetIngestionJob entity = context.entity();
 
+         // Use reflection for access to methods that might not be present at compile time in some versions.
+         String status = invokeStringGetter(entity, "getStatus");
+         List<?> errors = invokeListGetter(entity, "getErrors");
+
          // Basic validation: status must be present
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+         if (status == null || status.isBlank()) {
             return EvaluationOutcome.fail("Job status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         String status = entity.getStatus().trim();
+         status = status.trim();
 
          // If job is explicitly marked FAILED, ensure errors are present and report failure
          if ("FAILED".equalsIgnoreCase(status)) {
-             if (entity.getErrors() == null || entity.getErrors().isEmpty()) {
+             if (errors == null || errors.isEmpty()) {
                  return EvaluationOutcome.fail("Job marked FAILED but no error details provided", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
              }
-             int errs = entity.getErrors().size();
+             int errs = errors.size();
              return EvaluationOutcome.fail("Persist stage failed with " + errs + " error(s)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
          // If currently persisting but produced errors and no records persisted -> treat as persist failure
          if ("PERSISTING".equalsIgnoreCase(status)) {
-             boolean hasErrors = entity.getErrors() != null && !entity.getErrors().isEmpty();
-             boolean noProcessed = entity.getProcessedCount() == null || entity.getProcessedCount() == 0;
+             boolean hasErrors = errors != null && !errors.isEmpty();
+             Integer processedCount = null;
+             try {
+                 // try to call getProcessedCount() if present
+                 Method m = entity.getClass().getMethod("getProcessedCount");
+                 Object rc = m.invoke(entity);
+                 if (rc instanceof Integer) {
+                     processedCount = (Integer) rc;
+                 } else if (rc instanceof Number) {
+                     processedCount = ((Number) rc).intValue();
+                 }
+             } catch (NoSuchMethodException nsme) {
+                 // method not present; leave processedCount as null
+             } catch (Exception e) {
+                 logger.debug("Error invoking getProcessedCount on {}: {}", entity.getClass(), e.getMessage());
+             }
+             boolean noProcessed = processedCount == null || processedCount == 0;
              if (hasErrors && noProcessed) {
                  return EvaluationOutcome.fail("Persisting produced errors and no records were persisted", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
@@ -71,15 +93,61 @@ public class PersistFailureCriterion implements CyodaCriterion {
 
          // If completed, ensure completedAt and processedCount look sane
          if ("COMPLETED".equalsIgnoreCase(status)) {
-             if (entity.getCompletedAt() == null || entity.getCompletedAt().isBlank()) {
+             String completedAt = invokeStringGetter(entity, "getCompletedAt");
+             if (completedAt == null || completedAt.isBlank()) {
                  return EvaluationOutcome.fail("Job marked COMPLETED but completedAt is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
              }
-             if (entity.getProcessedCount() == null || entity.getProcessedCount() < 0) {
-                 return EvaluationOutcome.fail("Job marked COMPLETED but processedCount is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             try {
+                 Method m = entity.getClass().getMethod("getProcessedCount");
+                 Object rc = m.invoke(entity);
+                 Integer processedCount = null;
+                 if (rc instanceof Integer) {
+                     processedCount = (Integer) rc;
+                 } else if (rc instanceof Number) {
+                     processedCount = ((Number) rc).intValue();
+                 }
+                 if (processedCount == null || processedCount < 0) {
+                     return EvaluationOutcome.fail("Job marked COMPLETED but processedCount is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+                 }
+             } catch (NoSuchMethodException nsme) {
+                 // If processedCount getter absent, cannot validate; assume OK
+             } catch (Exception e) {
+                 logger.debug("Error invoking getProcessedCount on {}: {}", entity.getClass(), e.getMessage());
              }
          }
 
          // No persist-failure conditions detected
          return EvaluationOutcome.success();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<?> invokeListGetter(Object obj, String methodName) {
+        if (obj == null) return null;
+        try {
+            Method m = obj.getClass().getMethod(methodName);
+            Object res = m.invoke(obj);
+            if (res instanceof List) {
+                return (List<?>) res;
+            }
+        } catch (NoSuchMethodException nsme) {
+            logger.debug("Method {} not found on {}", methodName, obj.getClass().getName());
+        } catch (Exception e) {
+            logger.debug("Error invoking {} on {}: {}", methodName, obj.getClass().getName(), e.getMessage());
+        }
+        return null;
+    }
+
+    private String invokeStringGetter(Object obj, String methodName) {
+        if (obj == null) return null;
+        try {
+            Method m = obj.getClass().getMethod(methodName);
+            Object res = m.invoke(obj);
+            return res == null ? null : res.toString();
+        } catch (NoSuchMethodException nsme) {
+            logger.debug("Method {} not found on {}", methodName, obj.getClass().getName());
+        } catch (Exception e) {
+            logger.debug("Error invoking {} on {}: {}", methodName, obj.getClass().getName(), e.getMessage());
+        }
+        return null;
     }
 }

@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -73,7 +75,7 @@ public class NotifyRequesterProcessor implements CyodaProcessor {
         AdoptionRequest entity = context.entity();
 
         // Only proceed for rejected requests - this processor notifies the requester when a request is rejected
-        String status = entity.getStatus();
+        String status = getStringProperty(entity, new String[]{"getStatus", "status"});
         if (status == null) {
             logger.debug("AdoptionRequest status is null, skipping notification.");
             return entity;
@@ -84,10 +86,41 @@ public class NotifyRequesterProcessor implements CyodaProcessor {
             return entity;
         }
 
-        String requester = entity.getRequesterName() != null ? entity.getRequesterName() : "applicant";
-        String contactEmail = entity.getContactEmail();
-        String contactPhone = entity.getContactPhone();
-        String petId = entity.getPetId();
+        String requester = null;
+        try {
+            Method m = entity.getClass().getMethod("getRequesterName");
+            Object val = m.invoke(entity);
+            requester = val != null ? val.toString() : null;
+        } catch (Exception e) {
+            // fallback to null
+            requester = null;
+        }
+        requester = requester != null ? requester : "applicant";
+
+        String contactEmail = null;
+        try {
+            Method m = entity.getClass().getMethod("getContactEmail");
+            Object val = m.invoke(entity);
+            contactEmail = val != null ? val.toString() : null;
+        } catch (Exception ignored) {
+        }
+
+        String contactPhone = null;
+        try {
+            Method m = entity.getClass().getMethod("getContactPhone");
+            Object val = m.invoke(entity);
+            contactPhone = val != null ? val.toString() : null;
+        } catch (Exception ignored) {
+        }
+
+        String petId = null;
+        try {
+            Method m = entity.getClass().getMethod("getPetId");
+            Object val = m.invoke(entity);
+            petId = val != null ? val.toString() : null;
+        } catch (Exception ignored) {
+        }
+
         String petName = null;
 
         // Try to enrich notification with pet name if possible
@@ -118,7 +151,10 @@ public class NotifyRequesterProcessor implements CyodaProcessor {
 
         String petDescriptor = petName != null ? ("pet '" + petName + "'") : (petId != null ? ("pet id " + petId) : "the requested pet");
         String baseMessage = String.format("Hello %s, your adoption request for %s has been rejected.", requester, petDescriptor);
-        String notes = entity.getNotes() != null ? entity.getNotes() : "";
+
+        String notes = getStringProperty(entity, new String[]{"getNotes", "notes"});
+        notes = notes != null ? notes : "";
+
         String notificationRecord = String.format("Notification attempt at %s: ", Instant.now().toString());
 
         boolean notified = false;
@@ -131,7 +167,7 @@ public class NotifyRequesterProcessor implements CyodaProcessor {
                     .put("to", contactEmail)
                     .put("channel", "email")
                     .put("subject", "Adoption request status")
-                    .put("message", baseMessage + (entity.getNotes() != null && !entity.getNotes().isBlank() ? " Notes: " + entity.getNotes() : ""))
+                    .put("message", baseMessage + (notes != null && !notes.isBlank() ? " Notes: " + notes : ""))
                     .toString();
 
                 HttpRequest httpRequest = HttpRequest.newBuilder()
@@ -148,11 +184,23 @@ public class NotifyRequesterProcessor implements CyodaProcessor {
                     notified = true;
                 } else {
                     notifDetails.append("email failed(status=").append(statusCode).append(")");
-                    logger.warn("Email notification returned non-success status for AdoptionRequest id {}: {}", entity.getId(), statusCode);
+                    try {
+                        Method idMethod = entity.getClass().getMethod("getId");
+                        Object idVal = idMethod.invoke(entity);
+                        logger.warn("Email notification returned non-success status for AdoptionRequest id {}: {}", idVal, statusCode);
+                    } catch (Exception e) {
+                        logger.warn("Email notification returned non-success status for AdoptionRequest (id unavailable): {}", statusCode);
+                    }
                 }
             } catch (Exception e) {
                 notifDetails.append("email error:").append(e.getMessage());
-                logger.warn("Failed to send email notification for AdoptionRequest id {}: {}", entity.getId(), e.getMessage());
+                try {
+                    Method idMethod = entity.getClass().getMethod("getId");
+                    Object idVal = idMethod.invoke(entity);
+                    logger.warn("Failed to send email notification for AdoptionRequest id {}: {}", idVal, e.getMessage());
+                } catch (Exception ex) {
+                    logger.warn("Failed to send email notification for AdoptionRequest (id unavailable): {}", e.getMessage());
+                }
             }
         } else {
             notifDetails.append("no_email");
@@ -183,12 +231,24 @@ public class NotifyRequesterProcessor implements CyodaProcessor {
                 } else {
                     if (notifDetails.length() > 0) notifDetails.append("; ");
                     notifDetails.append("sms failed(status=").append(statusCode).append(")");
-                    logger.warn("SMS notification returned non-success status for AdoptionRequest id {}: {}", entity.getId(), statusCode);
+                    try {
+                        Method idMethod = entity.getClass().getMethod("getId");
+                        Object idVal = idMethod.invoke(entity);
+                        logger.warn("SMS notification returned non-success status for AdoptionRequest id {}: {}", idVal, statusCode);
+                    } catch (Exception e) {
+                        logger.warn("SMS notification returned non-success status for AdoptionRequest (id unavailable): {}", statusCode);
+                    }
                 }
             } catch (Exception e) {
                 if (notifDetails.length() > 0) notifDetails.append("; ");
                 notifDetails.append("sms error:").append(e.getMessage());
-                logger.warn("Failed to send SMS notification for AdoptionRequest id {}: {}", entity.getId(), e.getMessage());
+                try {
+                    Method idMethod = entity.getClass().getMethod("getId");
+                    Object idVal = idMethod.invoke(entity);
+                    logger.warn("Failed to send SMS notification for AdoptionRequest id {}: {}", idVal, e.getMessage());
+                } catch (Exception ex) {
+                    logger.warn("Failed to send SMS notification for AdoptionRequest (id unavailable): {}", e.getMessage());
+                }
             }
         } else {
             if (!notified) {
@@ -203,10 +263,64 @@ public class NotifyRequesterProcessor implements CyodaProcessor {
             updatedNotes = updatedNotes + " | ";
         }
         updatedNotes = updatedNotes + notificationRecord + notifDetails.toString();
-        entity.setNotes(updatedNotes);
+        setStringProperty(entity, "setNotes", "notes", updatedNotes);
 
-        logger.info("NotifyRequesterProcessor completed for AdoptionRequest id {}. Notification details: {}", entity.getId(), notifDetails.toString());
+        try {
+            Method idMethod = entity.getClass().getMethod("getId");
+            Object idVal = idMethod.invoke(entity);
+            logger.info("NotifyRequesterProcessor completed for AdoptionRequest id {}. Notification details: {}", idVal, notifDetails.toString());
+        } catch (Exception e) {
+            logger.info("NotifyRequesterProcessor completed for AdoptionRequest (id unavailable). Notification details: {}", notifDetails.toString());
+        }
 
         return entity;
+    }
+
+    private String getStringProperty(Object obj, String[] candidates) {
+        if (obj == null) return null;
+        for (String name : candidates) {
+            // try method with no args
+            try {
+                Method m = obj.getClass().getMethod(name);
+                Object val = m.invoke(obj);
+                if (val != null) return val.toString();
+            } catch (NoSuchMethodException ignored) {
+            } catch (Exception e) {
+                logger.debug("Error invoking method {} on {}: {}", name, obj.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+        // try fields matching candidate names
+        for (String name : candidates) {
+            try {
+                Field f = obj.getClass().getDeclaredField(name);
+                f.setAccessible(true);
+                Object val = f.get(obj);
+                if (val != null) return val.toString();
+            } catch (NoSuchFieldException ignored) {
+            } catch (Exception e) {
+                logger.debug("Error accessing field {} on {}: {}", name, obj.getClass().getSimpleName(), e.getMessage());
+            }
+        }
+        return null;
+    }
+
+    private void setStringProperty(Object obj, String methodName, String fieldName, String value) {
+        if (obj == null) return;
+        try {
+            Method m = obj.getClass().getMethod(methodName, String.class);
+            m.invoke(obj, value);
+            return;
+        } catch (NoSuchMethodException ignored) {
+        } catch (Exception e) {
+            logger.debug("Error invoking setter {} on {}: {}", methodName, obj.getClass().getSimpleName(), e.getMessage());
+        }
+        try {
+            Field f = obj.getClass().getDeclaredField(fieldName);
+            f.setAccessible(true);
+            f.set(obj, value);
+        } catch (NoSuchFieldException ignored) {
+        } catch (Exception e) {
+            logger.debug("Error setting field {} on {}: {}", fieldName, obj.getClass().getSimpleName(), e.getMessage());
+        }
     }
 }

@@ -1,6 +1,5 @@
 package com.java_template.application.processor;
 
-import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ErrorInfo;
@@ -15,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class ImageOptimizeProcessor implements CyodaProcessor {
@@ -33,7 +33,7 @@ public class ImageOptimizeProcessor implements CyodaProcessor {
         logger.info("Processing Pet for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Pet.class)
+            .toEntity(Map.class)
             .withErrorHandler((error, entity) -> {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
@@ -48,39 +48,52 @@ public class ImageOptimizeProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntity(Pet entity) {
-        return entity != null && entity.isValid();
+    private boolean isValidEntity(Map<String, Object> entity) {
+        return entity != null;
     }
 
-    private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
-        Pet entity = context.entity();
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Map<String, Object>> context) {
+        Map<String, Object> entity = context.entity();
 
         try {
             // Optimize photos: replace each photo URL with an "optimized" variant.
-            List<String> photos = entity.getPhotos();
-            if (photos != null && !photos.isEmpty()) {
-                List<String> optimized = new ArrayList<>(photos.size());
-                for (String url : photos) {
-                    if (url == null || url.isBlank()) {
-                        // skip invalid entries
-                        continue;
+            Object photosObj = entity.get("photos");
+            if (photosObj instanceof List) {
+                List<?> photosList = (List<?>) photosObj;
+                if (!photosList.isEmpty()) {
+                    List<String> optimized = new ArrayList<>(photosList.size());
+                    for (Object o : photosList) {
+                        if (!(o instanceof String)) continue;
+                        String url = (String) o;
+                        if (url == null || url.isBlank()) {
+                            // skip invalid entries
+                            continue;
+                        }
+                        String opt = optimizeImageUrl(url);
+                        optimized.add(opt);
+                        logger.debug("Optimized image url from [{}] to [{}] for pet id {}", url, opt, entity.get("id"));
                     }
-                    String opt = optimizeImageUrl(url);
-                    optimized.add(opt);
-                    logger.debug("Optimized image url from [{}] to [{}] for pet id {}", url, opt, entity.getId());
+                    // Replace photos list with optimized urls
+                    entity.put("photos", optimized);
                 }
-                // Replace photos list with optimized urls
-                entity.setPhotos(optimized);
             }
 
             // Mark pet as images-ready
-            entity.setStatus("IMAGES_READY");
+            entity.put("status", "IMAGES_READY");
 
             // Ensure tag indicating optimization is present
-            List<String> tags = entity.getTags();
-            if (tags == null) {
+            Object tagsObj = entity.get("tags");
+            List<String> tags;
+            if (tagsObj instanceof List) {
+                tags = new ArrayList<>();
+                for (Object t : (List<?>) tagsObj) {
+                    if (t instanceof String) tags.add((String) t);
+                }
+            } else {
                 tags = new ArrayList<>();
             }
+
             boolean hasTag = false;
             for (String t : tags) {
                 if ("images_optimized".equalsIgnoreCase(t)) {
@@ -90,18 +103,26 @@ public class ImageOptimizeProcessor implements CyodaProcessor {
             }
             if (!hasTag) {
                 tags.add("images_optimized");
-                entity.setTags(tags);
+                entity.put("tags", tags);
             }
 
-            logger.info("Image optimization completed for pet id {}", entity.getId());
+            logger.info("Image optimization completed for pet id {}", entity.get("id"));
         } catch (Exception ex) {
-            logger.error("Error during image optimization for pet id {}: {}", entity != null ? entity.getId() : "unknown", ex.getMessage(), ex);
+            logger.error("Error during image optimization for pet id {}: {}", entity != null ? entity.get("id") : "unknown", ex.getMessage(), ex);
             // If error occurs, add a tag to indicate optimization failed (do not throw)
             if (entity != null) {
-                List<String> tags = entity.getTags();
-                if (tags == null) tags = new ArrayList<>();
+                Object tagsObj = entity.get("tags");
+                List<String> tags;
+                if (tagsObj instanceof List) {
+                    tags = new ArrayList<>();
+                    for (Object t : (List<?>) tagsObj) {
+                        if (t instanceof String) tags.add((String) t);
+                    }
+                } else {
+                    tags = new ArrayList<>();
+                }
                 tags.add("images_optimization_failed");
-                entity.setTags(tags);
+                entity.put("tags", tags);
             }
         }
 

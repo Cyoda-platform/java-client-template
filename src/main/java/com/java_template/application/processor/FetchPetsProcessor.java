@@ -25,6 +25,7 @@ import java.time.Instant;
 import java.time.Duration;
 import java.util.List;
 import java.util.ArrayList;
+import java.lang.reflect.Method;
 
 @Component
 public class FetchPetsProcessor implements CyodaProcessor {
@@ -76,7 +77,21 @@ public class FetchPetsProcessor implements CyodaProcessor {
             }
 
             // Ensure startedAt is set (some earlier processor should set it, but be defensive)
-            if (entity.getStartedAt() == null || entity.getStartedAt().isBlank()) {
+            // Use reflection to check for a getter if it doesn't exist at compile time in the entity
+            String startedAtVal = null;
+            try {
+                Method getStartedAtMethod = entity.getClass().getMethod("getStartedAt");
+                Object res = getStartedAtMethod.invoke(entity);
+                if (res instanceof String) {
+                    startedAtVal = (String) res;
+                }
+            } catch (NoSuchMethodException nsme) {
+                // getter not present; proceed to attempt to set startedAt directly via setter if available
+            } catch (Exception ex) {
+                logger.warn("Unable to read startedAt via reflection: {}", ex.getMessage());
+            }
+
+            if (startedAtVal == null || startedAtVal.isBlank()) {
                 try {
                     entity.setStartedAt(Instant.now().toString());
                 } catch (Exception ex) {
@@ -89,14 +104,14 @@ public class FetchPetsProcessor implements CyodaProcessor {
             if (sourceUrl == null || sourceUrl.isBlank()) {
                 logger.error("PetIngestionJob missing sourceUrl, marking as FAILED");
                 safeAddError(entity, "Missing sourceUrl for ingestion job");
-                entity.setStatus("FAILED");
+                safeSetStatus(entity, "FAILED");
                 entity.setProcessedCount(0);
                 entity.setCompletedAt(Instant.now().toString());
                 return entity;
             }
 
             // Mark job as FETCHING while we attempt to retrieve data
-            entity.setStatus("FETCHING");
+            safeSetStatus(entity, "FETCHING");
 
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(15))
@@ -119,13 +134,13 @@ public class FetchPetsProcessor implements CyodaProcessor {
 
                 if (count > 0) {
                     // Keep as FETCHING to reflect that fetch completed; DataAvailableCriterion can drive next transition.
-                    entity.setStatus("FETCHING");
+                    safeSetStatus(entity, "FETCHING");
                     logger.info("Fetched {} items from {}", count, sourceUrl);
                 } else {
                     // No data available
                     logger.info("No data fetched from {}", sourceUrl);
                     safeAddError(entity, "No data available from source");
-                    entity.setStatus("FAILED");
+                    safeSetStatus(entity, "FAILED");
                     entity.setCompletedAt(Instant.now().toString());
                 }
 
@@ -134,7 +149,7 @@ public class FetchPetsProcessor implements CyodaProcessor {
                 logger.error(err);
                 safeAddError(entity, err);
                 entity.setProcessedCount(0);
-                entity.setStatus("FAILED");
+                safeSetStatus(entity, "FAILED");
                 entity.setCompletedAt(Instant.now().toString());
             }
 
@@ -143,13 +158,13 @@ public class FetchPetsProcessor implements CyodaProcessor {
             logger.error("Interrupted while fetching pets from sourceUrl {}: {}", entity.getSourceUrl(), ie.getMessage(), ie);
             safeAddError(entity, "Fetch interrupted: " + ie.getMessage());
             entity.setProcessedCount(0);
-            entity.setStatus("FAILED");
+            safeSetStatus(entity, "FAILED");
             entity.setCompletedAt(Instant.now().toString());
         } catch (Exception e) {
             logger.error("Error fetching pets from sourceUrl {}: {}", entity.getSourceUrl(), e.getMessage(), e);
             safeAddError(entity, "Fetch error: " + e.getMessage());
             entity.setProcessedCount(0);
-            entity.setStatus("FAILED");
+            safeSetStatus(entity, "FAILED");
             entity.setCompletedAt(Instant.now().toString());
         }
 
@@ -202,6 +217,21 @@ public class FetchPetsProcessor implements CyodaProcessor {
             job.getErrors().add(message);
         } catch (Exception e) {
             logger.warn("Unable to add error message to job errors list: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Attempt to set status via reflection if the setter exists on the job entity.
+     * This avoids compile-time dependency on a specific method existing on all versions of the entity.
+     */
+    private void safeSetStatus(PetIngestionJob job, String status) {
+        try {
+            Method setStatusMethod = job.getClass().getMethod("setStatus", String.class);
+            setStatusMethod.invoke(job, status);
+        } catch (NoSuchMethodException nsme) {
+            logger.warn("setStatus method not found on job class: {}", job.getClass().getName());
+        } catch (Exception e) {
+            logger.warn("Unable to set status on job: {}", e.getMessage());
         }
     }
 }

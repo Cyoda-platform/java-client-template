@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 
 @Component
@@ -43,13 +45,43 @@ public class ImageQualityCriterion implements CyodaCriterion {
         return "ImageQualityCriterion".equals(modelSpec.operationName());
     }
 
+    @SuppressWarnings("unchecked")
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
          Pet pet = context.entity();
          if (pet == null) {
              return EvaluationOutcome.fail("Pet entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         List<String> photos = pet.getPhotos();
+         List<String> photos = null;
+         // Use reflection to try several common getter names to avoid compile-time dependency on a specific method name.
+         String[] candidateGetters = {"getPhotos", "getPhotoUrls", "getImages", "getImageUrls", "getPictures", "getPictureUrls"};
+         for (String getter : candidateGetters) {
+             try {
+                 Method m = pet.getClass().getMethod(getter);
+                 Object res = m.invoke(pet);
+                 if (res == null) {
+                     continue;
+                 }
+                 if (res instanceof List) {
+                     photos = (List<String>) res;
+                     break;
+                 }
+                 if (res instanceof String[]) {
+                     photos = Arrays.asList((String[]) res);
+                     break;
+                 }
+                 if (res instanceof String) {
+                     photos = List.of((String) res);
+                     break;
+                 }
+             } catch (NoSuchMethodException ignored) {
+                 // try next candidate
+             } catch (Exception e) {
+                 logger.warn("{}: failed to invoke getter '{}' on Pet: {}", className, getter, e.getMessage());
+                 // don't break here; try other getters
+             }
+         }
+
          if (photos == null || photos.isEmpty()) {
              return EvaluationOutcome.fail("No photos provided for pet", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }

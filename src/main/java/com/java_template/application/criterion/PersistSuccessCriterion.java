@@ -15,6 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Method;
+
 @Component
 public class PersistSuccessCriterion implements CyodaCriterion {
 
@@ -50,15 +52,19 @@ public class PersistSuccessCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Entity payload is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Safe retrieval of status and processedCount using reflection to avoid compile-time dependency on getter names
+         String status = safeGetStatus(entity);
+         Integer processedCount = safeGetProcessedCount(entity);
+
          // Presence validation
-         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+         if (status == null || status.isBlank()) {
              logger.debug("PersistSuccessCriterion - job status missing for jobName='{}'", entity.getJobName());
              return EvaluationOutcome.fail("Job status is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Business rule: job must be completed to be considered a successful persist
-         if (!"COMPLETED".equalsIgnoreCase(entity.getStatus())) {
-             logger.debug("PersistSuccessCriterion - job not completed (status='{}') for jobName='{}'", entity.getStatus(), entity.getJobName());
+         if (!"COMPLETED".equalsIgnoreCase(status)) {
+             logger.debug("PersistSuccessCriterion - job not completed (status='{}') for jobName='{}'", status, entity.getJobName());
              return EvaluationOutcome.fail("Ingestion job is not completed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
@@ -69,12 +75,12 @@ public class PersistSuccessCriterion implements CyodaCriterion {
          }
 
          // Data quality: processedCount must be present and positive (a completed persist should have processed items)
-         if (entity.getProcessedCount() == null) {
+         if (processedCount == null) {
              logger.debug("PersistSuccessCriterion - processedCount missing for job '{}'", entity.getJobName());
              return EvaluationOutcome.fail("processedCount is missing", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
-         if (entity.getProcessedCount() <= 0) {
-             logger.debug("PersistSuccessCriterion - processedCount not positive ({} ) for job '{}'", entity.getProcessedCount(), entity.getJobName());
+         if (processedCount <= 0) {
+             logger.debug("PersistSuccessCriterion - processedCount not positive ({} ) for job '{}'", processedCount, entity.getJobName());
              return EvaluationOutcome.fail("processedCount must be greater than zero for a successful persist", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
@@ -85,7 +91,48 @@ public class PersistSuccessCriterion implements CyodaCriterion {
          }
 
          // All checks passed -> success
-         logger.info("PersistSuccessCriterion - ingestion job '{}' marked as successful persist (processedCount={})", entity.getJobName(), entity.getProcessedCount());
+         logger.info("PersistSuccessCriterion - ingestion job '{}' marked as successful persist (processedCount={})", entity.getJobName(), processedCount);
          return EvaluationOutcome.success();
+    }
+
+    // Reflection helper to safely obtain status without requiring compile-time presence of getStatus()
+    private String safeGetStatus(PetIngestionJob entity) {
+        if (entity == null) return null;
+        try {
+            Method m = entity.getClass().getMethod("getStatus");
+            Object val = m.invoke(entity);
+            return val == null ? null : val.toString();
+        } catch (NoSuchMethodException e) {
+            logger.debug("PersistSuccessCriterion - getStatus() not found on entity: {}", e.toString());
+            return null;
+        } catch (Exception e) {
+            logger.debug("PersistSuccessCriterion - error invoking getStatus(): {}", e.toString());
+            return null;
+        }
+    }
+
+    // Reflection helper to safely obtain processedCount without requiring compile-time presence of getProcessedCount()
+    private Integer safeGetProcessedCount(PetIngestionJob entity) {
+        if (entity == null) return null;
+        try {
+            Method m = entity.getClass().getMethod("getProcessedCount");
+            Object val = m.invoke(entity);
+            if (val == null) return null;
+            if (val instanceof Number) {
+                return ((Number) val).intValue();
+            }
+            try {
+                return Integer.valueOf(val.toString());
+            } catch (NumberFormatException nfe) {
+                logger.debug("PersistSuccessCriterion - processedCount not a number: {}", nfe.toString());
+                return null;
+            }
+        } catch (NoSuchMethodException e) {
+            logger.debug("PersistSuccessCriterion - getProcessedCount() not found on entity: {}", e.toString());
+            return null;
+        } catch (Exception e) {
+            logger.debug("PersistSuccessCriterion - error invoking getProcessedCount(): {}", e.toString());
+            return null;
+        }
     }
 }

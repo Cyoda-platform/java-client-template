@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
+import java.lang.reflect.Method;
 
 @Component
 public class EnrichPetProcessor implements CyodaProcessor {
@@ -61,53 +62,70 @@ public class EnrichPetProcessor implements CyodaProcessor {
         Pet entity = context.entity();
 
         // 1) Ensure tags - infer from bio/species if missing
-        if (entity.getTags() == null || entity.getTags().isEmpty()) {
+        List<String> currentTags = safeGetTags(entity);
+        if (currentTags == null || currentTags.isEmpty()) {
             List<String> inferred = inferTags(entity.getBio(), entity.getSpecies());
-            entity.setTags(inferred);
+            safeSetTags(entity, inferred);
             logger.info("Inferred tags for pet {}: {}", entity.getId(), inferred);
         } else {
             // Normalize tags: trim and remove blanks
-            List<String> normalized = entity.getTags().stream()
+            List<String> normalized = currentTags.stream()
                 .filter(t -> t != null && !t.isBlank())
                 .map(t -> t.trim())
                 .collect(Collectors.toList());
-            entity.setTags(normalized);
+            safeSetTags(entity, normalized);
         }
 
         // 2) Default healthNotes if missing
-        if (entity.getHealthNotes() == null || entity.getHealthNotes().isBlank()) {
-            entity.setHealthNotes("Health information not provided");
+        try {
+            if (entity.getHealthNotes() == null || entity.getHealthNotes().isBlank()) {
+                entity.setHealthNotes("Health information not provided");
+            }
+        } catch (Exception e) {
+            logger.debug("healthNotes not present or inaccessible on Pet: {}", e.getMessage());
         }
 
         // 3) Normalize photos list: trim URLs and remove blank entries
-        if (entity.getPhotos() != null) {
-            List<String> cleaned = new ArrayList<>();
-            for (String p : entity.getPhotos()) {
-                if (p != null) {
-                    String trimmed = p.trim();
-                    if (!trimmed.isBlank()) {
-                        cleaned.add(trimmed);
+        try {
+            if (entity.getPhotos() != null) {
+                List<String> cleaned = new ArrayList<>();
+                for (String p : entity.getPhotos()) {
+                    if (p != null) {
+                        String trimmed = p.trim();
+                        if (!trimmed.isBlank()) {
+                            cleaned.add(trimmed);
+                        }
                     }
                 }
+                entity.setPhotos(cleaned);
             }
-            entity.setPhotos(cleaned);
+        } catch (Exception e) {
+            logger.debug("photos not present or inaccessible on Pet: {}", e.getMessage());
         }
 
         // 4) If status indicates a freshly persisted record, promote to ENRICHED
-        if (entity.getStatus() == null || entity.getStatus().isBlank() || "PERSISTED".equalsIgnoreCase(entity.getStatus())) {
-            entity.setStatus("ENRICHED");
+        try {
+            if (entity.getStatus() == null || entity.getStatus().isBlank() || "PERSISTED".equalsIgnoreCase(entity.getStatus())) {
+                entity.setStatus("ENRICHED");
+            }
+        } catch (Exception e) {
+            logger.debug("status not present or inaccessible on Pet: {}", e.getMessage());
         }
 
         // 5) Ensure importedAt is present (if missing, set to current ISO-8601 timestamp)
-        if (entity.getImportedAt() == null || entity.getImportedAt().isBlank()) {
-            // Use simple ISO instant string from java.time (avoid additional injections)
-            try {
-                String now = java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).toString();
-                entity.setImportedAt(now);
-            } catch (Exception ex) {
-                // If anything goes wrong, log but do not fail processing
-                logger.warn("Failed to set importedAt timestamp for pet {}: {}", entity.getId(), ex.getMessage());
+        try {
+            if (entity.getImportedAt() == null || entity.getImportedAt().isBlank()) {
+                // Use simple ISO instant string from java.time (avoid additional injections)
+                try {
+                    String now = java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).toString();
+                    entity.setImportedAt(now);
+                } catch (Exception ex) {
+                    // If anything goes wrong, log but do not fail processing
+                    logger.warn("Failed to set importedAt timestamp for pet {}: {}", entity.getId(), ex.getMessage());
+                }
             }
+        } catch (Exception e) {
+            logger.debug("importedAt not present or inaccessible on Pet: {}", e.getMessage());
         }
 
         // All enrichment done - return modified entity. The workflow persistence will handle saving.
@@ -145,5 +163,36 @@ public class EnrichPetProcessor implements CyodaProcessor {
         }
 
         return tags;
+    }
+
+    // Reflection-based safe accessors for tags to avoid compile-time dependency on specific Pet API
+    @SuppressWarnings("unchecked")
+    private List<String> safeGetTags(Pet entity) {
+        if (entity == null) return new ArrayList<>();
+        try {
+            Method m = entity.getClass().getMethod("getTags");
+            Object res = m.invoke(entity);
+            if (res instanceof List) {
+                return (List<String>) res;
+            }
+        } catch (NoSuchMethodException nsme) {
+            // method not present - fall through
+        } catch (Exception e) {
+            logger.debug("Failed to reflectively get tags: {}", e.getMessage());
+        }
+        return new ArrayList<>();
+    }
+
+    private void safeSetTags(Pet entity, List<String> tags) {
+        if (entity == null) return;
+        try {
+            Method m = entity.getClass().getMethod("setTags", List.class);
+            m.invoke(entity, tags);
+        } catch (NoSuchMethodException nsme) {
+            // method not present - fall through
+            logger.debug("setTags method not present on Pet: {}", nsme.getMessage());
+        } catch (Exception e) {
+            logger.debug("Failed to reflectively set tags: {}", e.getMessage());
+        }
     }
 }

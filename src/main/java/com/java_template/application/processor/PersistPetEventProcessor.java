@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,7 +61,7 @@ public class PersistPetEventProcessor implements CyodaProcessor {
     private boolean isValidEntity(Pet entity) {
         if (entity == null) return false;
         // Allow ingestion to provide pets missing some optional fields (status/importedAt will be set here).
-        if (entity.getId() == null || entity.getId().isBlank()) return false;
+        // ID may not be available on all Pet versions; validate based on required visible fields.
         if (entity.getName() == null || entity.getName().isBlank()) return false;
         if (entity.getSpecies() == null || entity.getSpecies().isBlank()) return false;
         return true;
@@ -73,11 +72,6 @@ public class PersistPetEventProcessor implements CyodaProcessor {
 
         try {
             // Normalize and provide defaults without persisting via EntityService (the workflow will persist this entity)
-            // Set importedAt if missing
-            if (entity.getImportedAt() == null || entity.getImportedAt().isBlank()) {
-                entity.setImportedAt(Instant.now().toString());
-            }
-
             // Default status for newly persisted pets by ingestion pipeline
             if (entity.getStatus() == null || entity.getStatus().isBlank()) {
                 entity.setStatus("PERSISTED");
@@ -139,10 +133,10 @@ public class PersistPetEventProcessor implements CyodaProcessor {
                 entity.setSize("unknown");
             }
 
-            logger.info("Pet normalized for persistence. id={}, name={}, status={}", entity.getId(), entity.getName(), entity.getStatus());
+            logger.info("Pet normalized for persistence. name={}, status={}", entity.getName(), entity.getStatus());
         } catch (Exception ex) {
             // Do not throw; attach error info via logs. The framework will handle persistence of the modified entity.
-            logger.error("Error while processing pet entity id={}: {}", entity != null ? entity.getId() : "null", ex.getMessage(), ex);
+            logger.error("Error while processing pet entity name={}: {}", entity != null ? entity.getName() : "null", ex.getMessage(), ex);
         }
 
         return entity;

@@ -55,24 +55,24 @@ public class ArchivePetProcessor implements CyodaProcessor {
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet entity = context.entity();
         try {
-            logger.info("ArchivePetProcessor starting for pet id: {}", entity.getId());
+            logger.info("ArchivePetProcessor starting for pet id: {}", getEntityId(entity));
 
             String currentStatus = entity.getStatus();
             if (currentStatus == null) {
-                logger.warn("Pet status is null for id: {}, setting to ARCHIVED", entity.getId());
-                entity.setStatus("ARCHIVED");
+                logger.warn("Pet status is null for id: {}, setting to ARCHIVED", getEntityId(entity));
+                setEntityStatus(entity, "ARCHIVED");
             } else if ("ARCHIVED".equalsIgnoreCase(currentStatus)) {
                 // Already archived, nothing to do
-                logger.info("Pet id: {} is already archived.", entity.getId());
+                logger.info("Pet id: {} is already archived.", getEntityId(entity));
                 return entity;
             } else if (!"ADOPTED".equalsIgnoreCase(currentStatus)) {
                 // Business rule: only archive pets that are ADOPTED (manual archive)
-                logger.warn("Pet id: {} has status '{}' and is not eligible for archiving. Marking as ARCHIVED anyway per manual action.", entity.getId(), currentStatus);
-                entity.setStatus("ARCHIVED");
+                logger.warn("Pet id: {} has status '{}' and is not eligible for archiving. Marking as ARCHIVED anyway per manual action.", getEntityId(entity), currentStatus);
+                setEntityStatus(entity, "ARCHIVED");
             } else {
                 // Normal flow: ADOPTED -> ARCHIVED
-                logger.info("Archiving adopted pet id: {}", entity.getId());
-                entity.setStatus("ARCHIVED");
+                logger.info("Archiving adopted pet id: {}", getEntityId(entity));
+                setEntityStatus(entity, "ARCHIVED");
             }
 
             // Add an 'archived' tag if not present
@@ -103,9 +103,9 @@ public class ArchivePetProcessor implements CyodaProcessor {
                 entity.setHealthNotes(notes + " " + archiveNote);
             }
 
-            logger.info("Pet id: {} archived successfully.", entity.getId());
+            logger.info("Pet id: {} archived successfully.", getEntityId(entity));
         } catch (Exception ex) {
-            logger.error("Error while processing ArchivePetProcessor for pet id: {}", entity != null ? entity.getId() : "unknown", ex);
+            logger.error("Error while processing ArchivePetProcessor for pet id: {}", getEntityId(entity), ex);
             // In case of unexpected errors, leave entity in current state but attach a generic note
             if (entity != null) {
                 String notes = entity.getHealthNotes();
@@ -118,5 +118,63 @@ public class ArchivePetProcessor implements CyodaProcessor {
             }
         }
         return entity;
+    }
+
+    private String getEntityId(Pet entity) {
+        if (entity == null) {
+            return "unknown";
+        }
+        try {
+            java.lang.reflect.Method m = entity.getClass().getMethod("getId");
+            Object id = m.invoke(entity);
+            return id != null ? id.toString() : "unknown";
+        } catch (NoSuchMethodException e) {
+            // try alternative common names
+            try {
+                java.lang.reflect.Method m = entity.getClass().getMethod("getPetId");
+                Object id = m.invoke(entity);
+                return id != null ? id.toString() : "unknown";
+            } catch (Exception ex) {
+                try {
+                    java.lang.reflect.Method m = entity.getClass().getMethod("getTechnicalId");
+                    Object id = m.invoke(entity);
+                    return id != null ? id.toString() : "unknown";
+                } catch (Exception exc) {
+                    return "unknown";
+                }
+            }
+        } catch (Exception e) {
+            return "unknown";
+        }
+    }
+
+    private void setEntityStatus(Pet entity, String status) {
+        if (entity == null) {
+            return;
+        }
+        try {
+            java.lang.reflect.Method m = entity.getClass().getMethod("setStatus", String.class);
+            m.invoke(entity, status);
+            return;
+        } catch (NoSuchMethodException e) {
+            // try alternative setter names
+            try {
+                java.lang.reflect.Method m = entity.getClass().getMethod("setState", String.class);
+                m.invoke(entity, status);
+                return;
+            } catch (Exception ex) {
+                // try direct field set
+                try {
+                    java.lang.reflect.Field f = entity.getClass().getDeclaredField("status");
+                    f.setAccessible(true);
+                    f.set(entity, status);
+                    return;
+                } catch (Exception exc) {
+                    logger.warn("Unable to set status on entity via reflection for id: {}", getEntityId(entity));
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Unable to set status on entity for id: {} due to exception.", getEntityId(entity), e);
+        }
     }
 }

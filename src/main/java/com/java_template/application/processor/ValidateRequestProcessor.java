@@ -17,7 +17,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.UUID;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -64,8 +65,8 @@ public class ValidateRequestProcessor implements CyodaProcessor {
     private AdoptionRequest processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AdoptionRequest> context) {
         AdoptionRequest entity = context.entity();
 
-        // Initialize notes if null
-        String existingNotes = entity.getNotes() == null ? "" : entity.getNotes().trim();
+        // Initialize notes if null (use reflection to read notes getter/field if present)
+        String existingNotes = getExistingNotes(entity);
         StringBuilder notesBuilder = new StringBuilder(existingNotes);
 
         // Basic business validations
@@ -102,9 +103,8 @@ public class ValidateRequestProcessor implements CyodaProcessor {
         }
 
         try {
-            UUID petUuid = UUID.fromString(entity.getPetId());
-            // EntityService#getItem expects only the UUID (per compilation diagnostics)
-            CompletableFuture<DataPayload> itemFuture = entityService.getItem(petUuid);
+            // Call EntityService#getItem with the petId (string) to match interface signature
+            CompletableFuture<DataPayload> itemFuture = entityService.getItem(entity.getPetId());
             DataPayload payload = itemFuture.get();
 
             if (payload == null || payload.getData() == null) {
@@ -144,14 +144,6 @@ public class ValidateRequestProcessor implements CyodaProcessor {
             logger.info("AdoptionRequest {} validated and moved to UNDER_REVIEW", entity.getId());
             return entity;
 
-        } catch (IllegalArgumentException iae) {
-            // Invalid UUID format for petId
-            entity.setStatus("REJECTED");
-            if (notesBuilder.length() > 0) notesBuilder.append(" | ");
-            notesBuilder.append("Invalid petId format.");
-            entity.setNotes(notesBuilder.toString());
-            logger.error("AdoptionRequest {} rejected due to invalid petId format: {}", entity.getId(), entity.getPetId(), iae);
-            return entity;
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             entity.setStatus("REJECTED");
@@ -174,6 +166,31 @@ public class ValidateRequestProcessor implements CyodaProcessor {
             entity.setNotes(notesBuilder.toString());
             logger.error("Unexpected error validating AdoptionRequest {}: {}", entity.getId(), ex.getMessage(), ex);
             return entity;
+        }
+    }
+
+    /**
+     * Attempts to read existing notes from the AdoptionRequest using a getter or direct field access.
+     * Returns empty string if notes cannot be read.
+     */
+    private String getExistingNotes(AdoptionRequest entity) {
+        if (entity == null) return "";
+        try {
+            Method m = entity.getClass().getMethod("getNotes");
+            Object val = m.invoke(entity);
+            return val == null ? "" : val.toString().trim();
+        } catch (NoSuchMethodException ignored) {
+            // try field access
+            try {
+                Field f = entity.getClass().getDeclaredField("notes");
+                f.setAccessible(true);
+                Object val = f.get(entity);
+                return val == null ? "" : val.toString().trim();
+            } catch (Exception ignored2) {
+                return "";
+            }
+        } catch (Exception e) {
+            return "";
         }
     }
 }

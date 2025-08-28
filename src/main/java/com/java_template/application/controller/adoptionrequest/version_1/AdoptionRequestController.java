@@ -51,8 +51,6 @@ public class AdoptionRequestController {
     })
     @PostMapping
     public ResponseEntity<TechnicalIdResponse> createAdoptionRequest(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Adoption request payload", required = true,
-                    content = @Content(schema = @Schema(implementation = CreateAdoptionRequestDto.class)))
             @Valid @RequestBody CreateAdoptionRequestDto requestBody) {
         try {
             if (requestBody == null) {
@@ -185,6 +183,23 @@ public class AdoptionRequestController {
 
         @Schema(description = "Motivation text")
         private String motivation;
+
+        // Explicit getters to avoid relying solely on Lombok generated methods during compilation
+        public String getPetId() {
+            return petId;
+        }
+
+        public String getRequesterName() {
+            return requesterName;
+        }
+
+        public ContactInfoDto getContactInfo() {
+            return contactInfo;
+        }
+
+        public String getMotivation() {
+            return motivation;
+        }
     }
 
     @Data

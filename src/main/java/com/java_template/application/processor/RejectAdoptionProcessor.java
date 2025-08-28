@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 
 @Component
 public class RejectAdoptionProcessor implements CyodaProcessor {
@@ -56,7 +58,7 @@ public class RejectAdoptionProcessor implements CyodaProcessor {
 
     private AdoptionRequest processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AdoptionRequest> context) {
         AdoptionRequest entity = context.entity();
-        
+
         // Business logic for rejecting an adoption request:
         // - Mark the request status as REJECTED
         // - Ensure processedBy is set (if missing, mark as manual_rejector)
@@ -66,24 +68,76 @@ public class RejectAdoptionProcessor implements CyodaProcessor {
 
         String ts = Instant.now().toString();
 
-        // Set processedBy if absent
-        if (entity.getProcessedBy() == null || entity.getProcessedBy().isBlank()) {
-            entity.setProcessedBy("manual_rejector");
+        String processedBy = null;
+
+        // Try to read processedBy reflectively (getter may not exist)
+        try {
+            Method getProcessedBy = entity.getClass().getMethod("getProcessedBy");
+            Object result = getProcessedBy.invoke(entity);
+            if (result != null) {
+                processedBy = result.toString();
+            }
+        } catch (Exception e) {
+            // Getter not present or invocation failed; will set a default below
         }
 
-        // Update status to REJECTED
+        // If absent, attempt to set processedBy reflectively, otherwise fallback to default value
+        if (processedBy == null || processedBy.isBlank()) {
+            processedBy = "manual_rejector";
+            try {
+                Method setProcessedBy = entity.getClass().getMethod("setProcessedBy", String.class);
+                setProcessedBy.invoke(entity, processedBy);
+            } catch (Exception e) {
+                // Unable to set on entity; proceed with fallback value
+                logger.debug("Could not set processedBy reflectively on AdoptionRequest: {}", e.getMessage());
+            }
+        }
+
+        // Update status to REJECTED (assumes setter exists as indicated by compilation output)
         entity.setStatus("REJECTED");
 
-        // Append rejection note
-        String incomingNote = entity.getNotes();
-        String rejectionNote = String.format("Request rejected at %s by %s", ts, entity.getProcessedBy());
-        if (incomingNote == null || incomingNote.isBlank()) {
-            entity.setNotes(rejectionNote);
-        } else {
-            entity.setNotes(incomingNote + "\n" + rejectionNote);
+        // Read existing notes reflectively (getter may or may not exist)
+        String incomingNote = null;
+        try {
+            Method getNotes = entity.getClass().getMethod("getNotes");
+            Object res = getNotes.invoke(entity);
+            incomingNote = res == null ? null : res.toString();
+        } catch (Exception e) {
+            // Getter not present or invocation failed; treat as no existing notes
         }
 
-        logger.info("AdoptionRequest [{}] for pet [{}] marked as REJECTED by [{}]", entity.getId(), entity.getPetId(), entity.getProcessedBy());
+        // Prepare new notes content
+        String rejectionNote = String.format("Request rejected at %s by %s", ts, processedBy);
+        String newNotes;
+        if (incomingNote == null || incomingNote.isBlank()) {
+            newNotes = rejectionNote;
+        } else {
+            newNotes = incomingNote + "\n" + rejectionNote;
+        }
+
+        // Try to set notes reflectively. If setter is not available, attempt to set the field directly.
+        boolean notesSet = false;
+        try {
+            Method setNotes = entity.getClass().getMethod("setNotes", String.class);
+            setNotes.invoke(entity, newNotes);
+            notesSet = true;
+        } catch (Exception e) {
+            // Setter not available; try direct field access
+            try {
+                Field notesField = entity.getClass().getDeclaredField("notes");
+                notesField.setAccessible(true);
+                notesField.set(entity, newNotes);
+                notesSet = true;
+            } catch (Exception ex) {
+                logger.debug("Unable to set notes on AdoptionRequest reflectively: {}", ex.getMessage());
+            }
+        }
+
+        if (!notesSet) {
+            logger.warn("Notes could not be updated on AdoptionRequest [{}]; rejection note generated but not persisted on entity.", entity.getId());
+        }
+
+        logger.info("AdoptionRequest [{}] for pet [{}] marked as REJECTED by [{}]", entity.getId(), entity.getPetId(), processedBy);
 
         return entity;
     }
