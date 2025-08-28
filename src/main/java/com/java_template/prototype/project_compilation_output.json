@@ -1,0 +1,11 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/UpdateLaureateProcessorTest.java:55: error: cannot find symbol; existingPayload.setId(technicalId); ^  symbol:   method setId(String)  location: variable existingPayload of type DataPayload"
+            ],
+            "file_path": "src/test/java/com/java_template/application/processor/UpdateLaureateProcessorTest.java"
+        }
+    ]
+}
