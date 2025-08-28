@@ -1,0 +1,41 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Siamese",
+                    "description": "Playful kitten",
+                    "id": "pet-123",
+                    "name": "Whiskers",
+                    "source": "Petstore",
+                    "status": "AVAILABLE"
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Cat Lane",
+                    "contactEmail": "alex@example.com",
+                    "contactPhone": "+123456789",
+                    "id": "owner-77",
+                    "name": "Alex Doe",
+                    "preferences": "small cats"
+                }
+            }
+        },
+        {
+            "PetImportJob": {
+                "entity_data_example": {
+                    "errors": "",
+                    "importedCount": 42,
+                    "requestId": "req-987",
+                    "requestedAt": "2025-08-28T12:00:00Z",
+                    "sourceUrl": "https://petstore.example/api/pets",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
