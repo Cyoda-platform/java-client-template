@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "Workflow for AdoptionRequest entity derived from functional requirements (request submission, review, decision, completion, cancellation).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_request_submitted",
+          "next": "REQUEST_SUBMITTED",
+          "manual": false
+        }
+      ]
+    },
+    "REQUEST_SUBMITTED": {
+      "transitions": [
+        {
+          "name": "queue_for_review",
+          "next": "UNDER_REVIEW",
+          "manual": false,
+          "processors": [
+            {
+              "name": "QueueForReviewProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UNDER_REVIEW": {
+      "transitions": [
+        {
+          "name": "approve_request",
+          "next": "APPROVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ApprovalProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.action",
+            "operation": "EQUALS",
+            "value": "approve"
+          }
+        },
+        {
+          "name": "reject_request",
+          "next": "REJECTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RejectionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.action",
+            "operation": "EQUALS",
+            "value": "reject"
+          }
+        },
+        {
+          "name": "cancel_request",
+          "next": "CANCELLED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CancelRequestProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.action",
+            "operation": "EQUALS",
+            "value": "cancel"
+          }
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "complete_adoption",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CompleteAdoptionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "NotifyRequesterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REJECTED": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": []
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}

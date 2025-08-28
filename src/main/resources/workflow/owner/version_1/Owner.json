@@ -1,0 +1,140 @@
+{
+  "version": "1.0",
+  "name": "Owner Workflow",
+  "desc": "Workflow for Owner entity derived from functional requirements (registration, verification, suspension, reactivation, removal).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_owner",
+          "next": "OWNER_REGISTERED",
+          "manual": false
+        }
+      ]
+    },
+    "OWNER_REGISTERED": {
+      "transitions": [
+        {
+          "name": "start_verification",
+          "next": "VERIFYING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFYING": {
+      "transitions": [
+        {
+          "name": "verification_success",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerificationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "NotifyVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "suspend_owner",
+          "next": "SUSPENDED",
+          "manual": true,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.action",
+            "operation": "EQUALS",
+            "value": "suspend"
+          },
+          "processors": [
+            {
+              "name": "SuspendOwnerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "remove_owner",
+          "next": "REMOVED",
+          "manual": true,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.action",
+            "operation": "EQUALS",
+            "value": "remove"
+          },
+          "processors": [
+            {
+              "name": "RemoveOwnerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "reactivate_owner",
+          "next": "ACTIVE_REACTIVATED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReactivateOwnerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE_REACTIVATED": {
+      "transitions": [
+        {
+          "name": "remove_owner_from_reactivated",
+          "next": "REMOVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RemoveOwnerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REMOVED": {
+      "transitions": []
+    }
+  }
+}

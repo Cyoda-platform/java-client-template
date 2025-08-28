@@ -1,0 +1,183 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity derived from functional requirements (validation, enrichment, publish, reserve/adopt, remove).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_pet",
+          "next": "PET_CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "PET_CREATED": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_success",
+          "next": "ENRICHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_duplicate",
+          "next": "REMOVED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DuplicatePetCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "PetValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHING": {
+      "transitions": [
+        {
+          "name": "enrichment_complete",
+          "next": "PUBLISHED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetEnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PUBLISHED": {
+      "transitions": [
+        {
+          "name": "publish_pet",
+          "next": "AVAILABLE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PublishPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "reserve_pet_manual",
+          "next": "RESERVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReservePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.action",
+            "operation": "EQUALS",
+            "value": "reserve"
+          }
+        },
+        {
+          "name": "remove_pet_manual",
+          "next": "REMOVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RemovePetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.action",
+            "operation": "EQUALS",
+            "value": "remove"
+          }
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "adopt_pet",
+          "next": "ADOPTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AdoptionApprovedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": []
+    },
+    "REMOVED": {
+      "transitions": []
+    }
+  }
+}
