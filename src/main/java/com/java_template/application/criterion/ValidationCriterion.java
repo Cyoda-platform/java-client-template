@@ -23,7 +23,7 @@ public class ValidationCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
-    private final String className = this.getClass().getSimpleName();
+    private static final String CRITERION_NAME = "ValidationCriterion";
 
     public ValidationCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -41,7 +41,8 @@ public class ValidationCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equals(modelSpec.operationName());
+        // MUST use exact criterion name
+        return modelSpec != null && CRITERION_NAME.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {

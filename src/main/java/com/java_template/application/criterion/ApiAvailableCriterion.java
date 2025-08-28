@@ -40,7 +40,8 @@ public class ApiAvailableCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Use exact criterion name match (case-sensitive) as required
+        return "ApiAvailableCriterion".equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Job> context) {
@@ -57,11 +58,11 @@ public class ApiAvailableCriterion implements CyodaCriterion {
          }
 
          // Ensure job is in SCHEDULED state before attempting to start ingestion
-         if (job.getStatus() != null && !job.getStatus().isBlank() && !"SCHEDULED".equalsIgnoreCase(job.getStatus())) {
+         if (job.getStatus() != null && !job.getStatus().isBlank() && !"SCHEDULED".equals(job.getStatus())) {
              return EvaluationOutcome.fail("job must be in SCHEDULED state to check API availability", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // Validate scheduledAt is a valid ISO-8601 datetime if present
+         // Validate scheduledAt is a valid ISO-8601 datetime
          if (job.getScheduledAt() == null || job.getScheduledAt().isBlank()) {
              return EvaluationOutcome.fail("scheduledAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          } else {

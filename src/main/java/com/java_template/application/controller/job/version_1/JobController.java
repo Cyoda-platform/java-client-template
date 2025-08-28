@@ -19,7 +19,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import lombok.Data;
 
 import java.util.NoSuchElementException;
@@ -51,7 +50,7 @@ public class JobController {
     public ResponseEntity<TechnicalIdResponse> createJob(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Job creation payload", required = true,
                     content = @Content(schema = @Schema(implementation = JobCreateRequest.class)))
-            @RequestBody JobCreateRequest request) {
+            @org.springframework.web.bind.annotation.RequestBody JobCreateRequest request) {
         try {
             if (request == null) {
                 throw new IllegalArgumentException("Request body is required");

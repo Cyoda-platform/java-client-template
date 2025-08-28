@@ -23,6 +23,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.HashMap;
 
 @Component
 public class VerificationProcessor implements CyodaProcessor {
@@ -71,6 +74,10 @@ public class VerificationProcessor implements CyodaProcessor {
     private Subscriber processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
         Subscriber entity = context.entity();
 
+        // Access fields via reflection to avoid reliance on generated Lombok accessors
+        String deliveryPref = getStringField(entity, "deliveryPreference");
+        String subscriberId = getStringField(entity, "subscriberId");
+
         // Business logic:
         // - If delivery preference is "webhook": attempt a lightweight POST to webhookUrl.
         //   On successful HTTP 2xx response -> mark active = true, otherwise active = false.
@@ -78,28 +85,26 @@ public class VerificationProcessor implements CyodaProcessor {
         //   If valid -> active = true, otherwise active = false.
         // - For any other delivery preference or missing contact -> set active = false.
 
-        String deliveryPref = entity.getDeliveryPreference();
         if (deliveryPref == null) {
-            logger.warn("Subscriber {} has null deliveryPreference -> marking inactive", entity.getSubscriberId());
-            entity.setActive(false);
+            logger.warn("Subscriber {} has null deliveryPreference -> marking inactive", subscriberId);
+            setBooleanField(entity, "active", Boolean.FALSE);
             return entity;
         }
 
         try {
             if ("webhook".equalsIgnoreCase(deliveryPref)) {
-                String webhook = entity.getWebhookUrl();
+                String webhook = getStringField(entity, "webhookUrl");
                 if (webhook == null || webhook.isBlank()) {
-                    logger.warn("Subscriber {} requested webhook but webhookUrl is missing -> marking inactive", entity.getSubscriberId());
-                    entity.setActive(false);
+                    logger.warn("Subscriber {} requested webhook but webhookUrl is missing -> marking inactive", subscriberId);
+                    setBooleanField(entity, "active", Boolean.FALSE);
                     return entity;
                 }
                 // Prepare simple verification payload
-                String payload = objectMapper.writeValueAsString(
-                        new java.util.HashMap<String, String>() {{
-                            put("event", "verification");
-                            put("subscriberId", entity.getSubscriberId());
-                        }}
-                );
+                Map<String, String> map = new HashMap<>();
+                map.put("event", "verification");
+                map.put("subscriberId", subscriberId != null ? subscriberId : "");
+                String payload = objectMapper.writeValueAsString(map);
+
                 HttpRequest req = HttpRequest.newBuilder()
                         .uri(URI.create(webhook))
                         .timeout(Duration.ofSeconds(5))
@@ -110,42 +115,90 @@ public class VerificationProcessor implements CyodaProcessor {
                     HttpResponse<Void> resp = httpClient.send(req, HttpResponse.BodyHandlers.discarding());
                     int status = resp.statusCode();
                     if (status >= 200 && status < 300) {
-                        logger.info("Webhook verification succeeded for subscriber {} (status {})", entity.getSubscriberId(), status);
-                        entity.setActive(true);
+                        logger.info("Webhook verification succeeded for subscriber {} (status {})", subscriberId, status);
+                        setBooleanField(entity, "active", Boolean.TRUE);
                     } else {
-                        logger.warn("Webhook verification failed for subscriber {} (status {})", entity.getSubscriberId(), status);
-                        entity.setActive(false);
+                        logger.warn("Webhook verification failed for subscriber {} (status {})", subscriberId, status);
+                        setBooleanField(entity, "active", Boolean.FALSE);
                     }
                 } catch (Exception e) {
-                    logger.error("Error calling webhook for subscriber {}: {}", entity.getSubscriberId(), e.getMessage());
-                    entity.setActive(false);
+                    logger.error("Error calling webhook for subscriber {}: {}", subscriberId, e.getMessage());
+                    setBooleanField(entity, "active", Boolean.FALSE);
                 }
             } else if ("email".equalsIgnoreCase(deliveryPref)) {
-                String email = entity.getContactEmail();
+                String email = getStringField(entity, "contactEmail");
                 if (email == null || email.isBlank()) {
-                    logger.warn("Subscriber {} requested email delivery but contactEmail is missing -> marking inactive", entity.getSubscriberId());
-                    entity.setActive(false);
+                    logger.warn("Subscriber {} requested email delivery but contactEmail is missing -> marking inactive", subscriberId);
+                    setBooleanField(entity, "active", Boolean.FALSE);
                     return entity;
                 }
                 // Simple email validation
                 String emailPattern = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
                 boolean validEmail = email.matches(emailPattern);
                 if (validEmail) {
-                    logger.info("Email verification format OK for subscriber {}", entity.getSubscriberId());
-                    entity.setActive(true);
+                    logger.info("Email verification format OK for subscriber {}", subscriberId);
+                    setBooleanField(entity, "active", Boolean.TRUE);
                 } else {
-                    logger.warn("Email verification format invalid for subscriber {} -> marking inactive", entity.getSubscriberId());
-                    entity.setActive(false);
+                    logger.warn("Email verification format invalid for subscriber {} -> marking inactive", subscriberId);
+                    setBooleanField(entity, "active", Boolean.FALSE);
                 }
             } else {
-                logger.warn("Unknown delivery preference '{}' for subscriber {} -> marking inactive", deliveryPref, entity.getSubscriberId());
-                entity.setActive(false);
+                logger.warn("Unknown delivery preference '{}' for subscriber {} -> marking inactive", deliveryPref, subscriberId);
+                setBooleanField(entity, "active", Boolean.FALSE);
             }
         } catch (Exception ex) {
-            logger.error("Unexpected error during verification for subscriber {}: {}", entity.getSubscriberId(), ex.getMessage(), ex);
-            entity.setActive(false);
+            logger.error("Unexpected error during verification for subscriber {}: {}", subscriberId, ex.getMessage(), ex);
+            setBooleanField(entity, "active", Boolean.FALSE);
         }
 
         return entity;
+    }
+
+    // Reflection helpers to read/write private fields when Lombok accessors may not be available
+    private String getStringField(Object obj, String fieldName) {
+        if (obj == null) return null;
+        try {
+            Field f = findFieldRecursive(obj.getClass(), fieldName);
+            if (f == null) return null;
+            f.setAccessible(true);
+            Object val = f.get(obj);
+            return val != null ? String.valueOf(val) : null;
+        } catch (Exception e) {
+            logger.debug("Unable to read field '{}' from {}: {}", fieldName, obj.getClass().getSimpleName(), e.getMessage());
+            return null;
+        }
+    }
+
+    private void setBooleanField(Object obj, String fieldName, Boolean value) {
+        if (obj == null) return;
+        try {
+            Field f = findFieldRecursive(obj.getClass(), fieldName);
+            if (f == null) {
+                logger.debug("Field '{}' not found on {}", fieldName, obj.getClass().getSimpleName());
+                return;
+            }
+            f.setAccessible(true);
+            // Handle Boolean wrapper or primitive boolean
+            if (f.getType() == Boolean.class || f.getType() == boolean.class) {
+                f.set(obj, value);
+            } else {
+                // try to set compatible value if field is String etc.
+                f.set(obj, value);
+            }
+        } catch (Exception e) {
+            logger.error("Unable to set boolean field '{}' on {}: {}", fieldName, obj.getClass().getSimpleName(), e.getMessage(), e);
+        }
+    }
+
+    private Field findFieldRecursive(Class<?> cls, String fieldName) {
+        Class<?> current = cls;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException nsf) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
     }
 }

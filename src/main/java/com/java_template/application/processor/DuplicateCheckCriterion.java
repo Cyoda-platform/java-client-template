@@ -9,8 +9,6 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-
-import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
@@ -90,33 +88,43 @@ public class DuplicateCheckCriterion implements CyodaProcessor {
             if (dataPayloads != null && !dataPayloads.isEmpty()) {
                 for (DataPayload payload : dataPayloads) {
                     // Convert payload data to Laureate to inspect domain fields if needed
-                    Laureate existing = objectMapper.treeToValue(payload.getData(), Laureate.class);
+                    Laureate existing = null;
+                    try {
+                        if (payload != null && payload.getData() != null && objectMapper != null) {
+                            existing = objectMapper.treeToValue(payload.getData(), Laureate.class);
+                        }
+                    } catch (Exception convEx) {
+                        logger.warn("Failed to deserialize existing payload while checking duplicates: {}", convEx.getMessage());
+                        // If we cannot deserialize, skip this payload
+                        continue;
+                    }
 
-                    // Extract technical id from meta to ensure we don't consider the same entity instance as duplicate
+                    // If the existing record corresponds to the same domain id -> skip (not a duplicate)
+                    String existingDomainId = existing != null ? existing.getId() : null;
+                    String currentDomainId = entity.getId();
+
+                    if (existingDomainId != null && currentDomainId != null && existingDomainId.equals(currentDomainId)) {
+                        // same domain record - ignore
+                        continue;
+                    }
+
+                    // At this point we have found another record with same firstname/surname/year/category
+                    // and it's not the same domain id -> mark as duplicate
+                    duplicateFound = true;
+
                     String existingTechnicalId = null;
-                    if (payload.getMeta() != null && payload.getMeta().has("entityId")) {
+                    if (payload != null && payload.getMeta() != null && payload.getMeta().has("entityId")) {
                         existingTechnicalId = payload.getMeta().get("entityId").asText();
                     }
 
-                    String currentId = entity.getId();
+                    logger.info("Duplicate laureate detected. Existing technicalId={}, domainId={}, firstname={}, surname={}, year={}, category={}",
+                        existingTechnicalId, existingDomainId,
+                        existing != null ? existing.getFirstname() : null,
+                        existing != null ? existing.getSurname() : null,
+                        existing != null ? existing.getYear() : null,
+                        existing != null ? existing.getCategory() : null);
 
-                    if (existingTechnicalId != null) {
-                        // If technical ids differ (or current entity has no id yet), treat as duplicate
-                        if (currentId == null || !currentId.equals(existingTechnicalId)) {
-                            duplicateFound = true;
-                            logger.info("Duplicate laureate detected. Existing entityId={}, firstname={}, surname={}, year={}, category={}",
-                                existingTechnicalId, existing.getFirstname(), existing.getSurname(), existing.getYear(), existing.getCategory());
-                            break;
-                        }
-                    } else {
-                        // Fallback: if existing domain object differs by technical id or current has no id, consider duplicate
-                        if (currentId == null || (existing.getId() != null && !existing.getId().equals(currentId))) {
-                            duplicateFound = true;
-                            logger.info("Duplicate laureate detected based on payload content. firstname={}, surname={}, year={}, category={}",
-                                existing.getFirstname(), existing.getSurname(), existing.getYear(), existing.getCategory());
-                            break;
-                        }
-                    }
+                    break;
                 }
             }
 

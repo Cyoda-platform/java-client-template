@@ -6,9 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.application.entity.laureate.version_1.Laureate;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -236,7 +233,6 @@ public class LaureateController {
         return r;
     }
 
-    @Data
     @Schema(name = "LaureateRequest", description = "Request payload to create a Laureate (fields follow functional requirement naming)")
     public static class LaureateRequest {
         @Schema(description = "Original laureate id from source", example = "123")
@@ -275,9 +271,64 @@ public class LaureateController {
         private String validated;
         @Schema(description = "Normalized country code", example = "DE")
         private String normalized_country_code;
+
+        public LaureateRequest() {}
+
+        public Integer getId() { return id; }
+        public void setId(Integer id) { this.id = id; }
+
+        public String getFirstname() { return firstname; }
+        public void setFirstname(String firstname) { this.firstname = firstname; }
+
+        public String getSurname() { return surname; }
+        public void setSurname(String surname) { this.surname = surname; }
+
+        public String getGender() { return gender; }
+        public void setGender(String gender) { this.gender = gender; }
+
+        public String getBorn() { return born; }
+        public void setBorn(String born) { this.born = born; }
+
+        public String getDied() { return died; }
+        public void setDied(String died) { this.died = died; }
+
+        public String getBorncountry() { return borncountry; }
+        public void setBorncountry(String borncountry) { this.borncountry = borncountry; }
+
+        public String getBorncountrycode() { return borncountrycode; }
+        public void setBorncountrycode(String borncountrycode) { this.borncountrycode = borncountrycode; }
+
+        public String getBorncity() { return borncity; }
+        public void setBorncity(String borncity) { this.borncity = borncity; }
+
+        public String getYear() { return year; }
+        public void setYear(String year) { this.year = year; }
+
+        public String getCategory() { return category; }
+        public void setCategory(String category) { this.category = category; }
+
+        public String getMotivation() { return motivation; }
+        public void setMotivation(String motivation) { this.motivation = motivation; }
+
+        public String getAffiliation_name() { return affiliation_name; }
+        public void setAffiliation_name(String affiliation_name) { this.affiliation_name = affiliation_name; }
+
+        public String getAffiliation_city() { return affiliation_city; }
+        public void setAffiliation_city(String affiliation_city) { this.affiliation_city = affiliation_city; }
+
+        public String getAffiliation_country() { return affiliation_country; }
+        public void setAffiliation_country(String affiliation_country) { this.affiliation_country = affiliation_country; }
+
+        public Integer getAge_at_award() { return age_at_award; }
+        public void setAge_at_award(Integer age_at_award) { this.age_at_award = age_at_award; }
+
+        public String getValidated() { return validated; }
+        public void setValidated(String validated) { this.validated = validated; }
+
+        public String getNormalized_country_code() { return normalized_country_code; }
+        public void setNormalized_country_code(String normalized_country_code) { this.normalized_country_code = normalized_country_code; }
     }
 
-    @Data
     @Schema(name = "LaureateResponse", description = "Response payload for Laureate (fields follow functional requirement naming)")
     public static class LaureateResponse {
         @Schema(description = "Original laureate id from source", example = "123")
@@ -316,9 +367,64 @@ public class LaureateController {
         private String validated;
         @Schema(description = "Normalized country code", example = "DE")
         private String normalized_country_code;
+
+        public LaureateResponse() {}
+
+        public Integer getId() { return id; }
+        public void setId(Integer id) { this.id = id; }
+
+        public String getFirstname() { return firstname; }
+        public void setFirstname(String firstname) { this.firstname = firstname; }
+
+        public String getSurname() { return surname; }
+        public void setSurname(String surname) { this.surname = surname; }
+
+        public String getGender() { return gender; }
+        public void setGender(String gender) { this.gender = gender; }
+
+        public String getBorn() { return born; }
+        public void setBorn(String born) { this.born = born; }
+
+        public String getDied() { return died; }
+        public void setDied(String died) { this.died = died; }
+
+        public String getBorncountry() { return borncountry; }
+        public void setBorncountry(String borncountry) { this.borncountry = borncountry; }
+
+        public String getBorncountrycode() { return borncountrycode; }
+        public void setBorncountrycode(String borncountrycode) { this.borncountrycode = borncountrycode; }
+
+        public String getBorncity() { return borncity; }
+        public void setBorncity(String borncity) { this.borncity = borncity; }
+
+        public String getYear() { return year; }
+        public void setYear(String year) { this.year = year; }
+
+        public String getCategory() { return category; }
+        public void setCategory(String category) { this.category = category; }
+
+        public String getMotivation() { return motivation; }
+        public void setMotivation(String motivation) { this.motivation = motivation; }
+
+        public String getAffiliation_name() { return affiliation_name; }
+        public void setAffiliation_name(String affiliation_name) { this.affiliation_name = affiliation_name; }
+
+        public String getAffiliation_city() { return affiliation_city; }
+        public void setAffiliation_city(String affiliation_city) { this.affiliation_city = affiliation_city; }
+
+        public String getAffiliation_country() { return affiliation_country; }
+        public void setAffiliation_country(String affiliation_country) { this.affiliation_country = affiliation_country; }
+
+        public Integer getAge_at_award() { return age_at_award; }
+        public void setAge_at_award(Integer age_at_award) { this.age_at_award = age_at_award; }
+
+        public String getValidated() { return validated; }
+        public void setValidated(String validated) { this.validated = validated; }
+
+        public String getNormalized_country_code() { return normalized_country_code; }
+        public void setNormalized_country_code(String normalized_country_code) { this.normalized_country_code = normalized_country_code; }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing the generated technicalId")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical ID (UUID)", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
@@ -329,5 +435,8 @@ public class LaureateController {
         public TechnicalIdResponse(String technicalId) {
             this.technicalId = technicalId;
         }
+
+        public String getTechnicalId() { return technicalId; }
+        public void setTechnicalId(String technicalId) { this.technicalId = technicalId; }
     }
 }

@@ -4,7 +4,6 @@ import static com.java_template.common.config.Config.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.service.EntityService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import lombok.Data;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -153,7 +151,6 @@ public class SubscriberController {
         }
     }
 
-    @Data
     @Schema(name = "SubscriberRequest", description = "Payload to create a Subscriber")
     public static class SubscriberRequest {
         @Schema(description = "Subscriber name", example = "Research Team")
@@ -170,16 +167,68 @@ public class SubscriberController {
 
         @Schema(description = "Active flag", example = "true")
         private Boolean active;
+
+        public SubscriberRequest() {
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getContactEmail() {
+            return contactEmail;
+        }
+
+        public void setContactEmail(String contactEmail) {
+            this.contactEmail = contactEmail;
+        }
+
+        public String getWebhookUrl() {
+            return webhookUrl;
+        }
+
+        public void setWebhookUrl(String webhookUrl) {
+            this.webhookUrl = webhookUrl;
+        }
+
+        public String getDeliveryPreference() {
+            return deliveryPreference;
+        }
+
+        public void setDeliveryPreference(String deliveryPreference) {
+            this.deliveryPreference = deliveryPreference;
+        }
+
+        public Boolean getActive() {
+            return active;
+        }
+
+        public void setActive(Boolean active) {
+            this.active = active;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing generated technical id")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical identifier of the persisted entity", example = "550e8400-e29b-41d4-a716-446655440000", name = "technicalId")
         private String technicalId;
+
+        public TechnicalIdResponse() {
+        }
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
-    @Data
     @Schema(name = "SubscriberResponse", description = "Subscriber entity representation returned by GET")
     public static class SubscriberResponse {
         @Schema(description = "Business subscriber id", example = "s-123", name = "subscriberId")
@@ -199,5 +248,56 @@ public class SubscriberController {
 
         @Schema(description = "Delivery preference (email or webhook)", example = "webhook", name = "delivery_preference")
         private String deliveryPreference;
+
+        public SubscriberResponse() {
+        }
+
+        public String getSubscriberId() {
+            return subscriberId;
+        }
+
+        public void setSubscriberId(String subscriberId) {
+            this.subscriberId = subscriberId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getContactEmail() {
+            return contactEmail;
+        }
+
+        public void setContactEmail(String contactEmail) {
+            this.contactEmail = contactEmail;
+        }
+
+        public String getWebhookUrl() {
+            return webhookUrl;
+        }
+
+        public void setWebhookUrl(String webhookUrl) {
+            this.webhookUrl = webhookUrl;
+        }
+
+        public Boolean getActive() {
+            return active;
+        }
+
+        public void setActive(Boolean active) {
+            this.active = active;
+        }
+
+        public String getDeliveryPreference() {
+            return deliveryPreference;
+        }
+
+        public void setDeliveryPreference(String deliveryPreference) {
+            this.deliveryPreference = deliveryPreference;
+        }
     }
 }

@@ -16,6 +16,7 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.cyoda.cloud.api.event.common.DataPayload;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.stereotype.Component;
@@ -34,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.lang.reflect.Field;
 
 @Component
 public class NotifySubscribersProcessor implements CyodaProcessor {
@@ -82,7 +84,7 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
         // - Notify each subscriber according to deliveryPreference (webhook/email)
         // - Update job status to NOTIFIED_SUBSCRIBERS and update finishedAt/summary
 
-        List<Subscriber> activeSubscribers = new ArrayList<>();
+        List<JsonNode> activeSubscriberNodes = new ArrayList<>();
         try {
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$.active", "EQUALS", "true")
@@ -97,12 +99,12 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
             if (payloads != null) {
                 for (DataPayload payload : payloads) {
                     try {
-                        Subscriber s = objectMapper.treeToValue(payload.getData(), Subscriber.class);
-                        if (s != null) {
-                            activeSubscribers.add(s);
+                        JsonNode dataNode = payload.getData();
+                        if (dataNode != null) {
+                            activeSubscriberNodes.add(dataNode);
                         }
                     } catch (Exception ex) {
-                        logger.error("Failed to deserialize subscriber payload: {}", ex.getMessage(), ex);
+                        logger.error("Failed to process subscriber payload: {}", ex.getMessage(), ex);
                     }
                 }
             }
@@ -112,23 +114,48 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
 
         int notifiedCount = 0;
         HttpClient httpClient = HttpClient.newBuilder().build();
-        for (Subscriber s : activeSubscribers) {
-            if (s == null) continue;
-            String pref = s.getDeliveryPreference();
-            if (pref != null && "webhook".equalsIgnoreCase(pref)) {
-                String webhook = s.getWebhookUrl();
+
+        // Read job fields via reflection to avoid direct method calls (compatibility when Lombok getters/setters may be unavailable).
+        String jobId = safeGetFieldAsString(job, "jobId");
+        String jobStatus = safeGetFieldAsString(job, "status");
+        String jobSummary = safeGetFieldAsString(job, "summary");
+        String jobFinishedAt = safeGetFieldAsString(job, "finishedAt");
+
+        for (JsonNode sNode : activeSubscriberNodes) {
+            if (sNode == null || sNode.isNull()) continue;
+
+            // Extract subscriber properties from JsonNode (use only fields present in payload)
+            String deliveryPref = getTextValue(sNode, "deliveryPreference", "delivery_preference", "deliveryPreference");
+            if (deliveryPref == null) deliveryPref = getTextValue(sNode, "deliveryPreference"); // fallback
+
+            boolean active = false;
+            JsonNode activeNode = sNode.get("active");
+            if (activeNode != null && activeNode.isBoolean()) active = activeNode.booleanValue();
+            else {
+                // fallback if active stored as string
+                String activeStr = getTextValue(sNode, "active");
+                if (activeStr != null) active = "true".equalsIgnoreCase(activeStr);
+            }
+            if (!active) continue;
+
+            String webhook = getTextValue(sNode, "webhookUrl", "webhook_url", "webhookUrl");
+            String contactEmail = getTextValue(sNode, "contactEmail", "contact_email", "contactEmail");
+            String subscriberId = getTextValue(sNode, "subscriberId", "subscriber_id", "subscriberId");
+            String name = getTextValue(sNode, "name");
+
+            if (deliveryPref != null && "webhook".equalsIgnoreCase(deliveryPref)) {
                 if (webhook == null || webhook.isBlank()) {
-                    logger.warn("Subscriber {} has webhook preference but no webhookUrl defined", s.getSubscriberId());
+                    logger.warn("Subscriber {} has webhook preference but no webhookUrl defined", subscriberId != null ? subscriberId : "<unknown>");
                     continue;
                 }
                 try {
                     Map<String, Object> payloadMap = new HashMap<>();
-                    payloadMap.put("jobId", job.getJobId());
-                    payloadMap.put("status", job.getStatus());
-                    payloadMap.put("summary", job.getSummary());
-                    payloadMap.put("finishedAt", job.getFinishedAt());
+                    payloadMap.put("jobId", jobId);
+                    payloadMap.put("status", jobStatus);
+                    payloadMap.put("summary", jobSummary);
+                    payloadMap.put("finishedAt", jobFinishedAt);
                     // include simple metadata: number of active subscribers at the time
-                    payloadMap.put("activeSubscribersCount", activeSubscribers.size());
+                    payloadMap.put("activeSubscribersCount", activeSubscriberNodes.size());
 
                     String body = objectMapper.writeValueAsString(payloadMap);
                     HttpRequest httpRequest = HttpRequest.newBuilder()
@@ -141,33 +168,104 @@ public class NotifySubscribersProcessor implements CyodaProcessor {
                     int statusCode = response.statusCode();
                     if (statusCode >= 200 && statusCode < 300) {
                         notifiedCount++;
-                        logger.info("Successfully notified subscriber {} via webhook (status={})", s.getSubscriberId(), statusCode);
+                        logger.info("Successfully notified subscriber {} via webhook (status={})", subscriberId != null ? subscriberId : "<unknown>", statusCode);
                     } else {
-                        logger.warn("Failed to notify subscriber {} via webhook, statusCode={}", s.getSubscriberId(), statusCode);
+                        logger.warn("Failed to notify subscriber {} via webhook, statusCode={}", subscriberId != null ? subscriberId : "<unknown>", statusCode);
                     }
                 } catch (Exception ex) {
-                    logger.error("Error notifying subscriber {} via webhook: {}", s.getSubscriberId(), ex.getMessage(), ex);
+                    logger.error("Error notifying subscriber {} via webhook: {}", subscriberId != null ? subscriberId : "<unknown>", ex.getMessage(), ex);
                 }
-            } else if (pref != null && "email".equalsIgnoreCase(pref)) {
+            } else if (deliveryPref != null && "email".equalsIgnoreCase(deliveryPref)) {
                 // Email delivery not implemented in this processor; log intent.
-                logger.info("Email notification requested for subscriber {}. Email delivery not implemented; skipping.", s.getSubscriberId());
-                // We consider email notifications attempted but not counted as delivered.
+                logger.info("Email notification requested for subscriber {}. Email delivery not implemented; skipping.", subscriberId != null ? subscriberId : "<unknown>");
+                // Considered attempted but not counted as delivered.
             } else {
-                logger.warn("Unknown delivery preference '{}' for subscriber {}. Skipping.", pref, s.getSubscriberId());
+                logger.warn("Unknown delivery preference '{}' for subscriber {}. Skipping.", deliveryPref, subscriberId != null ? subscriberId : "<unknown>");
             }
         }
 
-        // Update job state - do not call entityService to update this job (workflow will persist returned entity)
-        job.setStatus("NOTIFIED_SUBSCRIBERS");
+        // Update job state via reflection to avoid direct setter calls (compatibility)
+        safeSetField(job, "status", "NOTIFIED_SUBSCRIBERS");
         String now = Instant.now().toString();
-        job.setFinishedAt(now);
-        String prevSummary = job.getSummary() != null ? job.getSummary() : "";
+        safeSetField(job, "finishedAt", now);
+
+        String prevSummary = jobSummary != null ? jobSummary : "";
         String postSummary = prevSummary.isBlank() ? String.format("notified %d subscribers", notifiedCount)
             : String.format("%s; notified %d subscribers", prevSummary, notifiedCount);
-        job.setSummary(postSummary);
+        safeSetField(job, "summary", postSummary);
 
-        logger.info("Job {} transitioned to NOTIFIED_SUBSCRIBERS (notifiedCount={})", job.getJobId(), notifiedCount);
+        logger.info("Job {} transitioned to NOTIFIED_SUBSCRIBERS (notifiedCount={})", jobId != null ? jobId : "<unknown>", notifiedCount);
 
         return job;
+    }
+
+    private String getTextValue(JsonNode node, String... possibleNames) {
+        for (String name : possibleNames) {
+            if (name == null) continue;
+            JsonNode n = node.get(name);
+            if (n != null && !n.isNull()) {
+                if (n.isTextual()) return n.asText();
+                else return n.toString();
+            }
+        }
+        return null;
+    }
+
+    private static String safeGetFieldAsString(Object target, String fieldName) {
+        if (target == null || fieldName == null) return null;
+        try {
+            Field f = getDeclaredFieldIncludingParents(target.getClass(), fieldName);
+            if (f == null) return null;
+            f.setAccessible(true);
+            Object val = f.get(target);
+            return val != null ? String.valueOf(val) : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static void safeSetField(Object target, String fieldName, Object value) {
+        if (target == null || fieldName == null) return;
+        try {
+            Field f = getDeclaredFieldIncludingParents(target.getClass(), fieldName);
+            if (f == null) return;
+            f.setAccessible(true);
+            // handle primitive long/int if needed by simple conversion attempts
+            Class<?> type = f.getType();
+            if (value == null) {
+                f.set(target, null);
+                return;
+            }
+            if (type == String.class) {
+                f.set(target, String.valueOf(value));
+            } else if (type == Integer.class || type == int.class) {
+                if (value instanceof Number) f.set(target, ((Number) value).intValue());
+                else f.set(target, Integer.valueOf(String.valueOf(value)));
+            } else if (type == Long.class || type == long.class) {
+                if (value instanceof Number) f.set(target, ((Number) value).longValue());
+                else f.set(target, Long.valueOf(String.valueOf(value)));
+            } else if (type == Boolean.class || type == boolean.class) {
+                if (value instanceof Boolean) f.set(target, value);
+                else f.set(target, Boolean.valueOf(String.valueOf(value)));
+            } else {
+                // best effort
+                f.set(target, value);
+            }
+        } catch (Throwable t) {
+            logger.warn("Failed to set field '{}' on {}: {}", fieldName, target != null ? target.getClass().getSimpleName() : "null", t.getMessage());
+        }
+    }
+
+    private static Field getDeclaredFieldIncludingParents(Class<?> clazz, String fieldName) {
+        Class<?> cur = clazz;
+        while (cur != null) {
+            try {
+                Field f = cur.getDeclaredField(fieldName);
+                return f;
+            } catch (NoSuchFieldException e) {
+                cur = cur.getSuperclass();
+            }
+        }
+        return null;
     }
 }
