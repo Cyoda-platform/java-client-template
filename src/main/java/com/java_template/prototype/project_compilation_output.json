@@ -3,41 +3,15 @@
     "files_with_errors": [
         {
             "errors": [
-                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ValidateRequestProcessor.java:107: error: incompatible types: String cannot be converted to @jakarta.validation.constraints.NotNull UUID",
-                "CompletableFuture<DataPayload> itemFuture = entityService.getItem(entity.getPetId());"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/ValidateRequestProcessor.java"
-        },
-        {
-            "errors": [
-                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/PersistPetProcessor.java:42: error: method toEntity in interface ProcessingChain cannot be applied to given types;",
-                ".toEntity(Pet.class)",
-                "required: Class<T>",
-                "found:    Class<Pet>",
-                "reason: inference variable T has incompatible bounds (equality constraints: Pet; upper bounds: CyodaEntity)",
-                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/PersistPetProcessor.java:60: error: type argument Pet is not within bounds of type-variable T",
-                "private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context)"
+                "Pet is not abstract and does not override abstract method getModelKey() in CyodaEntity"
             ],
             "file_path": "src/main/java/com/java_template/application/processor/PersistPetProcessor.java"
         },
         {
             "errors": [
-                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ImageOptimizeProcessor.java:36: error: method toEntity in interface ProcessingChain cannot be applied to given types;",
-                ".toEntity(Map.class)",
-                "required: Class<T>",
-                "found:    Class<Map>",
-                "reason: inference variable T has incompatible bounds (equality constraints: Map; upper bounds: CyodaEntity)",
-                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ImageOptimizeProcessor.java:56: error: type argument Map<String,Object> is not within bounds of type-variable T",
-                "private Map<String, Object> processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Map<String, Object>> context)"
+                "MapEntity is not abstract and does not override abstract method getModelKey() in CyodaEntity"
             ],
             "file_path": "src/main/java/com/java_template/application/processor/ImageOptimizeProcessor.java"
-        },
-        {
-            "errors": [
-                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ApproveAdoptionProcessor.java:89: error: incompatible types: String cannot be converted to @jakarta.validation.constraints.NotNull UUID",
-                "CompletableFuture<DataPayload> payloadFuture = entityService.getItem(petUuid.toString());"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/ApproveAdoptionProcessor.java"
         }
     ]
 }
