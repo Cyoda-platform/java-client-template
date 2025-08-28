@@ -65,8 +65,8 @@ public class JobValidationProcessorTest {
         String localUrl = "http://127.0.0.1:" + port + "/";
 
         try {
-            // Construct processor with real serializerFactory, mock entityService, real objectMapper
-            JobValidationProcessor processor = new JobValidationProcessor(serializerFactory, entityService, objectMapper);
+            // Construct processor with real serializerFactory (constructor expects only SerializerFactory)
+            JobValidationProcessor processor = new JobValidationProcessor(serializerFactory);
 
             // Build a valid PetImportJob entity that passes isValid()
             PetImportJob job = new PetImportJob();

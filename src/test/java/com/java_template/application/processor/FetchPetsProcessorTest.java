@@ -93,6 +93,11 @@ public class FetchPetsProcessorTest {
             public <T> CompletableFuture<HttpResponse<T>> sendAsync(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler, HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
                 return sendAsync(request, responseBodyHandler);
             }
+
+            @Override
+            public Optional<java.util.concurrent.Executor> executor() {
+                return Optional.empty();
+            }
         };
 
         // Use reflection to set private final httpClient field
