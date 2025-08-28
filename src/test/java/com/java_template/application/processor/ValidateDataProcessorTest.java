@@ -52,8 +52,7 @@ public class ValidateDataProcessorTest {
         // Wrap into DataPayload as entityService would return
         DataPayload dsPayload = new DataPayload();
         dsPayload.setData(objectMapper.valueToTree(existingDs));
-        // Ensure a technical id is present so processor attempts update
-        dsPayload.setId(UUID.randomUUID().toString());
+        // Note: do not call setId(...) because DataPayload does not expose setId(String) in the current API.
 
         when(entityService.getItemsByCondition(
                 anyString(), anyInt(), any(), anyBoolean()

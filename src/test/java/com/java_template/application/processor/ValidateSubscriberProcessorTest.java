@@ -14,6 +14,7 @@ import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.junit.jupiter.api.Test;
+import io.cloudevents.CloudEvent;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -57,7 +58,7 @@ public class ValidateSubscriberProcessorTest {
 
         CyodaEventContext<EntityProcessorCalculationRequest> context = new CyodaEventContext<>() {
             @Override
-            public Object getCloudEvent() { return null; }
+            public CloudEvent getCloudEvent() { return null; }
             @Override
             public EntityProcessorCalculationRequest getEvent() { return request; }
         };
