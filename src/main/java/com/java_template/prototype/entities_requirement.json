@@ -1,0 +1,57 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "createdAt": "2025-08-28T12:00:00Z",
+                    "healthRecords": [
+                        "vaccinated"
+                    ],
+                    "images": [
+                        "https://example.com/images/mittens.jpg"
+                    ],
+                    "metadata": {},
+                    "name": "Mittens",
+                    "petId": "ext-123",
+                    "source": "PetstoreAPI",
+                    "species": "Cat",
+                    "status": "Available"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "address": "123 Cat Ln",
+                    "adoptedPetIds": [
+                        "ext-123"
+                    ],
+                    "email": "ava@example.com",
+                    "fullName": "Ava Smith",
+                    "phone": "555-0100",
+                    "preferences": {},
+                    "registeredAt": "2025-08-01T09:30:00Z",
+                    "status": "Active",
+                    "userId": "u_001"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "adoptionFee": 50.0,
+                    "homeVisitRequired": true,
+                    "notes": "Interested in adopting due to friendly temperament",
+                    "paymentStatus": "NOT_PAID",
+                    "petId": "ext-123",
+                    "requestId": "r_1001",
+                    "requestedAt": "2025-08-28T13:00:00Z",
+                    "status": "CREATED",
+                    "userId": "u_001"
+                }
+            }
+        }
+    ]
+}
