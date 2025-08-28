@@ -1,0 +1,60 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": "2 years",
+                    "bio": "A friendly tabby who enjoys sunny windowsills and playtime.",
+                    "breed": "Tabby",
+                    "healthNotes": "Rabies and FVRCP vaccinated; no known conditions.",
+                    "id": "pet_42",
+                    "importedAt": "2025-08-28T10:00:00Z",
+                    "name": "Mr Whiskers",
+                    "photos": [
+                        "https://petstore.example/images/pet_42/photo1.jpg",
+                        "https://petstore.example/images/pet_42/photo2.jpg"
+                    ],
+                    "sex": "M",
+                    "size": "small",
+                    "source": "Petstore",
+                    "species": "cat",
+                    "status": "available",
+                    "tags": [
+                        "playful",
+                        "gentle"
+                    ]
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "contactInfo": {
+                        "email": "alex@example.com",
+                        "phone": "555-0101"
+                    },
+                    "motivation": "Looking for a playful companion",
+                    "notes": "",
+                    "petId": "pet_42",
+                    "processedBy": "",
+                    "requesterName": "Alex",
+                    "status": "created",
+                    "submittedAt": "2025-08-28T11:00:00Z"
+                }
+            }
+        },
+        {
+            "PetIngestionJob": {
+                "entity_data_example": {
+                    "completedAt": "2025-08-28T10:00:30Z",
+                    "errors": [],
+                    "jobName": "PetstoreSync",
+                    "processedCount": 120,
+                    "sourceUrl": "https://petstore.example/api/pets",
+                    "startedAt": "2025-08-28T10:00:00Z",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
