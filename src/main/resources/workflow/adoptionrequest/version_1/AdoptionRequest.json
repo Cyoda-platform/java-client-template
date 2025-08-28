@@ -1,0 +1,120 @@
+{
+    "version": "1.0",
+    "name": "AdoptionRequest Workflow",
+    "desc": "Workflow for AdoptionRequest entity based on functional requirements mermaid diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "persisted_to_triage",
+                    "next": "TRIAGE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TriageProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "TRIAGE": {
+            "transitions": [
+                {
+                    "name": "triage_to_pending_review",
+                    "next": "PENDING_REVIEW",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "TriagePassedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "triage_to_rejected",
+                    "next": "REJECTED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "TriageFailedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "PENDING_REVIEW": {
+            "transitions": [
+                {
+                    "name": "pending_review_to_approved",
+                    "next": "APPROVED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ApproveAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "pending_review_to_rejected",
+                    "next": "REJECTED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RejectAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "APPROVED": {
+            "transitions": [
+                {
+                    "name": "approved_to_completed",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "FinalizeAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "REJECTED": {
+            "transitions": []
+        },
+        "COMPLETED": {
+            "transitions": []
+        }
+    }
+}

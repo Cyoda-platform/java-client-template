@@ -1,0 +1,157 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Workflow for Pet entity derived from functional requirements mermaid diagram: ingestion -> validation -> enrichment -> availability -> adoption/quarantine handling",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "to_validating",
+                    "next": "VALIDATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ValidatePetProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATING": {
+            "transitions": [
+                {
+                    "name": "validation_passed",
+                    "next": "ENRICHING",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidationPassedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "validation_failed",
+                    "next": "QUARANTINE",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidationFailedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ENRICHING": {
+            "transitions": [
+                {
+                    "name": "enrich_to_available",
+                    "next": "AVAILABLE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EnrichPetProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "AVAILABLE": {
+            "transitions": [
+                {
+                    "name": "receive_adoption_request",
+                    "next": "ADOPTION_REQUESTED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ReceiveAdoptionRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ADOPTION_REQUESTED": {
+            "transitions": [
+                {
+                    "name": "approve_adoption",
+                    "next": "ADOPTED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ApproveAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "reject_adoption",
+                    "next": "AVAILABLE_AFTER_REJECTION",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RejectAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "QUARANTINE": {
+            "transitions": [
+                {
+                    "name": "quarantine_cleared",
+                    "next": "AVAILABLE_AFTER_QUARANTINE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "QuarantineClearedProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ADOPTED": {
+            "transitions": []
+        },
+        "AVAILABLE_AFTER_REJECTION": {
+            "transitions": []
+        },
+        "AVAILABLE_AFTER_QUARANTINE": {
+            "transitions": []
+        }
+    }
+}

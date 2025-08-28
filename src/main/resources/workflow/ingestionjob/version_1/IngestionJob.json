@@ -1,0 +1,107 @@
+{
+    "version": "1.0",
+    "name": "IngestionJob Workflow",
+    "desc": "Workflow for IngestionJob based on functional requirements.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "init_to_created",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "CREATED": {
+            "transitions": [
+                {
+                    "name": "start_ingestion",
+                    "next": "RUNNING",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "StartIngestionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "RUNNING": {
+            "transitions": [
+                {
+                    "name": "begin_processing",
+                    "next": "PROCESSING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "FetchAndPersistProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PROCESSING": {
+            "transitions": [
+                {
+                    "name": "aggregate_results",
+                    "next": "AGGREGATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AggregationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "AGGREGATING": {
+            "transitions": [
+                {
+                    "name": "to_completed",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SuccessCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "to_failed",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "FailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        }
+    }
+}
