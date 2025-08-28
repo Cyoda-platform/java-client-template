@@ -2,8 +2,8 @@ package com.java_template.application.controller.subscriber.version_1;
 
 import static com.java_template.common.config.Config.*;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import lombok.Data;
@@ -112,7 +112,7 @@ public class SubscriberController {
             }
             CompletableFuture<DataPayload> itemFuture = entityService.getItem(UUID.fromString(technicalId));
             DataPayload dataPayload = itemFuture.get();
-            ObjectNode node = dataPayload != null ? (ObjectNode) dataPayload.getData() : null;
+            JsonNode node = dataPayload != null ? dataPayload.getData() : null;
             if (node == null) {
                 return ResponseEntity.notFound().build();
             }
@@ -156,13 +156,17 @@ public class SubscriberController {
             if (dataPayloads != null) {
                 for (DataPayload payload : dataPayloads) {
                     if (payload == null) continue;
-                    ObjectNode node = (ObjectNode) payload.getData();
+                    JsonNode node = payload.getData();
                     if (node == null) continue;
                     Subscriber entity = objectMapper.treeToValue(node, Subscriber.class);
-                    // payload may contain metadata for technical id; fallback to entity.getId()
-                    String techId = payload.getMetadata() != null && payload.getMetadata().getTechnicalId() != null
-                            ? payload.getMetadata().getTechnicalId()
-                            : entity.getId();
+                    // Try to read technicalId from payload data first, fallback to entity.id
+                    String techId = null;
+                    if (node.has("technicalId") && node.get("technicalId").isTextual()) {
+                        techId = node.get("technicalId").asText();
+                    }
+                    if (techId == null && entity != null) {
+                        techId = entity.getId();
+                    }
                     responses.add(mapEntityToResponse(entity, techId));
                 }
             }

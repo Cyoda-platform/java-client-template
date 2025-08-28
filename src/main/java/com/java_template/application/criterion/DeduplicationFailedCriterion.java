@@ -29,7 +29,7 @@ public class DeduplicationFailedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Laureate.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,7 @@ public class DeduplicationFailedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
@@ -46,6 +46,7 @@ public class DeduplicationFailedCriterion implements CyodaCriterion {
          // Deduplication requires either a source id OR a full identity triplet (firstname, surname, year).
          // If neither is available, deduplication cannot proceed and should be marked as failed.
          if (entity == null) {
+             logger.warn("DeduplicationFailedCriterion invoked with null entity");
              return EvaluationOutcome.fail("Laureate entity is null", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
@@ -62,6 +63,8 @@ public class DeduplicationFailedCriterion implements CyodaCriterion {
          if (firstname == null || firstname.isBlank()
              || surname == null || surname.isBlank()
              || year == null || year.isBlank()) {
+             logger.debug("Deduplication failed due to insufficient identity information: id=null, firstname='{}', surname='{}', year='{}'",
+                     firstname, surname, year);
              return EvaluationOutcome.fail(
                  "Insufficient identity information for deduplication: require id or (firstname, surname, year)",
                  StandardEvalReasonCategories.DATA_QUALITY_FAILURE

@@ -59,7 +59,7 @@ public class StartIngestionProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid entity state for StartIngestionProcessor")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
@@ -69,8 +69,21 @@ public class StartIngestionProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Custom validation for StartIngestionProcessor:
+     * - Job must be non-null
+     * - Must have technical id and sourceUrl
+     * - Must be in SCHEDULED state to start ingestion
+     *
+     * Note: Job.isValid() requires runTimestamp which is not set for SCHEDULED jobs,
+     * so we avoid using entity.isValid() here.
+     */
     private boolean isValidEntity(Job entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getId() == null || entity.getId().isBlank()) return false;
+        if (entity.getSourceUrl() == null || entity.getSourceUrl().isBlank()) return false;
+        if (entity.getState() == null) return false;
+        return "SCHEDULED".equalsIgnoreCase(entity.getState());
     }
 
     private Job processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Job> context) {
@@ -90,7 +103,6 @@ public class StartIngestionProcessor implements CyodaProcessor {
                 String err = "Missing sourceUrl in job";
                 logger.error(err);
                 errors.add(err);
-                failedCount = 0;
                 job.setSummary(buildSummary(ingestedCount, failedCount, errors));
                 job.setState("FAILED");
                 job.setCompletedTimestamp(Instant.now().toString());
