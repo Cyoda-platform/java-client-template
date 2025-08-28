@@ -63,7 +63,7 @@ public class RemovePetProcessorTest {
         DataPayload ownerPayload = new DataPayload();
         JsonNode ownerJson = objectMapper.valueToTree(owner);
         ownerPayload.setData(ownerJson);
-        ownerPayload.setId(ownerTechnicalId); // this will be used to parse UUID for update
+        ownerPayload.setId(UUID.fromString(ownerTechnicalId)); // this will be used to parse UUID for update
 
         // Stub getItems to return the owner payload
         when(entityService.getItems(eq(Owner.ENTITY_NAME), eq(Owner.ENTITY_VERSION), any(), any(), any()))

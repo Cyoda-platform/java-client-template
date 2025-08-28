@@ -54,7 +54,7 @@ public class RemoveOwnerProcessorTest {
         JsonNode arNode = objectMapper.valueToTree(ar);
         arPayload.setData(arNode);
         // set technical id so updateItem is attempted
-        String technicalId = UUID.randomUUID().toString();
+        UUID technicalId = UUID.randomUUID();
         arPayload.setId(technicalId);
 
         when(entityService.getItemsByCondition(anyString(), anyInt(), any(), anyBoolean()))
@@ -125,6 +125,6 @@ public class RemoveOwnerProcessorTest {
 
         // Verify that getItemsByCondition and updateItem were invoked as part of sunny path
         verify(entityService, atLeastOnce()).getItemsByCondition(eq(AdoptionRequest.ENTITY_NAME), eq(AdoptionRequest.ENTITY_VERSION), any(), eq(true));
-        verify(entityService, atLeastOnce()).updateItem(eq(UUID.fromString(technicalId)), any());
+        verify(entityService, atLeastOnce()).updateItem(eq(technicalId), any());
     }
 }
