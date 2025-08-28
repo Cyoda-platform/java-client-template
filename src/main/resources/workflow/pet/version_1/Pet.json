@@ -1,0 +1,154 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity derived from functional requirements (state diagram translated to FSM JSON).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_persisted",
+          "next": "PERSISTED",
+          "manual": false
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "persisted_to_validating",
+          "next": "VALIDATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validating_to_listed",
+          "next": "LISTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetListingProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetDataCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validating_to_invalid",
+          "next": "INVALID",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetDataIncompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "LISTED": {
+      "transitions": [
+        {
+          "name": "listed_to_hold",
+          "next": "HOLD",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OnAdoptionRequestApprovedProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "HOLD": {
+      "transitions": [
+        {
+          "name": "hold_to_adopted",
+          "next": "ADOPTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetStatusUpdateProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "adopted_to_archived",
+          "next": "ARCHIVED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ArchiveProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "INVALID": {
+      "transitions": [
+        {
+          "name": "invalid_to_listed_manual_fix",
+          "next": "LISTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ManualFixAction",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}
