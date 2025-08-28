@@ -20,6 +20,9 @@ public class ActivateUserProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
 
+    private static final String PROFILE_VERIFIED = "PROFILE_VERIFIED";
+    private static final String ACTIVE = "ACTIVE";
+
     public ActivateUserProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
     }
@@ -55,27 +58,32 @@ public class ActivateUserProcessor implements CyodaProcessor {
             return null;
         }
 
-        String currentStatus = entity.getStatus();
+        String currentStatus = null;
+        try {
+            currentStatus = entity.getStatus();
+        } catch (Exception e) {
+            logger.warn("ActivateUserProcessor: failed to read current status for user (userId={}) : {}", entity.getUserId(), e.getMessage());
+        }
+
         if (currentStatus == null) {
             logger.warn("ActivateUserProcessor: user {} has null status, skipping activation", entity.getUserId());
             return entity;
         }
 
         // Only transition users that are in PROFILE_VERIFIED state to ACTIVE.
-        // Do not invent additional state fields; rely on existing properties.
-        if ("PROFILE_VERIFIED".equalsIgnoreCase(currentStatus)) {
+        if (PROFILE_VERIFIED.equalsIgnoreCase(currentStatus)) {
             // Basic identity sanity check: ensure email contains '@' as minimal verification guard.
             String email = entity.getEmail();
             if (email != null && email.contains("@")) {
-                entity.setStatus("Active");
-                logger.info("User {} transitioned from PROFILE_VERIFIED to Active", entity.getUserId());
+                entity.setStatus(ACTIVE);
+                logger.info("User {} transitioned from PROFILE_VERIFIED to {}", entity.getUserId(), ACTIVE);
             } else {
                 // If email not valid, keep as PROFILE_VERIFIED and log for further review.
                 logger.warn("ActivateUserProcessor: user {} profile verified but email appears invalid ({}). Activation skipped.", entity.getUserId(), email);
             }
-        } else if ("Active".equalsIgnoreCase(currentStatus)) {
+        } else if (ACTIVE.equalsIgnoreCase(currentStatus)) {
             // Already active, nothing to do.
-            logger.debug("ActivateUserProcessor: user {} already Active", entity.getUserId());
+            logger.debug("ActivateUserProcessor: user {} already {}", entity.getUserId(), ACTIVE);
         } else {
             // Not in expected state for activation; do not change.
             logger.debug("ActivateUserProcessor skipped for user {} with status {}", entity.getUserId(), currentStatus);

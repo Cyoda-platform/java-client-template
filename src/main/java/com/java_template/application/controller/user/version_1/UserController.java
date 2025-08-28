@@ -5,7 +5,6 @@ import static com.java_template.common.config.Config.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
-import lombok.Data;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -158,8 +157,7 @@ public class UserController {
         }
     }
 
-    // Static DTOs for requests/responses
-    @Data
+    // Static DTOs for requests/responses (no Lombok to ensure compilation even if annotation processing isn't configured)
     public static class CreateUserRequest {
         @Schema(description = "Business user id", example = "u_001")
         private String userId;
@@ -187,9 +185,82 @@ public class UserController {
 
         @Schema(description = "Adopted pet ids (optional)")
         private List<String> adoptedPetIds;
+
+        public CreateUserRequest() {}
+
+        public String getUserId() {
+            return userId;
+        }
+
+        public void setUserId(String userId) {
+            this.userId = userId;
+        }
+
+        public String getFullName() {
+            return fullName;
+        }
+
+        public void setFullName(String fullName) {
+            this.fullName = fullName;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
+
+        public String getAddress() {
+            return address;
+        }
+
+        public void setAddress(String address) {
+            this.address = address;
+        }
+
+        public String getRegisteredAt() {
+            return registeredAt;
+        }
+
+        public void setRegisteredAt(String registeredAt) {
+            this.registeredAt = registeredAt;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public Map<String, Object> getPreferences() {
+            return preferences;
+        }
+
+        public void setPreferences(Map<String, Object> preferences) {
+            this.preferences = preferences;
+        }
+
+        public List<String> getAdoptedPetIds() {
+            return adoptedPetIds;
+        }
+
+        public void setAdoptedPetIds(List<String> adoptedPetIds) {
+            this.adoptedPetIds = adoptedPetIds;
+        }
     }
 
-    @Data
     public static class CreateUserResponse {
         @Schema(description = "Technical ID of the persisted entity", example = "user_xyz789")
         private String technicalId;
@@ -199,9 +270,16 @@ public class UserController {
         public CreateUserResponse(String technicalId) {
             this.technicalId = technicalId;
         }
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
-    @Data
     public static class GetUserResponse {
         @Schema(description = "Technical ID of the persisted entity", example = "user_xyz789")
         private String technicalId;
@@ -232,5 +310,87 @@ public class UserController {
 
         @Schema(description = "User status", example = "Active")
         private String status;
+
+        public GetUserResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getUserId() {
+            return userId;
+        }
+
+        public void setUserId(String userId) {
+            this.userId = userId;
+        }
+
+        public String getFullName() {
+            return fullName;
+        }
+
+        public void setFullName(String fullName) {
+            this.fullName = fullName;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
+
+        public String getAddress() {
+            return address;
+        }
+
+        public void setAddress(String address) {
+            this.address = address;
+        }
+
+        public String getRegisteredAt() {
+            return registeredAt;
+        }
+
+        public void setRegisteredAt(String registeredAt) {
+            this.registeredAt = registeredAt;
+        }
+
+        public Map<String, Object> getPreferences() {
+            return preferences;
+        }
+
+        public void setPreferences(Map<String, Object> preferences) {
+            this.preferences = preferences;
+        }
+
+        public List<String> getAdoptedPetIds() {
+            return adoptedPetIds;
+        }
+
+        public void setAdoptedPetIds(List<String> adoptedPetIds) {
+            this.adoptedPetIds = adoptedPetIds;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 }

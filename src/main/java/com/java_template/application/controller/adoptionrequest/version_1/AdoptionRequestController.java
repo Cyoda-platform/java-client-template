@@ -15,10 +15,8 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -52,7 +50,7 @@ public class AdoptionRequestController {
     })
     @PostMapping
     public ResponseEntity<?> createAdoptionRequest(
-            @RequestBody(description = "AdoptionRequest creation payload", required = true,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "AdoptionRequest creation payload", required = true,
                     content = @Content(schema = @Schema(implementation = AdoptionRequestCreateRequest.class)))
             @org.springframework.web.bind.annotation.RequestBody AdoptionRequestCreateRequest request) {
         try {
@@ -172,8 +170,8 @@ public class AdoptionRequestController {
     }
 
     // Static DTOs for request/response with Swagger Schemas
+    // Implemented without Lombok to avoid relying on annotation processing in controller-level DTOs
 
-    @Data
     @Schema(name = "AdoptionRequestCreateRequest", description = "Payload to create an AdoptionRequest")
     public static class AdoptionRequestCreateRequest {
         @Schema(description = "Business request id", example = "r_1001", required = true)
@@ -202,16 +200,98 @@ public class AdoptionRequestController {
 
         @Schema(description = "Additional notes", example = "Requester prefers evening visits", required = false)
         private String notes;
+
+        public AdoptionRequestCreateRequest() {}
+
+        public String getRequestId() {
+            return requestId;
+        }
+
+        public void setRequestId(String requestId) {
+            this.requestId = requestId;
+        }
+
+        public String getPetId() {
+            return petId;
+        }
+
+        public void setPetId(String petId) {
+            this.petId = petId;
+        }
+
+        public String getUserId() {
+            return userId;
+        }
+
+        public void setUserId(String userId) {
+            this.userId = userId;
+        }
+
+        public String getRequestedAt() {
+            return requestedAt;
+        }
+
+        public void setRequestedAt(String requestedAt) {
+            this.requestedAt = requestedAt;
+        }
+
+        public Boolean getHomeVisitRequired() {
+            return homeVisitRequired;
+        }
+
+        public void setHomeVisitRequired(Boolean homeVisitRequired) {
+            this.homeVisitRequired = homeVisitRequired;
+        }
+
+        public Double getAdoptionFee() {
+            return adoptionFee;
+        }
+
+        public void setAdoptionFee(Double adoptionFee) {
+            this.adoptionFee = adoptionFee;
+        }
+
+        public String getPaymentStatus() {
+            return paymentStatus;
+        }
+
+        public void setPaymentStatus(String paymentStatus) {
+            this.paymentStatus = paymentStatus;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getNotes() {
+            return notes;
+        }
+
+        public void setNotes(String notes) {
+            this.notes = notes;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing only the technical id")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id of the persisted entity", example = "req_mno456")
         private String technicalId;
+
+        public TechnicalIdResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 
-    @Data
     @Schema(name = "AdoptionRequestResponse", description = "AdoptionRequest returned from storage")
     public static class AdoptionRequestResponse {
         @Schema(description = "Technical id of the entity", example = "req_mno456")
@@ -243,5 +323,87 @@ public class AdoptionRequestController {
 
         @Schema(description = "Additional notes", example = "Requester prefers evening visits")
         private String notes;
+
+        public AdoptionRequestResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
+
+        public String getRequestId() {
+            return requestId;
+        }
+
+        public void setRequestId(String requestId) {
+            this.requestId = requestId;
+        }
+
+        public String getPetId() {
+            return petId;
+        }
+
+        public void setPetId(String petId) {
+            this.petId = petId;
+        }
+
+        public String getUserId() {
+            return userId;
+        }
+
+        public void setUserId(String userId) {
+            this.userId = userId;
+        }
+
+        public String getRequestedAt() {
+            return requestedAt;
+        }
+
+        public void setRequestedAt(String requestedAt) {
+            this.requestedAt = requestedAt;
+        }
+
+        public Boolean getHomeVisitRequired() {
+            return homeVisitRequired;
+        }
+
+        public void setHomeVisitRequired(Boolean homeVisitRequired) {
+            this.homeVisitRequired = homeVisitRequired;
+        }
+
+        public Double getAdoptionFee() {
+            return adoptionFee;
+        }
+
+        public void setAdoptionFee(Double adoptionFee) {
+            this.adoptionFee = adoptionFee;
+        }
+
+        public String getPaymentStatus() {
+            return paymentStatus;
+        }
+
+        public void setPaymentStatus(String paymentStatus) {
+            this.paymentStatus = paymentStatus;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+
+        public String getNotes() {
+            return notes;
+        }
+
+        public void setNotes(String notes) {
+            this.notes = notes;
+        }
     }
 }

@@ -1,8 +1,6 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRequest;
-import com.java_template.application.entity.pet.version_1.Pet;
-import com.java_template.application.entity.user.version_1.User;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ErrorInfo;
@@ -14,12 +12,14 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -70,109 +70,180 @@ public class ValidateRequestProcessor implements CyodaProcessor {
     private AdoptionRequest processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AdoptionRequest> context) {
         AdoptionRequest adoptionRequest = context.entity();
 
-        // Ensure paymentStatus has a default
-        if (adoptionRequest.getPaymentStatus() == null || adoptionRequest.getPaymentStatus().isBlank()) {
-            adoptionRequest.setPaymentStatus("NOT_PAID");
-        }
-
-        // Basic sanity checks for referenced IDs
-        if (adoptionRequest.getPetId() == null || adoptionRequest.getPetId().isBlank()) {
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("PetId is missing");
-            logger.warn("AdoptionRequest {} rejected: missing petId", adoptionRequest.getRequestId());
-            return adoptionRequest;
-        }
-        if (adoptionRequest.getUserId() == null || adoptionRequest.getUserId().isBlank()) {
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("UserId is missing");
-            logger.warn("AdoptionRequest {} rejected: missing userId", adoptionRequest.getRequestId());
-            return adoptionRequest;
-        }
-
-        // Attempt to load referenced Pet and User entities by their technical UUIDs.
-        Pet pet = null;
-        User user = null;
         try {
-            UUID petUuid = UUID.fromString(adoptionRequest.getPetId());
-            CompletableFuture<DataPayload> petFuture = entityService.getItem(petUuid);
-            DataPayload petPayload = petFuture != null ? petFuture.get() : null;
-            if (petPayload == null || petPayload.getData() == null) {
-                adoptionRequest.setStatus("REJECTED");
-                adoptionRequest.setNotes("Referenced pet not found");
-                logger.warn("AdoptionRequest {} rejected: pet not found ({})", adoptionRequest.getRequestId(), adoptionRequest.getPetId());
+            // Default paymentStatus to NOT_PAID if missing/blank
+            String paymentStatus = (String) getFieldValue(adoptionRequest, "paymentStatus");
+            if (paymentStatus == null || paymentStatus.isBlank()) {
+                setFieldValue(adoptionRequest, "paymentStatus", "NOT_PAID");
+            }
+
+            // Basic sanity checks for referenced IDs
+            String petId = (String) getFieldValue(adoptionRequest, "petId");
+            String userId = (String) getFieldValue(adoptionRequest, "userId");
+            String requestId = (String) getFieldValue(adoptionRequest, "requestId");
+
+            if (petId == null || petId.isBlank()) {
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "PetId is missing"));
+                logger.warn("AdoptionRequest {} rejected: missing petId", safeString(requestId));
                 return adoptionRequest;
             }
-            pet = objectMapper.treeToValue(petPayload.getData(), Pet.class);
-        } catch (IllegalArgumentException iae) {
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("Invalid petId format");
-            logger.warn("AdoptionRequest {} rejected: invalid petId format: {}", adoptionRequest.getRequestId(), iae.getMessage());
-            return adoptionRequest;
-        } catch (InterruptedException | ExecutionException ex) {
-            logger.error("Error fetching pet for adoptionRequest {}: {}", adoptionRequest.getRequestId(), ex.getMessage(), ex);
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("Error fetching pet information");
-            return adoptionRequest;
-        } catch (Exception ex) {
-            logger.error("Unexpected error converting pet payload: {}", ex.getMessage(), ex);
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("Error processing pet information");
-            return adoptionRequest;
-        }
-
-        try {
-            UUID userUuid = UUID.fromString(adoptionRequest.getUserId());
-            CompletableFuture<DataPayload> userFuture = entityService.getItem(userUuid);
-            DataPayload userPayload = userFuture != null ? userFuture.get() : null;
-            if (userPayload == null || userPayload.getData() == null) {
-                adoptionRequest.setStatus("REJECTED");
-                adoptionRequest.setNotes("Referenced user not found");
-                logger.warn("AdoptionRequest {} rejected: user not found ({})", adoptionRequest.getRequestId(), adoptionRequest.getUserId());
+            if (userId == null || userId.isBlank()) {
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "UserId is missing"));
+                logger.warn("AdoptionRequest {} rejected: missing userId", safeString(requestId));
                 return adoptionRequest;
             }
-            user = objectMapper.treeToValue(userPayload.getData(), User.class);
-        } catch (IllegalArgumentException iae) {
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("Invalid userId format");
-            logger.warn("AdoptionRequest {} rejected: invalid userId format: {}", adoptionRequest.getRequestId(), iae.getMessage());
+
+            // Attempt to load referenced Pet and User entities by their technical UUIDs.
+            JsonNode petData = null;
+            JsonNode userData = null;
+
+            try {
+                UUID petUuid = UUID.fromString(petId);
+                CompletableFuture<DataPayload> petFuture = entityService.getItem(petUuid);
+                DataPayload petPayload = petFuture != null ? petFuture.get() : null;
+                if (petPayload == null || petPayload.getData() == null) {
+                    setFieldValue(adoptionRequest, "status", "REJECTED");
+                    setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Referenced pet not found"));
+                    logger.warn("AdoptionRequest {} rejected: pet not found ({})", safeString(requestId), petId);
+                    return adoptionRequest;
+                }
+                petData = petPayload.getData();
+            } catch (IllegalArgumentException iae) {
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Invalid petId format"));
+                logger.warn("AdoptionRequest {} rejected: invalid petId format: {}", safeString(requestId), iae.getMessage());
+                return adoptionRequest;
+            } catch (InterruptedException | ExecutionException ex) {
+                logger.error("Error fetching pet for adoptionRequest {}: {}", safeString(requestId), ex.getMessage(), ex);
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Error fetching pet information"));
+                return adoptionRequest;
+            } catch (Exception ex) {
+                logger.error("Unexpected error converting pet payload: {}", ex.getMessage(), ex);
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Error processing pet information"));
+                return adoptionRequest;
+            }
+
+            try {
+                UUID userUuid = UUID.fromString(userId);
+                CompletableFuture<DataPayload> userFuture = entityService.getItem(userUuid);
+                DataPayload userPayload = userFuture != null ? userFuture.get() : null;
+                if (userPayload == null || userPayload.getData() == null) {
+                    setFieldValue(adoptionRequest, "status", "REJECTED");
+                    setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Referenced user not found"));
+                    logger.warn("AdoptionRequest {} rejected: user not found ({})", safeString(requestId), userId);
+                    return adoptionRequest;
+                }
+                userData = userPayload.getData();
+            } catch (IllegalArgumentException iae) {
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Invalid userId format"));
+                logger.warn("AdoptionRequest {} rejected: invalid userId format: {}", safeString(requestId), iae.getMessage());
+                return adoptionRequest;
+            } catch (InterruptedException | ExecutionException ex) {
+                logger.error("Error fetching user for adoptionRequest {}: {}", safeString(requestId), ex.getMessage(), ex);
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Error fetching user information"));
+                return adoptionRequest;
+            } catch (Exception ex) {
+                logger.error("Unexpected error converting user payload: {}", ex.getMessage(), ex);
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Error processing user information"));
+                return adoptionRequest;
+            }
+
+            // Business rule: Pet must be Available
+            String petStatus = extractStringField(petData, "status");
+            if (petStatus == null || !"Available".equalsIgnoreCase(petStatus)) {
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Pet is not available for adoption"));
+                logger.info("AdoptionRequest {} rejected: pet {} not available (status={})", safeString(requestId), petId, safeString(petStatus));
+                return adoptionRequest;
+            }
+
+            // Business rule: User must be eligible (Active or Trusted)
+            String userStatus = extractStringField(userData, "status");
+            if (userStatus == null ||
+                !(userStatus.equalsIgnoreCase("Active") || userStatus.equalsIgnoreCase("Trusted"))) {
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "User is not eligible to request adoption"));
+                logger.info("AdoptionRequest {} rejected: user {} not eligible (status={})", safeString(requestId), userId, safeString(userStatus));
+                return adoptionRequest;
+            }
+
+            // All validations passed -> mark for review
+            setFieldValue(adoptionRequest, "status", "PENDING_REVIEW");
+            if (getFieldValue(adoptionRequest, "notes") == null || ((String) getFieldValue(adoptionRequest, "notes")).isBlank()) {
+                setFieldValue(adoptionRequest, "notes", "Validated and assigned for review");
+            } else {
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Validated and assigned for review"));
+            }
+            logger.info("AdoptionRequest {} validated successfully and moved to PENDING_REVIEW", safeString(requestId));
+
             return adoptionRequest;
-        } catch (InterruptedException | ExecutionException ex) {
-            logger.error("Error fetching user for adoptionRequest {}: {}", adoptionRequest.getRequestId(), ex.getMessage(), ex);
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("Error fetching user information");
+        } catch (ReflectiveOperationException roe) {
+            logger.error("Reflection error processing AdoptionRequest: {}", roe.getMessage(), roe);
+            try {
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Processing error"));
+            } catch (Exception ignore) {}
             return adoptionRequest;
         } catch (Exception ex) {
-            logger.error("Unexpected error converting user payload: {}", ex.getMessage(), ex);
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("Error processing user information");
+            logger.error("Unexpected error in ValidateRequestProcessor: {}", ex.getMessage(), ex);
+            try {
+                setFieldValue(adoptionRequest, "status", "REJECTED");
+                setFieldValue(adoptionRequest, "notes", concatNotes((String) getFieldValue(adoptionRequest, "notes"), "Unexpected processing error"));
+            } catch (Exception ignore) {}
             return adoptionRequest;
         }
+    }
 
-        // Business rule: Pet must be Available
-        if (pet.getStatus() == null || !pet.getStatus().equalsIgnoreCase("Available")) {
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("Pet is not available for adoption");
-            logger.info("AdoptionRequest {} rejected: pet {} not available (status={})", adoptionRequest.getRequestId(), adoptionRequest.getPetId(), pet.getStatus());
-            return adoptionRequest;
+    // Helper: safely get a private field value via reflection
+    private Object getFieldValue(Object target, String fieldName) throws ReflectiveOperationException {
+        if (target == null) return null;
+        Field field = getDeclaredFieldRecursive(target.getClass(), fieldName);
+        if (field == null) return null;
+        field.setAccessible(true);
+        return field.get(target);
+    }
+
+    // Helper: safely set a private field value via reflection
+    private void setFieldValue(Object target, String fieldName, Object value) throws ReflectiveOperationException {
+        if (target == null) return;
+        Field field = getDeclaredFieldRecursive(target.getClass(), fieldName);
+        if (field == null) return;
+        field.setAccessible(true);
+        field.set(target, value);
+    }
+
+    // Search declared field in class hierarchy
+    private Field getDeclaredFieldRecursive(Class<?> clazz, String fieldName) {
+        Class<?> current = clazz;
+        while (current != null) {
+            try {
+                return current.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException nsf) {
+                current = current.getSuperclass();
+            }
         }
+        return null;
+    }
 
-        // Business rule: User must be eligible (Active or Trusted)
-        String userStatus = user.getStatus();
-        if (userStatus == null ||
-            !(userStatus.equalsIgnoreCase("Active") || userStatus.equalsIgnoreCase("Trusted"))) {
-            adoptionRequest.setStatus("REJECTED");
-            adoptionRequest.setNotes("User is not eligible to request adoption");
-            logger.info("AdoptionRequest {} rejected: user {} not eligible (status={})", adoptionRequest.getRequestId(), adoptionRequest.getUserId(), userStatus);
-            return adoptionRequest;
-        }
+    private String extractStringField(JsonNode node, String fieldName) {
+        if (node == null) return null;
+        JsonNode v = node.get(fieldName);
+        return v != null && !v.isNull() ? v.asText(null) : null;
+    }
 
-        // All validations passed -> mark for review
-        adoptionRequest.setStatus("PENDING_REVIEW");
-        if (adoptionRequest.getNotes() == null || adoptionRequest.getNotes().isBlank()) {
-            adoptionRequest.setNotes("Validated and assigned for review");
-        }
-        logger.info("AdoptionRequest {} validated successfully and moved to PENDING_REVIEW", adoptionRequest.getRequestId());
+    private String concatNotes(String existing, String addition) {
+        if (existing == null || existing.isBlank()) return addition;
+        return existing + " | " + addition;
+    }
 
-        return adoptionRequest;
+    private String safeString(Object o) {
+        return o == null ? "null" : o.toString();
     }
 }

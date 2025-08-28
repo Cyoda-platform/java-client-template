@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.lang.reflect.Field;
 
 @Component
 public class SuspendUserProcessor implements CyodaProcessor {
@@ -70,37 +71,106 @@ public class SuspendUserProcessor implements CyodaProcessor {
             return null;
         }
 
-        String currentStatus = entity.getStatus();
+        // Use reflection to read/write fields to avoid depending on generated accessor methods at compile-time
+        String currentStatus = getStringField(entity, "status");
+        String userId = getStringField(entity, "userId");
         if (currentStatus == null) currentStatus = "";
 
         // Only allow suspend if user is in Active or Trusted state (per workflow)
         if (currentStatus.equalsIgnoreCase("Suspended")) {
-            logger.info("User '{}' is already suspended. No action taken.", entity.getUserId());
+            logger.info("User '{}' is already suspended. No action taken.", userId != null ? userId : "unknown");
             return entity;
         }
 
         if (!(currentStatus.equalsIgnoreCase("Active") || currentStatus.equalsIgnoreCase("Trusted"))) {
-            logger.info("User '{}' has status '{}' and cannot be suspended by this processor. No action taken.", entity.getUserId(), currentStatus);
+            logger.info("User '{}' has status '{}' and cannot be suspended by this processor. No action taken.", userId != null ? userId : "unknown", currentStatus);
             return entity;
         }
 
         // Perform suspension: set status and record suspension timestamp in preferences map
-        entity.setStatus("Suspended");
+        setStringField(entity, "status", "Suspended");
 
-        Map<String, Object> prefs = entity.getPreferences();
+        Map<String, Object> prefs = getMapField(entity, "preferences");
         if (prefs == null) {
             prefs = new HashMap<>();
-            entity.setPreferences(prefs);
+            setMapField(entity, "preferences", prefs);
         }
 
         prefs.put("suspendedAt", Instant.now().toString());
         prefs.put("suspensionMethod", "manual");
 
-        logger.info("User '{}' suspended successfully.", entity.getUserId());
+        logger.info("User '{}' suspended successfully.", userId != null ? userId : "unknown");
 
         // Note: Do not call entityService to update this same entity. Cyoda will persist changes to the triggering entity automatically.
         // entityService can be used to record related artifacts if needed (not used here).
 
         return entity;
+    }
+
+    // Reflection helpers to access private fields on the User entity without relying on generated accessors.
+    private String getStringField(User entity, String fieldName) {
+        try {
+            Field f = findField(entity, fieldName);
+            if (f == null) return null;
+            Object v = f.get(entity);
+            return v != null ? v.toString() : null;
+        } catch (Exception e) {
+            logger.debug("Unable to read string field '{}' via reflection: {}", fieldName, e.getMessage());
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getMapField(User entity, String fieldName) {
+        try {
+            Field f = findField(entity, fieldName);
+            if (f == null) return null;
+            Object v = f.get(entity);
+            if (v instanceof Map) return (Map<String, Object>) v;
+            return null;
+        } catch (Exception e) {
+            logger.debug("Unable to read map field '{}' via reflection: {}", fieldName, e.getMessage());
+            return null;
+        }
+    }
+
+    private void setStringField(User entity, String fieldName, String value) {
+        try {
+            Field f = findField(entity, fieldName);
+            if (f == null) {
+                logger.debug("Field '{}' not found on entity", fieldName);
+                return;
+            }
+            f.set(entity, value);
+        } catch (Exception e) {
+            logger.warn("Failed to set field '{}' via reflection: {}", fieldName, e.getMessage(), e);
+        }
+    }
+
+    private void setMapField(User entity, String fieldName, Map<String, Object> map) {
+        try {
+            Field f = findField(entity, fieldName);
+            if (f == null) {
+                logger.debug("Field '{}' not found on entity", fieldName);
+                return;
+            }
+            f.set(entity, map);
+        } catch (Exception e) {
+            logger.warn("Failed to set map field '{}' via reflection: {}", fieldName, e.getMessage(), e);
+        }
+    }
+
+    private Field findField(User entity, String fieldName) {
+        Class<?> cls = entity.getClass();
+        while (cls != null) {
+            try {
+                Field f = cls.getDeclaredField(fieldName);
+                f.setAccessible(true);
+                return f;
+            } catch (NoSuchFieldException e) {
+                cls = cls.getSuperclass();
+            }
+        }
+        return null;
     }
 }

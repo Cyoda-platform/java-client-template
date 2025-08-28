@@ -69,17 +69,20 @@ public class RejectRequestProcessor implements CyodaProcessor {
 
         // Only allow rejection if the request is in a reviewable state.
         String currentStatus = entity.getStatus();
-        if (currentStatus != null) {
-            String normalized = currentStatus.trim().toUpperCase();
-            if (!"PENDING_REVIEW".equals(normalized) && !"CREATED".equals(normalized)) {
-                logger.warn("AdoptionRequest {} not in a reviewable state (current: {}). Skipping rejection.", entity.getRequestId(), currentStatus);
-                return entity;
-            }
+        String statusNorm = currentStatus == null ? "" : currentStatus.trim();
+        if (!"PENDING_REVIEW".equalsIgnoreCase(statusNorm) && !"CREATED".equalsIgnoreCase(statusNorm)) {
+            logger.warn("AdoptionRequest {} not in a reviewable state (current: {}). Skipping rejection.", entity.getRequestId(), currentStatus);
+            return entity;
         }
 
         // Set the request status to REJECTED
-        entity.setStatus("REJECTED");
-        logger.info("AdoptionRequest {} marked as REJECTED", entity.getRequestId());
+        try {
+            entity.setStatus("REJECTED");
+            logger.info("AdoptionRequest {} marked as REJECTED", entity.getRequestId());
+        } catch (Exception e) {
+            // Defensive: if setters are not available or fail, log and continue (entity persistence is done by workflow).
+            logger.warn("Failed to set status to REJECTED on AdoptionRequest {}: {}", entity.getRequestId(), e.getMessage(), e);
+        }
 
         // If the request had reserved the pet, attempt to release the pet reservation.
         try {
@@ -102,24 +105,39 @@ public class RejectRequestProcessor implements CyodaProcessor {
                     DataPayload payload = dataPayloads.get(0);
                     Pet pet = objectMapper.treeToValue(payload.getData(), Pet.class);
 
-                    // Check if pet is reserved by this request and release it
                     if (pet != null) {
                         String petStatus = pet.getStatus();
                         Map<String, Object> metadata = pet.getMetadata();
                         boolean reservedByThisRequest = false;
-                        if (metadata != null && metadata.containsKey("reservedBy")) {
+
+                        if (metadata != null) {
+                            // Support multiple reservation key names used across processors
                             Object reservedBy = metadata.get("reservedBy");
+                            if (reservedBy == null) {
+                                reservedBy = metadata.get("reservedByRequestId");
+                            }
                             if (reservedBy != null && reservedBy.toString().equals(entity.getRequestId())) {
                                 reservedByThisRequest = true;
                             }
                         }
 
                         if (petStatus != null && petStatus.equalsIgnoreCase("Reserved") && reservedByThisRequest) {
-                            pet.setStatus("Available");
+                            try {
+                                pet.setStatus("Available");
+                            } catch (Exception e) {
+                                logger.warn("Unable to set pet status via setter for petId {}: {}", pet.getPetId(), e.getMessage());
+                            }
+
                             if (metadata != null) {
                                 metadata.remove("reservedBy");
-                                pet.setMetadata(metadata);
+                                metadata.remove("reservedByRequestId");
+                                try {
+                                    pet.setMetadata(metadata);
+                                } catch (Exception e) {
+                                    logger.warn("Unable to set pet metadata via setter for petId {}: {}", pet.getPetId(), e.getMessage());
+                                }
                             }
+
                             // Persist the change to the pet entity
                             String technicalId = null;
                             if (payload.getMeta() != null && payload.getMeta().has("entityId")) {
