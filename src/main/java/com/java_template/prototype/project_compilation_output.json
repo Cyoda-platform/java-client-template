@@ -3,10 +3,23 @@
     "files_with_errors": [
         {
             "errors": [
-                "method toEntity in interface ProcessingChain cannot be applied to given types; .toEntity(ObjectNode.class) -> required: Class<T>, found: Class<ObjectNode>; reason: inference variable T has incompatible bounds (equality constraints: ObjectNode; upper bounds: CyodaEntity); where T is a type-variable: T extends CyodaEntity declared in method <T>toEntity(Class<T>)",
-                "type argument ObjectNode is not within bounds of type-variable T in declaration ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode>; where T is a type-variable: T extends CyodaEntity declared in record ProcessorEntityExecutionContext"
+                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/RemoveOwnerProcessorTest.java:58: error: cannot find symbol",
+                "        arPayload.setId(technicalId);",
+                "                  ^",
+                "  symbol:   method setId(String)",
+                "  location: variable arPayload of type DataPayload"
             ],
-            "file_path": "src/main/java/com/java_template/application/processor/ApprovalProcessor.java"
+            "file_path": "src/test/java/com/java_template/application/processor/RemoveOwnerProcessorTest.java"
+        },
+        {
+            "errors": [
+                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/RemovePetProcessorTest.java:66: error: cannot find symbol",
+                "        ownerPayload.setId(ownerTechnicalId); // this will be used to parse UUID for update",
+                "                     ^",
+                "  symbol:   method setId(String)",
+                "  location: variable ownerPayload of type DataPayload"
+            ],
+            "file_path": "src/test/java/com/java_template/application/processor/RemovePetProcessorTest.java"
         }
     ]
 }
