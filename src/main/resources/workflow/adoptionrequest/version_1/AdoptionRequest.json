@@ -1,0 +1,149 @@
+{
+  "version": "1.0",
+  "name": "AdoptionRequest Workflow",
+  "desc": "Workflow for AdoptionRequest entity derived from functional requirements (created -> validation -> review -> approved/rejected -> completion -> notified).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "start_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_validation",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptionValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "validation_to_review_on_valid",
+          "next": "REVIEW",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "NOT_EQUALS",
+            "value": "rejected"
+          },
+          "processors": [
+            {
+              "name": "BackgroundCheckProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "validation_to_rejected_on_invalid",
+          "next": "REJECTED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.status",
+            "operation": "EQUALS",
+            "value": "rejected"
+          }
+        }
+      ]
+    },
+    "REVIEW": {
+      "transitions": [
+        {
+          "name": "review_manual_approve",
+          "next": "APPROVED",
+          "manual": true,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.decision",
+            "operation": "EQUALS",
+            "value": "approve"
+          }
+        },
+        {
+          "name": "review_manual_reject",
+          "next": "REJECTED",
+          "manual": true,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.decision",
+            "operation": "EQUALS",
+            "value": "reject"
+          }
+        }
+      ]
+    },
+    "APPROVED": {
+      "transitions": [
+        {
+          "name": "approved_to_completion",
+          "next": "COMPLETION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AdoptionAssignPetProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "REJECTED": {
+      "transitions": [
+        {
+          "name": "rejected_to_notified",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETION": {
+      "transitions": [
+        {
+          "name": "completion_to_notified",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": []
+    }
+  }
+}

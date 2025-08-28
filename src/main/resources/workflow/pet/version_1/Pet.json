@@ -1,0 +1,125 @@
+{
+  "version": "1.0",
+  "name": "Pet Workflow",
+  "desc": "Workflow for Pet entity based on functional requirements mermaid diagram",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_persisted",
+          "next": "PERSISTED",
+          "manual": false
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "validate_pet",
+          "next": "VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION": {
+      "transitions": [
+        {
+          "name": "enrich_pet",
+          "next": "ENRICHMENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetEnrichmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ENRICHMENT": {
+      "transitions": [
+        {
+          "name": "evaluate_availability",
+          "next": "AVAILABLE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AvailabilityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AVAILABLE": {
+      "transitions": [
+        {
+          "name": "manual_reserve",
+          "next": "RESERVED",
+          "manual": true
+        }
+      ]
+    },
+    "RESERVED": {
+      "transitions": [
+        {
+          "name": "finalize_adoption",
+          "next": "ADOPTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetAdoptionFinalizerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ADOPTED": {
+      "transitions": [
+        {
+          "name": "notify_post_adoption",
+          "next": "NOTIFIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED": {
+      "transitions": [
+        {
+          "name": "manual_archive",
+          "next": "ARCHIVED",
+          "manual": true
+        }
+      ]
+    },
+    "ARCHIVED": {
+      "transitions": []
+    }
+  }
+}

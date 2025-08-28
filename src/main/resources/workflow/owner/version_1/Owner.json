@@ -1,0 +1,82 @@
+{
+  "version": "1.0",
+  "name": "Owner Workflow",
+  "desc": "Workflow for Owner entity based on functional requirements (profile validation, verification, suspension).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_persisted",
+          "next": "PERSISTED",
+          "manual": false
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "to_profile_validation",
+          "next": "PROFILE_VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerProfileValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PROFILE_VALIDATION": {
+      "transitions": [
+        {
+          "name": "validation_to_verified",
+          "next": "VERIFIED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsContactValidCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "verified_to_active",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "VerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "manual_suspend_action",
+          "next": "SUSPENDED",
+          "manual": true
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": []
+    }
+  }
+}
