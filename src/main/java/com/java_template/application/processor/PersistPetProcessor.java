@@ -6,6 +6,7 @@ import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.workflow.CyodaEntity;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 
@@ -180,7 +181,7 @@ public class PersistPetProcessor implements CyodaProcessor {
      * entity class is not available. This preserves the processor's logic while
      * avoiding a hard dependency on an external package that may not exist.
      */
-    private static class Pet {
+    private static class Pet implements CyodaEntity {
         private String id;
         private String importedAt;
         private String source;

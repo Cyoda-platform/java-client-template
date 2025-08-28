@@ -6,6 +6,7 @@ import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.workflow.CyodaEntity;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 @Component
 public class ImageOptimizeProcessor implements CyodaProcessor {
@@ -33,7 +35,7 @@ public class ImageOptimizeProcessor implements CyodaProcessor {
         logger.info("Processing Pet for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .toEntity(Map.class)
+            .toEntity(MapEntity.class)
             .withErrorHandler((error, entity) -> {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
@@ -48,13 +50,13 @@ public class ImageOptimizeProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntity(Map<String, Object> entity) {
+    private boolean isValidEntity(MapEntity entity) {
         return entity != null;
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Map<String, Object>> context) {
-        Map<String, Object> entity = context.entity();
+    private MapEntity processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<MapEntity> context) {
+        MapEntity entity = context.entity();
 
         try {
             // Optimize photos: replace each photo URL with an "optimized" variant.
@@ -140,5 +142,9 @@ public class ImageOptimizeProcessor implements CyodaProcessor {
         } else {
             return url + "?optimized=true&thumbnail=true";
         }
+    }
+
+    private static class MapEntity extends HashMap<String, Object> implements CyodaEntity {
+        private static final long serialVersionUID = 1L;
     }
 }

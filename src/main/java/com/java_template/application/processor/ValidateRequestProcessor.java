@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -103,8 +104,8 @@ public class ValidateRequestProcessor implements CyodaProcessor {
         }
 
         try {
-            // Call EntityService#getItem with the petId (string) to match interface signature
-            CompletableFuture<DataPayload> itemFuture = entityService.getItem(entity.getPetId());
+            // Call EntityService#getItem with the petId converted to UUID to match interface signature
+            CompletableFuture<DataPayload> itemFuture = entityService.getItem(UUID.fromString(entity.getPetId()));
             DataPayload payload = itemFuture.get();
 
             if (payload == null || payload.getData() == null) {

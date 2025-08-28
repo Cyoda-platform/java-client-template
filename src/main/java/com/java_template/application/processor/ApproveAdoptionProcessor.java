@@ -85,8 +85,8 @@ public class ApproveAdoptionProcessor implements CyodaProcessor {
             }
 
             try {
-                // Fetch the Pet entity using the EntityService by technical id (use string form to match service signature)
-                CompletableFuture<DataPayload> payloadFuture = entityService.getItem(petUuid.toString());
+                // Fetch the Pet entity using the EntityService by technical id (use UUID to match service signature)
+                CompletableFuture<DataPayload> payloadFuture = entityService.getItem(petUuid);
                 DataPayload payload = payloadFuture.get();
                 if (payload != null && payload.getData() != null) {
                     JsonNode dataNode = payload.getData();
