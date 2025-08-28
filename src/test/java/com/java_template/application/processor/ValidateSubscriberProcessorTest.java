@@ -14,7 +14,7 @@ import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.junit.jupiter.api.Test;
-import io.cloudevents.CloudEvent;
+import io.cloudevents.v1.proto.CloudEvent;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
