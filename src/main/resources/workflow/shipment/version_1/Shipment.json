@@ -1,0 +1,118 @@
+{
+  "version": "1.0",
+  "name": "Shipment Workflow",
+  "desc": "Workflow for Shipment entity derived from functional requirements (pick, audit, send, deliver).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_pending_pick",
+          "next": "PENDING_PICK",
+          "manual": false
+        }
+      ]
+    },
+    "PENDING_PICK": {
+      "transitions": [
+        {
+          "name": "pending_to_picking",
+          "next": "PICKING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FulfillmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PICKING": {
+      "transitions": [
+        {
+          "name": "picking_to_picked",
+          "next": "PICKED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PickLedgerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PICKED": {
+      "transitions": [
+        {
+          "name": "picked_to_waiting_to_send_on_audit_pass",
+          "next": "WAITING_TO_SEND",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.audit.samplePassed",
+            "operation": "EQUALS",
+            "value": true
+          }
+        },
+        {
+          "name": "picked_to_audit_failed_on_audit_fail",
+          "next": "AUDIT_FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.audit.samplePassed",
+            "operation": "EQUALS",
+            "value": false
+          }
+        }
+      ]
+    },
+    "AUDIT_FAILED": {
+      "transitions": []
+    },
+    "WAITING_TO_SEND": {
+      "transitions": [
+        {
+          "name": "waiting_to_send_to_sent",
+          "next": "SENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoSendProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "sent_to_delivered",
+          "next": "DELIVERED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoDeliverProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    }
+  }
+}

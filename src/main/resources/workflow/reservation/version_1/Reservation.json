@@ -1,0 +1,69 @@
+{
+  "version": "1.0",
+  "name": "Reservation Workflow",
+  "desc": "Workflow for Reservation entity derived from functional requirements (create -> active -> expire or manual release).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_active",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "auto_expire",
+          "next": "EXPIRED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReservationExpiryProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReservationExpiryCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "manual_release",
+          "next": "RELEASED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReleaseProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.trigger",
+            "operation": "EQUALS",
+            "value": "MANUAL_RELEASE"
+          }
+        }
+      ]
+    },
+    "EXPIRED": {
+      "transitions": []
+    },
+    "RELEASED": {
+      "transitions": []
+    }
+  }
+}

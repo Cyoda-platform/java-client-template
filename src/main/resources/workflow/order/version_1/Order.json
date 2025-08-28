@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "FSM for Order entity based on functional requirements: creation from Payment.APPROVED, picking, waiting to send, send and deliver (timers & criteria applied).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "transition_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "order_creation_processor_transition",
+          "next": "PICKING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderCreationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PICKING": {
+      "transitions": [
+        {
+          "name": "picking_complete_transition",
+          "next": "WAITING_TO_SEND",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PickingCompleteCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "WAITING_TO_SEND": {
+      "transitions": [
+        {
+          "name": "auto_send_transition",
+          "next": "SENT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoSendProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "auto_deliver_transition",
+          "next": "DELIVERED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoDeliverProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    }
+  }
+}

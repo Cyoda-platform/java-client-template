@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "name": "PickLedger Workflow",
+  "desc": "Workflow for PickLedger entity: audit lifecycle from creation (AUDIT_PENDING) to AUDIT_PASSED or AUDIT_FAILED",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_audit_pending",
+          "next": "AUDIT_PENDING",
+          "manual": false
+        }
+      ]
+    },
+    "AUDIT_PENDING": {
+      "transitions": [
+        {
+          "name": "audit_pass",
+          "next": "AUDIT_PASSED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AuditProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AuditPassCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "audit_fail",
+          "next": "AUDIT_FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AuditProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AuditFailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AUDIT_PASSED": {
+      "transitions": []
+    },
+    "AUDIT_FAILED": {
+      "transitions": []
+    }
+  }
+}
