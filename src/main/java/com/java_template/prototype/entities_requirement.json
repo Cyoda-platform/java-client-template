@@ -1,0 +1,37 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "id": "petId123",
+                    "name": "Fluffy",
+                    "status": "available",
+                    "type": "cat"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "adoptionRequests": [
+                        "petId123"
+                    ],
+                    "email": "john@example.com",
+                    "id": "userId123",
+                    "name": "John Doe"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "id": "requestId123",
+                    "petId": "petId123",
+                    "status": "pending",
+                    "userId": "userId123"
+                }
+            }
+        }
+    ]
+}
