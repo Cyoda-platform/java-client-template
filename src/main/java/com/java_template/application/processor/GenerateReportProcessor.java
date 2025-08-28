@@ -51,6 +51,8 @@ public class GenerateReportProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
+            // Use a custom lightweight validation here. ReportJob.isValid() requires generatedAt which is not set before report generation,
+            // so we validate minimum required fields for generation to proceed.
             .validate(this::isValidEntity, "Invalid entity state")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
@@ -62,7 +64,13 @@ public class GenerateReportProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(ReportJob entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        // Minimal required fields for report generation: jobId and dataSourceUrl
+        if (entity.getJobId() == null || entity.getJobId().isBlank()) return false;
+        if (entity.getDataSourceUrl() == null || entity.getDataSourceUrl().isBlank()) return false;
+        // status should exist to know where in workflow we are; if missing allow processing but prefer presence
+        // requestedMetrics can be optional; triggerType can be optional for generation
+        return true;
     }
 
     private ReportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ReportJob> context) {

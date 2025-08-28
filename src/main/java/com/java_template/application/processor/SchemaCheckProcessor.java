@@ -60,8 +60,19 @@ public class SchemaCheckProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Validate minimal required fields for schema checking.
+     * Note: Do not rely on DataSource.isValid() here because validationStatus may be empty
+     * before schema check (it is set by this processor).
+     */
     private boolean isValidEntity(DataSource entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getId() == null || entity.getId().isBlank()) return false;
+        if (entity.getUrl() == null || entity.getUrl().isBlank()) return false;
+        if (entity.getSchema() == null || entity.getSchema().isBlank()) return false;
+        // sampleHash is expected to be set by fetch; if missing we still allow schema check to proceed,
+        // but prefer having it present. Relaxing requirement to avoid blocking processor unnecessarily.
+        return true;
     }
 
     private DataSource processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<DataSource> context) {
@@ -86,7 +97,9 @@ public class SchemaCheckProcessor implements CyodaProcessor {
 
         // Normalize schema representation: remove common JSON array characters and split by common delimiters
         String normalized = schema.replaceAll("[\\[\\]\"]", "");
-        String[] parts = normalized.split("[,;|]");
+        // also remove curly braces if present (in case of object representation)
+        normalized = normalized.replaceAll("[\\{\\}]", "");
+        String[] parts = normalized.split("[,;|:]");
         Set<String> columns = Arrays.stream(parts)
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
@@ -104,7 +117,7 @@ public class SchemaCheckProcessor implements CyodaProcessor {
             logger.info("DataSource {}: schema contains required columns. Marked as VALID.", entity.getId());
         } else {
             entity.setValidationStatus("INVALID");
-            logger.info("DataSource {}: schema missing required columns {}. Marked as INVALID.", entity.getId(), requiredColumns);
+            logger.info("DataSource {}: schema missing required columns {}. Marked as INVALID. Detected columns: {}", entity.getId(), requiredColumns, columns);
         }
 
         entity.setLastFetchedAt(Instant.now().toString());

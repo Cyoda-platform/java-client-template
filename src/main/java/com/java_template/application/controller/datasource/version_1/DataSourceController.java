@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
@@ -31,6 +32,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/data-source")
@@ -46,6 +48,113 @@ public class DataSourceController {
     public DataSourceController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
         this.objectMapper = objectMapper;
+    }
+
+    @Operation(summary = "Create DataSource", description = "Create a new DataSource entity")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CreateResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "DataSource create payload")
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> createDataSource(@RequestBody DataSourceRequest request) {
+        try {
+            if (request == null) {
+                throw new IllegalArgumentException("request body is required");
+            }
+            DataSource entity = new DataSource();
+            // Do not trust client id; allow optional but service will typically assign one
+            if (request.getId() != null && !request.getId().isBlank()) {
+                entity.setId(request.getId());
+            }
+            entity.setUrl(request.getUrl());
+            entity.setLastFetchedAt(request.getLastFetchedAt());
+            entity.setSampleHash(request.getSampleHash());
+            entity.setSchema(request.getSchema());
+            entity.setValidationStatus(request.getValidationStatus());
+
+            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+                    DataSource.ENTITY_NAME,
+                    DataSource.ENTITY_VERSION,
+                    entity
+            );
+            UUID createdId = idFuture.get();
+            CreateResponse resp = new CreateResponse();
+            resp.setTechnicalId(createdId != null ? createdId.toString() : null);
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Bad request in createDataSource: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in createDataSource", ee);
+                return ResponseEntity.status(500).body("Internal server error");
+            }
+        } catch (Exception e) {
+            logger.error("Unexpected error in createDataSource", e);
+            return ResponseEntity.status(500).body("Internal server error");
+        }
+    }
+
+    @Operation(summary = "Create multiple DataSource items", description = "Create multiple DataSource entities in bulk")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreateManyResponse.class)))),
+        @ApiResponse(responseCode = "400", description = "Bad Request"),
+        @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Bulk create payload with list of DataSource items")
+    @PostMapping(path = "/bulk", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> createDataSourcesBulk(@RequestBody BulkDataSourceRequest request) {
+        try {
+            if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+                throw new IllegalArgumentException("items list is required");
+            }
+            List<DataSource> entities = new ArrayList<>();
+            for (DataSourceRequest r : request.getItems()) {
+                DataSource entity = new DataSource();
+                if (r.getId() != null && !r.getId().isBlank()) {
+                    entity.setId(r.getId());
+                }
+                entity.setUrl(r.getUrl());
+                entity.setLastFetchedAt(r.getLastFetchedAt());
+                entity.setSampleHash(r.getSampleHash());
+                entity.setSchema(r.getSchema());
+                entity.setValidationStatus(r.getValidationStatus());
+                entities.add(entity);
+            }
+
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
+                    DataSource.ENTITY_NAME,
+                    DataSource.ENTITY_VERSION,
+                    entities
+            );
+            List<UUID> createdIds = idsFuture.get();
+            CreateManyResponse resp = new CreateManyResponse();
+            if (createdIds != null) {
+                resp.setTechnicalIds(createdIds.stream().map(UUID::toString).collect(Collectors.toList()));
+            } else {
+                resp.setTechnicalIds(new ArrayList<>());
+            }
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Bad request in createDataSourcesBulk: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException in createDataSourcesBulk", ee);
+                return ResponseEntity.status(500).body("Internal server error");
+            }
+        } catch (Exception e) {
+            logger.error("Unexpected error in createDataSourcesBulk", e);
+            return ResponseEntity.status(500).body("Internal server error");
+        }
     }
 
     @Operation(summary = "Get DataSource by technicalId", description = "Retrieve a DataSource entity by its technical UUID")
@@ -94,7 +203,7 @@ public class DataSourceController {
 
     @Operation(summary = "List DataSource items", description = "Retrieve all DataSource entities")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @io.swagger.v3.oas.annotations.media.ArraySchema(schema = @Schema(implementation = DataSourceResponse.class)))),
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = DataSourceResponse.class)))),
         @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
@@ -149,6 +258,9 @@ public class DataSourceController {
         try {
             if (technicalId == null || technicalId.isBlank()) {
                 throw new IllegalArgumentException("technicalId is required");
+            }
+            if (request == null) {
+                throw new IllegalArgumentException("request body is required");
             }
             // Map request to entity
             DataSource entity = new DataSource();
@@ -267,7 +379,7 @@ public class DataSourceController {
     }
 
     @Data
-    @Schema(name = "DataSourceRequest", description = "Request payload for updating DataSource")
+    @Schema(name = "DataSourceRequest", description = "Request payload for creating/updating DataSource")
     public static class DataSourceRequest {
         @Schema(description = "Internal id of this data source record (optional, path id takes precedence)")
         @JsonProperty("id")
@@ -292,6 +404,30 @@ public class DataSourceController {
         @Schema(description = "Content fingerprint")
         @JsonProperty("sample_hash")
         private String sampleHash;
+    }
+
+    @Data
+    @Schema(name = "CreateResponse", description = "Create operation response containing technicalId")
+    public static class CreateResponse {
+        @Schema(description = "Technical id of the created entity")
+        @JsonProperty("technicalId")
+        private String technicalId;
+    }
+
+    @Data
+    @Schema(name = "CreateManyResponse", description = "Bulk create operation response containing technicalIds")
+    public static class CreateManyResponse {
+        @Schema(description = "Technical ids of the created entities")
+        @JsonProperty("technicalIds")
+        private List<String> technicalIds;
+    }
+
+    @Data
+    @Schema(name = "BulkDataSourceRequest", description = "Bulk create request containing multiple DataSource items")
+    public static class BulkDataSourceRequest {
+        @Schema(description = "List of DataSource items to create")
+        @JsonProperty("items")
+        private List<DataSourceRequest> items;
     }
 
     @Data

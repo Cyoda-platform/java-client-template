@@ -38,7 +38,7 @@ public class FetchCompleteCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
@@ -56,7 +56,7 @@ public class FetchCompleteCriterion implements CyodaCriterion {
          }
 
          // Business rule: fetch completion must occur while job is in FETCHING state
-         if (!"FETCHING".equalsIgnoreCase(entity.getStatus())) {
+         if (!"FETCHING".equals(entity.getStatus())) {
              return EvaluationOutcome.fail("job must be in FETCHING state for fetch completion", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 

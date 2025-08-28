@@ -29,7 +29,7 @@ public class NotifyCompleteCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(ReportJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,11 @@ public class NotifyCompleteCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Requirement: supports() method MUST use exact criterion name (case-sensitive)
+        if (modelSpec == null || modelSpec.operationName() == null) {
+            return false;
+        }
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ReportJob> context) {
@@ -64,13 +68,14 @@ public class NotifyCompleteCriterion implements CyodaCriterion {
 
          // Business rule: this criterion should be evaluated when job is in NOTIFYING state.
          String status = entity.getStatus();
-         if (status == null || !status.equalsIgnoreCase("NOTIFYING")) {
+         if (status == null || !status.equals("NOTIFYING")) {
              return EvaluationOutcome.fail("Job is not in NOTIFYING state", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
          // Optional: ensure notifyFilters present (if system requires subscriber selection)
          if (entity.getNotifyFilters() == null || entity.getNotifyFilters().isBlank()) {
-             // treat missing filters as data quality issue but allow completion if notifications were sent via default behavior
+             // treat missing filters as data quality issue but allow completion only if explicit default behavior exists.
+             // Since we cannot inspect notification outcomes from ReportJob, mark as data quality failure.
              return EvaluationOutcome.fail("notifyFilters missing - unable to determine recipients", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 

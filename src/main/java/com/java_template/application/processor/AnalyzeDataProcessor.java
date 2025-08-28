@@ -66,7 +66,12 @@ public class AnalyzeDataProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(ReportJob entity) {
-        return entity != null && entity.isValid();
+        // Perform minimal, step-appropriate validation rather than relying on entity.isValid()
+        if (entity == null) return false;
+        if (entity.getJobId() == null || entity.getJobId().isBlank()) return false;
+        if (entity.getDataSourceUrl() == null || entity.getDataSourceUrl().isBlank()) return false;
+        // Other fields like generatedAt or reportLocation are not required at the start of analysis
+        return true;
     }
 
     private ReportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ReportJob> context) {

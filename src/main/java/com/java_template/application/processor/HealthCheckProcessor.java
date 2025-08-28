@@ -9,7 +9,6 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +37,8 @@ public class HealthCheckProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
-            .validate(this::isValidEntity, "Invalid entity state")
+            // Use a relaxed validation for health check: DataSource must have at least id and url
+            .validate(this::isValidEntity, "Invalid entity state for HealthCheckProcessor - missing id or url")
             .map(this::processEntityLogic)
             .complete();
     }
@@ -48,8 +48,16 @@ public class HealthCheckProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Relaxed validation used specifically by HealthCheckProcessor.
+     * The full entity validity (including schema/sampleHash/validationStatus)
+     * may not be present before the health check runs, so only require id and url.
+     */
     private boolean isValidEntity(DataSource entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getId() == null || entity.getId().isBlank()) return false;
+        if (entity.getUrl() == null || entity.getUrl().isBlank()) return false;
+        return true;
     }
 
     private DataSource processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<DataSource> context) {
@@ -82,7 +90,11 @@ public class HealthCheckProcessor implements CyodaProcessor {
         } catch (Exception ex) {
             logger.error("Error while processing DataSource health check: {}", ex.getMessage(), ex);
             // In case of unexpected errors, set entity as INVALID to be safe.
-            entity.setValidationStatus("INVALID");
+            try {
+                entity.setValidationStatus("INVALID");
+            } catch (Exception ignore) {
+                // ignore setting failure
+            }
         }
 
         return entity;

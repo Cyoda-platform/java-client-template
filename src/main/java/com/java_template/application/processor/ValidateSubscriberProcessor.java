@@ -73,9 +73,24 @@ public class ValidateSubscriberProcessor implements CyodaProcessor {
             entity.setName(entity.getName().trim());
         }
 
-        // Normalize frequency to lower-case if present
-        if (entity.getFrequency() != null) {
-            entity.setFrequency(entity.getFrequency().trim().toLowerCase());
+        // Normalize filters if present
+        if (entity.getFilters() != null) {
+            entity.setFilters(entity.getFilters().trim());
+        }
+
+        // Normalize frequency to lower-case if present, validate allowed values
+        if (entity.getFrequency() != null && !entity.getFrequency().isBlank()) {
+            String freqTrim = entity.getFrequency().trim().toLowerCase();
+            if (!"daily".equals(freqTrim) && !"weekly".equals(freqTrim) && !"on_change".equals(freqTrim)) {
+                logger.warn("Subscriber {} has invalid frequency '{}'. Defaulting to 'weekly'.",
+                        entity.getSubscriberId(), entity.getFrequency());
+                entity.setFrequency("weekly");
+            } else {
+                entity.setFrequency(freqTrim);
+            }
+        } else {
+            // default frequency if missing
+            entity.setFrequency("weekly");
         }
 
         // Validate email format. If invalid, mark subscriber as UNSUBSCRIBED to avoid sending notifications.
@@ -88,15 +103,19 @@ public class ValidateSubscriberProcessor implements CyodaProcessor {
             logger.warn("Subscriber {} has invalid email '{}'. Setting status to UNSUBSCRIBED.", entity.getSubscriberId(), entity.getEmail());
             entity.setStatus("UNSUBSCRIBED");
         } else {
-            // If email valid and status was unsubscribed erroneously, keep current status.
-            // Ensure status normalization for consistency
+            // If email valid, ensure status normalization for consistency
             if (entity.getStatus() != null) {
                 entity.setStatus(entity.getStatus().trim().toUpperCase());
             }
-            // If status is missing (shouldn't happen due to isValid), default to ACTIVE
+            // If status is missing, default to ACTIVE
             if (entity.getStatus() == null || entity.getStatus().isBlank()) {
                 entity.setStatus("ACTIVE");
             }
+        }
+
+        // Ensure status is in expected uppercase form regardless of branch
+        if (entity.getStatus() != null) {
+            entity.setStatus(entity.getStatus().trim().toUpperCase());
         }
 
         // No external entity modifications are performed here on the triggering entity.

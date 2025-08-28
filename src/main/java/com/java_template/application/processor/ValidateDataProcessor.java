@@ -54,7 +54,7 @@ public class ValidateDataProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid ReportJob state")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
@@ -63,8 +63,16 @@ public class ValidateDataProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Use a lightweight validation here because ReportJob.isValid() currently
+     * requires fields (like generatedAt) that are not present during initial orchestration.
+     * Validate only minimal required fields for this processor: jobId and dataSourceUrl.
+     */
     private boolean isValidEntity(ReportJob entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getJobId() == null || entity.getJobId().isBlank()) return false;
+        if (entity.getDataSourceUrl() == null || entity.getDataSourceUrl().isBlank()) return false;
+        return true;
     }
 
     private ReportJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<ReportJob> context) {
@@ -142,19 +150,34 @@ public class ValidateDataProcessor implements CyodaProcessor {
             ds.setValidationStatus(valid ? "VALID" : "INVALID");
 
             // Attempt to extract technical id from payload to perform update.
-            // Many DataPayload implementations expose an id field; try common names.
+            // Support multiple return types when calling reflective getter.
             String technicalId = null;
             try {
-                technicalId = (String) payload.getClass().getMethod("getId").invoke(payload);
-            } catch (Exception e) {
-                // ignore - fallback attempts below
-            }
-            if (technicalId == null) {
+                Object idObj = null;
                 try {
-                    technicalId = (String) payload.getClass().getMethod("getTechnicalId").invoke(payload);
-                } catch (Exception e) {
-                    // ignore - will not update if cannot determine id
+                    idObj = payload.getClass().getMethod("getId").invoke(payload);
+                } catch (NoSuchMethodException nsme) {
+                    // ignore - try next
                 }
+                if (idObj == null) {
+                    try {
+                        idObj = payload.getClass().getMethod("getTechnicalId").invoke(payload);
+                    } catch (NoSuchMethodException nsme2) {
+                        // ignore - fallback
+                    }
+                }
+                if (idObj != null) {
+                    if (idObj instanceof String) {
+                        technicalId = (String) idObj;
+                    } else if (idObj instanceof UUID) {
+                        technicalId = idObj.toString();
+                    } else {
+                        technicalId = idObj.toString();
+                    }
+                }
+            } catch (Exception e) {
+                // If reflective extraction fails, we'll fallback to adding a new record
+                logger.debug("Reflection-based technical id extraction failed: {}", e.getMessage());
             }
 
             if (technicalId != null) {

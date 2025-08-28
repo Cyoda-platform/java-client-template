@@ -29,7 +29,7 @@ public class DataInvalidCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(DataSource.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class DataInvalidCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<DataSource> context) {
@@ -69,11 +70,11 @@ public class DataInvalidCriterion implements CyodaCriterion {
          }
 
          if ("VALID".equalsIgnoreCase(status.trim())) {
-             // Data is valid -> this criterion is not a failing condition
+             // Data is valid -> this criterion should not mark the entity as invalid
              return EvaluationOutcome.success();
          }
 
-         // Any non-VALID status is treated as data quality failure
+         // Any non-VALID status is treated as data quality failure (this criterion indicates invalid data)
          return EvaluationOutcome.fail("DataSource marked as invalid or failed validation", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
     }
 }
