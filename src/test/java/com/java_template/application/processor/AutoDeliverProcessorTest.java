@@ -12,7 +12,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-public interface EntityService {
+interface EntityService {
 
     // Retrieve a single item based on its ID.
     CompletableFuture<DataPayload> getItem(@NotNull UUID entityId);
@@ -66,7 +66,7 @@ public interface EntityService {
 
     // Add a list of items to the repository and return the entities' IDs along with
     // the transaction ID.
-    <ENTITY_TYPE> CompletableFuture<EntityTransactionInfo> addItemsAndReturnTransactionInfo(
+    <ENTITY_TYPE> CompletableFuture<ObjectNode> addItemsAndReturnTransactionInfo(
             @NotNull String modelName,
             @NotNull Integer modelVersion,
             @NotNull Collection<ENTITY_TYPE> entities
