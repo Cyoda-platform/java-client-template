@@ -24,7 +24,6 @@ public class Config {
     public static final String CYODA_CLIENT_ID = getEnv("CYODA_CLIENT_ID");
     public static final String CYODA_CLIENT_SECRET = getEnv("CYODA_CLIENT_SECRET");
 
-    public static final String ENTITY_VERSION = getEnv("ENTITY_VERSION", "1000");
     public static final String CHAT_ID = dotenv.get("CHAT_ID");
 
     public static final DataFormat GRPC_COMMUNICATION_DATA_FORMAT = DataFormat.fromValue(getEnv("GRPC_COMMUNICATION_DATA_FORMAT", DataFormat.JSON.value()));

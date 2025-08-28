@@ -30,7 +30,7 @@ import static com.java_template.common.config.Config.*;
  */
 public class CyodaInit {
     private static final Logger logger = LoggerFactory.getLogger(CyodaInit.class);
-    private static final Path WORKFLOW_DTO_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/java/com/java_template/application/workflow");
+    private static final Path WORKFLOW_DTO_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/resources/workflow");
 
     private final HttpUtils httpUtils;
     private final Authentication authentication;
@@ -84,8 +84,6 @@ public class CyodaInit {
 
             List<Path> jsonFiles = jsonFilesStream
                     .filter(path -> path.toString().toLowerCase().endsWith(".json"))
-                    .filter(path -> path.getParent() != null)
-                    .filter(path -> path.getParent().getFileName().toString().equals("workflow"))
                     .toList();
 
             if (jsonFiles.isEmpty()) {
@@ -99,9 +97,14 @@ public class CyodaInit {
                         String fileName = jsonFile.getFileName().toString();
                         String entityName = fileName.substring(0, fileName.lastIndexOf('.'));
                         String relativePath = WORKFLOW_DTO_DIR.relativize(jsonFile).toString();
+                        String version = extractVersionFromPath(jsonFile);
+                        if (version == null || version.isBlank()) {
+                            logger.error("❌ Could not determine version from path: {}. Expected a parent directory like 'version_1'. Skipping.", relativePath);
+                            return CompletableFuture.<Void>failedFuture(new IllegalArgumentException("Missing version directory for " + relativePath));
+                        }
                         pendingFiles.add(relativePath);
                         return CompletableFuture.supplyAsync(() -> null, executor)
-                                .thenCompose(v -> processWorkflowFile(jsonFile, token, entityName)
+                                .thenCompose(v -> processWorkflowFile(jsonFile, token, entityName, version)
                                         .whenComplete((res, ex) -> {
                                             if (ex == null) {
                                                 pendingFiles.remove(relativePath);
@@ -129,12 +132,12 @@ public class CyodaInit {
         }
     }
 
-    private CompletableFuture<Void> processWorkflowFile(Path file, String token, String entityName) {
+    private CompletableFuture<Void> processWorkflowFile(Path file, String token, String entityName, String version) {
         try {
-            logger.info("📄 Processing workflow file for entity: {}", entityName);
+            logger.info("📄 Processing workflow file for entity: {}, version: {}", entityName, version);
 
             // First check and create entity model if needed
-            return checkAndCreateEntityModel(token, entityName)
+            return checkAndCreateEntityModel(token, entityName, version)
                     .thenCompose(v -> {
                         try {
                             String dtoContent = Files.readString(file);
@@ -149,8 +152,8 @@ public class CyodaInit {
 
                             String wrappedContentJson = wrappedContent.toString();
 
-                            // Use the new endpoint format: model/{entity_name}/{ENTITY_VERSION}/workflow/import
-                            String importPath = String.format("model/%s/%s/workflow/import", entityName, ENTITY_VERSION);
+                            // Use the new endpoint format: model/{entity_name}/{version}/workflow/import
+                            String importPath = String.format("model/%s/%s/workflow/import", entityName, version);
                             logger.debug("🔗 Using import endpoint: {}", importPath);
 
                             return httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson,
@@ -158,12 +161,12 @@ public class CyodaInit {
                                     .thenApply(response -> {
                                         int statusCode = response.get("status").asInt();
                                         if (statusCode >= 200 && statusCode < 300) {
-                                            logger.info("✅ Successfully imported workflow for entity: {}", entityName);
+                                            logger.info("✅ Successfully imported workflow for entity: {} (version: {})", entityName, version);
                                             return null;
                                         } else {
                                             String body = response.path("json").toString();
-                                            String errorMsg = String.format("Failed to import workflow for entity %s. Status code: %d, body: %s",
-                                                    entityName, statusCode, body);
+                                            String errorMsg = String.format("Failed to import workflow for entity %s (version %s). Status code: %d, body: %s",
+                                                    entityName, version, statusCode, body);
                                             logger.error("❌ {}", errorMsg);
                                             throw new RuntimeException(errorMsg);
                                         }
@@ -182,31 +185,31 @@ public class CyodaInit {
     /**
      * Checks if entity model exists and creates it if needed
      */
-    private CompletableFuture<Void> checkAndCreateEntityModel(String token, String entityName) {
-        String exportPath = String.format("model/export/SIMPLE_VIEW/%s/%s", entityName, ENTITY_VERSION);
+    private CompletableFuture<Void> checkAndCreateEntityModel(String token, String entityName, String version) {
+        String exportPath = String.format("model/export/SIMPLE_VIEW/%s/%s", entityName, version);
         logger.debug("🔍 Checking if entity model exists: {}", exportPath);
 
         return httpUtils.sendGetRequest(token, CYODA_API_URL, exportPath)
                 .thenCompose(response -> {
                     int statusCode = response.get("status").asInt();
                     if (statusCode >= 200 && statusCode < 300) {
-                        logger.info("✅ Entity model already exists for: {}", entityName);
+                        logger.info("✅ Entity model already exists for: {} (version: {})", entityName, version);
                         return CompletableFuture.completedFuture(null);
                     } else if (statusCode == 404) {
-                        logger.info("📝 Entity model not found, creating for: {}", entityName);
-                        return createEntityModel(token, entityName);
+                        logger.info("📝 Entity model not found, creating for: {} (version: {})", entityName, version);
+                        return createEntityModel(token, entityName, version);
                     } else {
                         String body = response.path("json").toString();
-                        String errorMsg = String.format("Failed to check entity model for %s. Status code: %d, body: %s",
-                                entityName, statusCode, body);
+                        String errorMsg = String.format("Failed to check entity model for %s (version %s). Status code: %d, body: %s",
+                                entityName, version, statusCode, body);
                         logger.error("❌ {}", errorMsg);
                         throw new RuntimeException(errorMsg);
                     }
                 })
                 .exceptionally(ex -> {
                     if (ex.getCause() instanceof RuntimeException && ex.getMessage().contains("404")) {
-                        logger.info("📝 Entity model not found (404), creating for: {}", entityName);
-                        return createEntityModel(token, entityName).join();
+                        logger.info("📝 Entity model not found (404), creating for: {} (version: {})", entityName, version);
+                        return createEntityModel(token, entityName, version).join();
                     }
                     throw new RuntimeException("Failed to check entity model for " + entityName, ex);
                 });
@@ -215,46 +218,46 @@ public class CyodaInit {
     /**
      * Creates entity model using sample data, then sets change level to STRUCTURAL and locks the model
      */
-    private CompletableFuture<Void> createEntityModel(String token, String entityName) {
-        String importPath = String.format("model/import/JSON/SAMPLE_DATA/%s/%s", entityName, ENTITY_VERSION);
+    private CompletableFuture<Void> createEntityModel(String token, String entityName, String version) {
+        String importPath = String.format("model/import/JSON/SAMPLE_DATA/%s/%s", entityName, version);
         logger.debug("🔗 Creating entity model at: {}", importPath);
 
         return httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, "{}")
                 .thenApply(response -> {
                     int statusCode = response.get("status").asInt();
                     if (statusCode >= 200 && statusCode < 300) {
-                        logger.info("✅ Successfully created entity model for: {}", entityName);
+                        logger.info("✅ Successfully created entity model for: {} (version: {})", entityName, version);
                         return null;
                     } else {
                         String body = response.path("json").toString();
-                        String errorMsg = String.format("Failed to create entity model for %s. Status code: %d, body: %s",
-                                entityName, statusCode, body);
+                        String errorMsg = String.format("Failed to create entity model for %s (version %s). Status code: %d, body: %s",
+                                entityName, version, statusCode, body);
                         logger.error("❌ {}", errorMsg);
                         throw new RuntimeException(errorMsg);
                     }
                 })
-                .thenCompose(v -> setChangeLevel(token, entityName))
-                .thenCompose(v -> lockModel(token, entityName));
+                .thenCompose(v -> setChangeLevel(token, entityName, version))
+                .thenCompose(v -> lockModel(token, entityName, version));
     }
 
     /**
      * Sets the change level to STRUCTURAL for the entity model
      */
-    private CompletableFuture<Void> setChangeLevel(String token, String entityName) {
+    private CompletableFuture<Void> setChangeLevel(String token, String entityName, String version) {
         String changeLevel = "STRUCTURAL";
-        String changeLevelPath = String.format("model/%s/%s/changeLevel/%s", entityName, ENTITY_VERSION, changeLevel);
-        logger.debug("🔗 Setting change level to {} for entity: {}", changeLevel, entityName);
+        String changeLevelPath = String.format("model/%s/%s/changeLevel/%s", entityName, version, changeLevel);
+        logger.debug("🔗 Setting change level to {} for entity: {} (version: {})", changeLevel, entityName, version);
 
         return httpUtils.sendPostRequest(token, CYODA_API_URL, changeLevelPath, null)
                 .thenApply(response -> {
                     int statusCode = response.get("status").asInt();
                     if (statusCode >= 200 && statusCode < 300) {
-                        logger.info("✅ Successfully set change level to {} for entity: {}", changeLevel, entityName);
+                        logger.info("✅ Successfully set change level to {} for entity: {} (version: {})", changeLevel, entityName, version);
                         return null;
                     } else {
                         String body = response.path("json").toString();
-                        String errorMsg = String.format("Failed to set change level for %s. Status code: %d, body: %s",
-                                entityName, statusCode, body);
+                        String errorMsg = String.format("Failed to set change level for %s (version %s). Status code: %d, body: %s",
+                                entityName, version, statusCode, body);
                         logger.error("❌ {}", errorMsg);
                         throw new RuntimeException(errorMsg);
                     }
@@ -264,23 +267,38 @@ public class CyodaInit {
     /**
      * Locks the entity model
      */
-    private CompletableFuture<Void> lockModel(String token, String entityName) {
-        String lockPath = String.format("model/%s/%s/lock", entityName, ENTITY_VERSION);
-        logger.debug("🔗 Locking entity model for: {}", entityName);
+    private CompletableFuture<Void> lockModel(String token, String entityName, String version) {
+        String lockPath = String.format("model/%s/%s/lock", entityName, version);
+        logger.debug("🔗 Locking entity model for: {} (version: {})", entityName, version);
 
         return httpUtils.sendPutRequest(token, CYODA_API_URL, lockPath, null)
                 .thenApply(response -> {
                     int statusCode = response.get("status").asInt();
                     if (statusCode >= 200 && statusCode < 300) {
-                        logger.info("✅ Successfully locked entity model for: {}", entityName);
+                        logger.info("✅ Successfully locked entity model for: {} (version: {})", entityName, version);
                         return null;
                     } else {
                         String body = response.path("json").toString();
-                        String errorMsg = String.format("Failed to lock entity model for %s. Status code: %d, body: %s",
-                                entityName, statusCode, body);
+                        String errorMsg = String.format("Failed to lock entity model for %s (version %s). Status code: %d, body: %s",
+                                entityName, version, statusCode, body);
                         logger.error("❌ {}", errorMsg);
                         throw new RuntimeException(errorMsg);
                     }
                 });
+    }
+
+    private static String extractVersionFromPath(Path jsonFile) {
+        // Expecting path like .../workflow/<entity>/version_1/<file>.json
+        // We search for a segment starting with "version_" and extract the numeric suffix
+        for (Path part : jsonFile) {
+            String name = part.getFileName().toString();
+            if (name.startsWith("version_")) {
+                String suffix = name.substring("version_".length());
+                // basic sanitization: keep digits only
+                String digits = suffix.replaceAll("[^0-9]", "");
+                return digits;
+            }
+        }
+        return null;
     }
 }
