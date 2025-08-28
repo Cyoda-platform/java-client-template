@@ -1,4 +1,7 @@
-Based on your requirement to build the "Purrfect Pets" API app, I will define the functional requirements using an Event-Driven Architecture (EDA) approach. We'll focus on the essential entities and their workflows.
+```markdown
+# Functional Requirements for Purrfect Pets API App
+
+Based on the requirement to build the "Purrfect Pets" API app, the following functional requirements are defined using an Event-Driven Architecture (EDA) approach, focusing on essential entities and their workflows.
 
 ### 1. Entity Definitions
 ```
@@ -23,7 +26,7 @@ Adoption:
 - status: String (current status of the adoption, e.g., pending, completed)
 ```
 
-### 2. Entity workflows
+### 2. Entity Workflows
 
 **Pet workflow:**
 1. Initial State: Pet is created with AVAILABLE status.
@@ -67,7 +70,7 @@ stateDiagram-v2
     COMPLETED --> [*]
 ```
 
-### 3. Pseudo code for processor classes
+### 3. Pseudo Code for Processor Classes
 ```java
 class AdoptionRequestProcessor {
     void process(Adoption adoption) {
@@ -111,7 +114,7 @@ class ProcessAdoptionProcessor {
 - **POST /adoptions**: Create a new adoption (returns `technicalId`).
 - **GET /adoptions/{technicalId}**: Retrieve an adoption by technicalId.
 
-Request/Response Formats:
+#### Request/Response Formats:
 ```json
 // Example for creating a new pet
 {
@@ -126,6 +129,7 @@ Request/Response Formats:
 {
   "technicalId": "12345"
 }
-``` 
+```
 
-This structure ensures events trigger the appropriate workflows, simulating a realistic adoption process in the "Purrfect Pets" application. Let me know if you need any modifications or additional details!
+This structure ensures events trigger the appropriate workflows, simulating a realistic adoption process in the "Purrfect Pets" application.
+```
