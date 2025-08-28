@@ -8,7 +8,6 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.cyoda.cloud.api.event.processing.ErrorInfo;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +35,7 @@ public class LaureateValidationProcessor implements CyodaProcessor {
             .toEntity(Laureate.class)
             .withErrorHandler((error, entity) -> {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
-                    return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
+                    return null;
                 })
             .validate(this::isValidEntity, "Invalid entity state")
             .map(this::processEntityLogic) // Implement business logic here

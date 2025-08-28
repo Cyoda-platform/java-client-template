@@ -8,7 +8,6 @@ import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.java_template.common.workflow.ErrorInfo;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -204,5 +203,23 @@ public class NotificationProcessor implements CyodaProcessor {
         }
 
         return job;
+    }
+
+    private static class ErrorInfo {
+        private final String code;
+        private final String message;
+
+        public ErrorInfo(String code, String message) {
+            this.code = code;
+            this.message = message;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public String getMessage() {
+            return message;
+        }
     }
 }

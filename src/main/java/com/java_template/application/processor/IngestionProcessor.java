@@ -6,7 +6,6 @@ import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
-import com.java_template.common.workflow.ErrorInfo;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
@@ -53,7 +52,7 @@ public class IngestionProcessor implements CyodaProcessor {
             .toEntity(Job.class)
             .withErrorHandler((error, entity) -> {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
-                    return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
+                    return null;
                 })
             .validate(this::isValidEntity, "Invalid entity state")
             .map(this::processEntityLogic) // Implement business logic here
