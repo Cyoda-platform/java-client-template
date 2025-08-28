@@ -1,0 +1,57 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "addedAt": "2025-08-20T09:00:00Z",
+                    "ageMonths": 18,
+                    "breed": "tabby",
+                    "description": "Friendly indoor tabby looking for a home.",
+                    "id": "pet-101",
+                    "imageUrl": "https://example.com/images/pet-101.jpg",
+                    "mood": "playful",
+                    "name": "Whiskers",
+                    "origin": "Petstore",
+                    "sex": "F",
+                    "species": "cat",
+                    "status": "available",
+                    "tags": [
+                        "friendly",
+                        "indoor"
+                    ]
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Cat Lane",
+                    "adoptedPets": [],
+                    "bio": "cat lover",
+                    "createdAt": "2025-08-28T12:00:00Z",
+                    "email": "alice@example.com",
+                    "favorites": [
+                        "pet-101"
+                    ],
+                    "id": "owner-001",
+                    "name": "Alice",
+                    "phone": "555-1234"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-28T12:05:00Z",
+                    "decidedAt": null,
+                    "decisionNote": "",
+                    "id": "req-202",
+                    "message": "I have a loving home!",
+                    "ownerId": "owner-001",
+                    "petId": "pet-101",
+                    "status": "pending"
+                }
+            }
+        }
+    ]
+}
