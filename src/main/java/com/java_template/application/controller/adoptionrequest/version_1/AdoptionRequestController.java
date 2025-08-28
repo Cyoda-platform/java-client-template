@@ -21,6 +21,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.NoSuchElementException;
+import java.util.concurrent.ExecutionException;
 
 @RestController
 @RequestMapping("/adoptionRequests")

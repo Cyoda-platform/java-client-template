@@ -70,11 +70,8 @@ public class UserSubmitsRequestProcessor implements CyodaProcessor {
         // Check the status of the adoption request and update accordingly
         if ("PENDING".equals(entity.getStatus())) {
             // Logic to approve or reject the adoption request can be implemented.
-            // For example, if we assume a simple approval mechanism:
-            // You might want to check some conditions here before approval.
-            entity.setStatus("APPROVED"); // Assuming we approve the request for this example
+            entity.setStatus("APPROVED");
 
-            // Optionally, update the status of the pet
             // Fetch the pet first
             CompletableFuture<DataPayload> petFuture = entityService.getItem(
                 Pet.ENTITY_NAME,
@@ -83,14 +80,9 @@ public class UserSubmitsRequestProcessor implements CyodaProcessor {
             );
             petFuture.thenAccept(petPayload -> {
                 Pet pet = objectMapper.convertValue(petPayload.getData(), Pet.class);
-                pet.setStatus("ADOPTED"); // Update pet status to adopted
-                entityService.updateItem(UUID.fromString(pet.getId()), pet); // Update pet in the database
+                pet.setStatus("ADOPTED");
+                entityService.updateItem(UUID.fromString(pet.getId()), pet);
             });
-
-            // Update the user's adoption requests list
-            // This is a placeholder for the logic that would add the adoption request ID to the user's requests
-            // This assumes you will have the user ID available, similar to the pet one
-            // Fetch user first to update their adoption requests list (not implemented here)
         }
         
         return entity;
