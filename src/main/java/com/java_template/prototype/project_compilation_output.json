@@ -1,0 +1,15 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "src/main/java/com/java_template/application/processor/VerifyProfileProcessor.java:62: error: cannot find symbol",
+                "logger.info(\"VerifyProfileProcessor executed for an entity; leaving entity state unchanged for requestId={}\", context.requestId());",
+                "^",
+                "symbol:   method requestId()",
+                "location: variable context of type ProcessorEntityExecutionContext<User>"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/VerifyProfileProcessor.java"
+        }
+    ]
+}
