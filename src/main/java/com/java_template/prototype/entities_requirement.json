@@ -1,0 +1,59 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "createdAt": "2025-08-28T12:00:00Z",
+                    "description": "Playful kitten",
+                    "healthNotes": [
+                        "vaccinated",
+                        "neutered"
+                    ],
+                    "id": "PET-123",
+                    "name": "Whiskers",
+                    "photos": [
+                        "https://example.org/photos/pet-123-1.jpg"
+                    ],
+                    "sex": "F",
+                    "species": "cat",
+                    "status": "available",
+                    "updatedAt": "2025-08-28T12:00:00Z"
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Cat St",
+                    "bio": "Loves cats",
+                    "createdAt": "2025-08-28T12:00:00Z",
+                    "email": "alex@example.com",
+                    "favoritePetIds": [
+                        "PET-123"
+                    ],
+                    "fullName": "Alex Doe",
+                    "id": "OWN-10",
+                    "phone": "+123456789",
+                    "role": "owner",
+                    "updatedAt": "2025-08-28T12:00:00Z"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "id": "REQ-55",
+                    "message": "I have a loving home",
+                    "petId": "PET-123",
+                    "processedAt": null,
+                    "processedBy": null,
+                    "requesterId": "OWN-10",
+                    "status": "submitted",
+                    "submittedAt": "2025-08-28T12:05:00Z"
+                }
+            }
+        }
+    ]
+}
