@@ -1,0 +1,36 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Persian",
+                    "id": "unique_pet_id",
+                    "name": "Fluffy",
+                    "status": "available",
+                    "type": "Cat"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "email": "john.doe@example.com",
+                    "id": "unique_user_id",
+                    "name": "John Doe",
+                    "phone": "123-456-7890"
+                }
+            }
+        },
+        {
+            "Adoption": {
+                "entity_data_example": {
+                    "id": "unique_adoption_id",
+                    "petId": "unique_pet_id",
+                    "status": "pending",
+                    "userId": "unique_user_id"
+                }
+            }
+        }
+    ]
+}
