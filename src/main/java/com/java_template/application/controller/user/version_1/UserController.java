@@ -4,7 +4,7 @@ package com.java_template.application.controller.user.version_1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.workflow.DataPayload;
+import org.cyoda.cloud.api.event.common.DataPayload;
 import com.java_template.application.entity.user.version_1.User;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.NoSuchElementException;
 
 @Slf4j
 @RestController
