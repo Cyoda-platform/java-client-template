@@ -1,0 +1,12 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "method toEntity in interface ProcessingChain cannot be applied to given types; .toEntity(ObjectNode.class) -> required: Class<T>, found: Class<ObjectNode>; reason: inference variable T has incompatible bounds (equality constraints: ObjectNode; upper bounds: CyodaEntity); where T is a type-variable: T extends CyodaEntity declared in method <T>toEntity(Class<T>)",
+                "type argument ObjectNode is not within bounds of type-variable T in declaration ProcessorSerializer.ProcessorEntityExecutionContext<ObjectNode>; where T is a type-variable: T extends CyodaEntity declared in record ProcessorEntityExecutionContext"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/ApprovalProcessor.java"
+        }
+    ]
+}
