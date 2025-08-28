@@ -57,36 +57,39 @@ public class DeleteProcessor implements CyodaProcessor {
 
         // Business logic for deleting a Subscriber:
         // - Mark the subscriber as inactive so they won't receive further notifications.
-        // - Clear channels to avoid accidental deliveries.
-        // - Record deletion time in lastNotifiedAt to indicate when the deletion occured.
+        // - Clear channels and filters to avoid accidental deliveries.
+        // - Record deletion time in lastNotifiedAt to indicate when the deletion occurred.
         try {
             if (entity == null) {
                 logger.warn("Received null Subscriber entity in DeleteProcessor");
                 return entity;
             }
 
-            logger.info("Deleting subscriber: subscriberId={}", entity.getSubscriberId());
+            String sid = entity.getSubscriberId();
+            logger.info("Deleting subscriber: subscriberId={}", sid);
 
-            // If already inactive, no-op but ensure channels are cleared for safety
+            // If already inactive, log and proceed to ensure channels/filters cleared
             Boolean active = entity.getActive();
             if (active != null && !active) {
-                logger.info("Subscriber {} is already inactive", entity.getSubscriberId());
+                logger.info("Subscriber {} is already inactive", sid);
             }
 
-            // Mark as inactive
-            entity.setActive(false);
+            // Mark as inactive (use Boolean wrapper to match entity setter signature)
+            entity.setActive(Boolean.FALSE);
 
-            // Clear channels to prevent further deliveries
-            entity.setChannels(new ArrayList<>());
+            // Clear channels and filters to prevent further deliveries
+            entity.setChannels(new ArrayList<Subscriber.Channel>());
+            entity.setFilters(new ArrayList<Subscriber.Filter>());
 
             // Set deletion timestamp in lastNotifiedAt to indicate the time of deletion
-            entity.setLastNotifiedAt(Instant.now().toString());
+            String deletionTime = Instant.now().toString();
+            entity.setLastNotifiedAt(deletionTime);
 
-            logger.info("Subscriber {} marked as deleted (inactive).", entity.getSubscriberId());
+            logger.info("Subscriber {} marked as deleted (inactive) at {}.", sid, deletionTime);
         } catch (Exception ex) {
             logger.error("Error while processing delete for Subscriber {}: {}", 
                 entity != null ? entity.getSubscriberId() : "unknown", ex.getMessage(), ex);
-            // On error, propagate by returning the entity unchanged; serializer will handle response
+            // On error, return entity unchanged; serializer will handle the response and errors.
         }
 
         return entity;

@@ -66,8 +66,8 @@ public class LaureateController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Laureate not found");
             }
             LaureateResponse response = objectMapper.treeToValue(node, LaureateResponse.class);
-            // preserve the request technicalId in the response as examples indicate
-            response.setTechnicalId(technicalId);
+            // preserve the request technicalId in the response
+            response.technicalId = technicalId;
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid request for getLaureateById: {}", e.getMessage());
@@ -144,7 +144,7 @@ public class LaureateController {
     @Schema(name = "LaureateResponse", description = "Laureate response payload")
     public static class LaureateResponse {
         @Schema(description = "Technical identifier of the stored entity", example = "laureate-technical-123")
-        private String technicalId;
+        public String technicalId;
 
         @Schema(description = "Source laureate id", example = "853")
         private Integer id;

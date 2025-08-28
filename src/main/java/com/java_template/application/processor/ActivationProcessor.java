@@ -1,4 +1,5 @@
 package com.java_template.application.processor;
+
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -7,13 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.cyoda.cloud.api.event.common.DataPayload;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.common.service.EntityService;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 @Component
 public class ActivationProcessor implements CyodaProcessor {
@@ -34,13 +31,15 @@ public class ActivationProcessor implements CyodaProcessor {
         return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
             .toEntity(Subscriber.class)
             .withErrorHandler((error, entity) -> {
+                    // Log the extraction error and let the serializer handle error propagation.
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
-                    return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
+                    return null;
                 })
             .validate(this::isValidEntity, "Invalid entity state")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
+
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return className.equalsIgnoreCase(modelSpec.operationName());
@@ -52,11 +51,11 @@ public class ActivationProcessor implements CyodaProcessor {
 
     private Subscriber processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {
         Subscriber entity = context.entity();
-        
+
         // Activation business logic:
         // - If subscriber is already active, no-op.
         // - Otherwise set active = true. Do not modify lastNotifiedAt here (notifications happen in NotificationProcessor).
-        // - Ensure channels remain intact (entity.isValid() was checked earlier).
+        // - Ensure channels/filters remain intact (entity.isValid() was checked earlier).
         try {
             if (entity.getActive() != null && Boolean.TRUE.equals(entity.getActive())) {
                 logger.info("Subscriber {} is already active.", entity.getSubscriberId());
@@ -66,10 +65,9 @@ public class ActivationProcessor implements CyodaProcessor {
             logger.info("Subscriber {} activated.", entity.getSubscriberId());
         } catch (Exception ex) {
             logger.error("Error while activating subscriber {}: {}", entity != null ? entity.getSubscriberId() : "unknown", ex.getMessage(), ex);
-            // In case of unexpected error, rethrow to let serializer handle it via mapping error flows.
             throw ex;
         }
-        
+
         return entity;
     }
 }

@@ -37,12 +37,15 @@ public class DuplicateInvalidCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // Use exact criterion name (case-sensitive) as required
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
          Laureate entity = context.entity();
          if (entity == null) {
+             logger.debug("DuplicateInvalidCriterion: received null entity");
              return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
@@ -50,6 +53,11 @@ public class DuplicateInvalidCriterion implements CyodaCriterion {
          if (entity.getId() == null) {
              return EvaluationOutcome.fail("Missing source id", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+         // Defensive: id should be positive (source ids are expected to be positive integers)
+         if (entity.getId() != null && entity.getId() <= 0) {
+             return EvaluationOutcome.fail("Invalid source id (must be positive)", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
          if (entity.getFirstname() == null || entity.getFirstname().isBlank()) {
              return EvaluationOutcome.fail("Missing firstname", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -58,6 +66,10 @@ public class DuplicateInvalidCriterion implements CyodaCriterion {
          }
          if (entity.getYear() == null || entity.getYear().isBlank()) {
              return EvaluationOutcome.fail("Missing award year", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+         // ingestJobId is required to trace the origin of the record
+         if (entity.getIngestJobId() == null || entity.getIngestJobId().isBlank()) {
+             return EvaluationOutcome.fail("Missing ingestJobId (origin job reference)", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Data-quality check: computedAge must not be negative when present
@@ -79,6 +91,10 @@ public class DuplicateInvalidCriterion implements CyodaCriterion {
 
          // If fewer than two distinguishing attributes are present, mark as potential duplicate-invalid.
          if (distinguishingCount < 2) {
+             logger.debug(
+                 "DuplicateInvalidCriterion: laureate id={} has only {} distinguishing attributes (threshold=2)",
+                 entity.getId(), distinguishingCount
+             );
              return EvaluationOutcome.fail(
                  "Insufficient distinguishing attributes; record may be a duplicate or incomplete",
                  StandardEvalReasonCategories.DATA_QUALITY_FAILURE

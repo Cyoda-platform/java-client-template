@@ -21,6 +21,7 @@ import java.time.format.DateTimeParseException;
 import java.time.Period;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Collections;
 
 @Component
 public class LaureateEnrichmentProcessor implements CyodaProcessor {
@@ -30,6 +31,32 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
+
+    private static final Map<String, String> COUNTRY_NAME_TO_CODE_MAP;
+    static {
+        Map<String, String> m = new HashMap<>();
+        m.put("japan", "JP");
+        m.put("united states", "US");
+        m.put("united states of america", "US");
+        m.put("usa", "US");
+        m.put("uk", "GB");
+        m.put("united kingdom", "GB");
+        m.put("germany", "DE");
+        m.put("france", "FR");
+        m.put("sweden", "SE");
+        m.put("switzerland", "CH");
+        m.put("russia", "RU");
+        m.put("poland", "PL");
+        m.put("netherlands", "NL");
+        m.put("canada", "CA");
+        m.put("australia", "AU");
+        m.put("china", "CN");
+        m.put("italy", "IT");
+        m.put("spain", "ES");
+        m.put("denmark", "DK");
+        m.put("norway", "NO");
+        COUNTRY_NAME_TO_CODE_MAP = Collections.unmodifiableMap(m);
+    }
 
     @Autowired
     public LaureateEnrichmentProcessor(SerializerFactory serializerFactory,
@@ -45,16 +72,18 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing Laureate for request: {}", request.getId());
 
-        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+        // The existing serializer usage chain:
+        // - toEntity: map the incoming payload to Laureate
+        // - validate: ensure entity meets basic contract (uses entity.isValid())
+        // - map: perform enrichment logic
+        // - complete: produce response
+        return serializer.withRequest(request)
             .toEntity(Laureate.class)
-            .withErrorHandler((error, entity) -> {
-                    logger.error("Failed to extract entity: {}", error.getMessage(), error);
-                    return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
-                })
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(this::processEntityLogic)
             .complete();
     }
+
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return className.equalsIgnoreCase(modelSpec.operationName());
@@ -67,10 +96,14 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
     private Laureate processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Laureate> context) {
         Laureate entity = context.entity();
 
+        if (entity == null) return null;
+
         // Compute age at award year if possible
+        String born = null;
+        String yearStr = null;
         try {
-            String born = entity.getBorn();
-            String yearStr = entity.getYear();
+            born = entity.getBorn();
+            yearStr = entity.getYear();
             if (born != null && !born.isBlank() && yearStr != null && !yearStr.isBlank()) {
                 try {
                     int awardYear = Integer.parseInt(yearStr.trim());
@@ -103,18 +136,21 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
             if (code != null && !code.isBlank()) {
                 // Normalize to upper-case ISO-2 if looks valid
                 String normalized = code.trim().toUpperCase();
-                if (normalized.length() == 2) {
+                if (normalized.length() == 2 && normalized.matches("[A-Z]{2}")) {
                     entity.setBorncountrycode(normalized);
-                } else {
-                    // If not 2 letters, attempt to take first two letters uppercased as fallback
-                    if (normalized.length() > 2) {
-                        entity.setBorncountrycode(normalized.substring(0,2));
+                } else if (normalized.length() > 2) {
+                    // fallback: take first two alphabetic characters
+                    String two = normalized.replaceAll("[^A-Z]", "");
+                    if (two.length() >= 2) {
+                        entity.setBorncountrycode(two.substring(0,2));
                     } else {
                         entity.setBorncountrycode(normalized);
                     }
+                } else {
+                    entity.setBorncountrycode(normalized);
                 }
             } else {
-                // Derive from borncountry if possible using a small mapping
+                // Derive from borncountry if possible using mapping
                 String country = entity.getBorncountry();
                 if (country != null && !country.isBlank()) {
                     String derived = deriveCountryCodeFromName(country.trim());
@@ -127,7 +163,7 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
             logger.error("Unexpected error while normalizing country code for laureate id={}: {}", entity != null ? entity.getId() : null, ex.getMessage(), ex);
         }
 
-        // All enrichment complete; return the entity. Cyoda will persist changes automatically.
+        // Return enriched entity. Cyoda persistence will handle saving the updated entity.
         return entity;
     }
 
@@ -135,29 +171,7 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
     private String deriveCountryCodeFromName(String countryName) {
         if (countryName == null) return null;
         String key = countryName.trim().toLowerCase();
-        Map<String, String> map = new HashMap<>();
-        map.put("japan", "JP");
-        map.put("united states", "US");
-        map.put("united states of america", "US");
-        map.put("usa", "US");
-        map.put("uk", "GB");
-        map.put("united kingdom", "GB");
-        map.put("germany", "DE");
-        map.put("france", "FR");
-        map.put("sweden", "SE");
-        map.put("switzerland", "CH");
-        map.put("russia", "RU");
-        map.put("poland", "PL");
-        map.put("netherlands", "NL");
-        map.put("canada", "CA");
-        map.put("australia", "AU");
-        map.put("china", "CN");
-        map.put("italy", "IT");
-        map.put("spain", "ES");
-        map.put("denmark", "DK");
-        map.put("norway", "NO");
-
-        String found = map.get(key);
+        String found = COUNTRY_NAME_TO_CODE_MAP.get(key);
         if (found != null) return found;
 
         // Try simple heuristics: if countryName looks like a two-letter code already
@@ -165,6 +179,12 @@ public class LaureateEnrichmentProcessor implements CyodaProcessor {
         if (upper.length() == 2 && upper.matches("[A-Z]{2}")) {
             return upper;
         }
+
+        // Try to normalize common variants (remove punctuation/extra words)
+        String simplified = key.replaceAll("[^a-z ]", "").trim();
+        found = COUNTRY_NAME_TO_CODE_MAP.get(simplified);
+        if (found != null) return found;
+
         return null;
     }
 }

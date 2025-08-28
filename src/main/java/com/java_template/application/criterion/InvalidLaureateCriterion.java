@@ -41,7 +41,8 @@ public class InvalidLaureateCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Critical requirement: must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Laureate> context) {
@@ -85,8 +86,7 @@ public class InvalidLaureateCriterion implements CyodaCriterion {
                 return EvaluationOutcome.fail("born is not a valid ISO date (YYYY-MM-DD)", StandardEvalReasonCategories.VALIDATION_FAILURE);
             }
         } else {
-            // born is optional in entity definition, but warn if missing since it's useful for enrichment
-            // We treat missing born as validation failure only if computedAge is present (inconsistent)
+            // born is optional in entity definition, but treat inconsistent cases as business rule failures
             if (laureate.getComputedAge() != null) {
                 return EvaluationOutcome.fail("computedAge provided but born is missing", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }

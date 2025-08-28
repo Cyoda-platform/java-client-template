@@ -8,16 +8,18 @@ import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import com.java_template.common.workflow.ErrorInfo;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 
@@ -120,7 +122,7 @@ public class NotificationProcessor implements CyodaProcessor {
             }
 
             // Build notification summary
-            JsonNode summaryNode = objectMapper.createObjectNode()
+            ObjectNode summaryNode = objectMapper.createObjectNode()
                 .put("total", job.getTotalRecords() == null ? 0 : job.getTotalRecords())
                 .put("succeeded", job.getSucceededCount() == null ? 0 : job.getSucceededCount())
                 .put("failed", job.getFailedCount() == null ? 0 : job.getFailedCount());
@@ -156,7 +158,7 @@ public class NotificationProcessor implements CyodaProcessor {
                     }
 
                     // Construct a simple payload for logging/delivery simulation
-                    JsonNode payload = objectMapper.createObjectNode()
+                    ObjectNode payload = objectMapper.createObjectNode()
                         .put("jobId", job.getJobId())
                         .put("state", job.getState())
                         .set("summary", summaryNode);

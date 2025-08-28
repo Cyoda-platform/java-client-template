@@ -46,13 +46,13 @@ public class JobController {
     @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CreateJobResponse.class)))
     @ApiResponse(responseCode = "400", description = "Bad Request")
     @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Create Job request",
+            required = true,
+            content = @Content(schema = @Schema(implementation = CreateJobRequest.class))
+    )
     @PostMapping
     public ResponseEntity<CreateJobResponse> createJob(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Create Job request",
-                    required = true,
-                    content = @Content(schema = @Schema(implementation = CreateJobRequest.class))
-            )
             @RequestBody CreateJobRequest request) {
         try {
             if (request == null) {

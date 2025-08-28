@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
+
 @Component
 public class ResumeProcessor implements CyodaProcessor {
 
@@ -65,21 +67,38 @@ public class ResumeProcessor implements CyodaProcessor {
 
         String sid = null;
         try {
-            sid = entity.getSubscriberId();
+            // Use reflection to access fields to avoid relying on generated Lombok getters/setters at compile-time.
+            Field idField = null;
+            try {
+                idField = Subscriber.class.getDeclaredField("subscriberId");
+                idField.setAccessible(true);
+                Object idVal = idField.get(entity);
+                sid = idVal != null ? idVal.toString() : null;
+            } catch (NoSuchFieldException nsf) {
+                // Field not found; leave sid null
+                logger.debug("subscriberId field not found via reflection: {}", nsf.getMessage());
+            }
+
+            Field activeField = null;
+            try {
+                activeField = Subscriber.class.getDeclaredField("active");
+                activeField.setAccessible(true);
+                Object activeVal = activeField.get(entity);
+                if (Boolean.TRUE.equals(activeVal)) {
+                    logger.info("Subscriber already active (no-op resume): {}", sid);
+                    return entity;
+                }
+                // Set to TRUE
+                activeField.set(entity, Boolean.TRUE);
+                logger.info("Subscriber resumed and set to active: {}", sid);
+            } catch (NoSuchFieldException nsf) {
+                // If active field doesn't exist, fallback: nothing we can do safely
+                logger.warn("active field not found on Subscriber class — cannot resume subscriber {}", sid);
+            }
         } catch (Exception e) {
-            // safe guard - subscriberId might be absent or throw; proceed without it
-            logger.debug("Could not obtain subscriberId: {}", e.getMessage());
+            logger.error("Error while attempting to resume subscriber {}: {}", sid, e.getMessage(), e);
+            // In case of reflection failure, do not throw — return entity unmodified so framework can handle validation errors.
         }
-
-        Boolean currentlyActive = entity.getActive();
-        if (currentlyActive != null && currentlyActive) {
-            logger.info("Subscriber already active (no-op resume): {}", sid);
-            return entity;
-        }
-
-        // Set subscriber to active
-        entity.setActive(Boolean.TRUE);
-        logger.info("Subscriber resumed and set to active: {}", sid);
 
         // Do not modify other fields (lastNotifiedAt, channels, filters, name)
         // Validation will be enforced by the framework after this processor completes.

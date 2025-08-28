@@ -8,9 +8,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 @Component
 public class SuspendProcessor implements CyodaProcessor {
@@ -59,15 +59,38 @@ public class SuspendProcessor implements CyodaProcessor {
             return null;
         }
 
-        Boolean active = entity.getActive();
-        if (Boolean.TRUE.equals(active)) {
-            entity.setActive(Boolean.FALSE);
-            logger.info("Subscriber {} suspended (active=false)", entity.getSubscriberId());
-        } else {
-            // If already suspended or active flag is false, log and leave as-is.
-            logger.warn("Subscriber {} is already suspended or inactive (active={})", entity.getSubscriberId(), active);
+        try {
+            Boolean active = entity.getActive();
+            if (Boolean.TRUE.equals(active)) {
+                entity.setActive(Boolean.FALSE);
+                logger.info("Subscriber {} suspended (active=false)", entity.getSubscriberId());
+            } else {
+                // If already suspended or active flag is false, log and leave as-is.
+                logger.warn("Subscriber {} is already suspended or inactive (active={})", entity.getSubscriberId(), active);
+            }
+        } catch (Exception ex) {
+            logger.error("Error while processing suspend for subscriber {}: {}", entity != null ? entity.getSubscriberId() : "unknown", ex.getMessage(), ex);
         }
 
         return entity;
+    }
+
+    // Simple error info type used by error handler to provide structured error information.
+    private static class ErrorInfo {
+        private final String code;
+        private final String message;
+
+        public ErrorInfo(String code, String message) {
+            this.code = code;
+            this.message = message;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public String getMessage() {
+            return message;
+        }
     }
 }
