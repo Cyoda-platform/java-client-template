@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.laureate.version_1.Laureate;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ProcessorSerializer;
-import com.java_template.common.serializer.criterion.CriterionSerializer;
+import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.jackson.JacksonCriterionSerializer;
 import com.java_template.common.serializer.jackson.JacksonProcessorSerializer;
 import com.java_template.common.service.EntityService;
