@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.java_template.application.entity.job.version_1.Job;
 import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.application.entity.laureate.version_1.Laureate;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -203,23 +204,5 @@ public class NotificationProcessor implements CyodaProcessor {
         }
 
         return job;
-    }
-
-    private static class ErrorInfo {
-        private final String code;
-        private final String message;
-
-        public ErrorInfo(String code, String message) {
-            this.code = code;
-            this.message = message;
-        }
-
-        public String getCode() {
-            return code;
-        }
-
-        public String getMessage() {
-            return message;
-        }
     }
 }
