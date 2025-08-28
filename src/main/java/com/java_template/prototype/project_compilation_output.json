@@ -3,21 +3,21 @@
     "files_with_errors": [
         {
             "errors": [
-                "/src/main/java/com/java_template/application/processor/IngestionProcessor.java:9: error: cannot find symbol - import com.java_template.common.workflow.ErrorInfo; (symbol: class ErrorInfo, location: package com.java_template.common.workflow)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/IngestionProcessor.java"
-        },
-        {
-            "errors": [
-                "/src/main/java/com/java_template/application/processor/NotificationProcessor.java:11: error: cannot find symbol - import com.java_template.common.workflow.ErrorInfo; (symbol: class ErrorInfo, location: package com.java_template.common.workflow)"
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/NotificationProcessor.java:56: error: incompatible types: bad return type in lambda expression",
+                "    return new ErrorInfo(\"TO_ENTITY_ERROR\", \"Failed to extract entity: \" + error.getMessage());",
+                "           ^",
+                "com.java_template.application.processor.NotificationProcessor.ErrorInfo cannot be converted to com.java_template.common.serializer.ErrorInfo"
             ],
             "file_path": "src/main/java/com/java_template/application/processor/NotificationProcessor.java"
         },
         {
             "errors": [
-                "/src/main/java/com/java_template/application/processor/LaureateValidationProcessor.java:11: error: cannot find symbol - import org.cyoda.cloud.api.event.processing.ErrorInfo; (symbol: class ErrorInfo, location: package org.cyoda.cloud.api.event.processing)"
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/SuspendProcessor.java:35: error: incompatible types: bad return type in lambda expression",
+                "    return new ErrorInfo(\"TO_ENTITY_ERROR\", \"Failed to extract entity: \" + error.getMessage());",
+                "           ^",
+                "com.java_template.application.processor.SuspendProcessor.ErrorInfo cannot be converted to com.java_template.common.serializer.ErrorInfo"
             ],
-            "file_path": "src/main/java/com/java_template/application/processor/LaureateValidationProcessor.java"
+            "file_path": "src/main/java/com/java_template/application/processor/SuspendProcessor.java"
         }
     ]
 }
