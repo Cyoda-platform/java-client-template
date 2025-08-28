@@ -55,7 +55,7 @@ public class RemoveOwnerProcessorTest {
         arPayload.setData(arNode);
         // set technical id so updateItem is attempted
         UUID technicalId = UUID.randomUUID();
-        arPayload.setId(technicalId);
+        arPayload.setId(technicalId.toString());
 
         when(entityService.getItemsByCondition(anyString(), anyInt(), any(), anyBoolean()))
                 .thenReturn(CompletableFuture.completedFuture(List.of(arPayload)));
