@@ -46,6 +46,7 @@ public class ValidateJobProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
+            // only require that entity is non-null here; detailed validation is performed inside processEntityLogic
             .validate(this::isValidEntity, "Invalid entity state")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
@@ -55,12 +56,18 @@ public class ValidateJobProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    // Simple null-check here to allow processor to apply its own business validation logic
     private boolean isValidEntity(IngestionJob entity) {
-        return entity != null && entity.isValid();
+        return entity != null;
     }
 
     private IngestionJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<IngestionJob> context) {
         IngestionJob entity = context.entity();
+
+        if (entity == null) {
+            logger.warn("Received null IngestionJob entity in processing context");
+            return null;
+        }
 
         // Only validate jobs that are in PENDING state; otherwise leave unchanged
         String currentStatus = entity.getStatus();
@@ -83,6 +90,11 @@ public class ValidateJobProcessor implements CyodaProcessor {
             summary.setUpdated(0);
             summary.setFailed(0);
             entity.setSummary(summary);
+        } else {
+            // Ensure individual summary counters are non-null
+            if (entity.getSummary().getCreated() == null) entity.getSummary().setCreated(0);
+            if (entity.getSummary().getUpdated() == null) entity.getSummary().setUpdated(0);
+            if (entity.getSummary().getFailed() == null) entity.getSummary().setFailed(0);
         }
 
         String sourceUrl = entity.getSourceUrl();
