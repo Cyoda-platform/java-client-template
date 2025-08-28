@@ -1,0 +1,60 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "completedTimestamp": "2025-08-01T10:00:45Z",
+                    "createdBy": "admin@example.com",
+                    "id": "job-source-001",
+                    "runTimestamp": "2025-08-01T10:00:00Z",
+                    "schedule": "0 0 * * *",
+                    "sourceUrl": "https://public.opendatasoft.com/api/.../records",
+                    "state": "NOTIFIED_SUBSCRIBERS",
+                    "summary": {
+                        "errors": [],
+                        "failedCount": 0,
+                        "ingestedCount": 10
+                    }
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliation_city": "Sapporo",
+                    "affiliation_country": "Japan",
+                    "affiliation_name": "Hokkaido University",
+                    "born": "1940-03-12",
+                    "borncity": "Sapporo",
+                    "borncountry": "Japan",
+                    "borncountrycode": "JP",
+                    "category": "Chemistry",
+                    "derived_ageAtAward": 70,
+                    "died": null,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "id": 853,
+                    "motivation": "For contributions to ...",
+                    "normalizedCountryCode": "JPN",
+                    "surname": "Suzuki",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "contactDetail": "notify@example.com",
+                    "contactType": "email",
+                    "createdAt": "2025-07-01T12:00:00Z",
+                    "filters": {
+                        "category": "Chemistry",
+                        "year": "2010"
+                    },
+                    "id": "sub-123"
+                }
+            }
+        }
+    ]
+}
