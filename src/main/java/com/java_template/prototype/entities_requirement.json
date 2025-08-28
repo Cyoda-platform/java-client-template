@@ -1,0 +1,42 @@
+{
+    "entities": [
+        {
+            "DataSource": {
+                "entity_data_example": {
+                    "id": "ds-1",
+                    "last_fetched_at": "2025-08-01T12:00:00Z",
+                    "sample_hash": "abc123def456",
+                    "schema": "id,address,price,bedrooms,area",
+                    "url": "https://raw.githubusercontent.com/.../london_houses.csv",
+                    "validation_status": "VALID"
+                }
+            }
+        },
+        {
+            "ReportJob": {
+                "entity_data_example": {
+                    "data_source_url": "https://raw.githubusercontent.com/.../london_houses.csv",
+                    "generated_at": "2025-08-01T15:30:00Z",
+                    "job_id": "job-abc",
+                    "notify_filters": "frequency=weekly;area=All",
+                    "report_location": "s3://reports/job-abc/report.pdf",
+                    "requested_metrics": "avg_price,median_price,price_by_bedrooms,distribution_by_area",
+                    "status": "COMPLETED",
+                    "trigger_type": "manual"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "email": "user@example.com",
+                    "filters": "area=NW",
+                    "frequency": "weekly",
+                    "name": "Alice",
+                    "status": "ACTIVE",
+                    "subscriber_id": "sub-1"
+                }
+            }
+        }
+    ]
+}
