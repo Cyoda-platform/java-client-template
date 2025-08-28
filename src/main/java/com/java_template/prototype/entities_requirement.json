@@ -1,0 +1,145 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "availableQuantity": 100,
+                    "description": "A useful widget",
+                    "id": "prod-1",
+                    "name": "Widget",
+                    "price": 9.99,
+                    "sku": "SKU-001",
+                    "warehouseId": "wh-1"
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "id": "cart-1",
+                    "items": [
+                        {
+                            "priceSnapshot": 9.99,
+                            "productId": "prod-1",
+                            "qty": 2
+                        }
+                    ],
+                    "lastUpdated": "2025-08-28T12:00:00Z",
+                    "status": "OPEN",
+                    "userId": "user-1"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "email": "jane@example.com",
+                    "id": "user-1",
+                    "name": "Jane Doe",
+                    "phone": "+1234567890",
+                    "primaryAddress": {
+                        "city": "Anytown",
+                        "country": "US",
+                        "line1": "123 Main St",
+                        "line2": "Apt 4",
+                        "postal": "12345"
+                    },
+                    "profileUpdatedAt": "2025-08-28T11:59:00Z"
+                }
+            }
+        },
+        {
+            "Reservation": {
+                "entity_data_example": {
+                    "cartId": "cart-1",
+                    "createdAt": "2025-08-28T12:00:01Z",
+                    "expiresAt": "2025-08-28T12:00:31Z",
+                    "id": "res-1",
+                    "productId": "prod-1",
+                    "qty": 2,
+                    "status": "ACTIVE",
+                    "warehouseId": "wh-1"
+                }
+            }
+        },
+        {
+            "Payment": {
+                "entity_data_example": {
+                    "amount": 19.98,
+                    "approvedAt": null,
+                    "cartId": "cart-1",
+                    "createdAt": "2025-08-28T12:00:02Z",
+                    "id": "pay-1",
+                    "orderId": null,
+                    "status": "PENDING",
+                    "userId": "user-1"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "cartId": "cart-1",
+                    "createdAt": "2025-08-28T12:00:10Z",
+                    "id": "order-1",
+                    "items": [
+                        {
+                            "price": 9.99,
+                            "productId": "prod-1",
+                            "qtyFulfilled": 2,
+                            "qtyOrdered": 2
+                        }
+                    ],
+                    "orderNumber": "01FZ0000000000000000000000",
+                    "status": "CREATED",
+                    "totalAmount": 19.98,
+                    "userSnapshot": {
+                        "address": {
+                            "city": "Anytown",
+                            "country": "US",
+                            "line1": "123 Main St",
+                            "line2": "Apt 4",
+                            "postal": "12345"
+                        },
+                        "email": "jane@example.com",
+                        "name": "Jane Doe"
+                    }
+                }
+            }
+        },
+        {
+            "Shipment": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-28T12:00:10Z",
+                    "id": "ship-1",
+                    "items": [
+                        {
+                            "productId": "prod-1",
+                            "qty": 2
+                        }
+                    ],
+                    "orderId": "order-1",
+                    "shipmentNumber": "ship-0001",
+                    "status": "PENDING_PICK",
+                    "trackingInfo": {},
+                    "warehouseId": "wh-1"
+                }
+            }
+        },
+        {
+            "PickLedger": {
+                "entity_data_example": {
+                    "auditStatus": "AUDIT_PASSED",
+                    "auditorId": "aud-1",
+                    "id": "pick-1",
+                    "orderId": "order-1",
+                    "productId": "prod-1",
+                    "qtyPicked": 2,
+                    "qtyRequested": 2,
+                    "shipmentId": "ship-1",
+                    "timestamp": "2025-08-28T12:00:20Z"
+                }
+            }
+        }
+    ]
+}
