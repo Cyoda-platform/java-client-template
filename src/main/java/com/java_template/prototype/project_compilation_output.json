@@ -3,15 +3,9 @@
     "files_with_errors": [
         {
             "errors": [
-                "error: cannot find symbol at line 56: dsPayload.setId(UUID.randomUUID().toString()); (symbol: method setId(String), location: variable dsPayload of type DataPayload)"
-            ],
-            "file_path": "src/test/java/com/java_template/application/processor/ValidateDataProcessorTest.java"
-        },
-        {
-            "errors": [
-                "error: anonymous class is not abstract and does not override abstract method getCloudEvent() in CyodaEventContext (at or near line 58)",
-                "error: getCloudEvent() in anonymous class cannot implement getCloudEvent() in CyodaEventContext: return type Object is not compatible with CloudEvent (at or near line 60)",
-                "error: method does not override or implement a method from a supertype (spurious @Override on getCloudEvent implementation) (at or near line 59)"
+                "error: <anonymous com.java_template.application.processor.ValidateSubscriberProcessorTest$1> is not abstract and does not override abstract method getCloudEvent() in CyodaEventContext (line 59)",
+                "error: getCloudEvent() in <anonymous com.java_template.application.processor.ValidateSubscriberProcessorTest$1> cannot implement getCloudEvent() in CyodaEventContext: return type io.cloudevents.CloudEvent is not compatible with io.cloudevents.v1.proto.CloudEvent (line 61)",
+                "error: method does not override or implement a method from a supertype (spurious @Override on getCloudEvent) (line 60)"
             ],
             "file_path": "src/test/java/com/java_template/application/processor/ValidateSubscriberProcessorTest.java"
         }
