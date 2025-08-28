@@ -3,205 +3,41 @@
     "files_with_errors": [
         {
             "errors": [
-                "package com.java_template.application.entity.pete.version_1 does not exist",
-                "cannot find symbol: class Pet"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/PersistPetProcessor.java"
-        },
-        {
-            "errors": [
-                "RequestBody is not a repeatable annotation interface",
-                "cannot find symbol: method getPetId()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/controller/adoptionrequest/version_1/AdoptionRequestController.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getNotes()",
-                "cannot find symbol: method setStatus(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/NotifyStaffProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getNotes()",
-                "method getItem in interface EntityService cannot be applied to given types"
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ValidateRequestProcessor.java:107: error: incompatible types: String cannot be converted to @jakarta.validation.constraints.NotNull UUID",
+                "CompletableFuture<DataPayload> itemFuture = entityService.getItem(entity.getPetId());"
             ],
             "file_path": "src/main/java/com/java_template/application/processor/ValidateRequestProcessor.java"
         },
         {
             "errors": [
-                "cannot find symbol: method getStatus()",
-                "cannot find symbol: method getNotes()"
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/PersistPetProcessor.java:42: error: method toEntity in interface ProcessingChain cannot be applied to given types;",
+                ".toEntity(Pet.class)",
+                "required: Class<T>",
+                "found:    Class<Pet>",
+                "reason: inference variable T has incompatible bounds (equality constraints: Pet; upper bounds: CyodaEntity)",
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/PersistPetProcessor.java:60: error: type argument Pet is not within bounds of type-variable T",
+                "private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context)"
             ],
-            "file_path": "src/main/java/com/java_template/application/processor/NotifyRequesterProcessor.java"
+            "file_path": "src/main/java/com/java_template/application/processor/PersistPetProcessor.java"
         },
         {
             "errors": [
-                "cannot find symbol: method setStatus(String)",
-                "cannot find symbol: method getId()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/AdoptionRequestApprovedProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getHealthNotes()",
-                "cannot find symbol: method setStatus(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/PublishPetProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getId()",
-                "cannot find symbol: method setImportedAt(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/PersistPetEventProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getStatus()",
-                "method getItem in interface EntityService cannot be applied to given types"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/TransferOwnershipProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getTags()",
-                "cannot find symbol: method setTags(List<String>)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/EnrichPetProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getPhotos()",
-                "cannot find symbol: method setStatus(String)"
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ImageOptimizeProcessor.java:36: error: method toEntity in interface ProcessingChain cannot be applied to given types;",
+                ".toEntity(Map.class)",
+                "required: Class<T>",
+                "found:    Class<Map>",
+                "reason: inference variable T has incompatible bounds (equality constraints: Map; upper bounds: CyodaEntity)",
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ImageOptimizeProcessor.java:56: error: type argument Map<String,Object> is not within bounds of type-variable T",
+                "private Map<String, Object> processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Map<String, Object>> context)"
             ],
             "file_path": "src/main/java/com/java_template/application/processor/ImageOptimizeProcessor.java"
         },
         {
             "errors": [
-                "cannot find symbol: method getErrors()",
-                "cannot find symbol: method setStatus(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/TransformPetDataProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getId()",
-                "cannot find symbol: method setStatus(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/ArchivePetProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getJobName()",
-                "cannot find symbol: method setStatus(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/TransformCompleteProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getProcessedBy()",
-                "cannot find symbol: method setNotes(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/RejectAdoptionProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getJobName()",
-                "cannot find symbol: method setStatus(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/PersistFailureProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getStartedAt()",
-                "cannot find symbol: method setStatus(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/FetchPetsProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getJobName()",
-                "cannot find symbol: method setProcessedCount(int)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/StartJobProcessor.java"
-        },
-        {
-            "errors": [
-                "method getItem in interface EntityService cannot be applied to given types",
-                "cannot find symbol: method setStatus(String)"
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/ApproveAdoptionProcessor.java:89: error: incompatible types: String cannot be converted to @jakarta.validation.constraints.NotNull UUID",
+                "CompletableFuture<DataPayload> payloadFuture = entityService.getItem(petUuid.toString());"
             ],
             "file_path": "src/main/java/com/java_template/application/processor/ApproveAdoptionProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getErrors()",
-                "cannot find symbol: method setCompletedAt(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/processor/FinalizeJobProcessor.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getSourceUrl()",
-                "cannot find symbol: method getJobName()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/criterion/SourceReachableCriterion.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getId()",
-                "cannot find symbol: method getName()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/criterion/ValidPetDataCriterion.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getStatus()",
-                "cannot find symbol: method getProcessedCount()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/criterion/DataAvailableCriterion.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getPetId()",
-                "cannot find symbol: method getContactEmail()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/criterion/RequestValidCriterion.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getStatus()",
-                "cannot find symbol: method getProcessedCount()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/criterion/PersistSuccessCriterion.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getPhotos()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/criterion/ImageQualityCriterion.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getStatus()",
-                "cannot find symbol: method getErrors()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/criterion/PersistFailureCriterion.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getId()",
-                "cannot find symbol: method getPhotos()"
-            ],
-            "file_path": "src/main/java/com/java_template/application/controller/pet/version_1/PetController.java"
-        },
-        {
-            "errors": [
-                "cannot find symbol: method getJobName()",
-                "cannot find symbol: method setTechnicalId(String)"
-            ],
-            "file_path": "src/main/java/com/java_template/application/controller/petingestionjob/version_1/PetIngestionJobController.java"
         }
     ]
 }
