@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for Subscriber entity derived from functional requirements (validate, apply preferences, unsubscribe).",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "persist_subscriber",
+          "next": "ACTIVE_PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE_PENDING": {
+      "transitions": [
+        {
+          "name": "apply_preferences",
+          "next": "PREFERENCES_APPLIED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ApplyPreferencesProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidEmailCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PREFERENCES_APPLIED": {
+      "transitions": [
+        {
+          "name": "confirm_preferences",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "manual_unsubscribe",
+          "next": "UNSUBSCRIBED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DeactivateSubscriberProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UNSUBSCRIBED": {
+      "transitions": [
+        {
+          "name": "complete_unsubscribe",
+          "next": "terminal",
+          "manual": false
+        }
+      ]
+    },
+    "terminal": {
+      "transitions": []
+    }
+  }
+}
