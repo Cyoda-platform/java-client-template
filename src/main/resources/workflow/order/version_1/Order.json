@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "name": "Order Workflow",
+  "desc": "Workflow for Order entity based on functional requirements: placed -> payment validation -> fulfillment -> completed/cancelled",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "transition_create_order",
+          "next": "ORDER_PLACED",
+          "manual": false
+        }
+      ]
+    },
+    "ORDER_PLACED": {
+      "transitions": [
+        {
+          "name": "to_payment_validation",
+          "next": "PAYMENT_VALIDATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAYMENT_VALIDATION": {
+      "transitions": [
+        {
+          "name": "payment_passed",
+          "next": "FULFILLMENT",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentPassedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "payment_failed",
+          "next": "CANCELLED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FULFILLMENT": {
+      "transitions": [
+        {
+          "name": "fulfill_order",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FulfillmentProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "CANCELLED": {
+      "transitions": []
+    },
+    "COMPLETED": {
+      "transitions": []
+    }
+  }
+}
