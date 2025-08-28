@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.NoSuchElementException;
 
 @Slf4j
 @RestController

@@ -4,8 +4,6 @@ package com.java_template.application.controller.user.version_1;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.DataPayload;
 import com.java_template.application.entity.user.version_1.User;
 import io.swagger.v3.oas.annotations.Operation;

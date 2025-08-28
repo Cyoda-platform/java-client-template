@@ -64,14 +64,8 @@ public class UpdateProfileProcessor implements CyodaProcessor {
     private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
         User user = context.entity();
 
-        // Business logic for updating user profile
-        // Example: Notify the user of changes in pet availability could be implemented here
-        // This logic would include any necessary updates to related entities or operations
-
-        // Example: If user updates their email, you might want to log that change
         logger.info("Updating user profile for user ID: {}", user.getId());
 
-        // Simulate a profile update, assuming we have new data in user
         CompletableFuture<UUID> updatedId = entityService.updateItem(UUID.fromString(user.getId()), user);
         UUID entityId = updatedId.join();
 

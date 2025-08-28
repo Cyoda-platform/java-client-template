@@ -12,14 +12,12 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-
 import org.springframework.beans.factory.annotation.Autowired;
-import org.cyoda.cloud.api.event.common.DataPayload;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.cyoda.cloud.api.event.common.DataPayload;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -69,7 +67,6 @@ public class ConfirmAdoptionProcessor implements CyodaProcessor {
         Adoption entity = context.entity();
         logger.info("Processing adoption for entity: {}", entity.getId());
 
-        // Validate user and pet existence
         CompletableFuture<DataPayload> petFuture = entityService.getItem(Pet.ENTITY_NAME, Pet.ENTITY_VERSION, UUID.fromString(entity.getPetId()));
         CompletableFuture<DataPayload> userFuture = entityService.getItem(User.ENTITY_NAME, User.ENTITY_VERSION, UUID.fromString(entity.getUserId()));
 
@@ -79,18 +76,15 @@ public class ConfirmAdoptionProcessor implements CyodaProcessor {
                 throw new IllegalStateException("User or Pet does not exist for adoption");
             }
 
-            // Change pet status to ADOPTED
             Pet pet = objectMapper.convertValue(petData.getData(), Pet.class);
             pet.setStatus("ADOPTED");
 
-            // Update pet status
             try {
                 entityService.updateItem(UUID.fromString(pet.getId()), pet).get();
             } catch (Exception e) {
                 logger.error("Failed to update pet status to ADOPTED: {}", e.getMessage(), e);
             }
 
-            // Update adoption status to COMPLETED
             entity.setStatus("COMPLETED");
             try {
                 entityService.updateItem(UUID.fromString(entity.getId()), entity).get();
