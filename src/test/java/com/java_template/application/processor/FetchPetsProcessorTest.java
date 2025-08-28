@@ -98,6 +98,11 @@ public class FetchPetsProcessorTest {
             public Optional<java.util.concurrent.Executor> executor() {
                 return Optional.empty();
             }
+
+            @Override
+            public Version version() {
+                return Version.HTTP_1_1;
+            }
         };
 
         // Use reflection to set private final httpClient field
