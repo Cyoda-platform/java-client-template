@@ -55,6 +55,7 @@ public class PublishPetProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
+            // Validate only minimal required fields for publishing (name & species) so we can compute default status
             .validate(this::isValidEntity, "Invalid entity state")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
@@ -65,8 +66,16 @@ public class PublishPetProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Minimal validation for publish processor:
+     * required fields for publishing: name and species must be present.
+     * Do not require status because PublishPetProcessor is responsible for setting initial status.
+     */
     private boolean isValidEntity(Pet entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getName() == null || entity.getName().isBlank()) return false;
+        if (entity.getSpecies() == null || entity.getSpecies().isBlank()) return false;
+        return true;
     }
 
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
@@ -97,19 +106,26 @@ public class PublishPetProcessor implements CyodaProcessor {
                             Pet candidate = objectMapper.treeToValue(payload.getData(), Pet.class);
                             if (candidate == null) continue;
 
-                            // If candidate is not the same technicalId or external id, treat as duplicate
                             String candidateTechnicalId = candidate.getTechnicalId();
                             String currentTechnicalId = entity.getTechnicalId();
                             String candidateExternalId = candidate.getId();
                             String currentExternalId = entity.getId();
 
-                            boolean sameTechnical = (currentTechnicalId != null && currentTechnicalId.equals(candidateTechnicalId));
-                            boolean sameExternal = (currentExternalId != null && currentExternalId.equals(candidateExternalId));
+                            boolean sameRecord = false;
+                            // If both technical ids are present and equal -> same record
+                            if (candidateTechnicalId != null && currentTechnicalId != null && candidateTechnicalId.equals(currentTechnicalId)) {
+                                sameRecord = true;
+                            }
+                            // Else if both external ids are present and equal -> same record
+                            else if (candidateExternalId != null && currentExternalId != null && candidateExternalId.equals(currentExternalId)) {
+                                sameRecord = true;
+                            }
 
-                            if (!sameTechnical || (currentExternalId != null && !sameExternal)) {
+                            if (!sameRecord) {
                                 // Found another record that matches by name/breed/location and differs by id
                                 duplicateFound = true;
-                                logger.info("Duplicate pet detected. Current technicalId={}, candidate technicalId={}", currentTechnicalId, candidateTechnicalId);
+                                logger.info("Duplicate pet detected. Current technicalId={}, candidate technicalId={}, candidateExternalId={}",
+                                        currentTechnicalId, candidateTechnicalId, candidateExternalId);
                                 break;
                             }
                         } catch (Exception e) {
@@ -130,6 +146,7 @@ public class PublishPetProcessor implements CyodaProcessor {
             // 2) Compute initial publish status.
             // Preserve explicit reserved/adopted/removed states.
             String currentStatus = entity.getStatus();
+
             if (currentStatus == null || currentStatus.isBlank()) {
                 // Default to available when no explicit status provided
                 entity.setStatus("available");

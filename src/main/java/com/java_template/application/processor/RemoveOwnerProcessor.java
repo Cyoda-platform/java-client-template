@@ -14,6 +14,7 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -99,8 +100,24 @@ public class RemoveOwnerProcessor implements CyodaProcessor {
                     for (DataPayload payload : dataPayloads) {
                         try {
                             // Convert payload data to AdoptionRequest object
-                            Object dataNode = payload.getData();
-                            AdoptionRequest ar = objectMapper.treeToValue((com.fasterxml.jackson.databind.JsonNode) dataNode, AdoptionRequest.class);
+                            Object dataNodeObj = payload.getData();
+                            JsonNode node = null;
+                            if (dataNodeObj instanceof JsonNode) {
+                                node = (JsonNode) dataNodeObj;
+                            }
+
+                            AdoptionRequest ar = null;
+                            if (node != null) {
+                                ar = objectMapper.treeToValue(node, AdoptionRequest.class);
+                            } else {
+                                // Fallback: try mapping directly from payload.getData() if it's not a JsonNode
+                                ar = objectMapper.convertValue(dataNodeObj, AdoptionRequest.class);
+                            }
+
+                            if (ar == null) {
+                                logger.warn("Unable to deserialize AdoptionRequest payload for owner {}; skipping", ownerBusinessId);
+                                continue;
+                            }
 
                             String status = ar.getStatus();
                             // Only cancel requests that are not already finalized
@@ -112,21 +129,16 @@ public class RemoveOwnerProcessor implements CyodaProcessor {
                                 ar.setStatus("cancelled");
                                 ar.setDecisionAt(Instant.now().toString());
 
-                                // Obtain technical id from payload to perform the update operation.
-                                // DataPayload is expected to expose getId() returning the technical id string.
+                                // Attempt to obtain technical id from the JSON node (preferred) without calling payload.getId()
                                 String technicalId = null;
-                                try {
-                                    Object idObj = payload.getId();
-                                    if (idObj != null) technicalId = idObj.toString();
-                                } catch (NoSuchMethodError | Exception e) {
-                                    // Fallback: try reading id from the data node if present as "technicalId" or "id"
-                                    try {
-                                        com.fasterxml.jackson.databind.JsonNode node = (com.fasterxml.jackson.databind.JsonNode) dataNode;
-                                        if (node.has("technicalId")) technicalId = node.get("technicalId").asText(null);
-                                        else if (node.has("id")) technicalId = node.get("id").asText(null);
-                                        else if (node.has("requestId")) technicalId = node.get("requestId").asText(null);
-                                    } catch (Exception ex) {
-                                        logger.warn("Unable to extract technical id for adoption request payload", ex);
+                                if (node != null) {
+                                    if (node.has("technicalId") && !node.get("technicalId").isNull()) technicalId = node.get("technicalId").asText(null);
+                                    if ((technicalId == null || technicalId.isBlank()) && node.has("technical_id") && !node.get("technical_id").isNull()) technicalId = node.get("technical_id").asText(null);
+                                    if ((technicalId == null || technicalId.isBlank()) && node.has("id") && !node.get("id").isNull()) technicalId = node.get("id").asText(null);
+                                    if ((technicalId == null || technicalId.isBlank()) && node.has("requestId") && !node.get("requestId").isNull()) {
+                                        // requestId is business id; not a UUID technical id but we attempt to use it only if it looks like a UUID
+                                        String requestIdVal = node.get("requestId").asText(null);
+                                        if (requestIdVal != null && requestIdVal.matches("^[0-9a-fA-F\\-]{36}$")) technicalId = requestIdVal;
                                     }
                                 }
 
@@ -138,6 +150,7 @@ public class RemoveOwnerProcessor implements CyodaProcessor {
                                         logger.error("Failed to update AdoptionRequest (technicalId={}): {}", technicalId, ex.getMessage(), ex);
                                     }
                                 } else {
+                                    // Cannot determine technical id - skip update and just log. Persisted update will be skipped.
                                     logger.warn("Skipping update for AdoptionRequest because technical id could not be determined for requestId={}", ar.getRequestId());
                                 }
                             }

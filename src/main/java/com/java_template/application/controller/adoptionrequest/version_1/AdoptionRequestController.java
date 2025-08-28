@@ -16,8 +16,10 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.Data;
 
 import java.util.NoSuchElementException;
@@ -46,7 +48,7 @@ public class AdoptionRequestController {
     @ApiResponse(responseCode = "500", description = "Internal Server Error")
     @PostMapping
     public ResponseEntity<?> createAdoptionRequest(
-            @RequestBody(description = "Adoption request payload", required = true,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Adoption request payload", required = true,
                     content = @Content(schema = @Schema(implementation = CreateAdoptionRequestRequest.class)))
             @org.springframework.web.bind.annotation.RequestBody CreateAdoptionRequestRequest request) {
         try {

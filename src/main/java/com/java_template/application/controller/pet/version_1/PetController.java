@@ -20,7 +20,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -198,7 +197,6 @@ public class PetController {
 
     // Static DTO classes for requests/responses
 
-    @Data
     public static class CreatePetRequest {
         @Schema(description = "External/source id", example = "pet-source-123")
         private String id;
@@ -235,20 +233,64 @@ public class PetController {
 
         @Schema(description = "Status (optional, workflows may override)", example = "AVAILABLE")
         private String status;
+
+        // Getters and Setters
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getSpecies() { return species; }
+        public void setSpecies(String species) { this.species = species; }
+
+        public String getBreed() { return breed; }
+        public void setBreed(String breed) { this.breed = breed; }
+
+        public Integer getAge() { return age; }
+        public void setAge(Integer age) { this.age = age; }
+
+        public String getGender() { return gender; }
+        public void setGender(String gender) { this.gender = gender; }
+
+        public List<String> getPhotos() { return photos; }
+        public void setPhotos(List<String> photos) { this.photos = photos; }
+
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
+
+        public String getHealthNotes() { return healthNotes; }
+        public void setHealthNotes(String healthNotes) { this.healthNotes = healthNotes; }
+
+        public String getLocation() { return location; }
+        public void setLocation(String location) { this.location = location; }
+
+        public String getSource() { return source; }
+        public void setSource(String source) { this.source = source; }
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
     }
 
-    @Data
     public static class CreatePetResponse {
         @Schema(description = "Technical ID assigned to the persisted entity", example = "pet-technical-12345")
         private String technicalId;
+
+        public String getTechnicalId() { return technicalId; }
+        public void setTechnicalId(String technicalId) { this.technicalId = technicalId; }
     }
 
-    @Data
     public static class GetPetResponse {
         @Schema(description = "Technical ID of the entity", example = "pet-technical-12345")
         private String technicalId;
 
         @Schema(description = "Pet entity object")
         private Pet entity;
+
+        public String getTechnicalId() { return technicalId; }
+        public void setTechnicalId(String technicalId) { this.technicalId = technicalId; }
+
+        public Pet getEntity() { return entity; }
+        public void setEntity(Pet entity) { this.entity = entity; }
     }
 }

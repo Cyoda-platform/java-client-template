@@ -15,6 +15,7 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -75,7 +76,8 @@ public class AdoptPetProcessor implements CyodaProcessor {
 
         try {
             // Determine the pet reference used by AdoptionRequest.petId (prefer external id, fallback to technicalId)
-            String petRef = pet.getId() != null && !pet.getId().isBlank() ? pet.getId() : pet.getTechnicalId();
+            String petRef = (pet.getId() != null && !pet.getId().isBlank()) ? pet.getId()
+                    : (pet.getTechnicalId() != null && !pet.getTechnicalId().isBlank() ? pet.getTechnicalId() : null);
 
             if (petRef == null || petRef.isBlank()) {
                 logger.warn("Pet reference (id or technicalId) is missing; cannot correlate adoption requests. Pet technicalId={}", pet.getTechnicalId());
@@ -106,7 +108,9 @@ public class AdoptPetProcessor implements CyodaProcessor {
             List<DataPayload> approvedRequests = new ArrayList<>();
             for (DataPayload payload : dataPayloads) {
                 try {
-                    AdoptionRequest req = objectMapper.treeToValue(payload.getData(), AdoptionRequest.class);
+                    JsonNode dataNode = payload.getData();
+                    if (dataNode == null) continue;
+                    AdoptionRequest req = objectMapper.treeToValue(dataNode, AdoptionRequest.class);
                     if (req != null && req.getStatus() != null && req.getStatus().equalsIgnoreCase("approved")) {
                         approvedRequests.add(payload);
                     }
@@ -121,12 +125,18 @@ public class AdoptPetProcessor implements CyodaProcessor {
             }
 
             // At least one approved request exists -> complete adoption
+            // Only change in-memory pet status; persistence is handled by workflow engine.
             pet.setStatus("ADOPTED");
 
             // For each approved request: mark COMPLETED and add pet to owner's adoptedPets
             for (DataPayload approvedPayload : approvedRequests) {
                 try {
-                    AdoptionRequest req = objectMapper.treeToValue(approvedPayload.getData(), AdoptionRequest.class);
+                    JsonNode reqNode = approvedPayload.getData();
+                    if (reqNode == null) {
+                        logger.warn("Approved AdoptionRequest payload has no data; skipping.");
+                        continue;
+                    }
+                    AdoptionRequest req = objectMapper.treeToValue(reqNode, AdoptionRequest.class);
                     if (req == null) continue;
 
                     // Update adoption request status to COMPLETED and set decisionAt if not present
@@ -135,17 +145,22 @@ public class AdoptPetProcessor implements CyodaProcessor {
                         req.setDecisionAt(Instant.now().toString());
                     }
 
-                    // Persist updated AdoptionRequest using its technical id from payload (if available)
+                    // Persist updated AdoptionRequest using its technical id from payload data if present
                     try {
                         String reqTechnicalId = null;
-                        try {
-                            reqTechnicalId = (String) approvedPayload.getClass().getMethod("getTechnicalId").invoke(approvedPayload);
-                        } catch (Exception ex) {
-                            // Fallback: attempt to get 'technicalId' property via toString parsing is unsafe; log and skip update
-                            logger.warn("Could not retrieve technical id for AdoptionRequest payload; skipping update of AdoptionRequest entity.");
+                        if (reqNode.has("technicalId") && !reqNode.get("technicalId").isNull()) {
+                            reqTechnicalId = reqNode.get("technicalId").asText();
+                        } else if (reqNode.has("id") && !reqNode.get("id").isNull()) {
+                            reqTechnicalId = reqNode.get("id").asText();
                         }
+
                         if (reqTechnicalId != null && !reqTechnicalId.isBlank()) {
-                            entityService.updateItem(UUID.fromString(reqTechnicalId), req).get();
+                            try {
+                                entityService.updateItem(UUID.fromString(reqTechnicalId), req).get();
+                            } catch (IllegalArgumentException iae) {
+                                // technical id not a UUID; log and skip update
+                                logger.warn("AdoptionRequest technical id is not a UUID ({}). Update skipped for requestId={}", reqTechnicalId, req.getRequestId());
+                            }
                         } else {
                             logger.warn("No technical id available for AdoptionRequest; update skipped for requestId={}", req.getRequestId());
                         }
@@ -180,7 +195,9 @@ public class AdoptPetProcessor implements CyodaProcessor {
 
                     for (DataPayload ownerPayload : ownerPayloads) {
                         try {
-                            Owner owner = objectMapper.treeToValue(ownerPayload.getData(), Owner.class);
+                            JsonNode ownerNode = ownerPayload.getData();
+                            if (ownerNode == null) continue;
+                            Owner owner = objectMapper.treeToValue(ownerNode, Owner.class);
                             if (owner == null) continue;
 
                             List<String> adopted = owner.getAdoptedPets();
@@ -193,16 +210,21 @@ public class AdoptPetProcessor implements CyodaProcessor {
                                 owner.setAdoptedPets(adopted);
                             }
 
-                            // Persist owner update using technical id from payload (if available)
+                            // Persist owner update using technical id from owner payload data if available
                             try {
                                 String ownerTechnicalId = null;
-                                try {
-                                    ownerTechnicalId = (String) ownerPayload.getClass().getMethod("getTechnicalId").invoke(ownerPayload);
-                                } catch (Exception ex) {
-                                    logger.warn("Could not retrieve technical id for Owner payload; skipping update of Owner entity.");
+                                if (ownerNode.has("technicalId") && !ownerNode.get("technicalId").isNull()) {
+                                    ownerTechnicalId = ownerNode.get("technicalId").asText();
+                                } else if (ownerNode.has("id") && !ownerNode.get("id").isNull()) {
+                                    ownerTechnicalId = ownerNode.get("id").asText();
                                 }
+
                                 if (ownerTechnicalId != null && !ownerTechnicalId.isBlank()) {
-                                    entityService.updateItem(UUID.fromString(ownerTechnicalId), owner).get();
+                                    try {
+                                        entityService.updateItem(UUID.fromString(ownerTechnicalId), owner).get();
+                                    } catch (IllegalArgumentException iae) {
+                                        logger.warn("Owner technical id is not a UUID ({}). Update skipped for ownerId={}", ownerTechnicalId, owner.getOwnerId());
+                                    }
                                 } else {
                                     logger.warn("No technical id available for Owner; update skipped for ownerId={}", owner.getOwnerId());
                                 }

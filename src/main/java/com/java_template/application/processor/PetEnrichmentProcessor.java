@@ -10,9 +10,11 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -73,9 +75,12 @@ public class PetEnrichmentProcessor implements CyodaProcessor {
         Pet entity = context.entity();
 
         try {
+            // Use Jackson tree to avoid direct calls to Lombok-generated getters/setters at compile-time.
+            ObjectNode entityNode = objectMapper.valueToTree(entity);
+
             // Enrichment from external Petstore API when source indicates Petstore
-            String source = entity.getSource();
-            String externalId = entity.getId();
+            String source = entityNode.hasNonNull("source") ? entityNode.get("source").asText(null) : null;
+            String externalId = entityNode.hasNonNull("id") ? entityNode.get("id").asText(null) : null;
 
             if (source != null && externalId != null && "PetstoreAPI".equalsIgnoreCase(source.trim())) {
                 try {
@@ -92,38 +97,43 @@ public class PetEnrichmentProcessor implements CyodaProcessor {
                     HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
                     if (response.statusCode() == 200 && response.body() != null && !response.body().isBlank()) {
                         try {
-                            var node = objectMapper.readTree(response.body());
+                            JsonNode remote = objectMapper.readTree(response.body());
 
                             // Photos: if current entity has no photos, try to populate from source
-                            if ((entity.getPhotos() == null || entity.getPhotos().isEmpty()) && node.has("photos") && node.get("photos").isArray()) {
-                                List<String> photos = new ArrayList<>();
-                                node.get("photos").forEach(n -> {
+                            boolean hasPhotos = entityNode.hasNonNull("photos") && entityNode.get("photos").isArray() && entityNode.get("photos").size() > 0;
+                            if (!hasPhotos && remote.has("photos") && remote.get("photos").isArray()) {
+                                ArrayNode photosArray = objectMapper.createArrayNode();
+                                remote.get("photos").forEach(n -> {
                                     if (n != null && n.isTextual() && !n.asText().isBlank()) {
-                                        photos.add(n.asText());
+                                        photosArray.add(n.asText());
                                     }
                                 });
-                                if (!photos.isEmpty()) {
-                                    entity.setPhotos(photos);
-                                    logger.info("Enriched pet [{}] with {} photos from Petstore", externalId, photos.size());
+                                if (photosArray.size() > 0) {
+                                    entityNode.set("photos", photosArray);
+                                    logger.info("Enriched pet [{}] with {} photos from Petstore", externalId, photosArray.size());
                                 }
                             }
 
                             // Map age if missing
-                            if (entity.getAge() == null && node.has("age") && node.get("age").canConvertToInt()) {
-                                int ageFromSource = node.get("age").asInt();
-                                entity.setAge(ageFromSource);
+                            boolean hasAge = entityNode.hasNonNull("age");
+                            if (!hasAge && remote.has("age") && remote.get("age").canConvertToInt()) {
+                                int ageFromSource = remote.get("age").asInt();
+                                entityNode.put("age", ageFromSource);
                                 logger.info("Enriched pet [{}] age from Petstore: {}", externalId, ageFromSource);
                             }
 
                             // Map description/breed/healthNotes if missing or blank
-                            if ((entity.getDescription() == null || entity.getDescription().isBlank()) && node.has("description") && node.get("description").isTextual()) {
-                                entity.setDescription(node.get("description").asText());
+                            if ((!entityNode.hasNonNull("description") || entityNode.get("description").asText("").isBlank())
+                                    && remote.has("description") && remote.get("description").isTextual()) {
+                                entityNode.put("description", remote.get("description").asText());
                             }
-                            if ((entity.getBreed() == null || entity.getBreed().isBlank()) && node.has("breed") && node.get("breed").isTextual()) {
-                                entity.setBreed(node.get("breed").asText());
+                            if ((!entityNode.hasNonNull("breed") || entityNode.get("breed").asText("").isBlank())
+                                    && remote.has("breed") && remote.get("breed").isTextual()) {
+                                entityNode.put("breed", remote.get("breed").asText());
                             }
-                            if ((entity.getHealthNotes() == null || entity.getHealthNotes().isBlank()) && node.has("healthNotes") && node.get("healthNotes").isTextual()) {
-                                entity.setHealthNotes(node.get("healthNotes").asText());
+                            if ((!entityNode.hasNonNull("healthNotes") || entityNode.get("healthNotes").asText("").isBlank())
+                                    && remote.has("healthNotes") && remote.get("healthNotes").isTextual()) {
+                                entityNode.put("healthNotes", remote.get("healthNotes").asText());
                             }
                         } catch (Exception je) {
                             logger.warn("Failed to parse enrichment response for pet {}: {}", externalId, je.getMessage());
@@ -138,34 +148,41 @@ public class PetEnrichmentProcessor implements CyodaProcessor {
 
             // Normalize age:
             // Business heuristic: if age value looks like months (>24) convert to years by dividing by 12.
-            Integer age = entity.getAge();
-            if (age != null) {
+            if (entityNode.hasNonNull("age") && entityNode.get("age").canConvertToInt()) {
+                int age = entityNode.get("age").asInt();
                 if (age > 24) {
                     int normalized = Math.max(0, age / 12);
                     if (normalized != age) {
-                        logger.info("Normalizing age for pet [{}]: {} -> {} (months->years heuristic)", entity.getTechnicalId(), age, normalized);
-                        entity.setAge(normalized);
+                        String techId = entityNode.hasNonNull("technicalId") ? entityNode.get("technicalId").asText(null) : null;
+                        logger.info("Normalizing age for pet [{}]: {} -> {} (months->years heuristic)", techId != null ? techId : externalId, age, normalized);
+                        entityNode.put("age", normalized);
                     }
                 }
             }
 
             // Ensure status is set to a reasonable default if missing
-            if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+            if (!entityNode.hasNonNull("status") || entityNode.get("status").asText("").isBlank()) {
                 // Default to AVAILABLE after enrichment if possible
-                entity.setStatus("AVAILABLE");
-                logger.info("Setting default status AVAILABLE for pet [{}]", entity.getTechnicalId());
+                entityNode.put("status", "AVAILABLE");
+                String techId = entityNode.hasNonNull("technicalId") ? entityNode.get("technicalId").asText(null) : null;
+                logger.info("Setting default status AVAILABLE for pet [{}]", techId != null ? techId : externalId);
             }
 
-            // Additional lightweight enrichment: if photos exist but healthNotes missing, mark healthNotes as 'Unknown' placeholder
-            if ((entity.getHealthNotes() == null || entity.getHealthNotes().isBlank()) && entity.getPhotos() != null && !entity.getPhotos().isEmpty()) {
-                entity.setHealthNotes("Not specified");
+            // Additional lightweight enrichment: if photos exist but healthNotes missing, mark healthNotes as 'Not specified' placeholder
+            boolean hasPhotosNow = entityNode.has("photos") && entityNode.get("photos").isArray() && entityNode.get("photos").size() > 0;
+            if ((!entityNode.hasNonNull("healthNotes") || entityNode.get("healthNotes").asText("").isBlank()) && hasPhotosNow) {
+                entityNode.put("healthNotes", "Not specified");
             }
+
+            // Convert back to Pet instance; serializer/persistence will handle saving the modified entity
+            Pet updated = objectMapper.treeToValue(entityNode, Pet.class);
+            return updated;
 
         } catch (Exception e) {
             // Do not fail the entire workflow on enrichment errors; log and continue with current entity state
-            logger.error("Unexpected error during Pet enrichment for technicalId {}: {}", entity.getTechnicalId(), e.getMessage(), e);
+            String techId = entity != null ? entity.getTechnicalId() : null;
+            logger.error("Unexpected error during Pet enrichment for technicalId {}: {}", techId, e.getMessage(), e);
+            return entity;
         }
-
-        return entity;
     }
 }
