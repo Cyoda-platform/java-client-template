@@ -1,0 +1,64 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "errorSummary": "1 record invalid",
+                    "failedCount": 1,
+                    "finishedAt": "2025-08-28T10:00:12Z",
+                    "jobId": "job-2025-08-28-01",
+                    "scheduleAt": "2025-08-28T10:00:00Z",
+                    "sourceUrl": "https://public.opendatasoft.com/api/explore/v2.1/catalog/datasets/nobel-prize-laureates/records",
+                    "startedAt": "2025-08-28T10:00:05Z",
+                    "state": "NOTIFIED_SUBSCRIBERS",
+                    "succeededCount": 9,
+                    "totalRecords": 10
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "affiliationCity": "Sapporo",
+                    "affiliationCountry": "Japan",
+                    "affiliationName": "Hokkaido University",
+                    "born": "1930-09-12",
+                    "borncity": "Mukawa",
+                    "borncountry": "Japan",
+                    "borncountrycode": "JP",
+                    "category": "Chemistry",
+                    "computedAge": 80,
+                    "died": null,
+                    "firstname": "Akira",
+                    "gender": "male",
+                    "id": 853,
+                    "ingestJobId": "job-2025-08-28-01",
+                    "motivation": "for palladium-catalyzed cross couplings in organic synthesis",
+                    "surname": "Suzuki",
+                    "year": "2010"
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "active": true,
+                    "channels": [
+                        {
+                            "address": "alerts@example.com",
+                            "type": "email"
+                        }
+                    ],
+                    "filters": [
+                        {
+                            "category": "Chemistry"
+                        }
+                    ],
+                    "lastNotifiedAt": null,
+                    "name": "Nobel Alerts",
+                    "subscriberId": "sub-abc"
+                }
+            }
+        }
+    ]
+}
