@@ -1,0 +1,37 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "error: method getItem in interface EntityService cannot be applied to given types; required: @jakarta.validation.constraints.NotNull UUID, found: String,Integer,UUID; reason: actual and formal argument lists differ in length (at line 87)",
+                "error: method getItem in interface EntityService cannot be applied to given types; required: @jakarta.validation.constraints.NotNull UUID, found: String,Integer,UUID; reason: actual and formal argument lists differ in length (at line 99)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/OrderCreationProcessor.java"
+        },
+        {
+            "errors": [
+                "error: method getItem in interface EntityService cannot be applied to given types; required: @jakarta.validation.constraints.NotNull UUID, found: String,Integer,UUID; reason: actual and formal argument lists differ in length (at line 92)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/ReservationExpiryProcessor.java"
+        },
+        {
+            "errors": [
+                "error: method getItem in interface EntityService cannot be applied to given types; required: @jakarta.validation.constraints.NotNull UUID, found: String,Integer,UUID; reason: actual and formal argument lists differ in length (at line 124)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/CancelProcessor.java"
+        },
+        {
+            "errors": [
+                "error: cannot find symbol: method fetchEntity(Class<Cart>,String); location: variable context of type CriterionEntityEvaluationContext<Payment> (at line 68)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/PaymentAmountCriterion.java"
+        },
+        {
+            "errors": [
+                "error: cannot find symbol: method relatedEntities(Class<Reservation>); location: variable context of type CriterionEntityEvaluationContext<Cart> (at line 65)",
+                "error: cannot find symbol: method fetchEntities(Class<Reservation>); location: variable context of type CriterionEntityEvaluationContext<Cart> (at line 69)"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/CheckoutGuardCriterion.java"
+        }
+    ]
+}
