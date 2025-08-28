@@ -1,0 +1,99 @@
+{
+  "version": "1.0",
+  "name": "Owner Workflow",
+  "desc": "Workflow for Owner entity based on functional requirements mermaid diagram",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "transition_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "validate_contact",
+          "next": "VALIDATE_CONTACT",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerValidationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATE_CONTACT": {
+      "transitions": [
+        {
+          "name": "contact_valid",
+          "next": "PROFILE_COMPLETE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ContactCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "PROFILE_COMPLETE": {
+      "transitions": [
+        {
+          "name": "profile_complete_to_active",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProfileCompletionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProfileCompletionCheck",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "profile_complete_to_suspended",
+          "next": "SUSPENDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProfileCompletionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": []
+    },
+    "SUSPENDED": {
+      "transitions": []
+    }
+  }
+}
