@@ -1,0 +1,110 @@
+{
+  "version": "1.0",
+  "name": "Job Workflow",
+  "desc": "Workflow for Job entity derived from functional requirements mermaid state diagram",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "init_to_scheduled",
+          "next": "SCHEDULED",
+          "manual": false
+        }
+      ]
+    },
+    "SCHEDULED": {
+      "transitions": [
+        {
+          "name": "scheduled_to_ingesting",
+          "next": "INGESTING",
+          "manual": false
+        }
+      ]
+    },
+    "INGESTING": {
+      "transitions": [
+        {
+          "name": "ingesting_to_postprocessing",
+          "next": "POSTPROCESSING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IngestionProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "POSTPROCESSING": {
+      "transitions": [
+        {
+          "name": "postprocessing_to_succeeded",
+          "next": "SUCCEEDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IngestionSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "postprocessing_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.failedCount",
+            "operation": "GREATER_THAN",
+            "value": 0
+          }
+        }
+      ]
+    },
+    "SUCCEEDED": {
+      "transitions": [
+        {
+          "name": "succeeded_to_notified",
+          "next": "NOTIFIED_SUBSCRIBERS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "failed_to_notified",
+          "next": "NOTIFIED_SUBSCRIBERS",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFIED_SUBSCRIBERS": {
+      "transitions": []
+    }
+  }
+}
