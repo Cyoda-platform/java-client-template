@@ -1,9 +1,9 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.payment.version_1.Payment;
+import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -11,7 +11,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -35,9 +34,9 @@ public class PaymentAutoApproveProcessor implements CyodaProcessor {
         return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
             .toEntity(Payment.class)
             .withErrorHandler((error, entity) -> {
-                    logger.error("Failed to extract entity: {}", error.getMessage(), error);
-                    return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
-                })
+                logger.error("Failed to extract entity: {}", error.getMessage(), error);
+                return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
+            })
             .validate(this::isValidEntity, "Invalid entity state")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
@@ -54,6 +53,19 @@ public class PaymentAutoApproveProcessor implements CyodaProcessor {
 
     private Payment processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Payment> context) {
         Payment entity = context.entity();
+
+        // Only auto-approve payments that are in PENDING state.
+        String currentStatus = entity.getStatus();
+        if (currentStatus == null || !"PENDING".equalsIgnoreCase(currentStatus)) {
+            logger.debug("Payment {} not in PENDING state (status={}). Auto-approve skipped.", entity.getId(), currentStatus);
+            return entity;
+        }
+
+        // If already approvedAt present, skip to avoid double-approving
+        if (entity.getApprovedAt() != null && !entity.getApprovedAt().isBlank()) {
+            logger.debug("Payment {} already has approvedAt set ({}). Skipping auto-approve.", entity.getId(), entity.getApprovedAt());
+            return entity;
+        }
 
         // Business logic:
         // Wait 3 seconds, then mark payment as APPROVED and set approvedAt timestamp.

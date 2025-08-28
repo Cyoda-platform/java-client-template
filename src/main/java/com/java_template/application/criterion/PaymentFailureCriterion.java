@@ -24,6 +24,9 @@ public class PaymentFailureCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
     private final String className = this.getClass().getSimpleName();
 
+    // Allowed payment lifecycle statuses per functional requirements
+    private static final Set<String> ALLOWED_STATUSES = Set.of("PENDING", "APPROVED", "FAILED", "REFUNDED");
+
     public PaymentFailureCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
@@ -31,7 +34,7 @@ public class PaymentFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Payment.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,24 +43,22 @@ public class PaymentFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Payment> context) {
          Payment entity = context.entity();
 
-         // Basic allowed statuses according to workflow
-         final Set<String> ALLOWED_STATUSES = Set.of("PENDING", "APPROVED", "FAILED", "REFUNDED");
-
-         String status = entity.getStatus();
-         String approvedAt = entity.getApprovedAt();
-         String orderId = entity.getOrderId();
-
          // Data quality: status must be one of the expected values
+         String status = entity.getStatus();
          if (status == null || !ALLOWED_STATUSES.contains(status)) {
              return EvaluationOutcome.fail("Payment.status must be one of PENDING, APPROVED, FAILED or REFUNDED",
                  StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
+
+         String approvedAt = entity.getApprovedAt();
+         String orderId = entity.getOrderId();
 
          // Business rules specific to failure/approval lifecycle:
          // 1) FAILED payments must not have an approval timestamp or an order associated.

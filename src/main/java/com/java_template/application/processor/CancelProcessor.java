@@ -11,7 +11,6 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
@@ -108,8 +107,12 @@ public class CancelProcessor implements CyodaProcessor {
 
                             // Persist reservation update (allowed: updating other entities)
                             try {
-                                entityService.updateItem(UUID.fromString(reservation.getId()), reservation).get();
-                                logger.info("Released reservation {}", reservation.getId());
+                                if (reservation.getId() != null && !reservation.getId().isBlank()) {
+                                    entityService.updateItem(UUID.fromString(reservation.getId()), reservation).get();
+                                    logger.info("Released reservation {}", reservation.getId());
+                                } else {
+                                    logger.warn("Skipping update for reservation without technical id (cartId={} productId={})", reservation.getCartId(), reservation.getProductId());
+                                }
                             } catch (InterruptedException | ExecutionException e) {
                                 logger.error("Failed to update reservation {}: {}", reservation.getId(), e.getMessage(), e);
                             }
@@ -117,7 +120,12 @@ public class CancelProcessor implements CyodaProcessor {
                             // Attempt to return reserved qty to Product.availableQuantity
                             try {
                                 if (reservation.getProductId() != null && !reservation.getProductId().isBlank()) {
-                                    CompletableFuture<DataPayload> prodFuture = entityService.getItem(UUID.fromString(reservation.getProductId()));
+                                    // Use entityService.getItem with explicit entity name/version to fetch Product payload
+                                    CompletableFuture<DataPayload> prodFuture = entityService.getItem(
+                                        Product.ENTITY_NAME,
+                                        Product.ENTITY_VERSION,
+                                        UUID.fromString(reservation.getProductId())
+                                    );
                                     DataPayload prodPayload = prodFuture.get();
                                     if (prodPayload != null && prodPayload.getData() != null) {
                                         Product product = objectMapper.treeToValue(prodPayload.getData(), Product.class);
@@ -128,12 +136,18 @@ public class CancelProcessor implements CyodaProcessor {
                                             product.setAvailableQuantity(avail + addQty);
 
                                             try {
-                                                entityService.updateItem(UUID.fromString(product.getId()), product).get();
-                                                logger.info("Restored {} units to product {}", addQty, product.getId());
+                                                if (product.getId() != null && !product.getId().isBlank()) {
+                                                    entityService.updateItem(UUID.fromString(product.getId()), product).get();
+                                                    logger.info("Restored {} units to product {}", addQty, product.getId());
+                                                } else {
+                                                    logger.warn("Product payload missing technical id for product reference {}. Skipping update.", reservation.getProductId());
+                                                }
                                             } catch (InterruptedException | ExecutionException e) {
                                                 logger.error("Failed to update product {}: {}", product.getId(), e.getMessage(), e);
                                             }
                                         }
+                                    } else {
+                                        logger.warn("Product payload for id={} not found when releasing reservation {}", reservation.getProductId(), reservation.getId());
                                     }
                                 }
                             } catch (InterruptedException | ExecutionException ie) {

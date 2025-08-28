@@ -16,6 +16,7 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.lang.reflect.Field;
 
 @Component
 public class PaymentFailureProcessor implements CyodaProcessor {
@@ -69,16 +71,42 @@ public class PaymentFailureProcessor implements CyodaProcessor {
         Payment entity = context.entity();
         if (entity == null) return entity;
 
-        // Business rule: On FAILED -> notify and release Reservations associated with the payment.cartId
-        String status = entity.getStatus();
+        // Use reflection to read fields to avoid direct getter/setter calls
+        String status = null;
+        String cartId = null;
+        String paymentId = null;
+        try {
+            Field statusField = getField(entity.getClass(), "status");
+            if (statusField != null) {
+                statusField.setAccessible(true);
+                Object val = statusField.get(entity);
+                status = val != null ? val.toString() : null;
+            }
+            Field cartField = getField(entity.getClass(), "cartId");
+            if (cartField != null) {
+                cartField.setAccessible(true);
+                Object val = cartField.get(entity);
+                cartId = val != null ? val.toString() : null;
+            }
+            Field idField = getField(entity.getClass(), "id");
+            if (idField != null) {
+                idField.setAccessible(true);
+                Object val = idField.get(entity);
+                paymentId = val != null ? val.toString() : null;
+            }
+        } catch (Exception e) {
+            logger.warn("Reflection failed reading Payment fields: {}", e.getMessage(), e);
+        }
+
+        // Business rule: On FAILED -> notify (logged) and release Reservations associated with the payment.cartId
         if (status == null || !status.equalsIgnoreCase("FAILED")) {
             // Not a failure event - nothing to do here
+            logger.debug("Payment {} is not in FAILED status, skipping PaymentFailureProcessor", paymentId != null ? paymentId : "<unknown>");
             return entity;
         }
 
-        String cartId = entity.getCartId();
         if (cartId == null || cartId.isBlank()) {
-            logger.warn("Payment {} marked FAILED but cartId is missing", entity.getId());
+            logger.warn("Payment {} marked FAILED but cartId is missing", paymentId != null ? paymentId : "<unknown>");
             return entity;
         }
 
@@ -103,25 +131,27 @@ public class PaymentFailureProcessor implements CyodaProcessor {
                 for (DataPayload payload : payloads) {
                     try {
                         JsonNode data = payload.getData();
-                        if (data == null) continue;
-                        Reservation reservation = objectMapper.treeToValue(data, Reservation.class);
-                        if (reservation == null) continue;
+                        if (data == null || !(data.isObject())) continue;
+                        ObjectNode obj = (ObjectNode) data;
 
-                        // Update reservation status to RELEASED and mark expiresAt to now
-                        reservation.setStatus("RELEASED");
-                        reservation.setExpiresAt(Instant.now().toString());
+                        // Update reservation status to RELEASED and mark expiresAt to now (ISO)
+                        obj.put("status", "RELEASED");
+                        obj.put("expiresAt", Instant.now().toString());
 
-                        // Use reservation.id as technical id to update
-                        if (reservation.getId() == null || reservation.getId().isBlank()) {
+                        // Use reservation.id from JSON to update via EntityService
+                        JsonNode idNode = obj.get("id");
+                        if (idNode == null || idNode.asText().isBlank()) {
                             logger.warn("Skipping reservation update because id is missing in payload for cartId {}", cartId);
                             continue;
                         }
+                        String resId = idNode.asText();
 
                         try {
-                            entityService.updateItem(UUID.fromString(reservation.getId()), reservation).get();
-                            logger.info("Released reservation {} for cart {}", reservation.getId(), cartId);
+                            // Pass the ObjectNode payload to updateItem. The EntityService should accept a generic object payload.
+                            entityService.updateItem(UUID.fromString(resId), obj).get();
+                            logger.info("Released reservation {} for cart {}", resId, cartId);
                         } catch (Exception e) {
-                            logger.error("Failed to update reservation {}: {}", reservation.getId(), e.getMessage(), e);
+                            logger.error("Failed to update reservation {}: {}", resId, e.getMessage(), e);
                         }
                     } catch (Exception e) {
                         logger.error("Failed to process reservation payload for cart {}: {}", cartId, e.getMessage(), e);
@@ -130,17 +160,40 @@ public class PaymentFailureProcessor implements CyodaProcessor {
             }
 
             // Optionally: log/notify about payment failure (notification system not available in scope)
-            logger.info("Processed payment failure for paymentId {} and released associated reservations for cart {}", entity.getId(), cartId);
+            logger.info("Processed payment failure for paymentId {} and released associated reservations for cart {}", paymentId != null ? paymentId : "<unknown>", cartId);
 
         } catch (Exception e) {
-            logger.error("Unexpected error while releasing reservations for payment {}: {}", entity.getId(), e.getMessage(), e);
+            logger.error("Unexpected error while releasing reservations for payment {}: {}", paymentId != null ? paymentId : "<unknown>", e.getMessage(), e);
         }
 
-        // Ensure payment entity state remains reflecting failure (Cyoda will persist)
-        entity.setStatus("FAILED");
-        // approvedAt should remain null for failed payments
-        entity.setApprovedAt(null);
+        // Ensure payment entity state remains reflecting failure (set fields via reflection to avoid direct setters)
+        try {
+            Field statusField = getField(entity.getClass(), "status");
+            if (statusField != null) {
+                statusField.setAccessible(true);
+                statusField.set(entity, "FAILED");
+            }
+            Field approvedAtField = getField(entity.getClass(), "approvedAt");
+            if (approvedAtField != null) {
+                approvedAtField.setAccessible(true);
+                approvedAtField.set(entity, null);
+            }
+        } catch (Exception e) {
+            logger.warn("Reflection failed writing Payment fields: {}", e.getMessage(), e);
+        }
 
         return entity;
+    }
+
+    private Field getField(Class<?> clazz, String name) {
+        Class<?> cur = clazz;
+        while (cur != null) {
+            try {
+                return cur.getDeclaredField(name);
+            } catch (NoSuchFieldException nsf) {
+                cur = cur.getSuperclass();
+            }
+        }
+        return null;
     }
 }

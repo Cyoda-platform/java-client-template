@@ -16,7 +16,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +57,7 @@ public class OrderController {
                     description = "Order payload",
                     content = @Content(schema = @Schema(implementation = CreateOrderRequest.class))
             )
-            @RequestBody CreateOrderRequest request) {
+            @org.springframework.web.bind.annotation.RequestBody CreateOrderRequest request) {
         try {
             if (request == null) {
                 throw new IllegalArgumentException("Request body is required");
@@ -200,7 +199,7 @@ public class OrderController {
                     description = "Order payload",
                     content = @Content(schema = @Schema(implementation = CreateOrderRequest.class))
             )
-            @RequestBody CreateOrderRequest request) {
+            @org.springframework.web.bind.annotation.RequestBody CreateOrderRequest request) {
         try {
             if (technicalId == null || technicalId.isBlank()) {
                 throw new IllegalArgumentException("technicalId is required");

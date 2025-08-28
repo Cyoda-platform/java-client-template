@@ -56,8 +56,6 @@ public class PaymentController {
     })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> createPayment(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Payment create request", required = true,
-                    content = @Content(schema = @Schema(implementation = PaymentCreateRequest.class)))
             @RequestBody PaymentCreateRequest request) {
         try {
             if (request == null) {
@@ -207,7 +205,7 @@ public class PaymentController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @io.swagger.v3.oas.annotations.media.ArraySchema(schema = @Schema(implementation = PaymentResponse.class)))),
             @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
     @GetMapping(value = "/search", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> searchPayments(
@@ -273,8 +271,6 @@ public class PaymentController {
     public ResponseEntity<?> updatePayment(
             @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
             @PathVariable("technicalId") String technicalId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Payment update request", required = true,
-                    content = @Content(schema = @Schema(implementation = PaymentUpdateRequest.class)))
             @RequestBody PaymentUpdateRequest request) {
         try {
             if (technicalId == null || technicalId.isBlank()) {

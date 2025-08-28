@@ -18,7 +18,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import com.java_template.common.util.Condition;
@@ -54,9 +53,9 @@ public class ReservationController {
     })
     @PostMapping
     public ResponseEntity<?> createReservation(
-            @RequestBody(description = "Reservation create payload", required = true,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Reservation create payload", required = true,
                     content = @Content(schema = @Schema(implementation = ReservationRequest.class)))
-            @org.springframework.web.bind.annotation.RequestBody ReservationRequest request) {
+            @RequestBody ReservationRequest request) {
         try {
             if (request == null) {
                 throw new IllegalArgumentException("Request body is required");
@@ -102,9 +101,9 @@ public class ReservationController {
     })
     @PostMapping("/bulk")
     public ResponseEntity<?> createReservationsBulk(
-            @RequestBody(description = "List of reservations to create", required = true,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of reservations to create", required = true,
                     content = @Content(array = @ArraySchema(schema = @Schema(implementation = ReservationRequest.class))))
-            @org.springframework.web.bind.annotation.RequestBody List<ReservationRequest> requests) {
+            @RequestBody List<ReservationRequest> requests) {
         try {
             if (requests == null || requests.isEmpty()) {
                 throw new IllegalArgumentException("Request list must not be empty");
@@ -309,9 +308,9 @@ public class ReservationController {
     public ResponseEntity<?> updateReservation(
             @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
             @PathVariable("technicalId") String technicalId,
-            @RequestBody(description = "Reservation update payload", required = true,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Reservation update payload", required = true,
                     content = @Content(schema = @Schema(implementation = ReservationRequest.class)))
-            @org.springframework.web.bind.annotation.RequestBody ReservationRequest request) {
+            @RequestBody ReservationRequest request) {
         try {
             if (technicalId == null || technicalId.isBlank()) {
                 throw new IllegalArgumentException("technicalId is required");

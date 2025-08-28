@@ -16,7 +16,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,10 +54,8 @@ public class PickLedgerController {
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping
-    public ResponseEntity<?> createPickLedger(@io.swagger.v3.oas.annotations.parameters.RequestBody(
-            description = "PickLedger create request",
-            content = @Content(schema = @Schema(implementation = CreatePickLedgerRequest.class))
-    ) @RequestBody CreatePickLedgerRequest request) {
+    public ResponseEntity<?> createPickLedger(
+            @RequestBody CreatePickLedgerRequest request) {
         try {
             if (request == null) throw new IllegalArgumentException("Request body is required");
 
@@ -109,10 +106,7 @@ public class PickLedgerController {
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping("/batch")
-    public ResponseEntity<?> createPickLedgersBatch(@io.swagger.v3.oas.annotations.parameters.RequestBody(
-            description = "List of PickLedger create requests",
-            content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreatePickLedgerRequest.class)))
-    ) @RequestBody List<CreatePickLedgerRequest> requests) {
+    public ResponseEntity<?> createPickLedgersBatch(@RequestBody List<CreatePickLedgerRequest> requests) {
         try {
             if (requests == null || requests.isEmpty()) throw new IllegalArgumentException("Request list is required");
 
@@ -251,10 +245,7 @@ public class PickLedgerController {
     })
     @PostMapping("/query")
     public ResponseEntity<?> queryPickLedgers(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "SearchConditionRequest body",
-                    content = @Content(schema = @Schema(implementation = SearchConditionRequest.class))
-            ) @RequestBody SearchConditionRequest condition) {
+            @RequestBody SearchConditionRequest condition) {
         try {
             if (condition == null) throw new IllegalArgumentException("SearchConditionRequest is required");
 
@@ -304,10 +295,7 @@ public class PickLedgerController {
     public ResponseEntity<?> updatePickLedger(
             @Parameter(name = "technicalId", description = "Technical ID of the entity")
             @PathVariable String technicalId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "PickLedger update request",
-                    content = @Content(schema = @Schema(implementation = UpdatePickLedgerRequest.class))
-            ) @RequestBody UpdatePickLedgerRequest request) {
+            @RequestBody UpdatePickLedgerRequest request) {
         try {
             if (technicalId == null || technicalId.isBlank()) throw new IllegalArgumentException("technicalId is required");
             if (request == null) throw new IllegalArgumentException("Request body is required");
@@ -390,8 +378,6 @@ public class PickLedgerController {
     }
 
     // --- DTO classes ---
-
-    @Data
     @Schema(name = "CreatePickLedgerRequest", description = "Request payload to create a PickLedger")
     public static class CreatePickLedgerRequest {
         @Schema(description = "Shipment ID (natural id string)", example = "shipment-123")
@@ -417,9 +403,34 @@ public class PickLedgerController {
 
         @Schema(description = "Timestamp ISO-8601", example = "2025-08-28T12:00:10Z")
         private String timestamp;
+
+        public CreatePickLedgerRequest() {}
+
+        public String getShipmentId() { return shipmentId; }
+        public void setShipmentId(String shipmentId) { this.shipmentId = shipmentId; }
+
+        public String getOrderId() { return orderId; }
+        public void setOrderId(String orderId) { this.orderId = orderId; }
+
+        public String getProductId() { return productId; }
+        public void setProductId(String productId) { this.productId = productId; }
+
+        public Integer getQtyRequested() { return qtyRequested; }
+        public void setQtyRequested(Integer qtyRequested) { this.qtyRequested = qtyRequested; }
+
+        public Integer getQtyPicked() { return qtyPicked; }
+        public void setQtyPicked(Integer qtyPicked) { this.qtyPicked = qtyPicked; }
+
+        public String getAuditorId() { return auditorId; }
+        public void setAuditorId(String auditorId) { this.auditorId = auditorId; }
+
+        public String getAuditStatus() { return auditStatus; }
+        public void setAuditStatus(String auditStatus) { this.auditStatus = auditStatus; }
+
+        public String getTimestamp() { return timestamp; }
+        public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
     }
 
-    @Data
     @Schema(name = "UpdatePickLedgerRequest", description = "Request payload to update a PickLedger")
     public static class UpdatePickLedgerRequest {
         @Schema(description = "Natural entity ID (required by entity validation)", example = "pickledger-123")
@@ -448,9 +459,37 @@ public class PickLedgerController {
 
         @Schema(description = "Timestamp ISO-8601", example = "2025-08-28T12:00:10Z")
         private String timestamp;
+
+        public UpdatePickLedgerRequest() {}
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+
+        public String getShipmentId() { return shipmentId; }
+        public void setShipmentId(String shipmentId) { this.shipmentId = shipmentId; }
+
+        public String getOrderId() { return orderId; }
+        public void setOrderId(String orderId) { this.orderId = orderId; }
+
+        public String getProductId() { return productId; }
+        public void setProductId(String productId) { this.productId = productId; }
+
+        public Integer getQtyRequested() { return qtyRequested; }
+        public void setQtyRequested(Integer qtyRequested) { this.qtyRequested = qtyRequested; }
+
+        public Integer getQtyPicked() { return qtyPicked; }
+        public void setQtyPicked(Integer qtyPicked) { this.qtyPicked = qtyPicked; }
+
+        public String getAuditorId() { return auditorId; }
+        public void setAuditorId(String auditorId) { this.auditorId = auditorId; }
+
+        public String getAuditStatus() { return auditStatus; }
+        public void setAuditStatus(String auditStatus) { this.auditStatus = auditStatus; }
+
+        public String getTimestamp() { return timestamp; }
+        public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
     }
 
-    @Data
     @Schema(name = "PickLedgerResponse", description = "PickLedger entity representation returned from storage")
     public static class PickLedgerResponse {
         @Schema(description = "Natural entity ID", example = "pickledger-123")
@@ -479,19 +518,56 @@ public class PickLedgerController {
 
         @Schema(description = "Timestamp ISO-8601", example = "2025-08-28T12:00:10Z")
         private String timestamp;
+
+        public PickLedgerResponse() {}
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+
+        public String getAuditStatus() { return auditStatus; }
+        public void setAuditStatus(String auditStatus) { this.auditStatus = auditStatus; }
+
+        public String getAuditorId() { return auditorId; }
+        public void setAuditorId(String auditorId) { this.auditorId = auditorId; }
+
+        public String getOrderId() { return orderId; }
+        public void setOrderId(String orderId) { this.orderId = orderId; }
+
+        public String getProductId() { return productId; }
+        public void setProductId(String productId) { this.productId = productId; }
+
+        public Integer getQtyPicked() { return qtyPicked; }
+        public void setQtyPicked(Integer qtyPicked) { this.qtyPicked = qtyPicked; }
+
+        public Integer getQtyRequested() { return qtyRequested; }
+        public void setQtyRequested(Integer qtyRequested) { this.qtyRequested = qtyRequested; }
+
+        public String getShipmentId() { return shipmentId; }
+        public void setShipmentId(String shipmentId) { this.shipmentId = shipmentId; }
+
+        public String getTimestamp() { return timestamp; }
+        public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing only the technicalId assigned by the system")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id (UUID)", example = "d290f1ee-6c54-4b01-90e6-d701748f0851")
         private String technicalId;
+
+        public TechnicalIdResponse() {}
+
+        public String getTechnicalId() { return technicalId; }
+        public void setTechnicalId(String technicalId) { this.technicalId = technicalId; }
     }
 
-    @Data
     @Schema(name = "BatchTechnicalIdResponse", description = "Response containing multiple technicalIds")
     public static class BatchTechnicalIdResponse {
         @Schema(description = "List of technical ids (UUIDs)")
         private List<String> technicalIds;
+
+        public BatchTechnicalIdResponse() {}
+
+        public List<String> getTechnicalIds() { return technicalIds; }
+        public void setTechnicalIds(List<String> technicalIds) { this.technicalIds = technicalIds; }
     }
 }

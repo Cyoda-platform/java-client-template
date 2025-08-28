@@ -88,7 +88,8 @@ public class ReservationExpiryProcessor implements CyodaProcessor {
                         try {
                             String productId = entity.getProductId();
                             if (productId != null && !productId.isBlank()) {
-                                CompletableFuture<DataPayload> productFuture = entityService.getItem(UUID.fromString(productId));
+                                // Use entityService.getItem with entity name/version to reliably fetch product payload
+                                CompletableFuture<DataPayload> productFuture = entityService.getItem(Product.ENTITY_NAME, Product.ENTITY_VERSION, UUID.fromString(productId));
                                 DataPayload payload = productFuture.get();
                                 if (payload != null && payload.getData() != null) {
                                     Product product = objectMapper.treeToValue(payload.getData(), Product.class);

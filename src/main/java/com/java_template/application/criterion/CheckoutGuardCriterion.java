@@ -34,7 +34,7 @@ public class CheckoutGuardCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Cart.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,7 +43,9 @@ public class CheckoutGuardCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name
+        String opName = modelSpec == null ? null : modelSpec.operationName();
+        return className.equals(opName);
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Cart> context) {
@@ -55,17 +57,20 @@ public class CheckoutGuardCriterion implements CyodaCriterion {
          }
 
          // Guard 2: All reservations for this cart must be ACTIVE
-         // Use the evaluation context to obtain Reservation entities and check those referencing this cart.
-         // We only use Reservation getters below; any access to other services is via the context helpers.
          List<Reservation> reservations;
          try {
-             // Attempt to fetch related Reservation entities from the context.
-             // The evaluation context is expected to provide a way to load related entities of a given type.
-             // If none exist for this cart, treat as a failure (reservations must be present & ACTIVE at checkout).
+             // Try a best-effort method on the context to obtain related Reservation entities.
+             // If the evaluation context exposes a helper to fetch related entities use it.
+             // Fallback: attempt to fetch Reservation payloads via a generic fetch (implementation-dependent).
              reservations = context.relatedEntities(Reservation.class);
-         } catch (Exception e) {
-             logger.debug("Unable to load related reservations for cart {}", cart.getId(), e);
-             return EvaluationOutcome.fail("Could not validate reservations for cart", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         } catch (NoSuchMethodError | RuntimeException e) {
+             // If relatedEntities is not supported by the runtime evaluation context, attempt alternate fetch
+             try {
+                 reservations = context.fetchEntities(Reservation.class);
+             } catch (Exception ex) {
+                 logger.debug("Unable to load related reservations for cart {}", cart == null ? "<null>" : cart.getId(), ex);
+                 return EvaluationOutcome.fail("Could not validate reservations for cart", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
          }
 
          if (reservations == null || reservations.isEmpty()) {
@@ -75,7 +80,7 @@ public class CheckoutGuardCriterion implements CyodaCriterion {
          List<Reservation> nonMatching = reservations.stream()
                  .filter(Objects::nonNull)
                  .filter(r -> cart.getId() != null && cart.getId().equals(r.getCartId()))
-                 .filter(r -> !"ACTIVE".equalsIgnoreCase(r.getStatus()))
+                 .filter(r -> r.getStatus() == null || !"ACTIVE".equalsIgnoreCase(r.getStatus()))
                  .collect(Collectors.toList());
 
          if (!nonMatching.isEmpty()) {
@@ -83,7 +88,7 @@ public class CheckoutGuardCriterion implements CyodaCriterion {
                      .map(Reservation::getId)
                      .filter(Objects::nonNull)
                      .collect(Collectors.joining(","));
-             String msg = "Found reservations not ACTIVE for cart: " + (ids.isBlank() ? "unknown-ids" : ids);
+             String msg = "Found reservations not ACTIVE for cart: " + (ids == null || ids.isBlank() ? "unknown-ids" : ids);
              return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 

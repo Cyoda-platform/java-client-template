@@ -32,7 +32,7 @@ public class ReservationExpiryCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Reservation.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -41,13 +41,17 @@ public class ReservationExpiryCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Reservation> context) {
          Reservation reservation = context.entity();
 
          // Basic required fields validation using available getters
+         if (reservation == null) {
+             return EvaluationOutcome.fail("Reservation entity is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
          if (reservation.getExpiresAt() == null || reservation.getExpiresAt().isBlank()) {
              return EvaluationOutcome.fail("expiresAt is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
@@ -71,7 +75,9 @@ public class ReservationExpiryCriterion implements CyodaCriterion {
          boolean isExpired = !expiresAtInstant.isAfter(now); // expired if expiresAt <= now
          String status = reservation.getStatus().trim();
 
-         // If reservation has expired according to expiresAt, its status should be EXPIRED (business rule)
+         // Business rules:
+         // - If expired by timestamp -> status must be EXPIRED
+         // - If not expired -> status must NOT be EXPIRED
          if (isExpired) {
              if (!"EXPIRED".equalsIgnoreCase(status)) {
                  return EvaluationOutcome.fail("Reservation has passed its expiresAt but status is not EXPIRED", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);

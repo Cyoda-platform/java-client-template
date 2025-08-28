@@ -22,7 +22,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -59,7 +58,7 @@ public class CartController {
     })
     @PostMapping
     public ResponseEntity<?> createCart(
-            @RequestBody(required = true, description = "Cart create payload", content = @Content(schema = @Schema(implementation = CreateCartRequest.class)))
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, description = "Cart create payload", content = @Content(schema = @Schema(implementation = CreateCartRequest.class)))
             @org.springframework.web.bind.annotation.RequestBody CreateCartRequest request
     ) {
         try {
@@ -207,7 +206,7 @@ public class CartController {
     public ResponseEntity<?> updateCart(
             @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
             @PathVariable("technicalId") String technicalId,
-            @RequestBody(required = true, description = "Cart update payload", content = @Content(schema = @Schema(implementation = UpdateCartRequest.class)))
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, description = "Cart update payload", content = @Content(schema = @Schema(implementation = UpdateCartRequest.class)))
             @org.springframework.web.bind.annotation.RequestBody UpdateCartRequest request
     ) {
         try {
