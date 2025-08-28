@@ -1,0 +1,108 @@
+{
+    "version": "1.0",
+    "name": "Owner Workflow",
+    "desc": "Workflow for Owner entity derived from functional requirements (verification and activation flow).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_owner",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "CREATED": {
+            "transitions": [
+                {
+                    "name": "start_verification",
+                    "next": "VERIFICATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "VerifyOwnerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VERIFICATION": {
+            "transitions": [
+                {
+                    "name": "auto_approve_on_email_verified",
+                    "next": "APPROVED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EmailVerifiedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "manual_approval",
+                    "next": "APPROVED",
+                    "manual": true,
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "$.manualApproval",
+                        "operation": "EQUALS",
+                        "value": true
+                    }
+                }
+            ]
+        },
+        "APPROVED": {
+            "transitions": [
+                {
+                    "name": "activate_owner",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ActivateOwnerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "NotifyOwnerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "suspend_owner_manual",
+                    "next": "SUSPENDED",
+                    "manual": true
+                }
+            ]
+        },
+        "SUSPENDED": {
+            "transitions": [
+                {
+                    "name": "deactivate_owner",
+                    "next": "TERMINATED",
+                    "manual": true
+                }
+            ]
+        },
+        "TERMINATED": {
+            "transitions": []
+        }
+    }
+}

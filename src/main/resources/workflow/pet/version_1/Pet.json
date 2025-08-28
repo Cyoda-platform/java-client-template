@@ -1,0 +1,107 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Workflow for Pet entity derived from functional requirements (PERSISTED -> ENRICHMENT -> AVAILABILITY_CHECK -> INDEXING -> LISTED/ARCHIVED)",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "persisted_to_enrichment",
+                    "next": "ENRICHMENT",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EnrichPetProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ENRICHMENT": {
+            "transitions": [
+                {
+                    "name": "enrichment_to_availability_check",
+                    "next": "AVAILABILITY_CHECK",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DetermineAvailabilityProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "AVAILABILITY_CHECK": {
+            "transitions": [
+                {
+                    "name": "availability_to_indexing",
+                    "next": "INDEXING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "IndexPetProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INDEXING": {
+            "transitions": [
+                {
+                    "name": "indexing_to_listed",
+                    "next": "LISTED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EnrichmentCompleteCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "indexing_to_archived",
+                    "next": "ARCHIVED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidPetDataCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "LISTED": {
+            "transitions": []
+        },
+        "ARCHIVED": {
+            "transitions": []
+        }
+    }
+}
