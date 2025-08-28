@@ -1,6 +1,8 @@
-Let's define the functional requirements for your "Purrfect Pets" API application in an Event-Driven Architecture (EDA) approach. We'll focus on the core entities and their workflows.
+# Functional Requirements for "Purrfect Pets" API Application
 
-### 1. Entity Definitions
+This document outlines the functional requirements for the "Purrfect Pets" API application, designed using an Event-Driven Architecture (EDA) approach. The focus is on core entities and their workflows.
+
+## 1. Entity Definitions
 ```
 Pet:
 - id: String (unique identifier for each pet)
@@ -22,13 +24,13 @@ AdoptionRequest:
 - status: String (current status of the request, e.g., pending, approved, rejected)
 ```
 
-### 2. Entity workflows
+## 2. Entity Workflows
 
-**Pet workflow:**
-1. Initial State: Pet created with AVAILABLE status.
-2. Adoption Process: User submits an adoption request.
-3. Approval: Review adoption request and update status to ADOPTED or AVAILABLE.
-4. Notification: Notify user of the adoption outcome.
+### Pet Workflow:
+1. **Initial State**: Pet created with AVAILABLE status.
+2. **Adoption Process**: User submits an adoption request.
+3. **Approval**: Review adoption request and update status to ADOPTED or AVAILABLE.
+4. **Notification**: Notify user of the adoption outcome.
 
 ```mermaid
 stateDiagram-v2
@@ -40,10 +42,10 @@ stateDiagram-v2
     REJECTED --> [*]
 ```
 
-**User workflow:**
-1. Initial State: User created.
-2. Submit Request: User submits an adoption request.
-3. Notification: User notified of request status (approved/rejected).
+### User Workflow:
+1. **Initial State**: User created.
+2. **Submit Request**: User submits an adoption request.
+3. **Notification**: User notified of request status (approved/rejected).
 
 ```mermaid
 stateDiagram-v2
@@ -52,10 +54,10 @@ stateDiagram-v2
     REQUEST_SUBMITTED --> [*]
 ```
 
-**AdoptionRequest workflow:**
-1. Initial State: Request created with PENDING status.
-2. Processing: Review request and update status based on approval.
-3. Notification: Notify user of request status.
+### AdoptionRequest Workflow:
+1. **Initial State**: Request created with PENDING status.
+2. **Processing**: Review request and update status based on approval.
+3. **Notification**: Notify user of request status.
 
 ```mermaid
 stateDiagram-v2
@@ -66,7 +68,7 @@ stateDiagram-v2
     REJECTED --> [*]
 ```
 
-### 3. Pseudo code for processor classes
+## 3. Pseudo Code for Processor Classes
 ```java
 class UserSubmitsRequestProcessor {
     void process(AdoptionRequest request) {
@@ -87,9 +89,9 @@ class ReviewRequestProcessor {
 }
 ```
 
-### 4. API Endpoints Design Rules
+## 4. API Endpoints Design Rules
 - **POST /pets**: 
-  - Request: 
+  - **Request**: 
   ```json
   {
       "name": "Fluffy",
@@ -97,7 +99,7 @@ class ReviewRequestProcessor {
       "age": 2
   }
   ```
-  - Response: 
+  - **Response**: 
   ```json
   {
       "technicalId": "petId123"
@@ -105,14 +107,14 @@ class ReviewRequestProcessor {
   ```
 
 - **POST /users**: 
-  - Request: 
+  - **Request**: 
   ```json
   {
       "name": "John Doe",
       "email": "john@example.com"
   }
   ```
-  - Response: 
+  - **Response**: 
   ```json
   {
       "technicalId": "userId123"
@@ -120,14 +122,14 @@ class ReviewRequestProcessor {
   ```
 
 - **POST /adoptionRequests**: 
-  - Request: 
+  - **Request**: 
   ```json
   {
       "petId": "petId123",
       "userId": "userId123"
   }
   ```
-  - Response: 
+  - **Response**: 
   ```json
   {
       "technicalId": "requestId123"
@@ -138,4 +140,4 @@ class ReviewRequestProcessor {
 - **GET /users/{technicalId}**: Retrieve user details by technicalId.
 - **GET /adoptionRequests/{technicalId}**: Retrieve adoption request details by technicalId.
 
-This structure provides a solid foundation for your "Purrfect Pets" API application with clear workflows and endpoints. Let me know if you need further adjustments or additional entities!
+This document provides a comprehensive overview of the functional requirements for the "Purrfect Pets" API application, outlining the essential entities, their workflows, and the API specifications.
