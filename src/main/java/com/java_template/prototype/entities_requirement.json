@@ -1,0 +1,54 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Siamese",
+                    "description": "Friendly young Siamese who loves naps in sunny spots.",
+                    "gender": "F",
+                    "importedFrom": "Petstore",
+                    "name": "Whiskers",
+                    "petId": "pet-123",
+                    "photoUrls": [
+                        "https://petstore.example/images/pet-123-1.jpg",
+                        "https://petstore.example/images/pet-123-2.jpg"
+                    ],
+                    "species": "cat",
+                    "status": "AVAILABLE",
+                    "tags": [
+                        "playful",
+                        "lapcat"
+                    ]
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "buyerContact": "alex@example.com",
+                    "buyerName": "Alex",
+                    "notes": "I love cats!",
+                    "orderId": "order-789",
+                    "petId": "pet-123",
+                    "placedAt": "2025-08-28T12:05:00Z",
+                    "status": "PLACED",
+                    "type": "adoption"
+                }
+            }
+        },
+        {
+            "PetImportJob": {
+                "entity_data_example": {
+                    "createdCount": 10,
+                    "error": null,
+                    "fetchedCount": 12,
+                    "jobId": "job-001",
+                    "requestedAt": "2025-08-28T12:00:00Z",
+                    "sourceUrl": "https://petstore.example/api/v1/pets",
+                    "status": "FETCHING"
+                }
+            }
+        }
+    ]
+}
