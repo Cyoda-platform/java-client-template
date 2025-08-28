@@ -1,5 +1,7 @@
 package com.java_template.application.processor;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.adoptionrequest.version_1.AdoptionRequest;
 import com.java_template.application.entity.pet.version_1.Pet;
 import com.java_template.common.serializer.ErrorInfo;
@@ -11,7 +13,6 @@ import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
@@ -105,8 +106,25 @@ public class PetStatusUpdateProcessor implements CyodaProcessor {
 
             // Use the first matched pet
             DataPayload petPayload = dataPayloads.get(0);
-            // Extract technical id for update
-            String technicalId = petPayload.getTechnicalId() != null ? petPayload.getTechnicalId() : petPayload.getId();
+            // Extract technical id for update from meta or data
+            String technicalId = null;
+            JsonNode metaNode = petPayload.getMeta();
+            if (metaNode != null && !metaNode.isNull()) {
+                JsonNode techNode = metaNode.has("technicalId") ? metaNode.get("technicalId") : metaNode.get("technical_id");
+                if (techNode == null) techNode = metaNode.get("id");
+                if (techNode != null && !techNode.isNull()) {
+                    technicalId = techNode.asText();
+                }
+            }
+
+            // Fallback: try to read id from data payload
+            JsonNode dataNode = petPayload.getData();
+            if ((technicalId == null || technicalId.isBlank()) && dataNode != null && !dataNode.isNull()) {
+                JsonNode idNode = dataNode.get("id");
+                if (idNode != null && !idNode.isNull()) {
+                    technicalId = idNode.asText();
+                }
+            }
 
             Pet pet = objectMapper.treeToValue(petPayload.getData(), Pet.class);
             if (pet == null) {

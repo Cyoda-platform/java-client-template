@@ -174,16 +174,32 @@ public class PetController {
 
     // helper to extract technicalId from DataPayload without using reflection
     private String getTechnicalIdFromPayload(DataPayload payload) {
+        if (payload == null) return null;
         try {
-            // DataPayload typically exposes getTechnicalId(); use it directly
-            Object tech = payload.getTechnicalId();
-            if (tech != null) {
-                return tech.toString();
+            JsonNode meta = payload.getMeta();
+            if (meta != null) {
+                if (meta.has("technicalId") && !meta.get("technicalId").isNull()) {
+                    return meta.get("technicalId").asText();
+                }
+                if (meta.has("technical_id") && !meta.get("technical_id").isNull()) {
+                    return meta.get("technical_id").asText();
+                }
+                if (meta.has("id") && !meta.get("id").isNull()) {
+                    return meta.get("id").asText();
+                }
+                // check nested properties commonly used
+                JsonNode possible = meta.get("entityId");
+                if (possible != null && !possible.isNull()) {
+                    return possible.asText();
+                }
             }
-        } catch (NoSuchMethodError | NoSuchFieldError e) {
-            logger.debug("DataPayload does not expose technicalId in expected way: {}", e.getMessage());
-        } catch (Throwable t) {
-            logger.debug("Could not extract technicalId from DataPayload: {}", t.getMessage());
+            // fallback: check data payload for an id field
+            JsonNode data = payload.getData();
+            if (data != null && data.has("id") && !data.get("id").isNull()) {
+                return data.get("id").asText();
+            }
+        } catch (Exception e) {
+            logger.debug("Could not extract technicalId from DataPayload: {}", e.getMessage());
         }
         return null;
     }

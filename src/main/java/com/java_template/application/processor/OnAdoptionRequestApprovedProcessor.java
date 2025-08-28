@@ -13,6 +13,7 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -133,8 +134,17 @@ public class OnAdoptionRequestApprovedProcessor implements CyodaProcessor {
             pet.setStatus("adopted");
             pet.setUpdatedAt(Instant.now().toString());
 
-            // Persist pet update using technical id from payload
-            String technicalId = petPayload.getTechnicalId();
+            // Persist pet update using technical id from payload meta
+            String technicalId = null;
+            JsonNode meta = petPayload.getMeta();
+            if (meta != null) {
+                JsonNode techNode = meta.get("technicalId");
+                if (techNode == null) techNode = meta.get("id");
+                if (techNode != null && !techNode.isNull()) {
+                    technicalId = techNode.asText();
+                }
+            }
+
             if (technicalId == null || technicalId.isBlank()) {
                 // If technical id is not available, can't update; mark request rejected
                 logger.error("Missing technicalId for Pet payload (petId={}) - cannot update Pet", petId);
