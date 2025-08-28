@@ -1,0 +1,76 @@
+{
+    "version": "1.0",
+    "name": "Subscriber Workflow",
+    "desc": "Workflow for Subscriber entity derived from functional requirements (CREATED -> VERIFIED -> ACTIVE/INACTIVE)",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "init_to_created",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "CREATED": {
+            "transitions": [
+                {
+                    "name": "created_to_verified",
+                    "next": "VERIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "VerificationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "DeliveryTestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VERIFIED": {
+            "transitions": [
+                {
+                    "name": "verified_to_active",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ActiveSubscriberCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "verified_to_inactive",
+                    "next": "INACTIVE",
+                    "manual": true
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "active_to_inactive",
+                    "next": "INACTIVE",
+                    "manual": true
+                }
+            ]
+        },
+        "INACTIVE": {
+            "transitions": []
+        }
+    }
+}

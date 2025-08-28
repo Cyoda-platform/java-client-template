@@ -1,0 +1,150 @@
+{
+    "version": "1.0",
+    "name": "Laureate Workflow",
+    "desc": "Workflow for Laureate entity extracted from the functional requirements (mermaid state diagram translated to FSM JSON).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "start_validation",
+                    "next": "VALIDATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "LaureateValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATING": {
+            "transitions": [
+                {
+                    "name": "validation_failed",
+                    "next": "INVALID",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DuplicateCheckCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "FieldFormatCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "validation_succeeded",
+                    "next": "VALIDATED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "INVALID": {
+            "transitions": [
+                {
+                    "name": "terminate_invalid",
+                    "next": "[*]",
+                    "manual": false
+                }
+            ]
+        },
+        "VALIDATED": {
+            "transitions": [
+                {
+                    "name": "start_enrichment",
+                    "next": "ENRICHING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "LaureateEnrichmentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ENRICHING": {
+            "transitions": [
+                {
+                    "name": "finish_enrichment",
+                    "next": "ENRICHED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EnrichmentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ENRICHED": {
+            "transitions": [
+                {
+                    "name": "index_ready",
+                    "next": "READY",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "IndexingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "READY": {
+            "transitions": [
+                {
+                    "name": "complete",
+                    "next": "[*]",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
