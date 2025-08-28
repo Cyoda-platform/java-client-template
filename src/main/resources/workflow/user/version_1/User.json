@@ -1,0 +1,124 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Workflow for User entity derived from functional requirements (adapted to avoid loops).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_REGISTERED",
+                    "next": "REGISTERED",
+                    "manual": false
+                }
+            ]
+        },
+        "REGISTERED": {
+            "transitions": [
+                {
+                    "name": "verify_profile",
+                    "next": "PROFILE_VERIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "VerifyProfileProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PROFILE_VERIFIED": {
+            "transitions": [
+                {
+                    "name": "activate_user",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ActivateUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "IdentityVerifiedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "promote_to_trusted",
+                    "next": "TRUSTED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TrustLevelProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PastBehaviorCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "suspend_user",
+                    "next": "SUSPENDED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SuspendUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "TRUSTED": {
+            "transitions": [],
+            "note": "Terminal trusted state (no further automatic transitions to avoid loops)"
+        },
+        "SUSPENDED": {
+            "transitions": [
+                {
+                    "name": "reinstate_user",
+                    "next": "REINSTATED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ReinstateUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "REINSTATED": {
+            "transitions": []
+        }
+    }
+}

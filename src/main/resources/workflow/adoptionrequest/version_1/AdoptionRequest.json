@@ -1,0 +1,163 @@
+{
+    "version": "1.0",
+    "name": "AdoptionRequest Workflow",
+    "desc": "Workflow for AdoptionRequest entity based on functional requirements mermaid diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_to_created",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "CREATED": {
+            "transitions": [
+                {
+                    "name": "created_to_validation",
+                    "next": "VALIDATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ValidateRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AgeEligibilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "VALIDATION": {
+            "transitions": [
+                {
+                    "name": "validation_to_pending_review",
+                    "next": "PENDING_REVIEW",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AssignForReviewProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PENDING_REVIEW": {
+            "transitions": [
+                {
+                    "name": "pending_review_to_approved",
+                    "next": "APPROVED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ApproveRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "pending_review_to_rejected",
+                    "next": "REJECTED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RejectRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "APPROVED": {
+            "transitions": [
+                {
+                    "name": "approved_to_payment_pending",
+                    "next": "PAYMENT_PENDING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CreatePaymentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PAYMENT_PENDING": {
+            "transitions": [
+                {
+                    "name": "payment_pending_to_completed",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PaymentConfirmedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "name": "completed_to_closed",
+                    "next": "CLOSED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "FinalizeAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "REJECTED": {
+            "transitions": [
+                {
+                    "name": "rejected_to_closed",
+                    "next": "CLOSED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CloseRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "CLOSED": {
+            "transitions": []
+        }
+    }
+}
