@@ -34,7 +34,7 @@ public class EmailVerifiedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Owner.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -43,7 +43,8 @@ public class EmailVerifiedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Use exact criterion name match (case-sensitive) as required
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Owner> context) {
@@ -70,6 +71,9 @@ public class EmailVerifiedCriterion implements CyodaCriterion {
 
          // Local-part and domain basic length checks
          int atIndex = normalized.indexOf('@');
+         if (atIndex <= 0 || atIndex == normalized.length() - 1) {
+             return EvaluationOutcome.fail("Email format is invalid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
          String local = normalized.substring(0, atIndex);
          String domain = normalized.substring(atIndex + 1);
          if (local.length() > 64) {
@@ -79,7 +83,8 @@ public class EmailVerifiedCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Email domain is too long", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // If all checks pass, consider the email verified for the purpose of this automated criterion.
+         // Considered verified for the automated criterion if format and basic quality checks pass
+         logger.debug("EmailVerifiedCriterion: email for owner {} passed verification checks", owner.getId());
          return EvaluationOutcome.success();
     }
 }

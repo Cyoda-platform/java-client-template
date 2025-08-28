@@ -9,11 +9,6 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.cyoda.cloud.api.event.common.DataPayload;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,30 +37,64 @@ public class PetValidationProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
+            // Use business-level validation rather than relying on entity.isValid() which may enforce different constraints.
             .validate(this::isValidEntity, "Invalid entity state")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
+
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Business-level validation for Pet that checks required fields for listing.
+     * Note: We intentionally do not require status here because new entities may not have it set and
+     * the processor is responsible for assigning the correct workflow status.
+     */
     private boolean isValidEntity(Pet entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getName() == null || entity.getName().isBlank()) return false;
+        if (entity.getSpecies() == null || entity.getSpecies().isBlank()) return false;
+        if (entity.getSex() == null || entity.getSex().isBlank()) return false;
+        // age if provided must be non-negative
+        if (entity.getAge() != null && entity.getAge() < 0) return false;
+        return true;
     }
 
+    /**
+     * Applies the Pet validation and state transition rules:
+     * - If required data fields missing -> status = "invalid"
+     * - If no photos present -> status = "invalid"
+     * - Otherwise -> status = "available" (unless already "adopted")
+     *
+     * The processor updates updatedAt timestamp. Persistence of the entity state is handled by Cyoda workflow.
+     */
     private Pet processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
         Pet entity = context.entity();
 
-        // Business rules:
-        // 1) PetDataCompleteCriterion: required fields are already validated by isValid()
-        // 2) PetPhotoCriterion: requires at least one photo
-        // If any criterion fails -> mark pet as "invalid"
-        // If all pass -> mark pet as "available" (listed) unless already adopted
+        if (entity == null) {
+            logger.error("Received null Pet entity in execution context");
+            return null;
+        }
 
+        // Re-check required fields defensively (even though validate() ran)
+        boolean missingRequired =
+            entity.getName() == null || entity.getName().isBlank()
+            || entity.getSpecies() == null || entity.getSpecies().isBlank()
+            || entity.getSex() == null || entity.getSex().isBlank()
+            || (entity.getAge() != null && entity.getAge() < 0);
+
+        if (missingRequired) {
+            logger.warn("Pet '{}' failed validation: missing required fields. Marking as invalid.", entity.getId());
+            entity.setStatus("invalid");
+            entity.setUpdatedAt(Instant.now().toString());
+            return entity;
+        }
+
+        // Photo criterion: require at least one photo
         boolean hasPhotos = entity.getPhotos() != null && !entity.getPhotos().isEmpty();
-
         if (!hasPhotos) {
             logger.warn("Pet '{}' failed validation: no photos present. Marking as invalid.", entity.getId());
             entity.setStatus("invalid");
@@ -73,7 +102,7 @@ public class PetValidationProcessor implements CyodaProcessor {
             return entity;
         }
 
-        // All checks passed, set status to available unless already adopted
+        // All checks passed -> set status to available (listed) unless already adopted
         String currentStatus = entity.getStatus();
         if (currentStatus == null || !"adopted".equalsIgnoreCase(currentStatus)) {
             entity.setStatus("available");

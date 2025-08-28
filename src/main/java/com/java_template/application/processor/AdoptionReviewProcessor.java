@@ -10,9 +10,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.cyoda.cloud.api.event.common.DataPayload;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.java_template.common.service.EntityService;
@@ -62,6 +62,7 @@ public class AdoptionReviewProcessor implements CyodaProcessor {
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
+
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return className.equalsIgnoreCase(modelSpec.operationName());
@@ -91,27 +92,9 @@ public class AdoptionReviewProcessor implements CyodaProcessor {
                     String now = Instant.now().toString();
                     entity.setProcessedAt(now);
 
-                    // Attempt to populate processedBy from request actor if available
-                    try {
-                        // best-effort: if the context exposes the original request with an actor/initiator, use it.
-                        // This is wrapped in try/catch because the accessor isn't guaranteed across platforms.
-                        Object reqObj = context.request();
-                        if (reqObj != null) {
-                            // many request implementations expose getActor() or getInitiator(); try both reflectively-safe approaches
-                            // but per instructions we must not use reflection. So leave processedBy unchanged if not already set.
-                            // Keep existing processedBy if present; otherwise set to "manual-review".
-                            if (entity.getProcessedBy() == null || entity.getProcessedBy().isBlank()) {
-                                entity.setProcessedBy("manual-review");
-                            }
-                        } else {
-                            if (entity.getProcessedBy() == null || entity.getProcessedBy().isBlank()) {
-                                entity.setProcessedBy("manual-review");
-                            }
-                        }
-                    } catch (Exception ex) {
-                        if (entity.getProcessedBy() == null || entity.getProcessedBy().isBlank()) {
-                            entity.setProcessedBy("manual-review");
-                        }
+                    // Populate processedBy if not already set
+                    if (entity.getProcessedBy() == null || entity.getProcessedBy().isBlank()) {
+                        entity.setProcessedBy("manual-review");
                     }
 
                     if ("approved".equals(normalized)) {
@@ -131,30 +114,31 @@ public class AdoptionReviewProcessor implements CyodaProcessor {
                             if (dataPayloads != null && !dataPayloads.isEmpty()) {
                                 DataPayload payload = dataPayloads.get(0);
                                 JsonNode dataNode = payload.getData();
+                                JsonNode metaNode = payload.getMeta();
                                 if (dataNode != null) {
                                     // convert to Pet
                                     Pet pet = objectMapper.treeToValue(dataNode, Pet.class);
                                     if (pet != null) {
                                         pet.setStatus("pending");
-                                        // Retrieve stored technicalId if present in payload data
+                                        // Attempt to extract technicalId from meta first, then from data
                                         String technicalId = null;
-                                        if (dataNode.has("technicalId") && !dataNode.get("technicalId").isNull()) {
-                                            technicalId = dataNode.get("technicalId").asText();
-                                        } else if (dataNode.has("id") && !dataNode.get("id").isNull()) {
-                                            // fallback: sometimes the stored payload may include a technicalId field name different; avoid overwriting business id
-                                            technicalId = null;
+                                        try {
+                                            if (metaNode != null && metaNode.has("technicalId") && !metaNode.get("technicalId").isNull()) {
+                                                technicalId = metaNode.get("technicalId").asText();
+                                            }
+                                        } catch (Exception ex) {
+                                            // ignore and fallback
                                         }
-                                        // If technicalId not present in data node, try payload metadata if available via toString fallback (best-effort)
-                                        if (technicalId == null || technicalId.isBlank()) {
-                                            // Try common DataPayload getters (best-effort and non-failing)
+                                        if ((technicalId == null || technicalId.isBlank()) && dataNode != null) {
                                             try {
-                                                Object maybeId = null;
-                                                // some implementations have getTechnicalId() or getId(); try both guarded
-                                                try {
-                                                    // This will likely compile to no-op if methods not present; wrapped in separate try to avoid compile errors
-                                                } catch (Throwable ignored) {}
-                                            } catch (Throwable ignored) {}
+                                                if (dataNode.has("technicalId") && !dataNode.get("technicalId").isNull()) {
+                                                    technicalId = dataNode.get("technicalId").asText();
+                                                }
+                                            } catch (Exception ex) {
+                                                // ignore and proceed
+                                            }
                                         }
+
                                         if (technicalId != null && !technicalId.isBlank()) {
                                             try {
                                                 CompletableFuture<UUID> updated = entityService.updateItem(UUID.fromString(technicalId), pet);

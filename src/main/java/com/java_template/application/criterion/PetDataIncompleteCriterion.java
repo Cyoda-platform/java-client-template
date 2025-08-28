@@ -29,7 +29,7 @@ public class PetDataIncompleteCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Pet.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class PetDataIncompleteCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
@@ -70,6 +71,22 @@ public class PetDataIncompleteCriterion implements CyodaCriterion {
          // Age must be non-negative if provided
          if (entity.getAge() != null && entity.getAge() < 0) {
              return EvaluationOutcome.fail("Pet age must be non-negative", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Photos: require at least one photo for listing
+         if (entity.getPhotos() == null || entity.getPhotos().isEmpty()) {
+             return EvaluationOutcome.fail("At least one pet photo is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Validate status values against expected canonical statuses from functional requirements.
+         // If an explicit unknown status is present, mark as data quality failure.
+         String status = entity.getStatus();
+         if (status != null && !status.isBlank()) {
+             String normalized = status.strip().toLowerCase();
+             boolean allowed = "available".equals(normalized) || "pending".equals(normalized) || "adopted".equals(normalized);
+             if (!allowed) {
+                 return EvaluationOutcome.fail("Unknown pet status: " + status, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
          }
 
         return EvaluationOutcome.success();
