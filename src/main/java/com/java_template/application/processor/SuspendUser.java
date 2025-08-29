@@ -52,7 +52,7 @@ public class SuspendUser implements CyodaProcessor {
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
             .validate(this::isValidEntity, "Invalid entity state")
-            .map(this::processEntityLogic) // Implement business logic here
+            .map(ctx -> processEntityLogic(ctx, request.getId())) // pass request id explicitly
             .complete();
     }
 
@@ -65,7 +65,7 @@ public class SuspendUser implements CyodaProcessor {
         return entity != null && entity.isValid();
     }
 
-    private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context) {
+    private User processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<User> context, String requestId) {
         User user = context.entity();
 
         // Business logic for suspending a user (admin action)
@@ -90,7 +90,7 @@ public class SuspendUser implements CyodaProcessor {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("previous_gdpr_state", previousGdprState);
         metadata.put("previous_marketing_enabled", previousMarketingEnabled);
-        metadata.put("trigger_request_id", context.requestId());
+        metadata.put("trigger_request_id", requestId);
         audit.setMetadata(metadata);
 
         // evidenceRef left null for admin suspend
