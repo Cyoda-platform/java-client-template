@@ -26,9 +26,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.time.Instant;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
- * Dull controller for Media entity. Proxies requests to EntityService.
+ * Controller for Media entity. Now accepts batch create requests (array of media payloads).
  */
 @RestController
 @RequestMapping("/media/v1")
@@ -45,50 +47,57 @@ public class MediaController {
         this.objectMapper = objectMapper;
     }
 
-    @Operation(summary = "Create Media", description = "Persist a Media entity and start processing workflows. Returns the technicalId only.")
+    @Operation(summary = "Create Media (batch)", description = "Persist multiple Media entities and start processing workflows. Returns technicalIds.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CreateResponse.class))),
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @io.swagger.v3.oas.annotations.media.ArraySchema(schema = @Schema(implementation = BatchCreateResponse.class)))),
             @ApiResponse(responseCode = "400", description = "Bad Request"),
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping(consumes = "application/json", produces = "application/json")
-    public ResponseEntity<CreateResponse> createMedia(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(schema = @Schema(implementation = CreateMediaRequest.class)))
-            @RequestBody CreateMediaRequest request
+    public ResponseEntity<BatchCreateResponse> createMedia(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(array = @io.swagger.v3.oas.annotations.media.ArraySchema(schema = @Schema(implementation = CreateMediaRequest.class))))
+            @RequestBody List<CreateMediaRequest> requests
     ) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
-            if (request.getOwnerId() == null || request.getOwnerId().isBlank()) {
-                throw new IllegalArgumentException("owner_id is required");
-            }
-            if (request.getFilename() == null || request.getFilename().isBlank()) {
-                throw new IllegalArgumentException("filename is required");
-            }
-            if (request.getMime() == null || request.getMime().isBlank()) {
-                throw new IllegalArgumentException("mime is required");
+            if (requests == null || requests.isEmpty()) {
+                throw new IllegalArgumentException("request body must be a non-empty array");
             }
 
-            // Minimal mapping to entity (no business logic)
-            Media media = new Media();
-            // generate technical identifiers required by entity validation
-            media.setMedia_id(UUID.randomUUID().toString());
-            media.setOwner_id(request.getOwnerId());
-            media.setFilename(request.getFilename());
-            media.setMime(request.getMime());
-            media.setCreated_at(Instant.now().toString());
-            // set a sensible default status; workflows will adjust it
-            media.setStatus("uploaded");
+            List<Media> entities = new ArrayList<>();
+            for (CreateMediaRequest request : requests) {
+                if (request == null) continue;
+                if (request.getOwnerId() == null || request.getOwnerId().isBlank()) {
+                    throw new IllegalArgumentException("owner_id is required for each media item");
+                }
+                if (request.getFilename() == null || request.getFilename().isBlank()) {
+                    throw new IllegalArgumentException("filename is required for each media item");
+                }
+                if (request.getMime() == null || request.getMime().isBlank()) {
+                    throw new IllegalArgumentException("mime is required for each media item");
+                }
 
-            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+                Media media = new Media();
+                media.setMedia_id(UUID.randomUUID().toString());
+                media.setOwner_id(request.getOwnerId());
+                media.setFilename(request.getFilename());
+                media.setMime(request.getMime());
+                media.setCreated_at(Instant.now().toString());
+                media.setStatus("uploaded");
+                entities.add(media);
+            }
+
+            List<UUID> ids = entityService.addItems(
                     Media.ENTITY_NAME,
                     Media.ENTITY_VERSION,
-                    media
-            );
-            java.util.UUID entityId = idFuture.get();
-            CreateResponse resp = new CreateResponse();
-            resp.setTechnicalId(entityId.toString());
+                    entities
+            ).get();
+
+            List<String> technicalIds = new ArrayList<>();
+            if (ids != null) {
+                for (UUID u : ids) technicalIds.add(u != null ? u.toString() : null);
+            }
+            BatchCreateResponse resp = new BatchCreateResponse();
+            resp.setTechnicalIds(technicalIds);
             return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException iae) {
             logger.warn("Validation failed for createMedia: {}", iae.getMessage());
@@ -113,52 +122,6 @@ public class MediaController {
         }
     }
 
-    @Operation(summary = "Get Media by technicalId", description = "Retrieve a persisted Media entity by its technicalId.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = Media.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
-    })
-    @GetMapping(value = "/{technicalId}", produces = "application/json")
-    public ResponseEntity<Media> getMediaById(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-            @PathVariable("technicalId") String technicalId
-    ) {
-        try {
-            if (technicalId == null || technicalId.isBlank()) {
-                throw new IllegalArgumentException("technicalId is required");
-            }
-            CompletableFuture<DataPayload> itemFuture = entityService.getItem(UUID.fromString(technicalId));
-            DataPayload dataPayload = itemFuture.get();
-            if (dataPayload == null || dataPayload.getData() == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            }
-            Media media = objectMapper.treeToValue(dataPayload.getData(), Media.class);
-            return ResponseEntity.ok(media);
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid argument in getMediaById: {}", iae.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            } else if (cause instanceof IllegalArgumentException) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-            } else {
-                logger.error("ExecutionException in getMediaById", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-            }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            logger.error("Interrupted while retrieving media", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        } catch (Exception e) {
-            logger.error("Unexpected error in getMediaById", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
     @Data
     @Schema(description = "Create Media Request")
     public static class CreateMediaRequest {
@@ -173,9 +136,9 @@ public class MediaController {
     }
 
     @Data
-    @Schema(description = "Create Response with technicalId")
-    public static class CreateResponse {
-        @Schema(name = "technicalId", description = "Technical ID of created entity", example = "tech-media-001")
-        private String technicalId;
+    @Schema(description = "Batch create response with technicalIds")
+    public static class BatchCreateResponse {
+        @Schema(name = "technicalIds", description = "Technical IDs of created entities")
+        private List<String> technicalIds;
     }
 }
