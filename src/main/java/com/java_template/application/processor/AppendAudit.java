@@ -1,0 +1,144 @@
+package com.java_template.application.processor;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.java_template.application.entity.audit.version_1.Audit;
+import com.java_template.application.entity.user.version_1.User;
+import com.java_template.common.serializer.ErrorInfo;
+import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.CyodaProcessor;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
+@Component
+public class AppendAudit implements CyodaProcessor {
+
+    private static final Logger logger = LoggerFactory.getLogger(AppendAudit.class);
+    private final String className = this.getClass().getSimpleName();
+    private final ProcessorSerializer serializer;
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public AppendAudit(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
+
+    @Override
+    public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
+        EntityProcessorCalculationRequest request = context.getEvent();
+        logger.info("Processing Audit for request: {}", request.getId());
+
+        return serializer.withRequest(request) //always use this method name to request EntityProcessorCalculationResponse
+            .toEntity(Audit.class)
+            .withErrorHandler((error, entity) -> {
+                    logger.error("Failed to extract Audit entity: {}", error.getMessage(), error);
+                    return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
+                })
+            .validate(this::isValidEntity, "Invalid entity state")
+            .map(this::processEntityLogic)
+            .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return className.equalsIgnoreCase(modelSpec.operationName());
+    }
+
+    private boolean isValidEntity(Audit entity) {
+        return entity != null && entity.isValid();
+    }
+
+    private Audit processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Audit> context) {
+        Audit audit = context.entity();
+
+        try {
+            // Ensure auditId exists
+            if (audit.getAuditId() == null || audit.getAuditId().isBlank()) {
+                String generated = UUID.randomUUID().toString();
+                audit.setAuditId(generated);
+                logger.debug("Generated auditId: {}", generated);
+            }
+
+            // Ensure timestamp exists
+            if (audit.getTimestamp() == null || audit.getTimestamp().isBlank()) {
+                String now = Instant.now().toString();
+                audit.setTimestamp(now);
+                logger.debug("Set audit timestamp: {}", now);
+            }
+
+            // Ensure metadata map initialized
+            if (audit.getMetadata() == null) {
+                audit.setMetadata(new HashMap<>());
+            }
+
+            // Persist the audit record immutably by adding it as a new item
+            CompletableFuture<java.util.UUID> addFuture = entityService.addItem(
+                Audit.ENTITY_NAME,
+                Audit.ENTITY_VERSION,
+                audit
+            );
+            java.util.UUID persistedId = addFuture.get();
+            logger.info("Appended Audit record persisted with id: {}", persistedId);
+
+            // If the audit references a User (format expected: "<entityId>:User"), append reference to user's auditRefs
+            String entityRef = audit.getEntityRef();
+            if (entityRef != null && !entityRef.isBlank() && entityRef.contains(":")) {
+                String[] parts = entityRef.split(":", 2);
+                if (parts.length == 2) {
+                    String referencedId = parts[0];
+                    String referencedType = parts[1];
+                    if ("User".equalsIgnoreCase(referencedType.trim())) {
+                        try {
+                            UUID userUuid = UUID.fromString(referencedId);
+                            CompletableFuture<DataPayload> userFuture = entityService.getItem(userUuid);
+                            DataPayload userPayload = userFuture.get();
+                            if (userPayload != null && userPayload.getData() != null) {
+                                User user = objectMapper.treeToValue(userPayload.getData(), User.class);
+                                if (user != null) {
+                                    List<String> refs = user.getAuditRefs();
+                                    if (refs == null) {
+                                        refs = new ArrayList<>();
+                                        user.setAuditRefs(refs);
+                                    }
+                                    // add persisted audit technical id where possible (use persistedId.toString())
+                                    refs.add(persistedId.toString());
+                                    // Update user entity
+                                    CompletableFuture<java.util.UUID> updateFuture = entityService.updateItem(userUuid, user);
+                                    java.util.UUID updated = updateFuture.get();
+                                    logger.info("Updated User {} with new audit ref. updateId={}", userUuid, updated);
+                                }
+                            } else {
+                                logger.warn("User payload not found for id {}", referencedId);
+                            }
+                        } catch (Exception ex) {
+                            logger.error("Failed to append audit ref to User {}: {}", referencedId, ex.getMessage(), ex);
+                        }
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("Failed to persist audit record: {}", e.getMessage(), e);
+            // Attach error info to context if available (no serializer API call here), but return entity unchanged
+        }
+
+        return audit;
+    }
+}
