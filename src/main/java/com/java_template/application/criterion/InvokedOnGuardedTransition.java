@@ -42,7 +42,9 @@ public class InvokedOnGuardedTransition implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match exact criterion name (case-sensitive)
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Audit> context) {

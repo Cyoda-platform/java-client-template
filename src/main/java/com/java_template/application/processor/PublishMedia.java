@@ -2,6 +2,7 @@ package com.java_template.application.processor;
 
 import com.java_template.application.entity.audit.version_1.Audit;
 import com.java_template.application.entity.media.version_1.Media;
+import com.java_template.application.entity.post.version_1.Post;
 import com.java_template.common.serializer.ErrorInfo;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -10,6 +11,7 @@ import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
@@ -17,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -66,17 +69,51 @@ public class PublishMedia implements CyodaProcessor {
         Media media = context.entity();
 
         try {
-            // Business rule: When media is referenced by a published post, mark it as published.
+            // Only attempt to publish if not already published
             String currentStatus = media.getStatus();
-            if (currentStatus == null || !currentStatus.equalsIgnoreCase("published")) {
-                // If CDN ref is missing but versions exist, attempt to reuse first version filename as hint (non-destructive).
-                if ((media.getCdn_ref() == null || media.getCdn_ref().isBlank()) && media.getVersions() != null && !media.getVersions().isEmpty()) {
-                    // Do not invent a CDN reference; leave null if none exists. This is a no-op except status change.
-                    logger.debug("Media {} has no cdn_ref; leaving cdn_ref unchanged while publishing.", media.getMedia_id());
-                }
+            if (currentStatus != null && currentStatus.equalsIgnoreCase("published")) {
+                logger.debug("Media {} already published; no action taken.", media.getMedia_id());
+                return media;
+            }
 
+            // Business rule: If this media is referenced by any Post that is published -> mark media as published.
+            boolean referencedByPublishedPost = false;
+
+            try {
+                CompletableFuture<List<DataPayload>> itemsFuture = entityService.getItems(
+                    Post.ENTITY_NAME,
+                    Post.ENTITY_VERSION,
+                    null, null, null
+                );
+                List<DataPayload> dataPayloads = itemsFuture.get();
+
+                if (dataPayloads != null && media.getMedia_id() != null && !media.getMedia_id().isBlank()) {
+                    for (DataPayload payload : dataPayloads) {
+                        if (payload == null || payload.getData() == null) continue;
+                        try {
+                            Post post = objectMapper.treeToValue(payload.getData(), Post.class);
+                            if (post == null) continue;
+                            if (post.getStatus() != null && post.getStatus().equalsIgnoreCase("published")
+                                && post.getMedia_refs() != null && post.getMedia_refs().contains(media.getMedia_id())) {
+                                referencedByPublishedPost = true;
+                                break;
+                            }
+                        } catch (Exception e) {
+                            // Ignore individual payload conversion errors but log for diagnostics
+                            logger.debug("Failed to convert post payload to Post object: {}", e.getMessage());
+                        }
+                    }
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                logger.error("Interrupted while fetching posts for media {}: {}", media.getMedia_id(), ie.getMessage(), ie);
+            } catch (ExecutionException ee) {
+                logger.error("Failed to fetch posts for media {}: {}", media.getMedia_id(), ee.getMessage(), ee);
+            }
+
+            if (referencedByPublishedPost) {
                 media.setStatus("published");
-                logger.info("Media {} status set to published", media.getMedia_id());
+                logger.info("Media {} status set to published due to reference from published post", media.getMedia_id());
 
                 // Append an audit entry for the publish action.
                 Audit audit = new Audit();
@@ -108,7 +145,7 @@ public class PublishMedia implements CyodaProcessor {
                     logger.error("Failed to persist audit for media {}: {}", media.getMedia_id(), ee.getMessage(), ee);
                 }
             } else {
-                logger.debug("Media {} already published; no action taken.", media.getMedia_id());
+                logger.debug("Media {} is not referenced by any published post; no status change.", media.getMedia_id());
             }
         } catch (Exception ex) {
             logger.error("Unexpected error while publishing media {}: {}", media != null ? media.getMedia_id() : "unknown", ex.getMessage(), ex);

@@ -38,13 +38,14 @@ public class VerificationReceived implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Use exact criterion name matching (case-sensitive) as required.
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Consent> context) {
          Consent entity = context.entity();
 
-         // Basic required fields validation
+         // Basic required fields validation (use existing getters only)
          if (entity.getConsent_id() == null || entity.getConsent_id().isBlank()) {
              return EvaluationOutcome.fail("consent_id is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }

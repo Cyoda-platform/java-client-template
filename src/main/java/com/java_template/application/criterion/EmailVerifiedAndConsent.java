@@ -29,7 +29,7 @@ public class EmailVerifiedAndConsent implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(User.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class EmailVerifiedAndConsent implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name match (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<User> context) {
@@ -62,6 +63,7 @@ public class EmailVerifiedAndConsent implements CyodaCriterion {
          }
 
          // Business rule: consent (marketing flag) must be enabled (represents double opt-in consent)
+         // Use only existing User properties — the prototype models include marketingEnabled boolean on User
          Boolean marketingEnabled = user.getMarketingEnabled();
          if (marketingEnabled == null || !marketingEnabled) {
              return EvaluationOutcome.fail("marketing consent not granted", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);

@@ -20,7 +20,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.parameters.RequestBody as SwaggerRequestBody;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -54,7 +53,7 @@ public class MediaController {
     })
     @PostMapping(consumes = "application/json", produces = "application/json")
     public ResponseEntity<CreateResponse> createMedia(
-            @SwaggerRequestBody(required = true, content = @Content(schema = @Schema(implementation = CreateMediaRequest.class)))
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true, content = @Content(schema = @Schema(implementation = CreateMediaRequest.class)))
             @RequestBody CreateMediaRequest request
     ) {
         try {

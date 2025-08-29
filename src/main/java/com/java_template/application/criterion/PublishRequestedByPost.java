@@ -31,7 +31,7 @@ public class PublishRequestedByPost implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(PostVersion.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -63,8 +63,25 @@ public class PublishRequestedByPost implements CyodaCriterion {
          // Ensure version has been normalized and chunked before finalization
          String normalized = entity.getNormalized_text();
          List<PostVersion.ChunkMeta> chunks = entity.getChunks_meta();
-         if (normalized == null || normalized.isBlank() || chunks == null || chunks.isEmpty()) {
-             return EvaluationOutcome.fail("PostVersion must be normalized and chunked before publish is requested", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         if (normalized == null || normalized.isBlank()) {
+             return EvaluationOutcome.fail("normalized_text is required and must not be blank before publish is requested", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+         if (chunks == null || chunks.isEmpty()) {
+             return EvaluationOutcome.fail("chunks_meta must be provided and contain at least one chunk before publish is requested", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Validate chunks integrity
+         for (int i = 0; i < chunks.size(); i++) {
+             PostVersion.ChunkMeta cm = chunks.get(i);
+             if (cm == null) {
+                 return EvaluationOutcome.fail("chunks_meta contains null element at index " + i, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (cm.getChunk_ref() == null || cm.getChunk_ref().isBlank()) {
+                 return EvaluationOutcome.fail("chunk_meta.chunk_ref is required and must not be blank at index " + i, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (cm.getText() == null) {
+                 return EvaluationOutcome.fail("chunk_meta.text must not be null at index " + i, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
          }
 
          // Content presence check (content_rich may be blank but should at least exist)

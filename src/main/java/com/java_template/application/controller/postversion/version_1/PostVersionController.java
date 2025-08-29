@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.postversion.version_1.PostVersion;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.Condition;
+import com.java_template.common.util.SearchConditionRequest;
 import lombok.Data;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.slf4j.Logger;
@@ -17,9 +19,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -147,10 +152,169 @@ public class PostVersionController {
         }
     }
 
+    @Operation(summary = "List PostVersions", description = "Retrieve list of PostVersion entities. Optional filter by post_id query parameter.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = PostVersionResponse.class)))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @GetMapping
+    public ResponseEntity<?> listPostVersions(
+            @Parameter(name = "postId", description = "Optional filter by parent post id")
+            @RequestParam(value = "postId", required = false) String postId
+    ) {
+        try {
+            List<DataPayload> dataPayloads;
+            if (postId != null && !postId.isBlank()) {
+                SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                        Condition.of("$.post_id", "EQUALS", postId)
+                );
+                CompletableFuture<List<DataPayload>> future = entityService.getItemsByCondition(
+                        PostVersion.ENTITY_NAME, PostVersion.ENTITY_VERSION, condition, true
+                );
+                dataPayloads = future.get();
+            } else {
+                CompletableFuture<List<DataPayload>> future = entityService.getItems(
+                        PostVersion.ENTITY_NAME, PostVersion.ENTITY_VERSION, null, null, null
+                );
+                dataPayloads = future.get();
+            }
+
+            List<PostVersionResponse> responses = new ArrayList<>();
+            if (dataPayloads != null) {
+                for (DataPayload payload : dataPayloads) {
+                    if (payload != null && payload.getData() != null) {
+                        PostVersionResponse resp = objectMapper.treeToValue(payload.getData(), PostVersionResponse.class);
+                        responses.add(resp);
+                    }
+                }
+            }
+            return ResponseEntity.ok(responses);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request to list PostVersions: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException when listing PostVersions", ee);
+                return ResponseEntity.status(500).body(ee.getMessage());
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while listing PostVersions", ie);
+            return ResponseEntity.status(500).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error while listing PostVersions", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Update PostVersion", description = "Update an existing PostVersion entity by technicalId.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @PutMapping("/{technicalId}")
+    public ResponseEntity<?> updatePostVersion(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "PostVersion update payload", required = true,
+                    content = @Content(schema = @Schema(implementation = PostVersionRequest.class)))
+            @RequestBody PostVersionRequest request
+    ) {
+        try {
+            if (technicalId == null || technicalId.isBlank()) {
+                throw new IllegalArgumentException("technicalId is required");
+            }
+            if (request == null) {
+                throw new IllegalArgumentException("Request body is required");
+            }
+            PostVersion entity = new PostVersion();
+            entity.setPost_id(request.getPost_id());
+            entity.setAuthor_id(request.getAuthor_id());
+            entity.setContent_rich(request.getContent_rich());
+            // Note: controller must not implement business logic like updating timestamps/version_id
+
+            CompletableFuture<UUID> updFuture = entityService.updateItem(UUID.fromString(technicalId), entity);
+            UUID updatedId = updFuture.get();
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(updatedId.toString());
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request to update PostVersion: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(404).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException when updating PostVersion", ee);
+                return ResponseEntity.status(500).body(ee.getMessage());
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while updating PostVersion", ie);
+            return ResponseEntity.status(500).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error while updating PostVersion", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "Delete PostVersion", description = "Delete a PostVersion entity by its technicalId.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Bad Request"),
+            @ApiResponse(responseCode = "404", description = "Not Found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @DeleteMapping("/{technicalId}")
+    public ResponseEntity<?> deletePostVersion(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalId
+    ) {
+        try {
+            if (technicalId == null || technicalId.isBlank()) {
+                throw new IllegalArgumentException("technicalId is required");
+            }
+            CompletableFuture<UUID> delFuture = entityService.deleteItem(UUID.fromString(technicalId));
+            UUID deletedId = delFuture.get();
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(deletedId.toString());
+            return ResponseEntity.ok(resp);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request to delete PostVersion: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(iae.getMessage());
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(404).body(cause.getMessage());
+            } else if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.badRequest().body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException when deleting PostVersion", ee);
+                return ResponseEntity.status(500).body(ee.getMessage());
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while deleting PostVersion", ie);
+            return ResponseEntity.status(500).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error while deleting PostVersion", e);
+            return ResponseEntity.status(500).body(e.getMessage());
+        }
+    }
+
     // Request and Response DTOs
 
     @Data
-    @Schema(name = "PostVersionRequest", description = "Payload to create a PostVersion")
+    @Schema(name = "PostVersionRequest", description = "Payload to create/update a PostVersion")
     public static class PostVersionRequest {
         @Schema(description = "Reference to parent Post", example = "post-123")
         private String post_id;

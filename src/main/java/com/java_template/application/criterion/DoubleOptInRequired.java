@@ -29,7 +29,7 @@ public class DoubleOptInRequired implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Consent.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class DoubleOptInRequired implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return "DoubleOptInRequired".equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Consent> context) {
@@ -79,10 +80,13 @@ public class DoubleOptInRequired implements CyodaCriterion {
                  return EvaluationOutcome.success();
              }
              // Any other state is unexpected for a marketing consent requiring double opt-in
-             return EvaluationOutcome.fail("Marketing consent must be in 'requested' or 'pending_verification' or have granted_at when requiring double opt-in", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+             return EvaluationOutcome.fail(
+                 "Marketing consent must be in 'requested' or 'pending_verification' or have granted_at when requiring double opt-in",
+                 StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
+             );
          }
 
-         // For non-marketing types double opt-in is not required by policy
-         return EvaluationOutcome.fail("Double opt-in not required for consent type: " + type, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+         // For non-marketing types double opt-in is not required by policy -> criterion should pass.
+         return EvaluationOutcome.success();
     }
 }
