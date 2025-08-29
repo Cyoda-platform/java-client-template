@@ -1,5 +1,4 @@
 ### 1. Entity Definitions
-(Using only the entities you provided — 6 entities)
 
 ```
 Post:
@@ -7,27 +6,27 @@ Post:
 - title: String (headline)
 - slug: String (canonical URL fragment)
 - summary: String (short summary)
-- locale: String (content locale, e.g. en-GB)
+- locale: String (en-GB)
 - status: String (workflow state)
 - current_version_id: String (ref to PostVersion)
 - author_id: String (user who authored)
 - owner_id: String (current owner; transfers to Admin on GDPR)
-- tags: Array String (freeform tags)
+- tags: Array String (freeform)
 - media_refs: Array String (refs to Media)
-- publish_datetime: String (ISO timestamp optional for scheduled publish)
-- published_at: String (ISO timestamp when published)
+- publish_datetime: String (ISO timestamp optional)
+- published_at: String (ISO timestamp)
 - cache_control: String (CDN directive)
 
 PostVersion:
 - version_id: String (id)
 - post_id: String (parent Post)
-- author_id: String (who edited this version)
+- author_id: String
 - content_rich: String (editor content)
 - normalized_text: String (plaintext normalized)
 - chunks_meta: Array Object (plaintext chunk refs)
 - embeddings_ref: String (vector store ref)
 - change_summary: String
-- created_at: String (ISO timestamp)
+- created_at: String (ISO)
 
 User:
 - user_id: String
@@ -70,395 +69,325 @@ Audit:
 - metadata: Object
 ```
 
+> Note: You specified 6 entities; I used exactly those six.
+
 ---
 
 ### 2. Entity workflows
 
-General EDA rule: each entity persistence (POST or system-created) triggers Cyoda to start that entity's workflow (automatic and/or manual transitions). Processors perform actions; Criteria gate transitions.
-
 Post workflow:
-1. Initial State: PERSISTED (Post created or updated) — automatic
-2. Validation: VALIDATED if required fields and author exist (automatic via ValidatePostProcessor)
-3. Versioning: VERSION_CREATED (CreatePostVersionProcessor creates a PostVersion) — automatic
-4. Embeddings: EMBEDDINGS_GENERATED (GenerateEmbeddingsProcessor). Also update search/index. — automatic
-5. Scheduling: If publish_datetime present, SCHEDULED_FOR_PUBLISH (PublishEligibilityCriterion) — automatic; otherwise proceed to immediate publish if status requires
-6. Published: PUBLISHED (PublishPostProcessor) — automatic or manual trigger
-7. PostLifecycle: ARCHIVED or DELETED (manual admin actions; automatic GDPR transfer can set owner and archive)
+1. Create Post persisted -> event triggers Post workflow with state draft.
+2. Author edits versions (PostVersion) -> transitions version to ready_for_publish.
+3. Author submits for review -> Post moves draft -> in_review (manual).
+4. Admin approves -> in_review -> scheduled OR published depending on publish_datetime.
+5. Scheduled -> published (automatic by time) -> publish creates immutable bundle, sets cache_control, triggers PostVersion.finalize and embeddings.
+6. Admin may archive published posts.
 
-Mermaid state diagram for Post:
 ```mermaid
 stateDiagram-v2
-    [*] --> PERSISTED
-    PERSISTED --> VALIDATED : ValidatePostProcessor, automatic
-    VALIDATED --> VERSION_CREATED : CreatePostVersionProcessor, automatic
-    VERSION_CREATED --> EMBEDDINGS_GENERATED : GenerateEmbeddingsProcessor, automatic
-    EMBEDDINGS_GENERATED --> SCHEDULED_FOR_PUBLISH : PublishEligibilityCriterion, automatic
-    SCHEDULED_FOR_PUBLISH --> PUBLISHED : PublishPostProcessor, automatic
-    PUBLISHED --> ARCHIVED : ArchivePostProcessor, manual
-    PUBLISHED --> DELETED : DeletePostProcessor, manual
-    ARCHIVED --> [*]
-    DELETED --> [*]
+    [*] --> "draft"
+    "draft" --> "in_review" : "author_submits_for_review"
+    "in_review" --> "draft" : "admin_requests_changes"
+    "in_review" --> "scheduled" : "admin_approves"
+    "scheduled" --> "published" : "now_at_or_after_publish_datetime"
+    "published" --> "archived" : "admin_archives"
+    "archived" --> [*]
 ```
 
-Processors and criteria needed (Post):
-- Criteria: AuthorExistsCriterion, PublishEligibilityCriterion
-- Processors: ValidatePostProcessor, CreatePostVersionProcessor, GenerateEmbeddingsProcessor, PublishPostProcessor, ArchivePostProcessor
+Post processors & criteria
+- Criteria: author_submits_for_review(post), admin_approves(post), has_publish_datetime(post), now_at_or_after_publish_datetime(post)
+- Processors: submit_for_review (SYNC), admin_approve (SYNC), publish_post (ASYNC_JOB), archive_post (SYNC)
 
 PostVersion workflow:
-1. Initial State: PERSISTED (version saved)
-2. Normalization: NORMALIZED (NormalizeTextProcessor) — automatic
-3. Chunking: CHUNKS_CREATED (ChunkingProcessor) — automatic
-4. Indexing: EMBEDDINGS_INDEXED (IndexEmbeddingsProcessor) — automatic
-5. READY: READY (available for search, diff, and linking to Post.current_version_id)
+1. New version persisted -> editing.
+2. Author marks ready -> editing -> ready_for_publish (manual) runs normalize_and_chunk.
+3. When Post.publish arrives, version -> finalized (automated) and enqueue_embeddings.
 
-Mermaid for PostVersion:
 ```mermaid
 stateDiagram-v2
-    [*] --> PERSISTED
-    PERSISTED --> NORMALIZED : NormalizeTextProcessor, automatic
-    NORMALIZED --> CHUNKS_CREATED : ChunkingProcessor, automatic
-    CHUNKS_CREATED --> EMBEDDINGS_INDEXED : IndexEmbeddingsProcessor, automatic
-    EMBEDDINGS_INDEXED --> READY : CompleteVersionProcessor, automatic
-    READY --> [*]
+    [*] --> "editing"
+    "editing" --> "ready_for_publish" : "author_marks_ready"
+    "ready_for_publish" --> "finalized" : "publish_requested_by_post"
+    "finalized" --> [*]
 ```
 
-Processors and criteria (PostVersion):
-- Criteria: ContentSizeCriterion (optional, to split very large versions)
-- Processors: NormalizeTextProcessor, ChunkingProcessor, IndexEmbeddingsProcessor, CompleteVersionProcessor
+PostVersion processors & criteria
+- Criteria: author_marks_ready(version), publish_requested_by_post(version)
+- Processors: normalize_and_chunk (SYNC), finalize_version (ASYNC_JOB), enqueue_embeddings (ASYNC_JOB)
 
 User workflow:
-1. Initial State: PERSISTED (user created)
-2. Verification: VERIFIED (VerifyEmailProcessor/manual verification) — manual or automatic depending on flow
-3. Consent Check: CONSENTS_CHECKED (ApplyConsentProcessor) — automatic on creation or update
-4. Active: ACTIVE (normal user state) — automatic
-5. Suspension/GDPR_ERASED: SUSPENDED or GDPR_ERASED (manual admin or GDPRTransferProcessor) — manual or automatic on GDPR request
+1. Registration persisted -> registered -> email_unverified (automated).
+2. Email verification + consent double opt-in -> active.
+3. Admin suspend -> suspended (manual).
+4. GDPR erasure requested -> erased_pending -> transferred (automated immediate) owner_id -> Admin and add Audit.
 
-Mermaid for User:
 ```mermaid
 stateDiagram-v2
-    [*] --> PERSISTED
-    PERSISTED --> VERIFIED : VerifyEmailProcessor, manual
-    VERIFIED --> CONSENTS_CHECKED : ApplyConsentProcessor, automatic
-    CONSENTS_CHECKED --> ACTIVE : CompleteUserSetupProcessor, automatic
-    ACTIVE --> SUSPENDED : SuspendUserProcessor, manual
-    ACTIVE --> GDPR_ERASED : GDPRTransferProcessor, automatic
-    SUSPENDED --> [*]
-    GDPR_ERASED --> [*]
+    [*] --> "registered"
+    "registered" --> "email_unverified" : "on_registration"
+    "email_unverified" --> "active" : "email_verified_and_consent"
+    "active" --> "suspended" : "admin_suspends"
+    "suspended" --> [*]
+    "active" --> "erased_pending" : "gdpr_erasure_requested"
+    "erased_pending" --> "transferred" : "gdpr_transfer_immediate"
+    "transferred" --> [*]
 ```
 
-Processors and criteria (User):
-- Criteria: EmailVerifiedCriterion, GDPRRequestCriterion
-- Processors: VerifyEmailProcessor, CreateProfileProcessor, ApplyConsentProcessor, GDPRTransferProcessor
+User processors & criteria
+- Criteria: on_registration(user), email_verified(user) AND consent_double_opt_in_confirmed(user), gdpr_erasure_requested(user), gdpr_transfer_immediate(user)
+- Processors: init_email_verification (SYNC), activate_user (SYNC), mark_erasure_pending (SYNC), gdpr_transfer (ASYNC_JOB)
 
 Consent workflow:
-1. Initial State: PERSISTED (consent record created)
-2. Validation: VALIDATED (ValidateConsentProcessor) — automatic
-3. Applied: APPLIED (consent effect applied to user marketing flags) — automatic
-4. Revoked: REVOKED (RevokeConsentProcessor) — manual or automatic on revoke event
-5. Audit: AUDITED (AuditConsentProcessor logs evidence) — automatic
+1. Consent requested persisted -> requested -> pending_verification (automatic if double opt-in).
+2. Verification received -> active.
+3. User revokes -> revoked.
 
-Mermaid for Consent:
 ```mermaid
 stateDiagram-v2
-    [*] --> PERSISTED
-    PERSISTED --> VALIDATED : ValidateConsentProcessor, automatic
-    VALIDATED --> APPLIED : ApplyConsentProcessor, automatic
-    APPLIED --> REVOKED : RevokeConsentProcessor, manual
-    APPLIED --> AUDITED : AuditConsentProcessor, automatic
-    REVOKED --> AUDITED : AuditConsentProcessor, automatic
-    AUDITED --> [*]
+    [*] --> "requested"
+    "requested" --> "pending_verification" : "double_opt_in_required"
+    "pending_verification" --> "active" : "verification_received"
+    "active" --> "revoked" : "user_revokes"
+    "revoked" --> [*]
 ```
 
-Processors and criteria (Consent):
-- Criteria: ConsentTypeCriterion
-- Processors: ValidateConsentProcessor, ApplyConsentProcessor, RevokeConsentProcessor, AuditConsentProcessor
+Consent processors & criteria
+- Criteria: double_opt_in_required(consent), verification_received(consent, token), user_revokes(consent)
+- Processors: create_verification_token (SYNC), send_verification_email (ASYNC_RETRY), record_evidence_and_activate (SYNC), revoke_consent (SYNC)
 
 Media workflow:
-1. Initial State: PERSISTED (upload recorded)
-2. Scan: SCANNED (VirusScanProcessor) — automatic
-3. Processing: VERSIONS_CREATED (GenerateVersionsProcessor) — automatic
-4. CDN: STORED (CDNUploadProcessor) — automatic
-5. Available or QUARANTINED: AVAILABLE or QUARANTINED (based on scan result; MimeTypeCriterion)
+1. Media upload persisted -> uploaded.
+2. Background processing -> processed (derivatives, cdn_ref).
+3. If referenced by published post -> published.
+4. Admin may deprecate -> deprecated.
 
-Mermaid for Media:
 ```mermaid
 stateDiagram-v2
-    [*] --> PERSISTED
-    PERSISTED --> SCANNED : VirusScanProcessor, automatic
-    SCANNED --> VERSIONS_CREATED : GenerateVersionsProcessor, automatic
-    VERSIONS_CREATED --> STORED : CDNUploadProcessor, automatic
-    STORED --> AVAILABLE : MediaReadyProcessor, automatic
-    SCANNED --> QUARANTINED : VirusFoundCriterion, automatic
-    AVAILABLE --> [*]
-    QUARANTINED --> [*]
+    [*] --> "uploaded"
+    "uploaded" --> "processed" : "processing_complete"
+    "processed" --> "published" : "referenced_by_published_post"
+    "published" --> "deprecated" : "admin_deprecates"
+    "deprecated" --> [*]
 ```
 
-Processors and criteria (Media):
-- Criteria: MimeTypeCriterion, VirusFoundCriterion
-- Processors: VirusScanProcessor, GenerateVersionsProcessor, CDNUploadProcessor, MediaReadyProcessor
+Media processors & criteria
+- Criteria: processing_complete(media), referenced_by_published_post(media), admin_deprecates(media)
+- Processors: process_media (ASYNC_JOB), publish_media (SYNC), deprecate_media (SYNC)
 
 Audit workflow:
-1. Initial State: PERSISTED (audit record created)
-2. Indexing: INDEXED (IndexAuditProcessor) — automatic
-3. Retention: RETAINED (RetentionProcessor) — automatic until retention expiry
-4. Expired/Archived: ARCHIVED or EXPIRED (RetentionPolicyCriterion) — automatic
+1. Append audit record whenever guarded transitions occur.
+2. Audit state is recorded and immutable.
 
-Mermaid for Audit:
 ```mermaid
 stateDiagram-v2
-    [*] --> PERSISTED
-    PERSISTED --> INDEXED : IndexAuditProcessor, automatic
-    INDEXED --> RETAINED : RetentionProcessor, automatic
-    RETAINED --> ARCHIVED : RetentionPolicyCriterion, automatic
-    ARCHIVED --> [*]
+    [*] --> "recorded"
+    "recorded" --> [*]
 ```
 
-Processors and criteria (Audit):
-- Criteria: RetentionPolicyCriterion
-- Processors: IndexAuditProcessor, RetentionProcessor
+Audit processors & criteria
+- Criteria: invoked_on_guarded_transition(entity, action)
+- Processors: append_audit (SYNC)
 
 ---
 
 ### 3. Pseudo code for processor classes
-(Keep processors focused on business behaviour; Cyoda will call these when entity is persisted.)
 
-ValidatePostProcessor
-```text
-class ValidatePostProcessor {
-  void process(Post post) {
-    if (post.title == null || post.author_id == null) {
-      throw ValidationException("title and author required");
-    }
-    if (!AuthorExistsCriterion.check(post.author_id)) {
-      throw ValidationException("author not found");
-    }
-    post.status = "VALIDATED";
-    persist(post);
-  }
-}
+Note: processors are written in high-level pseudocode representing processor logic invoked by Cyoda workflows.
+
+submit_for_review (SYNC)
+```
+function submit_for_review(post):
+  validate title, slug, current_version_id
+  normalize_tags(post.tags)
+  append_audit(entity_ref=post.id, action="submit_for_review", actor=post.author_id)
+  set post.status = in_review
+  persist post
 ```
 
-CreatePostVersionProcessor
-```text
-class CreatePostVersionProcessor {
-  void process(Post post) {
-    PostVersion v = new PostVersion();
-    v.version_id = generateId();
-    v.post_id = post.id;
-    v.author_id = post.author_id;
-    v.content_rich = fetchEditorContent(post);
-    v.created_at = now();
-    persist(v);
-    post.current_version_id = v.version_id;
-    persist(post);
-  }
-}
+publish_post (ASYNC_JOB)
+```
+function publish_post(post):
+  create immutable content bundle from PostVersion referenced
+  upload bundle metadata (cdn_ref, cache_control)
+  set post.published_at = now
+  set post.status = published
+  append_audit(entity_ref=post.id, action="publish", actor="Admin")
+  trigger finalize_version for post.current_version_id
+  persist post
 ```
 
-GenerateEmbeddingsProcessor
-```text
-class GenerateEmbeddingsProcessor {
-  void process(PostVersion version) {
-    version.normalized_text = NormalizeTextProcessor.normalize(version.content_rich);
-    List chunks = ChunkingProcessor.chunk(version.normalized_text);
-    version.chunks_meta = createChunksMeta(chunks);
-    version.embeddings_ref = indexEmbeddings(chunks);
-    persist(version);
-  }
-}
+normalize_and_chunk (SYNC)
+```
+function normalize_and_chunk(version):
+  normalized = normalize_plaintext(version.content_rich)
+  chunks = chunk_text(normalized)
+  version.normalized_text = normalized
+  version.chunks_meta = chunks
+  persist version
 ```
 
-PublishPostProcessor
-```text
-class PublishPostProcessor {
-  void process(Post post) {
-    if (!PublishEligibilityCriterion.check(post)) return;
-    post.published_at = now();
-    post.status = "PUBLISHED";
-    persist(post);
-    AuditProcessor.log(post.id, "PUBLISHED", currentActor());
-  }
-}
+enqueue_embeddings (ASYNC_JOB)
+```
+function enqueue_embeddings(version):
+  for chunk in version.chunks_meta:
+    compute embedding asynchronously
+    store vector and collect ref
+  version.embeddings_ref = store_ref
+  persist version
 ```
 
-VirusScanProcessor (Media)
-```text
-class VirusScanProcessor {
-  void process(Media media) {
-    boolean clean = scanFile(media);
-    if (!clean) {
-      media.status = "QUARANTINED";
-      persist(media);
-      AuditProcessor.log(media.media_id, "QUARANTINED", "system");
-      return;
-    }
-    media.status = "SCANNED";
-    persist(media);
-  }
-}
+gdpr_transfer (ASYNC_JOB)
+```
+function gdpr_transfer(user):
+  posts = find_posts_by_owner(user.user_id)
+  for p in posts:
+    p.owner_id = "Admin"
+    append_audit(entity_ref=p.id, action="gdpr_transfer", actor="system", metadata={from:user.user_id,to:Admin})
+    persist p
+  user.gdpr_state = transferred
+  append_audit(entity_ref=user.user_id, action="gdpr_transfer_user", actor="system")
+  persist user
 ```
 
-IndexAuditProcessor
-```text
-class IndexAuditProcessor {
-  void process(Audit audit) {
-    indexToSearch(audit);
-    persist(audit);
-  }
-}
+create_verification_token (SYNC) + send_verification_email (ASYNC_RETRY)
+```
+function create_verification_token(consent):
+  token = generate_token()
+  save token record with expires_at
+  consent.status = pending_verification
+  persist consent
+  enqueue send_verification_email(consent.user_id, token)
+```
+
+process_media (ASYNC_JOB)
+```
+function process_media(media):
+  derive thumbnails and formats
+  upload to immutable storage and set cdn_ref
+  media.status = processed
+  media.cdn_ref = computed_ref
+  append_audit(entity_ref=media.media_id, action="process_media", actor="system")
+  persist media
+```
+
+append_audit (SYNC)
+```
+function append_audit(entry):
+  entry.timestamp = now
+  persist audit entry immutably
 ```
 
 ---
 
-### 4. API Endpoints Design Rules (following Cyoda POST event pattern)
+### 4. API Endpoints Design Rules & JSON formats
 
-Rules summary:
-- POST endpoints create entities and trigger Cyoda workflows.
-- POST must return only the generated technicalId (datastore imitated id) in response.
-- GET by technicalId must be available for entities created via POST and for other stored results.
-- GET endpoints are read-only.
+Rules applied:
+- POST entity creation must return only technicalId.
+- GET by technicalId allowed for all POST-created entities.
+- GET by condition not added (not explicitly requested).
+- POST triggers Cyoda persistence event which starts workflows.
 
-Entities with public POST endpoints (user-provided business actions): Post, User, Media, Consent
-Entities created by processors (no public POST required): PostVersion, Audit (readable via GET)
+Endpoints (name + brief purpose)
 
-Example endpoints and JSON formats:
-
-1) Create Post (triggers Post workflow)
-POST /posts
-Request:
+1) Create Post
+- POST /posts
+  Request:
 ```json
 {
-  "id": "post-123",
-  "title": "How to write event driven systems",
-  "slug": "how-to-write-event-driven-systems",
-  "summary": "Short summary",
-  "locale": "en-GB",
-  "author_id": "user-42",
-  "tags": ["eda","cms"],
-  "media_refs": ["media-1"],
-  "publish_datetime": "2025-09-01T10:00:00Z"
-}
-```
-Response (must return only technicalId):
-```json
-{
-  "technicalId": "tx-post-0001"
-}
-```
-
-GET Post by technicalId:
-GET /posts/tx-post-0001
-Response:
-```json
-{
-  "technicalId": "tx-post-0001",
-  "entity": {
-    "id": "post-123",
-    "title": "How to write event driven systems",
-    "slug": "how-to-write-event-driven-systems",
-    "status": "PERSISTED",
-    "...": "other fields as stored"
-  }
-}
-```
-
-2) Create User (triggers User workflow)
-POST /users
-Request:
-```json
-{
-  "user_id": "user-42",
-  "email": "alice@example.com",
-  "profile": {"name":"Alice","locale":"en-GB"}
+  "title":"How to use Cyoda",
+  "slug":"how-to-use-cyoda",
+  "summary":"Short summary",
+  "locale":"en-GB",
+  "author_id":"user-123",
+  "tags":["cyoda","cms"],
+  "current_version_id":"pv-456",
+  "publish_datetime":"2025-09-01T10:00:00Z"
 }
 ```
 Response:
 ```json
-{
-  "technicalId": "tx-user-0001"
-}
+{ "technicalId":"tech-post-001" }
 ```
+GET /posts/{technicalId}
+Response: full Post record JSON (as in entity definition)
 
-GET User by technicalId:
-GET /users/tx-user-0001
-Response:
+2) Create PostVersion
+- POST /post-versions
+  Request:
 ```json
 {
-  "technicalId": "tx-user-0001",
-  "entity": { "user_id":"user-42", "email":"alice@example.com", "email_verified": false, "...": {} }
-}
-```
-
-3) Upload Media (triggers Media workflow)
-POST /media
-Request:
-```json
-{
-  "media_id": "media-1",
-  "owner_id": "user-42",
-  "filename": "hero.jpg",
-  "mime": "image/jpeg"
+  "post_id":"post-123",
+  "author_id":"user-123",
+  "content_rich":"...html/editor delta..."
 }
 ```
 Response:
 ```json
-{
-  "technicalId": "tx-media-0001"
-}
+{ "technicalId":"tech-version-001" }
 ```
+GET /post-versions/{technicalId}
+Response: full PostVersion JSON
 
-GET Media by technicalId:
-GET /media/tx-media-0001
-Response:
+3) Register User
+- POST /users
+  Request:
 ```json
 {
-  "technicalId": "tx-media-0001",
-  "entity": { "media_id":"media-1", "status":"STORED", "...": {} }
-}
-```
-
-4) Create Consent (triggers Consent workflow)
-POST /consents
-Request:
-```json
-{
-  "consent_id": "cons-987",
-  "user_id": "user-42",
-  "type": "marketing",
-  "status": "requested",
-  "source": "web_form"
+  "email":"alice@example.com",
+  "profile":{"name":"Alice","locale":"en-GB"}
 }
 ```
 Response:
 ```json
-{
-  "technicalId": "tx-consent-0001"
-}
+{ "technicalId":"tech-user-001" }
 ```
+GET /users/{technicalId}
+Response: full User JSON
 
-GET Consent by technicalId:
-GET /consents/tx-consent-0001
-Response:
+4) Request Consent
+- POST /consents
+  Request:
 ```json
 {
-  "technicalId": "tx-consent-0001",
-  "entity": { "consent_id":"cons-987", "status":"APPLIED", "...": {} }
+  "user_id":"user-123",
+  "type":"marketing",
+  "source":"signup_form"
 }
 ```
+Response:
+```json
+{ "technicalId":"tech-consent-001" }
+```
+GET /consents/{technicalId}
+Response: full Consent JSON
 
-5) Read-only GET endpoints for system-created entities
-GET /post_versions/{technicalId}
-GET /audits/{technicalId}
-Responses return technicalId and stored entity payload.
+5) Upload Media
+- POST /media
+  Request:
+```json
+{
+  "owner_id":"user-123",
+  "filename":"image.jpg",
+  "mime":"image/jpeg"
+}
+```
+Response:
+```json
+{ "technicalId":"tech-media-001" }
+```
+GET /media/{technicalId}
+Response: full Media JSON
+
+6) Get Audit by technicalId (optional read)
+- GET /audit/{technicalId}
+  Response: Audit entry JSON
 
 Notes:
-- POST endpoints trigger Cyoda to start the corresponding entity workflow automatically.
-- POST responses must contain only technicalId; all status and results are observable via GET by technicalId.
-- Business rule: any external data source or heavy processing (embeddings, CDN upload, scans) is executed inside processors kicked off by Cyoda workflows on persistence.
+- All POST calls persist the entity and immediately trigger Cyoda workflows (processors/criteria) described above.
+- Responses from GET return the persisted entity representation (including audit_refs and status fields).
 
-If you want, we can now:
-- Trim or expand workflows (e.g., add editorial review steps for Post),
-- Add role-based manual transitions (editor approvals) or
-- Produce a compact list of processor/criterion class names to hand to Cyoda.
+---
 
-Which next step would you like?
+If you want, I can now:
+- Export this spec as compact YAML for direct Cyoda workflow mapping (functional only), or
+- Provide a couple of example end-to-end traces (author creates post -> publish) showing events emitted and processors invoked. Which would you prefer?
