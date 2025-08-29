@@ -1,0 +1,48 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "ageMonths": 24,
+                    "availability": "AVAILABLE",
+                    "breed": "Tabby",
+                    "healthStatus": "Vaccinated",
+                    "id": "petstore-5678",
+                    "name": "Mittens",
+                    "ownerId": null,
+                    "species": "cat"
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "adoptedPetIds": [
+                        "petstore-5678"
+                    ],
+                    "contactEmail": "jane@example.com",
+                    "contactPhone": "555-0102",
+                    "fullName": "Jane Doe",
+                    "id": "owner-9012",
+                    "verified": true
+                }
+            }
+        },
+        {
+            "ImportJob": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-29T12:00:00Z",
+                    "filterSpecies": "cat",
+                    "jobId": "import-2025-08-29-1",
+                    "requestedBy": "alice@example.com",
+                    "sourceUrl": "https://petstore.example/api/pets",
+                    "status": "COMPLETED",
+                    "summary": {
+                        "failed": 1,
+                        "imported": 42
+                    }
+                }
+            }
+        }
+    ]
+}

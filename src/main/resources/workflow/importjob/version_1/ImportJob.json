@@ -1,0 +1,184 @@
+{
+  "version": "1.0",
+  "name": "ImportJob Workflow",
+  "desc": "Workflow for ImportJob entity derived from functional requirements mermaid diagram",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initialize_to_created",
+          "next": "CREATED",
+          "manual": false
+        }
+      ]
+    },
+    "CREATED": {
+      "transitions": [
+        {
+          "name": "created_to_validating",
+          "next": "VALIDATING",
+          "manual": false
+        }
+      ]
+    },
+    "VALIDATING": {
+      "transitions": [
+        {
+          "name": "validation_success_to_fetching",
+          "next": "FETCHING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateJobSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failure_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidateJobFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "FETCHING": {
+      "transitions": [
+        {
+          "name": "fetching_to_transforming",
+          "next": "TRANSFORMING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchPetsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "TRANSFORMING": {
+      "transitions": [
+        {
+          "name": "transforming_to_persisting",
+          "next": "PERSISTING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TransformPetsProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "PersistEntitiesProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PERSISTING": {
+      "transitions": [
+        {
+          "name": "persisting_to_completed",
+          "next": "COMPLETED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CompleteJobProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistSuccessCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "persisting_to_failed",
+          "next": "FAILED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FailureHandlerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PersistFailureCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": [
+        {
+          "name": "completed_to_notification",
+          "next": "NOTIFICATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyRequesterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FAILED": {
+      "transitions": [
+        {
+          "name": "failed_to_notification",
+          "next": "NOTIFICATION",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NotifyRequesterProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NOTIFICATION": {
+      "transitions": []
+    }
+  }
+}
