@@ -3,13 +3,9 @@
     "files_with_errors": [
         {
             "errors": [
-                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/FetchBookingsProcessorTest.java:173: error: cannot find symbol",
-                "        public Optional<SSLSession> sslSession() { return Optional.empty(); }",
-                "                        ^",
-                "  symbol:   class SSLSession",
-                "  location: class SimpleHttpResponse<T>",
-                "  where T is a type-variable:",
-                "    T extends Object declared in class SimpleHttpResponse"
+                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/FetchBookingsProcessorTest.java:61: error: <anonymous com.java_template.application.processor.FetchBookingsProcessorTest$1> is not abstract and does not override abstract method <T>sendAsync(HttpRequest,BodyHandler<T>,PushPromiseHandler<T>) in HttpClient",
+                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/FetchBookingsProcessorTest.java:182: error: method does not override or implement a method from a supertype",
+                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/FetchBookingsProcessorTest.java:185: error: method does not override or implement a method from a supertype"
             ],
             "file_path": "src/test/java/com/java_template/application/processor/FetchBookingsProcessorTest.java"
         }
