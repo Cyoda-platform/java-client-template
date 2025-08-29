@@ -1,0 +1,82 @@
+{
+  "version": "1.0",
+  "name": "Owner Workflow",
+  "desc": "Workflow for Owner entity translated from functional requirements mermaid diagram. Handles verification, active status, flagging and suspension.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "to_persisted",
+          "next": "PERSISTED",
+          "manual": false
+        }
+      ]
+    },
+    "PERSISTED": {
+      "transitions": [
+        {
+          "name": "owner_verification",
+          "next": "VERIFY_OWNER",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerVerificationProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFY_OWNER": {
+      "transitions": [
+        {
+          "name": "verification_passed",
+          "next": "ACTIVE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "VerifyOwnerCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "flag_owner_manual",
+          "next": "FLAGGED",
+          "manual": true
+        }
+      ]
+    },
+    "FLAGGED": {
+      "transitions": [
+        {
+          "name": "suspend_owner",
+          "next": "SUSPENDED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SuspendOwnerProcessor",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": []
+    }
+  }
+}
