@@ -1,0 +1,155 @@
+{
+    "version": "1.0",
+    "name": "AdoptionJob Workflow",
+    "desc": "Workflow for AdoptionJob entity based on functional requirements mermaid diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "pending_to_validation",
+                    "next": "VALIDATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AdoptionValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATION": {
+            "transitions": [
+                {
+                    "name": "validation_to_in_progress",
+                    "next": "IN_PROGRESS",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AdoptionReadyCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "IN_PROGRESS": {
+            "transitions": [
+                {
+                    "name": "in_progress_to_scheduled",
+                    "next": "SCHEDULED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "PickupSchedulerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SCHEDULED": {
+            "transitions": [
+                {
+                    "name": "scheduled_to_completed",
+                    "next": "COMPLETED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "FinalizeAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "$.adminDecision",
+                        "operation": "EQUALS",
+                        "value": "CONFIRM"
+                    }
+                },
+                {
+                    "name": "scheduled_to_failed",
+                    "next": "FAILED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "FailureHandlerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "$.adminDecision",
+                        "operation": "EQUALS",
+                        "value": "REJECT"
+                    }
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "name": "completed_to_notification",
+                    "next": "NOTIFICATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "FAILED": {
+            "transitions": [
+                {
+                    "name": "failed_to_notification",
+                    "next": "NOTIFICATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFICATION": {
+            "transitions": []
+        }
+    }
+}

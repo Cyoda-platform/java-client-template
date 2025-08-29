@@ -1,0 +1,107 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Workflow for Pet entity derived from the functional requirements (mermaid state diagram translated to FSM JSON).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "persisted_to_validation",
+                    "next": "VALIDATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PetValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATION": {
+            "transitions": [
+                {
+                    "name": "validation_to_available",
+                    "next": "AVAILABLE",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PetValidCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "AVAILABLE": {
+            "transitions": [
+                {
+                    "name": "available_to_reservation",
+                    "next": "RESERVATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReservePetProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "RESERVATION": {
+            "transitions": [
+                {
+                    "name": "reservation_to_adopted",
+                    "next": "ADOPTED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "FinalizeAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ADOPTED": {
+            "transitions": [
+                {
+                    "name": "adopted_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUpdateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED": {
+            "transitions": []
+        }
+    }
+}

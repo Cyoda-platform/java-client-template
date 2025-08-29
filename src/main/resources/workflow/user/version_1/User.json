@@ -1,0 +1,113 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Workflow for User entity based on the functional requirements (translated from mermaid state diagram)",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "persist_to_validation",
+                    "next": "VALIDATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATION": {
+            "transitions": [
+                {
+                    "name": "validation_to_approved",
+                    "next": "APPROVED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "UserEligibleCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "validation_to_rejected",
+                    "next": "REJECTED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "UserIneligibleCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "APPROVED": {
+            "transitions": [
+                {
+                    "name": "approved_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "REJECTED": {
+            "transitions": [
+                {
+                    "name": "rejected_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED": {
+            "transitions": [
+                {
+                    "name": "notified_to_finished",
+                    "next": "FINISHED",
+                    "manual": false
+                }
+            ]
+        },
+        "FINISHED": {
+            "transitions": []
+        }
+    }
+}
