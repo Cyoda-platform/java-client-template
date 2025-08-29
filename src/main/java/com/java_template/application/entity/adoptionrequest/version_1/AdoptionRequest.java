@@ -27,6 +27,9 @@ public class AdoptionRequest implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        return !id.isBlank() && !petId.isBlank() && !userId.isBlank() && !status.isBlank();
+        return id != null && !id.isBlank() &&
+               petId != null && !petId.isBlank() &&
+               userId != null && !userId.isBlank() &&
+               status != null && !status.isBlank();
     }
 }
