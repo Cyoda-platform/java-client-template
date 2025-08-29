@@ -1,0 +1,107 @@
+{
+    "version": "1.0",
+    "name": "InventorySnapshot Workflow",
+    "desc": "Workflow for InventorySnapshot: evaluate stock, decide restock, request restock, and reconcile after restock.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "evaluate_stock",
+                    "next": "EVALUATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "StockEvaluatorProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "EVALUATING": {
+            "transitions": [
+                {
+                    "name": "to_needs_restock",
+                    "next": "NEEDS_RESTOCK",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "RestockThresholdCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "to_sufficient",
+                    "next": "SUFFICIENT",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SufficientStockCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "NEEDS_RESTOCK": {
+            "transitions": [
+                {
+                    "name": "request_restock",
+                    "next": "RESTOCK_REQUESTED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "RestockAlertProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "RESTOCK_REQUESTED": {
+            "transitions": [
+                {
+                    "name": "complete_restock",
+                    "next": "RESTOCKED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ReconciliationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "RESTOCKED": {
+            "transitions": []
+        },
+        "SUFFICIENT": {
+            "transitions": []
+        }
+    }
+}

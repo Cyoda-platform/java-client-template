@@ -1,0 +1,130 @@
+{
+    "version": "1.0",
+    "name": "WeeklyReport Workflow",
+    "desc": "Workflow for WeeklyReport entity based on functional requirements mermaid diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "init_to_created",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "CREATED": {
+            "transitions": [
+                {
+                    "name": "start_generation",
+                    "next": "GENERATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportGeneratorProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "GENERATING": {
+            "transitions": [
+                {
+                    "name": "generation_succeeded",
+                    "next": "TEMPLATE_APPLIED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AnalysisCompleteCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "generation_failed",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ReportGenerationFailedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "TEMPLATE_APPLIED": {
+            "transitions": [
+                {
+                    "name": "export_report",
+                    "next": "EXPORTED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TemplateApplierProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "ExportToPDFProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "EXPORTED": {
+            "transitions": [
+                {
+                    "name": "dispatch_report",
+                    "next": "DISPATCHED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailDispatchProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DISPATCHED": {
+            "transitions": [
+                {
+                    "name": "archive_report",
+                    "next": "ARCHIVED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ArchiveReportProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ARCHIVED": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        }
+    }
+}

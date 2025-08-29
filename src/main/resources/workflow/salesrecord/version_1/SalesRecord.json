@@ -1,0 +1,96 @@
+{
+    "version": "1.0",
+    "name": "SalesRecord Workflow",
+    "desc": "Workflow for SalesRecord entity: aggregation, KPI analysis, tagging and persisting analysis",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "init_to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "persisted_to_aggregating",
+                    "next": "AGGREGATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AggregateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "AGGREGATING": {
+            "transitions": [
+                {
+                    "name": "aggregating_to_analyzing",
+                    "next": "ANALYZING",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AggregationCompleteCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ANALYZING": {
+            "transitions": [
+                {
+                    "name": "analyzing_to_tagging",
+                    "next": "TAGGING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "KPIComputationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "TAGGING": {
+            "transitions": [
+                {
+                    "name": "tagging_to_analysis_persisted",
+                    "next": "ANALYSIS_PERSISTED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UnderperformingDetector",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "PersistAnalysisProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ANALYSIS_PERSISTED": {
+            "transitions": []
+        }
+    }
+}

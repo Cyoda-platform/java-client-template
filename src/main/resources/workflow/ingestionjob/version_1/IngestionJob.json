@@ -1,0 +1,218 @@
+{
+    "version": "1.0",
+    "name": "IngestionJob Workflow",
+    "desc": "Workflow for IngestionJob based on functional requirements mermaid state diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "to_validating",
+                    "next": "VALIDATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ValidateSourceProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATING": {
+            "transitions": [
+                {
+                    "name": "validation_succeeds",
+                    "next": "FETCHING",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SourceAvailableCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "validation_fails",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SourceUnavailableCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "FETCHING": {
+            "transitions": [
+                {
+                    "name": "fetch_succeeds",
+                    "next": "TRANSFORMING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "FetchDataProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "FetchSuccessCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "fetch_fails",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "FetchFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "TRANSFORMING": {
+            "transitions": [
+                {
+                    "name": "to_persisting",
+                    "next": "PERSISTING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TransformProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PERSISTING": {
+            "transitions": [
+                {
+                    "name": "persist_succeeds",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PersistProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PersistSuccessCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "persist_fails",
+                    "next": "FAILED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PersistProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PersistFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "name": "schedule_report_and_notify",
+                    "next": "NOTIFY",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ScheduleReportProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "FAILED": {
+            "transitions": [
+                {
+                    "name": "notify_failure",
+                    "next": "NOTIFY",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "FailureAlertProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFY": {
+            "transitions": [
+                {
+                    "name": "finalize",
+                    "next": "TERMINATED",
+                    "manual": false
+                }
+            ]
+        },
+        "TERMINATED": {
+            "transitions": []
+        }
+    }
+}
