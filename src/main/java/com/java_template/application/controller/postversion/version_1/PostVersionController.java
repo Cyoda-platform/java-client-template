@@ -46,44 +46,51 @@ public class PostVersionController {
         this.objectMapper = objectMapper;
     }
 
-    @Operation(summary = "Create PostVersion", description = "Persist a new PostVersion entity and return a technicalId.")
+    @Operation(summary = "Create PostVersions", description = "Persist one or more PostVersion entities in batch and return technicalIds.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = TechnicalIdResponse.class)))),
             @ApiResponse(responseCode = "400", description = "Bad Request"),
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping
-    public ResponseEntity<?> createPostVersion(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "PostVersion creation payload", required = true,
-                    content = @Content(schema = @Schema(implementation = PostVersionRequest.class)))
-            @RequestBody PostVersionRequest request
+    public ResponseEntity<?> createPostVersions(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Array of PostVersion creation payloads", required = true,
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = PostVersionRequest.class))))
+            @RequestBody List<PostVersionRequest> requests
     ) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
+            if (requests == null || requests.isEmpty()) {
+                throw new IllegalArgumentException("request body must be a non-empty array");
             }
-            // Basic request format validation (no business logic)
-            if (request.getPost_id() == null || request.getPost_id().isBlank()) {
-                throw new IllegalArgumentException("post_id is required");
+            List<PostVersion> entities = new ArrayList<>();
+            for (PostVersionRequest request : requests) {
+                if (request == null) continue;
+                if (request.getPost_id() == null || request.getPost_id().isBlank()) {
+                    throw new IllegalArgumentException("post_id is required for each PostVersion");
+                }
+                PostVersion entity = new PostVersion();
+                entity.setPost_id(request.getPost_id());
+                entity.setAuthor_id(request.getAuthor_id());
+                entity.setContent_rich(request.getContent_rich());
+                entities.add(entity);
             }
-            // Map request to entity. Business rules (like generating version_id/created_at) are handled in workflows.
-            PostVersion entity = new PostVersion();
-            entity.setPost_id(request.getPost_id());
-            entity.setAuthor_id(request.getAuthor_id());
-            entity.setContent_rich(request.getContent_rich());
-            // other fields intentionally left null for workflow processors to populate
 
-            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+            List<UUID> ids = entityService.addItems(
                     PostVersion.ENTITY_NAME,
                     PostVersion.ENTITY_VERSION,
-                    entity
-            );
-            UUID entityId = idFuture.get();
-            TechnicalIdResponse resp = new TechnicalIdResponse();
-            resp.setTechnicalId(entityId.toString());
+                    entities
+            ).get();
+
+            List<String> technicalIds = new ArrayList<>();
+            if (ids != null) {
+                for (UUID u : ids) technicalIds.add(u != null ? u.toString() : null);
+            }
+            TechnicalIdListResponse resp = new TechnicalIdListResponse();
+            resp.setTechnicalIds(technicalIds);
             return ResponseEntity.ok(resp);
+
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request to create PostVersion: {}", iae.getMessage());
+            logger.warn("Invalid request to create PostVersions: {}", iae.getMessage());
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
@@ -92,15 +99,15 @@ public class PostVersionController {
             } else if (cause instanceof IllegalArgumentException) {
                 return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException when creating PostVersion", ee);
+                logger.error("ExecutionException when creating PostVersions", ee);
                 return ResponseEntity.status(500).body(ee.getMessage());
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while creating PostVersion", ie);
+            logger.error("Interrupted while creating PostVersions", ie);
             return ResponseEntity.status(500).body(ie.getMessage());
         } catch (Exception e) {
-            logger.error("Unexpected error while creating PostVersion", e);
+            logger.error("Unexpected error while creating PostVersions", e);
             return ResponseEntity.status(500).body(e.getMessage());
         }
     }
@@ -237,7 +244,6 @@ public class PostVersionController {
             entity.setPost_id(request.getPost_id());
             entity.setAuthor_id(request.getAuthor_id());
             entity.setContent_rich(request.getContent_rich());
-            // Note: controller must not implement business logic like updating timestamps/version_id
 
             CompletableFuture<UUID> updFuture = entityService.updateItem(UUID.fromString(technicalId), entity);
             UUID updatedId = updFuture.get();
@@ -331,6 +337,13 @@ public class PostVersionController {
     public static class TechnicalIdResponse {
         @Schema(description = "Technical ID of the persisted entity", example = "550e8400-e29b-41d4-a716-446655440000")
         private String technicalId;
+    }
+
+    @Data
+    @Schema(name = "TechnicalIdListResponse", description = "Response containing list of technicalIds")
+    public static class TechnicalIdListResponse {
+        @Schema(description = "Technical IDs of persisted entities")
+        private List<String> technicalIds;
     }
 
     @Data
