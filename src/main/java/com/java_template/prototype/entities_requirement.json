@@ -1,0 +1,35 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "id": "pet1234",
+                    "name": "Fluffy",
+                    "status": "Available",
+                    "type": "Cat"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "email": "john@example.com",
+                    "id": "user5678",
+                    "name": "John Doe",
+                    "phone": "1234567890"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "id": "request91011",
+                    "petId": "pet1234",
+                    "status": "Pending",
+                    "userId": "user5678"
+                }
+            }
+        }
+    ]
+}
