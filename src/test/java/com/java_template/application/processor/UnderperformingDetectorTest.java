@@ -55,7 +55,7 @@ public class UnderperformingDetectorTest {
         productPayload.setData(objectMapper.valueToTree(product));
 
         // Stub getItem to return the product payload
-        when(entityService.getItem(eq(Product.ENTITY_NAME), eq(Product.ENTITY_VERSION), any(UUID.class)))
+        when(entityService.getItem(any(UUID.class)))
                 .thenReturn(CompletableFuture.completedFuture(productPayload));
 
         // Stub updateItem to succeed
