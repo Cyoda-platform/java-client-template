@@ -19,12 +19,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.NoSuchElementException;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/posts")
@@ -40,64 +43,71 @@ public class PostController {
         this.entityService = entityService;
     }
 
-    @Operation(summary = "Create Post", description = "Persist a new Post entity and start associated workflows. Returns only the technicalId.")
+    @Operation(summary = "Create Posts", description = "Persist new Post entities in batch and start associated workflows. Returns technicalIds.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "OK"),
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = BatchCreateResponse.class)))),
         @ApiResponse(responseCode = "400", description = "Bad Request"),
         @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping
-    public ResponseEntity<TechnicalIdResponse> createPost(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Post create payload")
-            @RequestBody CreatePostRequest request) {
+    public ResponseEntity<BatchCreateResponse> createPosts(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Array of Post create payloads", required = true,
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreatePostRequest.class))))
+            @RequestBody List<CreatePostRequest> requests) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
-            if (request.getTitle() == null || request.getTitle().isBlank()) {
-                throw new IllegalArgumentException("title is required");
-            }
-            if (request.getSlug() == null || request.getSlug().isBlank()) {
-                throw new IllegalArgumentException("slug is required");
+            if (requests == null || requests.isEmpty()) {
+                throw new IllegalArgumentException("request body must be a non-empty array");
             }
 
-            Post post = new Post();
-            // Basic assignment only. No business logic here.
-            post.setId(UUID.randomUUID().toString());
-            // owner_id fallback: prefer provided owner_id, then author_id, else "system"
-            if (request.getOwner_id() != null && !request.getOwner_id().isBlank()) {
-                post.setOwner_id(request.getOwner_id());
-            } else if (request.getAuthor_id() != null && !request.getAuthor_id().isBlank()) {
-                post.setOwner_id(request.getAuthor_id());
-            } else {
-                post.setOwner_id("system");
-            }
-            // minimal required fields
-            post.setTitle(request.getTitle());
-            post.setSlug(request.getSlug());
-            post.setSummary(request.getSummary());
-            post.setLocale(request.getLocale());
-            post.setAuthor_id(request.getAuthor_id());
-            post.setCurrent_version_id(request.getCurrent_version_id());
-            post.setPublish_datetime(request.getPublish_datetime());
-            post.setTags(request.getTags());
-            post.setMedia_refs(request.getMedia_refs());
-            // set default status to "draft" if not provided to satisfy basic entity constraints
-            post.setStatus(request.getStatus() != null && !request.getStatus().isBlank() ? request.getStatus() : "draft");
-            post.setCache_control(request.getCache_control());
+            List<Post> posts = new ArrayList<>();
+            for (CreatePostRequest request : requests) {
+                if (request == null) continue;
+                if (request.getTitle() == null || request.getTitle().isBlank()) {
+                    throw new IllegalArgumentException("title is required for each post");
+                }
+                if (request.getSlug() == null || request.getSlug().isBlank()) {
+                    throw new IllegalArgumentException("slug is required for each post");
+                }
 
-            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+                Post post = new Post();
+                post.setId(UUID.randomUUID().toString());
+                if (request.getOwner_id() != null && !request.getOwner_id().isBlank()) {
+                    post.setOwner_id(request.getOwner_id());
+                } else if (request.getAuthor_id() != null && !request.getAuthor_id().isBlank()) {
+                    post.setOwner_id(request.getAuthor_id());
+                } else {
+                    post.setOwner_id("system");
+                }
+                post.setTitle(request.getTitle());
+                post.setSlug(request.getSlug());
+                post.setSummary(request.getSummary());
+                post.setLocale(request.getLocale());
+                post.setAuthor_id(request.getAuthor_id());
+                post.setCurrent_version_id(request.getCurrent_version_id());
+                post.setPublish_datetime(request.getPublish_datetime());
+                post.setTags(request.getTags());
+                post.setMedia_refs(request.getMedia_refs());
+                post.setStatus(request.getStatus() != null && !request.getStatus().isBlank() ? request.getStatus() : "draft");
+                post.setCache_control(request.getCache_control());
+                posts.add(post);
+            }
+
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     Post.ENTITY_NAME,
                     Post.ENTITY_VERSION,
-                    post
+                    posts
             );
-            UUID technicalId = idFuture.get();
-            TechnicalIdResponse response = new TechnicalIdResponse();
-            response.setTechnicalId(technicalId.toString());
-            return ResponseEntity.ok(response);
+            List<UUID> ids = idsFuture.get();
+            List<String> technicalIds = new ArrayList<>();
+            if (ids != null) {
+                for (UUID u : ids) technicalIds.add(u != null ? u.toString() : null);
+            }
+            BatchCreateResponse resp = new BatchCreateResponse();
+            resp.setTechnicalIds(technicalIds);
+            return ResponseEntity.ok(resp);
 
         } catch (IllegalArgumentException ex) {
-            logger.warn("Invalid createPost request: {}", ex.getMessage(), ex);
+            logger.warn("Invalid createPosts request: {}", ex.getMessage(), ex);
             return ResponseEntity.badRequest().build();
         } catch (ExecutionException ex) {
             Throwable cause = ex.getCause();
@@ -108,11 +118,11 @@ public class PostController {
                 logger.warn("Invalid argument from service during create: {}", cause.getMessage(), cause);
                 return ResponseEntity.badRequest().build();
             } else {
-                logger.error("ExecutionException during createPost", ex);
+                logger.error("ExecutionException during createPosts", ex);
                 return ResponseEntity.status(500).build();
             }
         } catch (Exception ex) {
-            logger.error("Unexpected error during createPost", ex);
+            logger.error("Unexpected error during createPosts", ex);
             return ResponseEntity.status(500).build();
         }
     }
@@ -191,10 +201,10 @@ public class PostController {
     }
 
     @Data
-    @Schema(description = "Technical Id response")
-    public static class TechnicalIdResponse {
-        @Schema(description = "Technical ID of created entity")
-        private String technicalId;
+    @Schema(description = "Batch create response with technicalIds")
+    public static class BatchCreateResponse {
+        @Schema(description = "List of technical ids of created entities")
+        private List<String> technicalIds;
     }
 
     @Data
