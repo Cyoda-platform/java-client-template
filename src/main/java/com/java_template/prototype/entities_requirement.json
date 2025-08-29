@@ -1,0 +1,44 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "ageMonths": 12,
+                    "breed": "Siamese",
+                    "healthNotes": "Vaccinated",
+                    "id": "pet-987",
+                    "name": "Luna",
+                    "ownerUserId": null,
+                    "species": "cat",
+                    "status": "RESERVED"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "email": "alex@example.com",
+                    "fullName": "Alex Doe",
+                    "id": "user-123",
+                    "isVerified": true,
+                    "notes": "",
+                    "phone": "555-0100",
+                    "preferences": "cats"
+                }
+            }
+        },
+        {
+            "AdoptionJob": {
+                "entity_data_example": {
+                    "jobName": "Adopt Luna",
+                    "jobType": "ADOPT",
+                    "petId": "pet-987",
+                    "requestedAt": "2025-08-29T10:00:00Z",
+                    "resultNotes": "Pet reserved",
+                    "status": "IN_PROGRESS",
+                    "userId": "user-123"
+                }
+            }
+        }
+    ]
+}
