@@ -1,0 +1,118 @@
+{
+    "version": "1.0",
+    "name": "PublicationJob Workflow",
+    "desc": "Workflow for PublicationJob entity based on functional requirements mermaid diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "init_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "pending_to_locked",
+                    "next": "LOCKED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "LockArticleProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "LOCKED": {
+            "transitions": [
+                {
+                    "name": "locked_to_running",
+                    "next": "RUNNING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "StartPublicationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "RUNNING": {
+            "transitions": [
+                {
+                    "name": "running_to_verified",
+                    "next": "VERIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "VerifyPublicationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VERIFIED": {
+            "transitions": [
+                {
+                    "name": "verified_to_completed",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "$.verification.success",
+                        "operation": "EQUALS",
+                        "value": true
+                    }
+                },
+                {
+                    "name": "verified_to_failed",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "$.verification.success",
+                        "operation": "EQUALS",
+                        "value": false
+                    }
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "name": "completed_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyPublisherProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        }
+    }
+}

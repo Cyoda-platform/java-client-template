@@ -1,0 +1,136 @@
+{
+    "version": "1.0",
+    "name": "Customer Workflow",
+    "desc": "Workflow for Customer entity derived from functional requirements (PERSISTED \u2192 QUALIFIED \u2192 MANUAL_REVIEW \u2192 ACTIVE/INACTIVE \u2192 NOTIFIED).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "persisted_to_qualified",
+                    "next": "QUALIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "QualificationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ContactValidCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "persisted_to_inactive_by_validation",
+                    "next": "INACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "QualificationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ContactInvalidCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "QUALIFIED": {
+            "transitions": [
+                {
+                    "name": "qualified_to_manual_review",
+                    "next": "MANUAL_REVIEW",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifySalesProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "MANUAL_REVIEW": {
+            "transitions": [
+                {
+                    "name": "approve_customer",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ApproveCustomer",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "reject_customer",
+                    "next": "INACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RejectCustomer",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "active_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "WelcomeProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED": {
+            "transitions": []
+        },
+        "INACTIVE": {
+            "transitions": []
+        }
+    }
+}

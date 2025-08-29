@@ -1,0 +1,121 @@
+{
+    "version": "1.0",
+    "name": "Article Workflow",
+    "desc": "Workflow for Article entity: analysis, review, publication and archival based on functional requirements.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "persisted_to_analyzed",
+                    "next": "ANALYZED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ContentAnalysisProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ANALYZED": {
+            "transitions": [
+                {
+                    "name": "analyzed_to_review",
+                    "next": "REVIEW",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SendToEditorProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AnalysisPassCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "analyzed_to_draft",
+                    "next": "DRAFT",
+                    "manual": false,
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "analysis.pass",
+                        "operation": "EQUALS",
+                        "value": false
+                    }
+                }
+            ]
+        },
+        "REVIEW": {
+            "transitions": [
+                {
+                    "name": "approve_article",
+                    "next": "PUBLISHED",
+                    "manual": true,
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "approvalDecision",
+                        "operation": "EQUALS",
+                        "value": "approve"
+                    }
+                },
+                {
+                    "name": "reject_article",
+                    "next": "DRAFT",
+                    "manual": true,
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "approvalDecision",
+                        "operation": "EQUALS",
+                        "value": "reject"
+                    }
+                }
+            ]
+        },
+        "PUBLISHED": {
+            "transitions": [
+                {
+                    "name": "published_to_archived",
+                    "next": "ARCHIVED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ArchivePolicyProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DRAFT": {
+            "transitions": []
+        },
+        "ARCHIVED": {
+            "transitions": []
+        }
+    }
+}
