@@ -94,6 +94,19 @@ public class FetchBookingsProcessorTest {
                     return f;
                 }
             }
+
+            @Override
+            public <T> CompletableFuture<HttpResponse<T>> sendAsync(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler, HttpClient.PushPromiseHandler<T> pushPromiseHandler) {
+                // Provide an implementation that ignores push promises and delegates to the two-arg sendAsync
+                try {
+                    HttpResponse<T> resp = send(request, responseBodyHandler);
+                    return CompletableFuture.completedFuture(resp);
+                } catch (Exception e) {
+                    CompletableFuture<HttpResponse<T>> f = new CompletableFuture<>();
+                    f.completeExceptionally(e);
+                    return f;
+                }
+            }
         };
 
         // inject fake client via reflection
@@ -179,10 +192,8 @@ public class FetchBookingsProcessorTest {
         @Override
         public HttpClient.Version version() { return HttpClient.Version.HTTP_1_1; }
 
-        @Override
         public Optional<java.util.concurrent.CompletableFuture<HttpResponse<T>>> previousResponseAsync() { return Optional.empty(); }
 
-        @Override
         public java.util.Map<String,Object> trailers() { return java.util.Map.of(); }
     }
 }
