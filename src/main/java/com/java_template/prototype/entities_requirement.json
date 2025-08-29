@@ -1,0 +1,44 @@
+{
+    "entities": [
+        {
+            "Customer": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-29T12:00:00Z",
+                    "customerId": "CUST-001",
+                    "email": "contact@acme.example",
+                    "name": "ACME Inc",
+                    "phone": "+123456789",
+                    "status": "active"
+                }
+            }
+        },
+        {
+            "Article": {
+                "entity_data_example": {
+                    "articleId": "ART-001",
+                    "authorId": "CUST-001",
+                    "body": "This is the launch announcement for our new product.",
+                    "createdAt": "2025-08-29T12:05:00Z",
+                    "status": "review",
+                    "tags": [
+                        "launch",
+                        "product"
+                    ],
+                    "title": "Launch Post"
+                }
+            }
+        },
+        {
+            "PublicationJob": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-29T12:30:00Z",
+                    "jobName": "Publish_ART-001",
+                    "priority": 5,
+                    "scheduledAt": "2025-08-29T13:00:00Z",
+                    "status": "PENDING",
+                    "targetArticleId": "ART-001"
+                }
+            }
+        }
+    ]
+}
