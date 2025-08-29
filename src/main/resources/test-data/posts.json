@@ -1,0 +1,62 @@
+[
+    {
+        "id": "post-001",
+        "author_id": "user-001",
+        "owner_id": "user-001",
+        "current_version_id": "pv-001",
+        "cache_control": "no-cache",
+        "locale": "en-US",
+        "publish_datetime": "2024-06-01T09:00:00Z",
+        "published_at": "2024-06-01T09:00:00Z",
+        "slug": "intro-to-cyoda",
+        "status": "published",
+        "summary": "Introductory post about Cyoda",
+        "title": "Intro to Cyoda",
+        "media_refs": [
+            "media-001"
+        ],
+        "tags": [
+            "cyoda",
+            "intro"
+        ]
+    },
+    {
+        "id": "post-002",
+        "author_id": "user-002",
+        "owner_id": "user-002",
+        "current_version_id": "pv-002",
+        "cache_control": "no-cache",
+        "locale": "en-GB",
+        "publish_datetime": null,
+        "published_at": null,
+        "slug": "how-to-write",
+        "status": "draft",
+        "summary": "Draft about writing",
+        "title": "How to Write",
+        "media_refs": [],
+        "tags": [
+            "writing"
+        ]
+    },
+    {
+        "id": "post-003",
+        "author_id": "user-002",
+        "owner_id": "user-002",
+        "current_version_id": "pv-003",
+        "cache_control": "no-cache",
+        "locale": "en-US",
+        "publish_datetime": "2024-07-10T10:00:00Z",
+        "published_at": null,
+        "slug": "release-notes-1-0",
+        "status": "scheduled",
+        "summary": "Release notes for 1.0",
+        "title": "Release 1.0 Notes",
+        "media_refs": [
+            "media-002"
+        ],
+        "tags": [
+            "release",
+            "notes"
+        ]
+    }
+]
