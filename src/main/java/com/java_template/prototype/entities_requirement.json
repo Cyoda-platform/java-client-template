@@ -1,0 +1,39 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 3,
+                    "breed": "Siamese",
+                    "id": "pet123",
+                    "name": "Whiskers",
+                    "status": "available",
+                    "type": "cat"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "adoptionHistory": [
+                        "pet123"
+                    ],
+                    "contactInfo": "john@example.com",
+                    "id": "user456",
+                    "username": "john_doe"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "id": "request789",
+                    "petId": "pet123",
+                    "requestDate": "2023-10-01T12:00:00Z",
+                    "status": "pending",
+                    "userId": "user456"
+                }
+            }
+        }
+    ]
+}
