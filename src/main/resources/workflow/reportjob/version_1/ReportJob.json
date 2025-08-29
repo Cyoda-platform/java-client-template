@@ -1,0 +1,187 @@
+{
+    "version": "1.0",
+    "name": "ReportJob Workflow",
+    "desc": "Workflow for ReportJob based on functional requirements (mermaid state diagram translated to FSM JSON).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "to_validating",
+                    "next": "VALIDATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ValidateReportRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATING": {
+            "transitions": [
+                {
+                    "name": "validation_passed_to_fetching",
+                    "next": "FETCHING",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidDateRangeCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "validation_failed_to_failed",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidationFailedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "FETCHING": {
+            "transitions": [
+                {
+                    "name": "fetch_complete_to_filtering",
+                    "next": "FILTERING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "FetchBookingsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "FILTERING": {
+            "transitions": [
+                {
+                    "name": "filter_complete_to_aggregating",
+                    "next": "AGGREGATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "FilterBookingsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "AGGREGATING": {
+            "transitions": [
+                {
+                    "name": "aggregation_sufficient_to_generating",
+                    "next": "GENERATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AggregateMetricsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SufficientDataCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "aggregation_insufficient_to_failed",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "InsufficientDataCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "GENERATING": {
+            "transitions": [
+                {
+                    "name": "generate_and_store_to_completed",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "RenderReportProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "StoreReportProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "name": "notify_user_to_available",
+                    "next": "AVAILABLE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "AVAILABLE": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        }
+    }
+}

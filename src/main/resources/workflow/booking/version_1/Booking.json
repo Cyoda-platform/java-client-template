@@ -1,0 +1,78 @@
+{
+    "version": "1.0",
+    "name": "Booking Workflow",
+    "desc": "Workflow for Booking entity: persisted -> validated -> enriched -> ready (indexed/available for queries)",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_validated",
+                    "next": "VALIDATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "BookingValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATED": {
+            "transitions": [
+                {
+                    "name": "transition_to_enriched",
+                    "next": "ENRICHED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EnrichBookingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ENRICHED": {
+            "transitions": [
+                {
+                    "name": "transition_to_ready",
+                    "next": "READY",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "IndexBookingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "READY": {
+            "transitions": [
+                {
+                    "name": "transition_to_terminal",
+                    "next": "terminal",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
