@@ -25,6 +25,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.List;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/consents")
@@ -38,121 +40,70 @@ public class ConsentController {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Operation(summary = "Create Consent", description = "Persist a new Consent entity and start associated workflows.")
+    @Operation(summary = "Create Consents", description = "Persist multiple Consent entities in batch and start associated workflows.")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class))),
+        @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = TechnicalIdResponse.class)))),
         @ApiResponse(responseCode = "400", description = "Bad Request"),
         @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping
-    public ResponseEntity<?> createConsent(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Consent create request", required = true,
-                    content = @Content(schema = @Schema(implementation = CreateConsentRequest.class)))
-            @RequestBody CreateConsentRequest request) {
+    public ResponseEntity<?> createConsents(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Array of Consent create payloads", required = true,
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreateConsentRequest.class))))
+            @RequestBody List<CreateConsentRequest> requests) {
         try {
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
+            if (requests == null || requests.isEmpty()) {
+                throw new IllegalArgumentException("request body must be a non-empty array");
             }
 
-            Consent entity = new Consent();
-            // Map incoming simple fields. Business rules (like generating IDs, timestamps, statuses) are handled in workflows.
-            entity.setUser_id(request.getUser_id());
-            entity.setType(request.getType());
-            entity.setSource(request.getSource());
-            // Optional fields from request can be added here if present in future.
+            List<Consent> entities = new ArrayList<>();
+            for (CreateConsentRequest request : requests) {
+                if (request == null) continue;
+                Consent entity = new Consent();
+                entity.setUser_id(request.getUser_id());
+                entity.setType(request.getType());
+                entity.setSource(request.getSource());
+                entities.add(entity);
+            }
 
-            UUID createdId = entityService.addItem(
+            List<UUID> ids = entityService.addItems(
                     Consent.ENTITY_NAME,
                     Consent.ENTITY_VERSION,
-                    entity
+                    entities
             ).get();
 
-            TechnicalIdResponse resp = new TechnicalIdResponse();
-            resp.setTechnicalId(createdId.toString());
+            List<String> technicalIds = new ArrayList<>();
+            if (ids != null) {
+                for (UUID u : ids) technicalIds.add(u != null ? u.toString() : null);
+            }
+            BatchCreateResponse resp = new BatchCreateResponse();
+            resp.setTechnicalIds(technicalIds);
             return ResponseEntity.ok(resp);
 
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request for createConsent: {}", iae.getMessage());
+            logger.warn("Invalid request for createConsents: {}", iae.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                logger.warn("Entity not found during createConsent execution: {}", cause.getMessage());
+                logger.warn("Entity not found during createConsents execution: {}", cause.getMessage());
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                logger.warn("Invalid argument during createConsent execution: {}", cause.getMessage());
+                logger.warn("Invalid argument during createConsents execution: {}", cause.getMessage());
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
             } else {
-                logger.error("ExecutionException during createConsent", ee);
+                logger.error("ExecutionException during createConsents", ee);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            logger.error("Interrupted while creating consent", ie);
+            logger.error("Interrupted while creating consents", ie);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Request interrupted");
         } catch (Exception ex) {
-            logger.error("Unexpected error in createConsent", ex);
+            logger.error("Unexpected error in createConsents", ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
         }
     }
-
-    @Operation(summary = "Get Consent by technicalId", description = "Retrieve a persisted Consent entity by its technicalId.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = ConsentResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Bad Request"),
-        @ApiResponse(responseCode = "404", description = "Not Found"),
-        @ApiResponse(responseCode = "500", description = "Internal Server Error")
-    })
-    @GetMapping("/{technicalId}")
-    public ResponseEntity<?> getConsentById(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-            @PathVariable("technicalId") String technicalId) {
-        try {
-            if (technicalId == null || technicalId.isBlank()) {
-                throw new IllegalArgumentException("technicalId path parameter is required");
-            }
-
-            UUID id = UUID.fromString(technicalId);
-
-            DataPayload dataPayload = entityService.getItem(id).get();
-            if (dataPayload == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            }
-
-            ObjectNode node = dataPayload.getData() != null ? (ObjectNode) dataPayload.getData() : null;
-            if (node == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-            }
-
-            ConsentResponse response = objectMapper.treeToValue(node, ConsentResponse.class);
-            return ResponseEntity.ok(response);
-
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request for getConsentById: {}", iae.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                logger.warn("Consent not found: {}", cause.getMessage());
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                logger.warn("Invalid argument during getConsentById execution: {}", cause.getMessage());
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
-            } else {
-                logger.error("ExecutionException during getConsentById", ee);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(cause != null ? cause.getMessage() : ee.getMessage());
-            }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            logger.error("Interrupted while retrieving consent", ie);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Request interrupted");
-        } catch (Exception ex) {
-            logger.error("Unexpected error in getConsentById", ex);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
-        }
-    }
-
-    // Request/Response DTOs
 
     @Data
     @Schema(name = "CreateConsentRequest", description = "Request payload to create a Consent")
@@ -203,5 +154,12 @@ public class ConsentController {
 
         @Schema(description = "Source of the consent", example = "signup_form")
         private String source;
+    }
+
+    @Data
+    @Schema(description = "Batch create response with technicalIds")
+    public static class BatchCreateResponse {
+        @Schema(description = "List of technical ids of created entities")
+        private List<String> technicalIds;
     }
 }
