@@ -1,0 +1,53 @@
+[
+    {
+        "userId": "user-001",
+        "email": "alice@example.com",
+        "emailVerified": true,
+        "gdprState": "consented",
+        "marketingEnabled": false,
+        "auditRefs": [
+            "audit-001"
+        ],
+        "ownerOfPosts": [
+            "post-001"
+        ],
+        "profile": {
+            "name": "Alice Johnson",
+            "locale": "en-US",
+            "bio": "Product manager"
+        }
+    },
+    {
+        "userId": "user-002",
+        "email": "bob@example.com",
+        "emailVerified": false,
+        "gdprState": "pending",
+        "marketingEnabled": true,
+        "auditRefs": [
+            "audit-002"
+        ],
+        "ownerOfPosts": [
+            "post-002",
+            "post-003"
+        ],
+        "profile": {
+            "name": "Bob Smith",
+            "locale": "en-GB",
+            "bio": "Content author"
+        }
+    },
+    {
+        "userId": "user-003",
+        "email": "carol@example.com",
+        "emailVerified": true,
+        "gdprState": "revoked",
+        "marketingEnabled": false,
+        "auditRefs": [],
+        "ownerOfPosts": [],
+        "profile": {
+            "name": "Carol Lee",
+            "locale": "en-US",
+            "bio": "Editor"
+        }
+    }
+]
