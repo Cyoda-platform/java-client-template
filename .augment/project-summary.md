@@ -7,7 +7,7 @@
 ## Directory Structure
 - `src/` - src
 
-## Key Files (172 found)
+## Key Files (159 found)
 - `build/generated-sources/js2p/org/cyoda/cloud/api/event/common/ModelInfo.java`
 - `build/generated-sources/js2p/org/cyoda/cloud/api/event/common/ErrorCode.java`
 - `build/generated-sources/js2p/org/cyoda/cloud/api/event/common/EntityMetadata.java`
@@ -28,7 +28,7 @@
 - `build/generated-sources/js2p/org/cyoda/cloud/api/event/search/EntitySearchRequest.java`
 - `build/generated-sources/js2p/org/cyoda/cloud/api/event/search/EntitySnapshotSearchResponse.java`
 - `build/generated-sources/js2p/org/cyoda/cloud/api/event/search/EntityGetAllRequest.java`
-- ... and 152 more files
+- ... and 139 more files
 
 ## Notes for AI Assistant
 - This is a template project that gets cloned for different branches
