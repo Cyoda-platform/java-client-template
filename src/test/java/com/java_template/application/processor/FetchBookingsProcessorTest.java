@@ -96,16 +96,8 @@ public class FetchBookingsProcessorTest {
             }
 
             @Override
-            public <T> CompletableFuture<HttpResponse<T>> sendAsync(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler, HttpClient.PushPromiseHandler<T> pushPromiseHandler) {
-                // Provide an implementation that ignores push promises and delegates to the two-arg sendAsync
-                try {
-                    HttpResponse<T> resp = send(request, responseBodyHandler);
-                    return CompletableFuture.completedFuture(resp);
-                } catch (Exception e) {
-                    CompletableFuture<HttpResponse<T>> f = new CompletableFuture<>();
-                    f.completeExceptionally(e);
-                    return f;
-                }
+            public java.util.Optional<java.util.concurrent.Executor> executor() {
+                return java.util.Optional.empty();
             }
         };
 
