@@ -4,7 +4,6 @@ import static com.java_template.common.config.Config.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.entity.weeklyreport.version_1.WeeklyReport;
 import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.DataPayload;
@@ -15,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +26,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.time.Instant;
+import java.util.List;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -139,6 +141,117 @@ public class WeeklyReportController {
         }
     }
 
+    @Operation(summary = "List WeeklyReports", description = "Retrieve all WeeklyReport orchestration entities (no paging).")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = WeeklyReportResponse.class))))
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE, params = {})
+    public ResponseEntity<?> listWeeklyReports() {
+        try {
+            CompletableFuture<List<DataPayload>> itemsFuture = entityService.getItems(
+                    WeeklyReport.ENTITY_NAME,
+                    WeeklyReport.ENTITY_VERSION,
+                    null, null, null
+            );
+            List<DataPayload> dataPayloads = itemsFuture.get();
+            List<WeeklyReportResponse> responses = new ArrayList<>();
+            if (dataPayloads != null) {
+                for (DataPayload payload : dataPayloads) {
+                    JsonNode data = payload.getData();
+                    WeeklyReportResponse resp = null;
+                    if (data != null && !data.isNull()) {
+                        resp = objectMapper.treeToValue(data, WeeklyReportResponse.class);
+                    } else {
+                        resp = new WeeklyReportResponse();
+                    }
+                    JsonNode meta = payload.getMeta();
+                    if (meta != null && meta.has("entityId")) {
+                        resp.setTechnicalId(meta.get("entityId").asText());
+                    }
+                    responses.add(resp);
+                }
+            }
+            return ResponseEntity.ok(responses);
+        } catch (ExecutionException ee) {
+            return handleExecutionException(ee);
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request to list WeeklyReports: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(errorBody(iae.getMessage()));
+        } catch (Exception e) {
+            logger.error("Failed to list WeeklyReports", e);
+            return ResponseEntity.status(500).body(errorBody("Internal server error"));
+        }
+    }
+
+    @Operation(summary = "Update WeeklyReport by technicalId", description = "Update a WeeklyReport orchestration entity. Client should provide full entity payload.")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class)))
+    @PutMapping(value = "/{technicalId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> updateWeeklyReport(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalId,
+            @RequestBody(description = "WeeklyReport update request", required = true,
+                content = @Content(schema = @Schema(implementation = WeeklyReportUpdateRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody WeeklyReportUpdateRequest request) {
+        try {
+            if (technicalId == null || technicalId.isBlank()) {
+                throw new IllegalArgumentException("technicalId is required");
+            }
+            if (request == null) {
+                throw new IllegalArgumentException("Request body is required");
+            }
+
+            WeeklyReport entity = new WeeklyReport();
+            entity.setReportId(request.getReportId());
+            entity.setWeekStart(request.getWeekStart());
+            entity.setGeneratedAt(request.getGeneratedAt());
+            entity.setStatus(request.getStatus());
+            entity.setSummary(request.getSummary());
+            entity.setAttachmentUrl(request.getAttachmentUrl());
+
+            CompletableFuture<UUID> updatedFuture = entityService.updateItem(UUID.fromString(technicalId), entity);
+            UUID updatedId = updatedFuture.get();
+
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(updatedId.toString());
+            return ResponseEntity.ok(resp);
+
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request to update WeeklyReport: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(errorBody(iae.getMessage()));
+        } catch (ExecutionException ee) {
+            return handleExecutionException(ee);
+        } catch (Exception e) {
+            logger.error("Failed to update WeeklyReport", e);
+            return ResponseEntity.status(500).body(errorBody("Internal server error"));
+        }
+    }
+
+    @Operation(summary = "Delete WeeklyReport by technicalId", description = "Delete a WeeklyReport orchestration entity by technicalId")
+    @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = TechnicalIdResponse.class)))
+    @DeleteMapping(value = "/{technicalId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> deleteWeeklyReport(
+            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
+            @PathVariable("technicalId") String technicalId) {
+        try {
+            if (technicalId == null || technicalId.isBlank()) {
+                throw new IllegalArgumentException("technicalId is required");
+            }
+
+            CompletableFuture<UUID> deletedFuture = entityService.deleteItem(UUID.fromString(technicalId));
+            UUID deletedId = deletedFuture.get();
+            TechnicalIdResponse resp = new TechnicalIdResponse();
+            resp.setTechnicalId(deletedId.toString());
+            return ResponseEntity.ok(resp);
+
+        } catch (IllegalArgumentException iae) {
+            logger.warn("Invalid request to delete WeeklyReport: {}", iae.getMessage());
+            return ResponseEntity.badRequest().body(errorBody(iae.getMessage()));
+        } catch (ExecutionException ee) {
+            return handleExecutionException(ee);
+        } catch (Exception e) {
+            logger.error("Failed to delete WeeklyReport", e);
+            return ResponseEntity.status(500).body(errorBody("Internal server error"));
+        }
+    }
+
     // Helper to handle ExecutionException unwrapping as per requirements
     private ResponseEntity<?> handleExecutionException(ExecutionException ee) {
         Throwable cause = ee.getCause();
@@ -176,6 +289,28 @@ public class WeeklyReportController {
 
         @Schema(description = "Notification email", required = false, example = "victoria.sagdieva@cyoda.com")
         private String notifyEmail;
+    }
+
+    @Data
+    @Schema(name = "WeeklyReportUpdateRequest", description = "Request to update WeeklyReport (full entity representation recommended)")
+    public static class WeeklyReportUpdateRequest {
+        @Schema(description = "Business report id", example = "weekly-summary-2025-W34")
+        private String reportId;
+
+        @Schema(description = "Week start date (ISO)", example = "2025-08-18")
+        private String weekStart;
+
+        @Schema(description = "When the report was generated (ISO datetime)", example = "2025-08-25T09:15:00Z")
+        private String generatedAt;
+
+        @Schema(description = "Report status", example = "DISPATCHED")
+        private String status;
+
+        @Schema(description = "Attachment URL (PDF)", example = "https://filestore/reports/report_9a0b1c2d.pdf")
+        private String attachmentUrl;
+
+        @Schema(description = "Short summary text", example = "Top seller: Dog Food X; 3 SKUs need restocking")
+        private String summary;
     }
 
     @Data

@@ -29,7 +29,7 @@ public class ProductValidCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Product.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class ProductValidCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Product> context) {
@@ -58,12 +59,22 @@ public class ProductValidCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
+         // Category is important for analysis - treat missing category as validation failure
+         if (entity.getCategory() == null || entity.getCategory().isBlank()) {
+             return EvaluationOutcome.fail("category is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
          // Price must be present and non-negative
          if (entity.getPrice() == null) {
              return EvaluationOutcome.fail("price is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
          if (entity.getPrice() < 0.0) {
              return EvaluationOutcome.fail("price must be non-negative", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Business rule: extremely low (zero) price is suspicious -> flag as business rule failure
+         if (entity.getPrice() == 0.0) {
+             return EvaluationOutcome.fail("price is zero - suspicious for a persisted product", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
          // Data quality check: metadata if provided should not be blank

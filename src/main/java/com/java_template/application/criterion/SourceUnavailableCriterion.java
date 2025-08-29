@@ -29,7 +29,7 @@ public class SourceUnavailableCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(IngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class SourceUnavailableCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must match the exact criterion name
+        return modelSpec.operationName() != null && modelSpec.operationName().equals(className);
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestionJob> context) {
@@ -62,7 +63,7 @@ public class SourceUnavailableCriterion implements CyodaCriterion {
              String lower = formats.toLowerCase();
              if (!lower.contains("json") && !lower.contains("xml")) {
                  String msg = "dataFormats must include JSON or XML for ingestion job" + (job.getJobId() != null ? " [" + job.getJobId() + "]" : "");
-                 logger.debug(msg + " - provided: {}", formats);
+                 logger.debug("{} - provided: {}", msg, formats);
                  return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          }
@@ -75,11 +76,12 @@ public class SourceUnavailableCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail(msg, StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
-         // If lastRunAt is missing, warn but do not fail the criterion (attachment strategy will surface as warning)
+         // If lastRunAt is missing, log a warning (do not fail criterion).
          if (job.getLastRunAt() == null || job.getLastRunAt().isBlank()) {
              String warn = "Ingestion job has not run yet (no lastRunAt) for job" + (job.getJobId() != null ? " [" + job.getJobId() + "]" : "");
-             logger.debug(warn);
-             context.addWarning(warn);
+             // Attempt to surface as a warning via logs; ReasonAttachmentStrategy.toWarnings() is configured on completion
+             logger.warn(warn);
+             // Note: Not invoking context-specific mutation method because such API may not be present across serializer versions.
          }
 
          // All checks passed — consider source available for workflow progression

@@ -20,7 +20,7 @@ public class SourceAvailableCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
-    private final String className = this.getClass().getSimpleName();
+    private static final String CRITERION_NAME = "SourceAvailableCriterion";
 
     public SourceAvailableCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -29,8 +29,8 @@ public class SourceAvailableCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        // This is a predefined chain. Business logic implemented in validateEntity method.
+        return serializer.withRequest(request) // always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(IngestionJob.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -38,11 +38,28 @@ public class SourceAvailableCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        // Must use exact criterion name (case-sensitive)
+        return CRITERION_NAME.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<IngestionJob> context) {
          IngestionJob entity = context.entity();
+
+         if (entity == null) {
+             logger.warn("IngestionJob entity is null in SourceAvailableCriterion");
+             return EvaluationOutcome.fail("ingestion job entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // jobId is required
+         if (entity.getJobId() == null || entity.getJobId().isBlank()) {
+             return EvaluationOutcome.fail("jobId is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // status is required (basic sanity)
+         if (entity.getStatus() == null || entity.getStatus().isBlank()) {
+             return EvaluationOutcome.fail("status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
 
          // Required: sourceUrl must be present
          if (entity.getSourceUrl() == null || entity.getSourceUrl().isBlank()) {
@@ -77,7 +94,13 @@ public class SourceAvailableCriterion implements CyodaCriterion {
          // If notifyEmail provided, perform a basic sanity check
          if (entity.getNotifyEmail() != null && !entity.getNotifyEmail().isBlank()) {
              String email = entity.getNotifyEmail().trim();
-             if (!email.contains("@") || email.startsWith("@") || email.endsWith("@")) {
+             // basic email sanity: contain single '@' and at least one '.' after '@'
+             int at = email.indexOf('@');
+             if (at <= 0 || at != email.lastIndexOf('@') || at == email.length() - 1) {
+                 return EvaluationOutcome.fail("notifyEmail appears invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             String domain = email.substring(at + 1);
+             if (!domain.contains(".")) {
                  return EvaluationOutcome.fail("notifyEmail appears invalid", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
              }
          }

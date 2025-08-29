@@ -69,8 +69,17 @@ public class ReportGeneratorProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Validator for incoming WeeklyReport entity.
+     * WeeklyReport.isValid() requires generatedAt and status which are set by the processor,
+     * so here we perform a lighter validation to allow processor to populate those fields.
+     */
     private boolean isValidEntity(WeeklyReport entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getReportId() == null || entity.getReportId().isBlank()) return false;
+        if (entity.getWeekStart() == null || entity.getWeekStart().isBlank()) return false;
+        // status and generatedAt will be set by this processor, do not require them here
+        return true;
     }
 
     private WeeklyReport processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<WeeklyReport> context) {
@@ -132,7 +141,17 @@ public class ReportGeneratorProcessor implements CyodaProcessor {
                                         sales.add(sr);
                                     }
                                 } catch (Exception ex) {
-                                    logger.debug("Unable to parse dateSold {} for record {}, skipping", sr.getDateSold(), sr.getRecordId());
+                                    // try parsing as LocalDate
+                                    try {
+                                        LocalDate ld = LocalDate.parse(sr.getDateSold());
+                                        LocalDate soldDate = ld;
+                                        if ((soldDate.isEqual(weekStart) || soldDate.isAfter(weekStart)) &&
+                                            (soldDate.isEqual(weekEnd) || soldDate.isBefore(weekEnd))) {
+                                            sales.add(sr);
+                                        }
+                                    } catch (Exception ex2) {
+                                        logger.debug("Unable to parse dateSold {} for record {}, skipping", sr.getDateSold(), sr.getRecordId());
+                                    }
                                 }
                             }
                         }
@@ -211,7 +230,7 @@ public class ReportGeneratorProcessor implements CyodaProcessor {
             String topProductId = null;
             double topRevenue = 0.0;
             for (Map.Entry<String, Double> entry : revenueByProduct.entrySet()) {
-                if (entry.getValue() > topRevenue || topProductId == null) {
+                if (topProductId == null || entry.getValue() > topRevenue) {
                     topProductId = entry.getKey();
                     topRevenue = entry.getValue();
                 }
@@ -254,8 +273,8 @@ public class ReportGeneratorProcessor implements CyodaProcessor {
             }
 
             entity.setSummary(summary.toString());
-            // After generating the summary, mark as ready for next steps (template application / export)
-            entity.setStatus("GENERATING"); // keep GENERATING while downstream processors act; alternatively could be "READY_FOR_TEMPLATE"
+            // After generating the summary, keep status GENERATING for downstream processors
+            entity.setStatus("GENERATING");
             // Leave attachmentUrl to downstream processors (ExportToPDFProcessor) to fill
 
             logger.info("WeeklyReport {} generated summary: {}", entity.getReportId(), entity.getSummary());

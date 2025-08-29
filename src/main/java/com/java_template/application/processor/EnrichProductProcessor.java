@@ -62,14 +62,22 @@ public class EnrichProductProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Make validation permissive for enrichment stage:
+     * Require entity presence and core identifiers (productId and name),
+     * allow price to be missing so enrichment can compute/normalize it.
+     */
     private boolean isValidEntity(Product entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getProductId() == null || entity.getProductId().isBlank()) return false;
+        if (entity.getName() == null || entity.getName().isBlank()) return false;
+        // Do not require price here — enrichment will compute or normalize it.
+        return true;
     }
 
     private Product processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Product> context) {
         Product entity = context.entity();
 
-        // Business logic:
         // 1. Normalize name (trim)
         try {
             if (entity.getName() != null) {

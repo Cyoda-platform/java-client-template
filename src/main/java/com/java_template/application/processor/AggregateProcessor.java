@@ -131,9 +131,6 @@ public class AggregateProcessor implements CyodaProcessor {
                             continue;
                         }
                         LocalDate srLocalDate = srInstant.atZone(ZoneOffset.UTC).toLocalDate();
-                        if (!srLocalDate.isBefore(weekEndExclusive) && !srLocalDate.isEqual(weekEndExclusive.minusDays(0))) {
-                            // srLocalDate >= weekEndExclusive -> skip
-                        }
                         // check if srLocalDate in [weekStartDate, weekEndExclusive)
                         if ((srLocalDate.isEqual(weekStartDate) || srLocalDate.isAfter(weekStartDate)) &&
                             srLocalDate.isBefore(weekEndExclusive)) {

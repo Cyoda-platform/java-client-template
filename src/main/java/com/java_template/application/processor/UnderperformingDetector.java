@@ -82,7 +82,7 @@ public class UnderperformingDetector implements CyodaProcessor {
             }
 
             // Fetch the product entity to evaluate its price and update performance metadata
-            CompletableFuture<DataPayload> productFuture = entityService.getItem(Product.ENTITY_NAME, Product.ENTITY_VERSION, productUuid);
+            CompletableFuture<DataPayload> productFuture = entityService.getItem(productUuid);
             DataPayload productPayload = productFuture.get();
             if (productPayload == null || productPayload.getData() == null) {
                 logger.warn("Product with id {} not found for SalesRecord {}.", productIdStr, entity.getRecordId());
@@ -143,8 +143,15 @@ public class UnderperformingDetector implements CyodaProcessor {
 
             // Persist update to the Product entity (allowed: update other entities)
             try {
-                entityService.updateItem(UUID.fromString(product.getProductId()), product).get();
-                logger.info("Updated product {} with performance tag: {}", product.getProductId(), performanceTag);
+                // Use technical id if available; product.getProductId() may be business id — we attempt to parse, otherwise fall back to the originally resolved UUID
+                UUID updateUuid;
+                try {
+                    updateUuid = UUID.fromString(product.getProductId());
+                } catch (Exception ex) {
+                    updateUuid = productUuid;
+                }
+                entityService.updateItem(updateUuid, product).get();
+                logger.info("Updated product {} with performance tag: {}", updateUuid, performanceTag);
             } catch (Exception e) {
                 logger.error("Failed to update product {}: {}", product.getProductId(), e.getMessage(), e);
             }

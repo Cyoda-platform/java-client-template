@@ -46,7 +46,8 @@ public class ValidateProductProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
-            .validate(this::isValidEntity, "Invalid entity state")
+            // Allow processing even if entity is not fully valid so we can enrich/mark invalid states.
+            .validate(e -> e != null, "Entity is null")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
@@ -158,7 +159,7 @@ public class ValidateProductProcessor implements CyodaProcessor {
 
             // If we adjusted price because it was negative or NaN/Infinite, note it
             if (entity.getPrice() != null && entity.getPrice() < 0.0) {
-                // This branch is unlikely since negative price would make isValidEntity false, but keep safety
+                // This branch is unlikely since negative price would be flagged, but keep safety
                 metadataNode.put("priceAdjusted", true);
             }
 
