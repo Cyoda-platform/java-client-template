@@ -1,0 +1,35 @@
+[
+    {
+        "consent_id": "consent-001",
+        "user_id": "user-001",
+        "requested_at": "2024-05-01T10:00:00Z",
+        "status": "granted",
+        "type": "marketing",
+        "evidence_ref": "evid-001",
+        "granted_at": "2024-05-01T10:05:00Z",
+        "revoked_at": null,
+        "source": "web"
+    },
+    {
+        "consent_id": "consent-002",
+        "user_id": "user-002",
+        "requested_at": "2024-05-02T11:00:00Z",
+        "status": "pending",
+        "type": "gdpr",
+        "evidence_ref": null,
+        "granted_at": null,
+        "revoked_at": null,
+        "source": "email"
+    },
+    {
+        "consent_id": "consent-003",
+        "user_id": "user-003",
+        "requested_at": "2024-04-15T09:30:00Z",
+        "status": "revoked",
+        "type": "marketing",
+        "evidence_ref": "evid-002",
+        "granted_at": "2024-04-15T09:35:00Z",
+        "revoked_at": "2024-05-15T08:00:00Z",
+        "source": "support"
+    }
+]
