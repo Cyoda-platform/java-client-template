@@ -1,0 +1,17 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "/home/runner/work/java-client-template/java-client-template/src/test/java/com/java_template/application/processor/FetchBookingsProcessorTest.java:173: error: cannot find symbol",
+                "        public Optional<SSLSession> sslSession() { return Optional.empty(); }",
+                "                        ^",
+                "  symbol:   class SSLSession",
+                "  location: class SimpleHttpResponse<T>",
+                "  where T is a type-variable:",
+                "    T extends Object declared in class SimpleHttpResponse"
+            ],
+            "file_path": "src/test/java/com/java_template/application/processor/FetchBookingsProcessorTest.java"
+        }
+    ]
+}
