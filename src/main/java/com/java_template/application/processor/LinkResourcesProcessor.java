@@ -9,9 +9,6 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
@@ -30,7 +27,6 @@ public class LinkResourcesProcessor implements CyodaProcessor {
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    @Autowired
     public LinkResourcesProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
@@ -58,8 +54,14 @@ public class LinkResourcesProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Lightweight validation: ensure entity exists and has a status string.
+     * We intentionally avoid calling entity.isValid() here because LinkResourcesProcessor
+     * must be able to operate on reports that may be missing generatedAt/visualizationUrl
+     * and other fields which will be added by this processor.
+     */
     private boolean isValidEntity(Report entity) {
-        return entity != null && entity.isValid();
+        return entity != null && entity.getStatus() != null && !entity.getStatus().isBlank();
     }
 
     private Report processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Report> context) {
