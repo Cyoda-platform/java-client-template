@@ -1,0 +1,11 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "error: method getItem in interface EntityService cannot be applied to given types (at line 58) \u2014 required: UUID; found: String,Integer,UUID; reason: actual and formal argument lists differ in length. Context: when(entityService.getItem(eq(Product.ENTITY_NAME), eq(Product.ENTITY_VERSION), any(UUID.class)))"
+            ],
+            "file_path": "src/test/java/com/java_template/application/processor/UnderperformingDetectorTest.java"
+        }
+    ]
+}
