@@ -1,0 +1,14 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/SuspendUser.java:93: error: cannot find symbol",
+                "metadata.put(\"trigger_request_id\", context.requestId());",
+                "symbol:   method requestId()",
+                "location: variable context of type ProcessorEntityExecutionContext<User>"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/SuspendUser.java"
+        }
+    ]
+}
