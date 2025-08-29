@@ -1,0 +1,32 @@
+[
+    {
+        "media_id": "media-001",
+        "owner_id": "user-001",
+        "filename": "hero.png",
+        "mime": "image/png",
+        "cdn_ref": "cdn://hero.png",
+        "created_at": "2024-05-20T07:00:00Z",
+        "status": "available",
+        "versions": [
+            {
+                "filename": "hero.png",
+                "version_id": "mv-001"
+            }
+        ]
+    },
+    {
+        "media_id": "media-002",
+        "owner_id": "user-002",
+        "filename": "screenshot.jpg",
+        "mime": "image/jpeg",
+        "cdn_ref": "cdn://screenshot.jpg",
+        "created_at": "2024-06-01T11:00:00Z",
+        "status": "processing",
+        "versions": [
+            {
+                "filename": "screenshot.jpg",
+                "version_id": "mv-002"
+            }
+        ]
+    }
+]
