@@ -1,6 +1,8 @@
-Thank you for your patience! Based on your requirement to build a 'Purrfect Pets' API app, I will define the functional requirements using an Event-Driven Architecture (EDA) approach. We will focus on business entities and workflows relevant to a pet adoption scenario. Let's outline the necessary entities and their workflows.
+# Functional Requirements Document for 'Purrfect Pets' API App
 
-### 1. Entity Definitions
+This document outlines the functional requirements for the 'Purrfect Pets' API app using an Event-Driven Architecture (EDA) approach. It focuses on the business entities and workflows relevant to a pet adoption scenario.
+
+## 1. Entity Definitions
 ```
 Pet:
 - id: String (Unique identifier for each pet)
@@ -22,8 +24,9 @@ AdoptionRequest:
 - status: String (Current status of the request: Pending, Approved, Rejected)
 ```
 
-### 2. Entity workflows
-**Pet Workflow:**
+## 2. Entity Workflows
+
+### Pet Workflow
 1. Initial State: Pet created with AVAILABLE status
 2. Adoption Request: User submits an adoption request
 3. Approval Process: Admin reviews the request
@@ -41,7 +44,7 @@ stateDiagram-v2
     USERS_NOTIFIED --> [*]
 ```
 
-**User Workflow:**
+### User Workflow
 1. Initial State: User created
 2. Adoption Request: User submits a request for a pet
 3. Notification: User receives updates on request status
@@ -54,7 +57,7 @@ stateDiagram-v2
     NOTIFIED --> [*]
 ```
 
-**Adoption Request Workflow:**
+### Adoption Request Workflow
 1. Initial State: Request created with PENDING status
 2. Admin Review: Admin reviews the request
 3. Completion: Update status to APPROVED/REJECTED based on admin decision
@@ -71,7 +74,7 @@ stateDiagram-v2
     USERS_NOTIFIED --> [*]
 ```
 
-### 3. Pseudo code for each processor class
+## 3. Pseudo Code for Each Processor Class
 ```java
 class UserSubmitsRequestProcessor {
     void process(AdoptionRequest request) {
@@ -94,7 +97,7 @@ class NotifyUserProcessor {
 }
 ```
 
-### 4. API Endpoints Design Rules
+## 4. API Endpoints Design Rules
 - **POST /pets**: Create a new pet.
   - Request:
   ```json
@@ -147,4 +150,4 @@ class NotifyUserProcessor {
 - **GET /users/{technicalId}**: Retrieve user details by technicalId.
 - **GET /adoptionRequests/{technicalId}**: Retrieve adoption request details by technicalId.
 
-This structure should provide a solid foundation for your 'Purrfect Pets' API app. If you need any modifications or additional entities, feel free to ask!
+This document provides a comprehensive foundation for the 'Purrfect Pets' API app and is suitable for direct use in documentation or implementation.
