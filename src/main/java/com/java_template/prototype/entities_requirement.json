@@ -1,0 +1,63 @@
+{
+    "entities": [
+        {
+            "IngestionJob": {
+                "entity_data_example": {
+                    "dataFormats": "JSON,XML",
+                    "jobId": "weekly-petstore-ingest",
+                    "lastRunAt": "2025-08-25T09:00:00Z",
+                    "notifyEmail": "victoria.sagdieva@cyoda.com",
+                    "scheduleCron": "0 9 * * MON",
+                    "sourceUrl": "https://petstore.swagger.io",
+                    "status": "COMPLETED"
+                }
+            }
+        },
+        {
+            "Product": {
+                "entity_data_example": {
+                    "category": "Food",
+                    "metadata": "{}",
+                    "name": "Dog Food X",
+                    "price": 12.99,
+                    "productId": "p-123"
+                }
+            }
+        },
+        {
+            "SalesRecord": {
+                "entity_data_example": {
+                    "dateSold": "2025-08-25T08:12:00Z",
+                    "productId": "p-123",
+                    "quantity": 3,
+                    "rawSource": "{\"order\":\"o-789\",\"items\":[{\"productId\":\"p-123\",\"qty\":3}],\"total\":38.97}",
+                    "recordId": "s-20250825-01",
+                    "revenue": 38.97
+                }
+            }
+        },
+        {
+            "InventorySnapshot": {
+                "entity_data_example": {
+                    "productId": "p-123",
+                    "restockThreshold": 10,
+                    "snapshotAt": "2025-08-25T07:00:00Z",
+                    "snapshotId": "snap-20250825-01",
+                    "stockLevel": 20
+                }
+            }
+        },
+        {
+            "WeeklyReport": {
+                "entity_data_example": {
+                    "attachmentUrl": "https://filestore/reports/report_9a0b1c2d.pdf",
+                    "generatedAt": "2025-08-25T09:15:00Z",
+                    "reportId": "weekly-summary-2025-W34",
+                    "status": "DISPATCHED",
+                    "summary": "Top seller: Dog Food X; 3 SKUs need restocking",
+                    "weekStart": "2025-08-18"
+                }
+            }
+        }
+    ]
+}
