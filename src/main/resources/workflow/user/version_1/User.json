@@ -1,0 +1,81 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Workflow for managing user actions in the adoption process",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_user_created",
+                    "next": "user_created",
+                    "manual": false
+                }
+            ]
+        },
+        "user_created": {
+            "transitions": [
+                {
+                    "name": "transition_to_request_submitted",
+                    "next": "request_submitted",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AdoptionRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "request_submitted": {
+            "transitions": [
+                {
+                    "name": "transition_to_update_history",
+                    "next": "update_history",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UpdateAdoptionHistoryProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "update_history": {
+            "transitions": [
+                {
+                    "name": "transition_to_user_notified",
+                    "next": "user_notified",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "user_notified": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "end",
+                    "manual": false
+                }
+            ]
+        },
+        "end": {
+            "transitions": []
+        }
+    }
+}

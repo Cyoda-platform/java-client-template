@@ -1,0 +1,102 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Workflow for managing pet adoption processes",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_available",
+                    "next": "AVAILABLE",
+                    "manual": false
+                }
+            ]
+        },
+        "AVAILABLE": {
+            "transitions": [
+                {
+                    "name": "transition_to_request_received",
+                    "next": "REQUEST_RECEIVED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AdoptionRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "REQUEST_RECEIVED": {
+            "transitions": [
+                {
+                    "name": "transition_to_approval_check",
+                    "next": "APPROVAL_CHECK",
+                    "manual": false
+                }
+            ]
+        },
+        "APPROVAL_CHECK": {
+            "transitions": [
+                {
+                    "name": "transition_to_adopted",
+                    "next": "ADOPTED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CheckPetAvailabilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "transition_to_available",
+                    "next": "AVAILABLE",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CheckPetAvailabilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ADOPTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_user_notified",
+                    "next": "USER_NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "USER_NOTIFIED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
