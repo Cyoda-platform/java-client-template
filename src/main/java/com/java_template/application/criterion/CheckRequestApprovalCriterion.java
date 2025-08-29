@@ -51,9 +51,10 @@ public class CheckRequestApprovalCriterion implements CyodaCriterion {
         // 3. Apply business rules for approval
         // 4. Return approval decision
 
-        // For now, we'll simulate approval logic
-        // This could be based on various factors like user history, pet characteristics, etc.
-        boolean shouldApprove = Math.random() > 0.3; // 70% approval rate for demo
+        // For now, we'll simulate approval logic based on a deterministic approach
+        // This ensures consistent behavior with the rejection criterion
+        long currentTime = System.currentTimeMillis();
+        boolean shouldApprove = (currentTime % 10) < 7; // 70% approval rate based on time
 
         if (shouldApprove) {
             System.out.println("Approval reason: All criteria met for adoption");

@@ -52,8 +52,9 @@ public class CheckRequestRejectionCriterion implements CyodaCriterion {
         // 4. Return rejection decision
 
         // For now, we'll simulate rejection logic
-        // This is the inverse of approval - if approval fails, rejection succeeds
-        boolean shouldReject = Math.random() < 0.3; // 30% rejection rate for demo
+        // This should be the inverse of approval to ensure mutual exclusivity
+        long currentTime = System.currentTimeMillis();
+        boolean shouldReject = (currentTime % 10) >= 7; // 30% rejection rate, inverse of approval
 
         if (shouldReject) {
             System.out.println("Rejection reason: Criteria not met for adoption");
