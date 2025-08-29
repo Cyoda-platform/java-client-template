@@ -1,0 +1,48 @@
+{
+    "version": "1.0",
+    "name": "Audit Workflow",
+    "desc": "Workflow for Audit entity: append immutable audit records when guarded transitions occur.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "invoke_audit_on_guarded_transition",
+                    "next": "recorded",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AppendAudit",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "InvokedOnGuardedTransition",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "recorded": {
+            "transitions": [
+                {
+                    "name": "complete_recorded_audit",
+                    "next": "completed",
+                    "manual": false
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        }
+    }
+}

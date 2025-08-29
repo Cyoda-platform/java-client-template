@@ -1,0 +1,161 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Workflow for User entity derived from functional requirements",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_registration",
+                    "next": "registered",
+                    "manual": false
+                }
+            ]
+        },
+        "registered": {
+            "transitions": [
+                {
+                    "name": "on_registration",
+                    "next": "email_unverified",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "OnRegistration",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "InitEmailVerification",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "email_unverified": {
+            "transitions": [
+                {
+                    "name": "email_verified_and_consent",
+                    "next": "active",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EmailVerifiedAndConsent",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "ActivateUser",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "admin_suspends",
+                    "next": "suspended",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SuspendUser",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "gdpr_erasure_requested",
+                    "next": "erased_pending",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "GdprErasureRequested",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "MarkErasurePending",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "suspended": {
+            "transitions": [
+                {
+                    "name": "suspend_exit",
+                    "next": "terminated",
+                    "manual": false
+                }
+            ]
+        },
+        "erased_pending": {
+            "transitions": [
+                {
+                    "name": "gdpr_transfer_immediate",
+                    "next": "transferred",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "GdprTransferImmediate",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "GdprTransfer",
+                            "executionMode": "ASYNC_NEW_TX",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "transferred": {
+            "transitions": [
+                {
+                    "name": "finish_transfer",
+                    "next": "terminated",
+                    "manual": false
+                }
+            ]
+        },
+        "terminated": {
+            "transitions": []
+        }
+    }
+}

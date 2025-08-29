@@ -1,0 +1,102 @@
+{
+    "version": "1.0",
+    "name": "Media Workflow",
+    "desc": "Workflow for Media entity derived from functional requirements (uploaded -> processed -> published -> deprecated).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "persist_and_set_uploaded",
+                    "next": "uploaded",
+                    "manual": false
+                }
+            ]
+        },
+        "uploaded": {
+            "transitions": [
+                {
+                    "name": "processing_complete",
+                    "next": "processed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProcessMedia",
+                            "executionMode": "ASYNC_NEW_TX",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ProcessingComplete",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "processed": {
+            "transitions": [
+                {
+                    "name": "publish_if_referenced",
+                    "next": "published",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PublishMedia",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ReferencedByPublishedPost",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "published": {
+            "transitions": [
+                {
+                    "name": "admin_deprecates",
+                    "next": "deprecated",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "DeprecateMedia",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "deprecated": {
+            "transitions": [
+                {
+                    "name": "finalize_deprecated",
+                    "next": "final",
+                    "manual": false
+                }
+            ]
+        },
+        "final": {
+            "transitions": []
+        }
+    }
+}

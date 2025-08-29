@@ -1,0 +1,109 @@
+{
+    "version": "1.0",
+    "name": "Consent Workflow",
+    "desc": "Workflow for Consent entity based on functional requirements mermaid state diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_consent",
+                    "next": "requested",
+                    "manual": false
+                }
+            ]
+        },
+        "requested": {
+            "transitions": [
+                {
+                    "name": "to_pending_verification",
+                    "next": "pending_verification",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "DoubleOptInRequired",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "CreateVerificationToken",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "SendVerificationEmail",
+                            "executionMode": "ASYNC_NEW_TX",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending_verification": {
+            "transitions": [
+                {
+                    "name": "verification_received",
+                    "next": "active",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "VerificationReceived",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "RecordEvidenceAndActivate",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "user_revokes",
+                    "next": "revoked",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "UserRevokes",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "RevokeConsent",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "revoked": {
+            "transitions": []
+        }
+    }
+}

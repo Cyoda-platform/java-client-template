@@ -1,0 +1,91 @@
+{
+    "version": "1.0",
+    "name": "PostVersion Workflow",
+    "desc": "Workflow for PostVersion entity based on functional requirements: editing -> ready_for_publish -> finalized -> completed",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_version_persisted",
+                    "next": "editing",
+                    "manual": false
+                }
+            ]
+        },
+        "editing": {
+            "transitions": [
+                {
+                    "name": "author_marks_ready",
+                    "next": "ready_for_publish",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "NormalizeAndChunk",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AuthorMarksReady",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ready_for_publish": {
+            "transitions": [
+                {
+                    "name": "publish_requested_by_post",
+                    "next": "finalized",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PublishRequestedByPost",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "FinalizeVersion",
+                            "executionMode": "ASYNC_NEW_TX",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "EnqueueEmbeddings",
+                            "executionMode": "ASYNC_NEW_TX",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "finalized": {
+            "transitions": [
+                {
+                    "name": "finalized_complete",
+                    "next": "completed",
+                    "manual": false
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        }
+    }
+}

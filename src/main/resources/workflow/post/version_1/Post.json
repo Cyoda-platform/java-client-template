@@ -1,0 +1,173 @@
+{
+    "version": "1.0",
+    "name": "Post Workflow",
+    "desc": "Workflow for Post entity based on functional requirements: draft -> in_review -> scheduled/published -> archived. Includes processors and criteria derived from functional spec.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_post",
+                    "next": "draft",
+                    "manual": false
+                }
+            ]
+        },
+        "draft": {
+            "transitions": [
+                {
+                    "name": "author_submits_for_review",
+                    "next": "in_review",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubmitForReview",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AuthorSubmitsForReview",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "in_review": {
+            "transitions": [
+                {
+                    "name": "admin_requests_changes",
+                    "next": "draft",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AdminRequestsChanges",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "admin_approves_to_scheduled",
+                    "next": "scheduled",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "AdminApprove",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AdminApprovesAndHasPublishDatetime",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "admin_approves_to_published",
+                    "next": "published",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "AdminApprove",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "PublishPost",
+                            "executionMode": "ASYNC_NEW_TX",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AdminApprovesAndNoPublishDatetime",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "scheduled": {
+            "transitions": [
+                {
+                    "name": "scheduled_to_published",
+                    "next": "published",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PublishPost",
+                            "executionMode": "ASYNC_NEW_TX",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "NowAtOrAfterPublishDatetime",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "published": {
+            "transitions": [
+                {
+                    "name": "admin_archives",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ArchivePost",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AdminArchives",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "archived": {
+            "transitions": []
+        }
+    }
+}
