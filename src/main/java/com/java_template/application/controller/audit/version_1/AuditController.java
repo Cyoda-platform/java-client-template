@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +27,8 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.List;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping(path = "/api/audit/v1")
@@ -38,123 +41,83 @@ public class AuditController {
     private final EntityService entityService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Operation(summary = "Create Audit", description = "Create an Audit record. Returns the technicalId (UUID) of the created audit.")
+    @Operation(summary = "Create Audits", description = "Create Audit records in batch. Returns technicalIds (UUID) of created audits.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = CreateAuditResponse.class))),
+            @ApiResponse(responseCode = "200", description = "OK", content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreateAuditResponse.class)))),
             @ApiResponse(responseCode = "400", description = "Bad Request"),
             @ApiResponse(responseCode = "500", description = "Internal Server Error")
     })
     @PostMapping(path = "", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<?> createAudit(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Audit creation payload", required = true,
-                    content = @Content(schema = @Schema(implementation = CreateAuditRequest.class)))
-            @RequestBody CreateAuditRequest request) {
+    public ResponseEntity<?> createAudits(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Array of Audit creation payloads", required = true,
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = CreateAuditRequest.class))))
+            @RequestBody List<CreateAuditRequest> requests) {
         try {
-            // Basic validation of request format
-            if (request == null) {
-                throw new IllegalArgumentException("Request body is required");
-            }
-            if (request.getAuditId() == null || request.getAuditId().isBlank()) {
-                throw new IllegalArgumentException("auditId is required");
-            }
-            if (request.getAction() == null || request.getAction().isBlank()) {
-                throw new IllegalArgumentException("action is required");
-            }
-            if (request.getActorId() == null || request.getActorId().isBlank()) {
-                throw new IllegalArgumentException("actorId is required");
-            }
-            if (request.getEntityRef() == null || request.getEntityRef().isBlank()) {
-                throw new IllegalArgumentException("entityRef is required");
-            }
-            if (request.getTimestamp() == null || request.getTimestamp().isBlank()) {
-                throw new IllegalArgumentException("timestamp is required");
+            if (requests == null || requests.isEmpty()) {
+                throw new IllegalArgumentException("request body must be a non-empty array");
             }
 
-            Audit entity = new Audit();
-            entity.setAuditId(request.getAuditId());
-            entity.setAction(request.getAction());
-            entity.setActorId(request.getActorId());
-            entity.setEntityRef(request.getEntityRef());
-            entity.setEvidenceRef(request.getEvidenceRef());
-            entity.setMetadata(request.getMetadata());
-            entity.setTimestamp(request.getTimestamp());
+            List<Audit> entities = new ArrayList<>();
+            for (CreateAuditRequest request : requests) {
+                if (request == null) continue;
+                if (request.getAuditId() == null || request.getAuditId().isBlank()) {
+                    throw new IllegalArgumentException("auditId is required for each audit");
+                }
+                if (request.getAction() == null || request.getAction().isBlank()) {
+                    throw new IllegalArgumentException("action is required for each audit");
+                }
+                if (request.getActorId() == null || request.getActorId().isBlank()) {
+                    throw new IllegalArgumentException("actorId is required for each audit");
+                }
+                if (request.getEntityRef() == null || request.getEntityRef().isBlank()) {
+                    throw new IllegalArgumentException("entityRef is required for each audit");
+                }
+                if (request.getTimestamp() == null || request.getTimestamp().isBlank()) {
+                    throw new IllegalArgumentException("timestamp is required for each audit");
+                }
 
-            CompletableFuture<java.util.UUID> idFuture = entityService.addItem(
+                Audit entity = new Audit();
+                entity.setAuditId(request.getAuditId());
+                entity.setAction(request.getAction());
+                entity.setActorId(request.getActorId());
+                entity.setEntityRef(request.getEntityRef());
+                entity.setEvidenceRef(request.getEvidenceRef());
+                entity.setMetadata(request.getMetadata());
+                entity.setTimestamp(request.getTimestamp());
+                entities.add(entity);
+            }
+
+            CompletableFuture<List<UUID>> idsFuture = entityService.addItems(
                     Audit.ENTITY_NAME,
                     Audit.ENTITY_VERSION,
-                    entity
+                    entities
             );
-            UUID createdId = idFuture.get();
-
-            CreateAuditResponse response = new CreateAuditResponse();
-            response.setTechnicalId(createdId.toString());
+            List<UUID> ids = idsFuture.get();
+            List<String> technicalIds = new ArrayList<>();
+            if (ids != null) {
+                for (UUID u : ids) technicalIds.add(u != null ? u.toString() : null);
+            }
+            BatchCreateResponse response = new BatchCreateResponse();
+            response.setTechnicalIds(technicalIds);
             return ResponseEntity.ok(response);
 
         } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request to create audit: {}", iae.getMessage());
+            logger.warn("Invalid request to create audits: {}", iae.getMessage());
             return ResponseEntity.badRequest().body(iae.getMessage());
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause();
             if (cause instanceof NoSuchElementException) {
-                logger.warn("Entity not found during create audit: {}", cause.getMessage());
+                logger.warn("Entity not found during create audits: {}", cause.getMessage());
                 return ResponseEntity.status(404).body(cause.getMessage());
             } else if (cause instanceof IllegalArgumentException) {
-                logger.warn("Invalid argument during create audit: {}", cause.getMessage());
+                logger.warn("Invalid argument during create audits: {}", cause.getMessage());
                 return ResponseEntity.badRequest().body(cause.getMessage());
             } else {
-                logger.error("ExecutionException when creating audit", ee);
+                logger.error("ExecutionException when creating audits", ee);
                 return ResponseEntity.status(500).body("Internal server error");
             }
         } catch (Exception ex) {
-            logger.error("Unexpected error when creating audit", ex);
-            return ResponseEntity.status(500).body("Internal server error");
-        }
-    }
-
-    @Operation(summary = "Get Audit by technicalId", description = "Retrieve an Audit record by its technicalId (UUID).")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "OK", content = @Content(schema = @Schema(implementation = AuditResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Bad Request"),
-            @ApiResponse(responseCode = "404", description = "Not Found"),
-            @ApiResponse(responseCode = "500", description = "Internal Server Error")
-    })
-    @GetMapping(path = "/{technicalId}", produces = "application/json")
-    public ResponseEntity<?> getAuditById(
-            @Parameter(name = "technicalId", description = "Technical ID of the entity", required = true)
-            @PathVariable("technicalId") String technicalId) {
-        try {
-            if (technicalId == null || technicalId.isBlank()) {
-                throw new IllegalArgumentException("technicalId is required");
-            }
-            UUID id = UUID.fromString(technicalId);
-
-            CompletableFuture<DataPayload> itemFuture = entityService.getItem(id);
-            DataPayload dataPayload = itemFuture.get();
-
-            if (dataPayload == null || dataPayload.getData() == null) {
-                return ResponseEntity.status(404).body("Audit not found");
-            }
-
-            AuditResponse response = objectMapper.treeToValue(dataPayload.getData(), AuditResponse.class);
-            return ResponseEntity.ok(response);
-
-        } catch (IllegalArgumentException iae) {
-            logger.warn("Invalid request to get audit: {}", iae.getMessage());
-            return ResponseEntity.badRequest().body(iae.getMessage());
-        } catch (ExecutionException ee) {
-            Throwable cause = ee.getCause();
-            if (cause instanceof NoSuchElementException) {
-                logger.warn("Audit not found: {}", cause.getMessage());
-                return ResponseEntity.status(404).body(cause.getMessage());
-            } else if (cause instanceof IllegalArgumentException) {
-                logger.warn("Invalid argument when fetching audit: {}", cause.getMessage());
-                return ResponseEntity.badRequest().body(cause.getMessage());
-            } else {
-                logger.error("ExecutionException when fetching audit", ee);
-                return ResponseEntity.status(500).body("Internal server error");
-            }
-        } catch (Exception ex) {
-            logger.error("Unexpected error when fetching audit", ex);
+            logger.error("Unexpected error when creating audits", ex);
             return ResponseEntity.status(500).body("Internal server error");
         }
     }
@@ -189,6 +152,13 @@ public class AuditController {
     static class CreateAuditResponse {
         @Schema(description = "Technical id of created entity (UUID)", example = "3fa85f64-5717-4562-b3fc-2c963f66afa6")
         private String technicalId;
+    }
+
+    @Data
+    @Schema(description = "Batch create response with technicalIds")
+    static class BatchCreateResponse {
+        @Schema(description = "List of technical ids of created entities")
+        private List<String> technicalIds;
     }
 
     @Data
