@@ -1,6 +1,8 @@
-Sure! Based on your requirement to build a 'Purrfect Pets' API app, I'll define the functional requirements using an Event-Driven Architecture (EDA) approach. Since you haven't specified the entities, I'll start with a default of three entities. 
+# Functional Requirements for 'Purrfect Pets' API App
 
-### 1. Entity Definitions
+This document outlines the functional requirements for the 'Purrfect Pets' API application using an Event-Driven Architecture (EDA) approach.
+
+## 1. Entity Definitions
 ```
 Pet:
 - id: String (unique identifier for each pet)
@@ -24,27 +26,34 @@ AdoptionRequest:
 - requestDate: Date (date when the request was made)
 ```
 
-### 2. Entity workflows
+## 2. Entity Workflows
+
+### Pet Workflow
 ```
-Pet workflow:
 1. Initial State: Pet created with AVAILABLE status
 2. Adoption Request: User submits an adoption request
 3. Approval: Check if pet is still available for adoption
 4. Status Update: Update pet status to ADOPTED or remain AVAILABLE
 5. Notification: Notify user of approval/rejection
+```
 
-User workflow:
+### User Workflow
+```
 1. Initial State: User created
 2. Adoption Request: User submits a request to adopt a pet
 3. Update History: Add pet ID to adoptionHistory upon successful adoption
 4. Notification: Notify user of successful adoption
+```
 
-AdoptionRequest workflow:
+### AdoptionRequest Workflow
+```
 1. Initial State: Request created with PENDING status
 2. Validation: Validate user and pet availability
 3. Processing: Update request status to APPROVED or REJECTED
 4. Notification: Notify user of request status
 ```
+
+### State Diagrams
 
 ```mermaid
 stateDiagram-v2
@@ -78,7 +87,7 @@ stateDiagram-v2
     USER_NOTIFIED --> [*]
 ```
 
-### 3. Pseudo code for each processor class
+## 3. Pseudo Code for Each Processor Class
 ```java
 class AdoptionRequestProcessor {
     void process(AdoptionRequest request) {
@@ -113,7 +122,7 @@ class ValidateRequestCriterion {
 }
 ```
 
-### 4. API Endpoints Design Rules
+## 4. API Endpoints Design Rules
 - **POST /pets**: Adds a pet. Returns `technicalId`.
 - **GET /pets/{technicalId}**: Retrieves pet details by `technicalId`.
 - **POST /users**: Adds a user. Returns `technicalId`.
@@ -121,4 +130,4 @@ class ValidateRequestCriterion {
 - **POST /adoptionRequests**: Submits an adoption request. Returns `technicalId`.
 - **GET /adoptionRequests/{technicalId}**: Retrieves adoption request details by `technicalId`.
 
-This structure lays out a clear framework for your 'Purrfect Pets' API app using an Event-Driven Architecture. Let me know if you have any modifications or additional entities you'd like to include!
+This document provides a clear framework for the 'Purrfect Pets' API app using an Event-Driven Architecture, ensuring all business logic, technical details, entity definitions, events, and API specifications are preserved for direct use in documentation or implementation.
