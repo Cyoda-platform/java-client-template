@@ -1,3 +1,5 @@
+# Functional Requirements (Finalized)
+
 ### 1. Entity Definitions
 
 ```
@@ -85,13 +87,13 @@ Post workflow:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> "draft"
-    "draft" --> "in_review" : "author_submits_for_review"
-    "in_review" --> "draft" : "admin_requests_changes"
-    "in_review" --> "scheduled" : "admin_approves"
-    "scheduled" --> "published" : "now_at_or_after_publish_datetime"
-    "published" --> "archived" : "admin_archives"
-    "archived" --> [*]
+    [*] --> draft
+    draft --> in_review : author_submits_for_review
+    in_review --> draft : admin_requests_changes
+    in_review --> scheduled : admin_approves
+    scheduled --> published : now_at_or_after_publish_datetime
+    published --> archived : admin_archives
+    archived --> [*]
 ```
 
 Post processors & criteria
@@ -105,10 +107,10 @@ PostVersion workflow:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> "editing"
-    "editing" --> "ready_for_publish" : "author_marks_ready"
-    "ready_for_publish" --> "finalized" : "publish_requested_by_post"
-    "finalized" --> [*]
+    [*] --> editing
+    editing --> ready_for_publish : author_marks_ready
+    ready_for_publish --> finalized : publish_requested_by_post
+    finalized --> [*]
 ```
 
 PostVersion processors & criteria
@@ -123,14 +125,14 @@ User workflow:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> "registered"
-    "registered" --> "email_unverified" : "on_registration"
-    "email_unverified" --> "active" : "email_verified_and_consent"
-    "active" --> "suspended" : "admin_suspends"
-    "suspended" --> [*]
-    "active" --> "erased_pending" : "gdpr_erasure_requested"
-    "erased_pending" --> "transferred" : "gdpr_transfer_immediate"
-    "transferred" --> [*]
+    [*] --> registered
+    registered --> email_unverified : on_registration
+    email_unverified --> active : email_verified_and_consent
+    active --> suspended : admin_suspends
+    suspended --> [*]
+    active --> erased_pending : gdpr_erasure_requested
+    erased_pending --> transferred : gdpr_transfer_immediate
+    transferred --> [*]
 ```
 
 User processors & criteria
@@ -144,11 +146,11 @@ Consent workflow:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> "requested"
-    "requested" --> "pending_verification" : "double_opt_in_required"
-    "pending_verification" --> "active" : "verification_received"
-    "active" --> "revoked" : "user_revokes"
-    "revoked" --> [*]
+    [*] --> requested
+    requested --> pending_verification : double_opt_in_required
+    pending_verification --> active : verification_received
+    active --> revoked : user_revokes
+    revoked --> [*]
 ```
 
 Consent processors & criteria
@@ -163,11 +165,11 @@ Media workflow:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> "uploaded"
-    "uploaded" --> "processed" : "processing_complete"
-    "processed" --> "published" : "referenced_by_published_post"
-    "published" --> "deprecated" : "admin_deprecates"
-    "deprecated" --> [*]
+    [*] --> uploaded
+    uploaded --> processed : processing_complete
+    processed --> published : referenced_by_published_post
+    published --> deprecated : admin_deprecates
+    deprecated --> [*]
 ```
 
 Media processors & criteria
@@ -180,8 +182,8 @@ Audit workflow:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> "recorded"
-    "recorded" --> [*]
+    [*] --> recorded
+    recorded --> [*]
 ```
 
 Audit processors & criteria
