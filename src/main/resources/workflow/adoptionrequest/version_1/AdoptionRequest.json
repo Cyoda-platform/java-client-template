@@ -1,0 +1,113 @@
+{
+    "version": "1.0",
+    "name": "AdoptionRequest Workflow",
+    "desc": "Workflow for processing adoption requests including admin review and user notifications.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "transition_to_under_review",
+                    "next": "UNDER_REVIEW",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AdminReviewsRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "UNDER_REVIEW": {
+            "transitions": [
+                {
+                    "name": "transition_to_approved",
+                    "next": "APPROVED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CheckRequestApprovalCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "transition_to_rejected",
+                    "next": "REJECTED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CheckRequestRejectionCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "APPROVED": {
+            "transitions": [
+                {
+                    "name": "transition_to_users_notified",
+                    "next": "USERS_NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserOfApprovalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "REJECTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_users_notified",
+                    "next": "USERS_NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserOfRejectionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "USERS_NOTIFIED": {
+            "transitions": [
+                {
+                    "name": "transition_to_final_state",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}

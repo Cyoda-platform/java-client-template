@@ -1,0 +1,77 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Workflow for User entity in Purrfect Pets API",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "ACTIVE",
+                    "manual": false
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "transition_to_request_submitted",
+                    "next": "REQUEST_SUBMITTED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserSubmitsAdoptionRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserAboutRequestStatusProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "REQUEST_SUBMITTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserAboutRequestStatusProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "end_state": {
+            "transitions": []
+        }
+    }
+}

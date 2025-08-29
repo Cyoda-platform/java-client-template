@@ -1,0 +1,113 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Description of the workflow for Pet",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_available",
+                    "next": "AVAILABLE",
+                    "manual": false
+                }
+            ]
+        },
+        "AVAILABLE": {
+            "transitions": [
+                {
+                    "name": "transition_to_adoption_requested",
+                    "next": "ADOPTION_REQUESTED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "UserSubmitsRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ADOPTION_REQUESTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_approval_process",
+                    "next": "APPROVAL_PROCESS",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "AdminReviewsRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "APPROVAL_PROCESS": {
+            "transitions": [
+                {
+                    "name": "transition_to_adopted",
+                    "next": "ADOPTED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CheckRequestApprovalCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "transition_to_available",
+                    "next": "AVAILABLE",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CheckRequestRejectionCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ADOPTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_users_notified",
+                    "next": "USERS_NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "USERS_NOTIFIED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}
