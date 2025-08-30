@@ -118,8 +118,28 @@ public class CreateOrderFromPaidProcessor implements CyodaProcessor {
             order.setCreatedAt(now);
             order.setUpdatedAt(now);
 
-            // Guest contact snapshot (copy reference)
-            order.setGuestContact(cart.getGuestContact());
+            // Guest contact snapshot (copy reference) - map fields from Cart.GuestContact to Order.GuestContact
+            Cart.GuestContact cartGuest = cart.getGuestContact();
+            if (cartGuest != null) {
+                Order.GuestContact orderGuest = new Order.GuestContact();
+                if (cartGuest.getAddress() != null) {
+                    Cart.Address ca = cartGuest.getAddress();
+                    Order.Address oa = new Order.Address();
+                    oa.setCity(ca.getCity());
+                    oa.setCountry(ca.getCountry());
+                    oa.setLine1(ca.getLine1());
+                    oa.setPostcode(ca.getPostcode());
+                    orderGuest.setAddress(oa);
+                } else {
+                    orderGuest.setAddress(null);
+                }
+                orderGuest.setEmail(cartGuest.getEmail());
+                orderGuest.setName(cartGuest.getName());
+                orderGuest.setPhone(cartGuest.getPhone());
+                order.setGuestContact(orderGuest);
+            } else {
+                order.setGuestContact(null);
+            }
 
             // Lines mapping
             List<Order.Line> orderLines = new ArrayList<>();
