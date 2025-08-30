@@ -1,0 +1,78 @@
+{
+    "version": "1.0",
+    "name": "Adoption Workflow",
+    "desc": "Workflow for managing pet adoption events.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "transition_to_validated",
+                    "next": "VALIDATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ValidateAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATED": {
+            "transitions": [
+                {
+                    "name": "transition_to_confirmed",
+                    "next": "CONFIRMED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ConfirmAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "CONFIRMED": {
+            "transitions": [
+                {
+                    "name": "transition_to_completed",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "LogAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

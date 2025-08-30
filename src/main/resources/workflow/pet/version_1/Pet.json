@@ -1,0 +1,61 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Workflow for managing pet adoption process",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_available",
+                    "next": "AVAILABLE",
+                    "manual": false
+                }
+            ]
+        },
+        "AVAILABLE": {
+            "transitions": [
+                {
+                    "name": "transition_to_adopted",
+                    "next": "ADOPTED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "AdoptPetProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ADOPTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED": {
+            "transitions": [
+                {
+                    "name": "transition_to_completion",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

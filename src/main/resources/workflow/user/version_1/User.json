@@ -1,0 +1,74 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Description of the workflow for User",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_created",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "CREATED": {
+            "transitions": [
+                {
+                    "name": "transition_to_preferences_updated",
+                    "next": "PREFERENCES_UPDATED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "UpdatePreferencesProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PREFERENCES_UPDATED": {
+            "transitions": [
+                {
+                    "name": "transition_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
