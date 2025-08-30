@@ -1,0 +1,159 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "attributes": {
+                        "brand": "Acme",
+                        "custom": {},
+                        "dimensions": "10x5x2 cm",
+                        "hazards": null,
+                        "model": "X1000",
+                        "weight": 0.5
+                    },
+                    "bundles": [
+                        {}
+                    ],
+                    "category": "electronics",
+                    "compliance": {
+                        "docs": [],
+                        "restrictions": []
+                    },
+                    "description": "This is a long description of the sample product.",
+                    "events": [],
+                    "inventory": {
+                        "nodes": [],
+                        "policies": []
+                    },
+                    "localizations": {
+                        "en": {
+                            "description": "English description",
+                            "name": "Sample Product"
+                        },
+                        "fr": {
+                            "description": "Description en fran\u00e7ais",
+                            "name": "Produit Exemple"
+                        }
+                    },
+                    "media": [
+                        "https://cdn.example.com/images/sku-1-1.jpg"
+                    ],
+                    "name": "Sample Product",
+                    "options": {
+                        "axes": [],
+                        "constraints": []
+                    },
+                    "price": 19.99,
+                    "quantityAvailable": 100,
+                    "relationships": {
+                        "relatedProducts": [],
+                        "suppliers": []
+                    },
+                    "sku": "SKU-1",
+                    "variants": [
+                        {}
+                    ],
+                    "warehouseId": "wh-1"
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "cartId": "cart-123",
+                    "createdAt": "2025-08-30T12:00:00Z",
+                    "grandTotal": 39.98,
+                    "guestContact": {
+                        "address": {
+                            "city": "City",
+                            "country": "GB",
+                            "line1": "1 St",
+                            "postcode": "PC1"
+                        },
+                        "email": "jane@example.com",
+                        "name": "Jane Doe",
+                        "phone": "+441234567890"
+                    },
+                    "lines": [
+                        {
+                            "name": "Sample Product",
+                            "price": 19.99,
+                            "qty": 2,
+                            "sku": "SKU-1"
+                        }
+                    ],
+                    "status": "ACTIVE",
+                    "totalItems": 2,
+                    "updatedAt": "2025-08-30T12:05:00Z"
+                }
+            }
+        },
+        {
+            "Payment": {
+                "entity_data_example": {
+                    "amount": 39.98,
+                    "cartId": "cart-123",
+                    "createdAt": "2025-08-30T12:06:00Z",
+                    "paymentId": "payment-456",
+                    "provider": "DUMMY",
+                    "status": "INITIATED",
+                    "updatedAt": "2025-08-30T12:06:00Z"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-30T12:07:00Z",
+                    "guestContact": {
+                        "address": {
+                            "city": "City",
+                            "country": "GB",
+                            "line1": "1 St",
+                            "postcode": "PC1"
+                        },
+                        "email": "jane@example.com",
+                        "name": "Jane Doe",
+                        "phone": "+441234567890"
+                    },
+                    "lines": [
+                        {
+                            "lineTotal": 39.98,
+                            "name": "Sample Product",
+                            "qty": 2,
+                            "sku": "SKU-1",
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "orderId": "order-789",
+                    "orderNumber": "01F8Z7",
+                    "status": "WAITING_TO_FULFILL",
+                    "totals": {
+                        "grand": 39.98,
+                        "items": 39.98
+                    },
+                    "updatedAt": "2025-08-30T12:07:00Z"
+                }
+            }
+        },
+        {
+            "Shipment": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-30T12:08:00Z",
+                    "lines": [
+                        {
+                            "qtyOrdered": 2,
+                            "qtyPicked": 0,
+                            "qtyShipped": 0,
+                            "sku": "SKU-1"
+                        }
+                    ],
+                    "orderId": "order-789",
+                    "shipmentId": "shipment-101",
+                    "status": "PICKING",
+                    "updatedAt": "2025-08-30T12:08:00Z"
+                }
+            }
+        }
+    ]
+}
