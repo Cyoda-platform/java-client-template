@@ -1,0 +1,11 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "src/main/java/com/java_template/application/processor/CreateOrderFromPaidProcessor.java:122: error: incompatible types: com.java_template.application.entity.cart.version_1.Cart.GuestContact cannot be converted to com.java_template.application.entity.order.version_1.Order.GuestContact"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/CreateOrderFromPaidProcessor.java"
+        }
+    ]
+}
