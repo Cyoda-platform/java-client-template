@@ -1,0 +1,36 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 3,
+                    "breed": "Persian",
+                    "id": "pet123",
+                    "name": "Fluffy",
+                    "status": "available"
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Elm St",
+                    "contactInfo": "johndoe@example.com",
+                    "id": "owner456",
+                    "name": "John Doe"
+                }
+            }
+        },
+        {
+            "Adoption": {
+                "entity_data_example": {
+                    "adoptionDate": "2023-10-01",
+                    "id": "adoption789",
+                    "ownerId": "owner456",
+                    "petId": "pet123",
+                    "status": "pending"
+                }
+            }
+        }
+    ]
+}
