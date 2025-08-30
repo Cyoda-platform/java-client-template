@@ -1,0 +1,98 @@
+{
+    "version": "1.0",
+    "name": "Cart Workflow",
+    "desc": "Workflow for Cart entity derived from functional requirements mermaid diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "init_to_new",
+                    "next": "NEW",
+                    "manual": false
+                }
+            ]
+        },
+        "NEW": {
+            "transitions": [
+                {
+                    "name": "create_on_first_add",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CreateOnFirstAddProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "RecalculateTotalsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "add_decr_remove_line",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AddItemProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "RecalculateTotalsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "open_checkout",
+                    "next": "CHECKING_OUT",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OpenCheckoutAction",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "CHECKING_OUT": {
+            "transitions": [
+                {
+                    "name": "checkout_signal",
+                    "next": "CONVERTED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CheckoutSignalCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "CONVERTED": {
+            "transitions": []
+        }
+    }
+}

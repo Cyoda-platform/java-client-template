@@ -1,0 +1,110 @@
+{
+    "version": "1.0",
+    "name": "Order Workflow",
+    "desc": "Workflow for Order entity derived from functional requirements state diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "init_to_waiting_to_fulfill",
+                    "next": "WAITING_TO_FULFILL",
+                    "manual": false
+                }
+            ]
+        },
+        "WAITING_TO_FULFILL": {
+            "transitions": [
+                {
+                    "name": "waiting_to_fulfill_to_picking",
+                    "next": "PICKING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CreateOrderFromPaidProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "DecrementStockProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "CreateShipmentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PaymentPaidCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "PICKING": {
+            "transitions": [
+                {
+                    "name": "ready_to_send",
+                    "next": "WAITING_TO_SEND",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ReadyToSendProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "WAITING_TO_SEND": {
+            "transitions": [
+                {
+                    "name": "mark_sent",
+                    "next": "SENT",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "MarkSentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": [
+                {
+                    "name": "mark_delivered",
+                    "next": "DELIVERED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "MarkDeliveredProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DELIVERED": {
+            "transitions": []
+        }
+    }
+}
