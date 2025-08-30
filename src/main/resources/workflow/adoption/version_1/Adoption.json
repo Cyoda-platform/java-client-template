@@ -1,0 +1,105 @@
+{
+    "version": "1.0",
+    "name": "Adoption Workflow",
+    "desc": "Workflow for managing pet adoption processes",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "transition_to_approval_check",
+                    "next": "APPROVAL_CHECK",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ApprovalCheckProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "APPROVAL_CHECK": {
+            "transitions": [
+                {
+                    "name": "transition_to_completed",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ApprovalCheckProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "transition_to_failed",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ApprovalCheckProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "name": "transition_to_notify_owner",
+                    "next": "NOTIFY_OWNER",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyOwnerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFY_OWNER": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "[*]",
+                    "manual": false
+                }
+            ]
+        },
+        "FAILED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "[*]",
+                    "manual": false
+                }
+            ]
+        },
+        "[*]": {
+            "transitions": []
+        }
+    }
+}

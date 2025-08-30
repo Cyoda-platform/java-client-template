@@ -1,0 +1,134 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Workflow for managing pet adoption process.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_available",
+                    "next": "AVAILABLE",
+                    "manual": false
+                }
+            ]
+        },
+        "AVAILABLE": {
+            "transitions": [
+                {
+                    "name": "transition_to_adoption_requested",
+                    "next": "ADOPTION_REQUESTED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RequestAdoptProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ADOPTION_REQUESTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_check_availability",
+                    "next": "CHECK_AVAILABILITY",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CheckAvailabilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "CHECK_AVAILABILITY": {
+            "transitions": [
+                {
+                    "name": "transition_to_approved",
+                    "next": "APPROVED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "pet.available",
+                        "operation": "EQUALS",
+                        "value": true
+                    }
+                },
+                {
+                    "name": "transition_to_rejected",
+                    "next": "REJECTED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "pet.available",
+                        "operation": "EQUALS",
+                        "value": false
+                    }
+                }
+            ]
+        },
+        "APPROVED": {
+            "transitions": [
+                {
+                    "name": "transition_to_adopted",
+                    "next": "ADOPTED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UpdateStatusProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ADOPTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_notify_owner",
+                    "next": "NOTIFY_OWNER",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyOwnerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFY_OWNER": {
+            "transitions": [
+                {
+                    "name": "transition_to_final_state",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "REJECTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_final_state",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}

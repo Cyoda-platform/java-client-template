@@ -1,0 +1,66 @@
+{
+    "version": "1.0",
+    "name": "Owner Workflow",
+    "desc": "Workflow for managing Owner entities in the Purrfect Pets application",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_created",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "CREATED": {
+            "transitions": [
+                {
+                    "name": "transition_to_contact_updated",
+                    "next": "CONTACT_UPDATED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "UpdateContactProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_view_pets",
+                    "next": "VIEW_PETS",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ViewAvailablePetsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "CONTACT_UPDATED": {
+            "transitions": [
+                {
+                    "name": "transition_back_to_created",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "VIEW_PETS": {
+            "transitions": [
+                {
+                    "name": "transition_back_to_created",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
