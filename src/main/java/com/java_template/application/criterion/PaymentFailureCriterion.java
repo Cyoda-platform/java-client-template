@@ -31,7 +31,7 @@ public class PaymentFailureCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Payment.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -40,7 +40,9 @@ public class PaymentFailureCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive)
+        if (modelSpec == null || modelSpec.operationName() == null) return false;
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Payment> context) {
@@ -73,7 +75,8 @@ public class PaymentFailureCriterion implements CyodaCriterion {
 
          // Ensure status is one of the expected domain values
          Set<String> validStatuses = Set.of("INITIATED", "PAID", "FAILED", "CANCELED");
-         if (!validStatuses.contains(entity.getStatus().toUpperCase())) {
+         String statusUpper = entity.getStatus() == null ? "" : entity.getStatus().toUpperCase();
+         if (!validStatuses.contains(statusUpper)) {
              return EvaluationOutcome.fail("Unknown payment status: " + entity.getStatus(), StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 

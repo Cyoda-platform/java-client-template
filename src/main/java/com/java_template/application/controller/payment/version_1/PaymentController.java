@@ -18,7 +18,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 
 import java.time.Instant;
 import java.util.NoSuchElementException;
@@ -141,7 +140,6 @@ public class PaymentController {
         }
     }
 
-    @Data
     @Schema(name = "StartPaymentRequest", description = "Request to start a payment. Minimal payload contains cartId.")
     public static class StartPaymentRequest {
         @Schema(description = "Business cart technical id", example = "t-cart-123")
@@ -155,12 +153,55 @@ public class PaymentController {
 
         @Schema(description = "Initial status (optional)", example = "INITIATED")
         private String status;
+
+        public StartPaymentRequest() {}
+
+        public String getCartId() {
+            return cartId;
+        }
+
+        public void setCartId(String cartId) {
+            this.cartId = cartId;
+        }
+
+        public Double getAmount() {
+            return amount;
+        }
+
+        public void setAmount(Double amount) {
+            this.amount = amount;
+        }
+
+        public String getProvider() {
+            return provider;
+        }
+
+        public void setProvider(String provider) {
+            this.provider = provider;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing only technicalId")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical id of the persisted entity", example = "t-payment-456")
         private String technicalId;
+
+        public TechnicalIdResponse() {}
+
+        public String getTechnicalId() {
+            return technicalId;
+        }
+
+        public void setTechnicalId(String technicalId) {
+            this.technicalId = technicalId;
+        }
     }
 }

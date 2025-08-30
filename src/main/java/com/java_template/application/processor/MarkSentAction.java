@@ -72,26 +72,60 @@ public class MarkSentAction implements CyodaProcessor {
     private Shipment processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Shipment> context) {
         Shipment shipment = context.entity();
 
-        // Mark the shipment as SENT
+        try {
+            // Only allow transition from WAITING_TO_SEND -> SENT per workflow rules
+            String currentStatus = shipment.getStatus();
+            if (currentStatus == null || !currentStatus.equalsIgnoreCase("WAITING_TO_SEND")) {
+                logger.info("Shipment {} is not in WAITING_TO_SEND state (current: {}). Skipping MarkSentAction.", shipment.getShipmentId(), currentStatus);
+                return shipment;
+            }
+        } catch (Exception e) {
+            logger.warn("Error while checking shipment status for shipment {}: {}", shipment != null ? shipment.getShipmentId() : "unknown", e.getMessage(), e);
+            // proceed cautiously
+        }
+
+        // Mark the shipment as SENT and update timestamp
         try {
             shipment.setStatus("SENT");
         } catch (Exception ex) {
             logger.warn("Unable to set shipment status to SENT: {}", ex.getMessage(), ex);
         }
+        try {
+            shipment.setUpdatedAt(Instant.now().toString());
+        } catch (Exception ex) {
+            logger.debug("Unable to set shipment updatedAt: {}", ex.getMessage());
+        }
 
-        // Ensure qtyShipped is set (use qtyPicked if available)
+        // Ensure qtyShipped is set (prefer qtyPicked, fallback to qtyOrdered)
         List<ShipmentLine> lines = shipment.getLines();
         if (lines != null) {
             for (ShipmentLine line : lines) {
                 if (line == null) continue;
-                Integer qtyPicked = line.getQtyPicked();
-                Integer qtyShipped = line.getQtyShipped();
                 try {
-                    if ((qtyShipped == null || qtyShipped < 0) && qtyPicked != null) {
-                        line.setQtyShipped(qtyPicked);
-                    } else if (qtyShipped != null && qtyPicked != null && qtyShipped < qtyPicked) {
-                        // If partially shipped previously, assume remaining picked quantity shipped now
-                        line.setQtyShipped(qtyPicked);
+                    Integer qtyOrdered = line.getQtyOrdered();
+                    Integer qtyPicked = line.getQtyPicked();
+                    Integer qtyShipped = line.getQtyShipped();
+
+                    Integer toShip = null;
+                    if (qtyPicked != null && qtyPicked >= 0) {
+                        toShip = qtyPicked;
+                    } else if (qtyOrdered != null && qtyOrdered >= 0) {
+                        toShip = qtyOrdered;
+                    }
+
+                    if (toShip != null) {
+                        // Do not ship more than ordered if ordered is known
+                        if (qtyOrdered != null && toShip > qtyOrdered) {
+                            toShip = qtyOrdered;
+                        }
+                        if (qtyShipped == null || !qtyShipped.equals(toShip)) {
+                            line.setQtyShipped(toShip);
+                        }
+                    } else {
+                        // if nothing to infer, ensure qtyShipped at least 0
+                        if (qtyShipped == null) {
+                            line.setQtyShipped(0);
+                        }
                     }
                 } catch (Exception ex) {
                     logger.warn("Failed to adjust shipment line qtyShipped for sku {}: {}", line.getSku(), ex.getMessage(), ex);
@@ -119,8 +153,11 @@ public class MarkSentAction implements CyodaProcessor {
                     Order order = objectMapper.treeToValue(payload.getData(), Order.class);
 
                     if (order != null) {
-                        // Update order status to SENT
-                        order.setStatus("SENT");
+                        // Only update if not already SENT or DELIVERED
+                        String orderStatus = order.getStatus();
+                        if (orderStatus == null || !orderStatus.equalsIgnoreCase("SENT")) {
+                            order.setStatus("SENT");
+                        }
                         order.setUpdatedAt(Instant.now().toString());
 
                         // Extract technical id for update

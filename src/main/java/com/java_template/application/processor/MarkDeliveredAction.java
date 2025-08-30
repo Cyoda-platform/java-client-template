@@ -87,7 +87,9 @@ public class MarkDeliveredAction implements CyodaProcessor {
 
             try {
                 UUID orderUuid = UUID.fromString(orderId);
-                CompletableFuture<DataPayload> payloadFuture = entityService.getItem(Order.ENTITY_NAME, Order.ENTITY_VERSION, orderUuid);
+
+                // Retrieve Order by technical UUID
+                CompletableFuture<DataPayload> payloadFuture = entityService.getItem(orderUuid);
                 DataPayload payload = payloadFuture.get();
                 if (payload == null || payload.getData() == null) {
                     logger.warn("Order entity not found for id: {}", orderId);
@@ -102,7 +104,7 @@ public class MarkDeliveredAction implements CyodaProcessor {
                 if (order.getStatus() == null || !order.getStatus().equalsIgnoreCase("DELIVERED")) {
                     order.setStatus("DELIVERED");
                     order.setUpdatedAt(Instant.now().toString());
-                    // Attempt to update the Order entity in Cyoda using the same UUID
+                    // Update the Order entity in Cyoda using the same technical UUID
                     CompletableFuture<java.util.UUID> updateFuture = entityService.updateItem(orderUuid, order);
                     updateFuture.get();
                     logger.info("Order {} marked as DELIVERED", orderUuid);

@@ -29,7 +29,7 @@ public class StockDepletedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Product.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class StockDepletedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Product> context) {
@@ -48,27 +49,36 @@ public class StockDepletedCriterion implements CyodaCriterion {
              return EvaluationOutcome.fail("Product entity is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
-         // Ensure identifying fields exist
+         // SKU is a required identifier for messaging
          if (product.getSku() == null || product.getSku().isBlank()) {
              return EvaluationOutcome.fail("Product SKU is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
+
+         // Name is important for data quality but not strictly required for business rule evaluation
          if (product.getName() == null || product.getName().isBlank()) {
              return EvaluationOutcome.fail("Product name is required", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Quantity presence / data quality
+         // Quantity presence / data quality checks
          Integer qty = product.getQuantityAvailable();
          if (qty == null) {
              return EvaluationOutcome.fail("quantityAvailable is missing for product sku: " + product.getSku(),
                  StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
          }
 
-         // Business rule: stock must be above zero. If depleted or negative, flag as business rule failure.
-         if (qty <= 0) {
+         // Negative quantity indicates a data quality issue (should not be negative)
+         if (qty < 0) {
+             return EvaluationOutcome.fail("quantityAvailable is negative for product sku: " + product.getSku(),
+                 StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+         }
+
+         // Business rule: stock depleted when exactly zero
+         if (qty == 0) {
              return EvaluationOutcome.fail("Stock depleted for product sku: " + product.getSku(),
                  StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 
+         // quantity > 0 => success
          return EvaluationOutcome.success();
     }
 }

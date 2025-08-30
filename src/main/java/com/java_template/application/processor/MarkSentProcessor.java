@@ -76,21 +76,33 @@ public class MarkSentProcessor implements CyodaProcessor {
         String orderId = entity.getOrderId();
         if (orderId != null && !orderId.isBlank()) {
             try {
-                CompletableFuture<DataPayload> orderFuture = entityService.getItem(Order.ENTITY_NAME, Order.ENTITY_VERSION, UUID.fromString(orderId));
+                // orderId is stored as serialized UUID (technical id). Use it directly to fetch the Order payload.
+                UUID orderUuid = UUID.fromString(orderId);
+                CompletableFuture<DataPayload> orderFuture = entityService.getItem(orderUuid);
                 DataPayload payload = orderFuture.get();
                 if (payload != null && payload.getData() != null) {
                     Order order = objectMapper.treeToValue(payload.getData(), Order.class);
                     if (order != null) {
                         order.setStatus("SENT");
-                        // Persist updated order
-                        entityService.updateItem(UUID.fromString(order.getOrderId()), order).get();
-                        logger.info("Updated Order {} status to SENT for Shipment {}", order.getOrderId(), entity.getShipmentId());
+                        // If shipment has an updatedAt timestamp, propagate it to the order for consistency
+                        if (entity.getUpdatedAt() != null && !entity.getUpdatedAt().isBlank()) {
+                            try {
+                                order.setUpdatedAt(entity.getUpdatedAt());
+                            } catch (Exception ignore) {
+                                logger.debug("Unable to set updatedAt on order {}: {}", orderId, ignore.getMessage());
+                            }
+                        }
+                        // Persist updated order using the technical id (orderUuid)
+                        entityService.updateItem(orderUuid, order).get();
+                        logger.info("Updated Order {} status to SENT for Shipment {}", orderUuid.toString(), entity.getShipmentId());
                     } else {
                         logger.warn("Order deserialized to null for orderId {} while processing Shipment {}", orderId, entity.getShipmentId());
                     }
                 } else {
                     logger.warn("No Order payload found for orderId {} while processing Shipment {}", orderId, entity.getShipmentId());
                 }
+            } catch (IllegalArgumentException iae) {
+                logger.warn("Invalid orderId '{}' on Shipment {}: {}", orderId, entity.getShipmentId(), iae.getMessage());
             } catch (Exception ex) {
                 logger.error("Failed to update Order status for orderId {}: {}", orderId, ex.getMessage(), ex);
             }

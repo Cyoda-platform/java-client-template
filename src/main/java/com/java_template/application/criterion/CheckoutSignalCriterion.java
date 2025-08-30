@@ -20,7 +20,7 @@ public class CheckoutSignalCriterion implements CyodaCriterion {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final CriterionSerializer serializer;
-    private final String className = this.getClass().getSimpleName();
+    private static final String CRITERION_NAME = "CheckoutSignalCriterion";
 
     public CheckoutSignalCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -29,8 +29,8 @@ public class CheckoutSignalCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
-        return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
+        // Business logic implemented in validateEntity method.
+        return serializer.withRequest(request)
             .evaluateEntity(Cart.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
@@ -38,18 +38,21 @@ public class CheckoutSignalCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // MUST use exact criterion name (case-sensitive)
+        return CRITERION_NAME.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Cart> context) {
          Cart entity = context.entity();
 
          if (entity == null) {
+             logger.warn("CheckoutSignalCriterion invoked with null entity");
              return EvaluationOutcome.fail("Cart entity is missing", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 
          // Business rule: cart must be in CHECKING_OUT to accept a checkout signal
-         if (entity.getStatus() == null || !entity.getStatus().equals("CHECKING_OUT")) {
+         String status = entity.getStatus();
+         if (status == null || !"CHECKING_OUT".equals(status)) {
              return EvaluationOutcome.fail("Cart must be in CHECKING_OUT to apply checkout signal", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
          }
 

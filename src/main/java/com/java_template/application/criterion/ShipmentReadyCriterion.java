@@ -29,7 +29,7 @@ public class ShipmentReadyCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(Shipment.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class ShipmentReadyCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Shipment> context) {
@@ -54,7 +55,8 @@ public class ShipmentReadyCriterion implements CyodaCriterion {
          if (status == null || status.isBlank()) {
              return EvaluationOutcome.fail("Shipment status is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
-         if (!"PICKING".equalsIgnoreCase(status)) {
+         if (!"PICKING".equals(status)) {
+             // Require exact PICKING state before marking ready
              return EvaluationOutcome.fail("Shipment must be in PICKING state to be ready", StandardEvalReasonCategories.VALIDATION_FAILURE);
          }
 

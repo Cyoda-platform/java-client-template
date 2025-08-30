@@ -20,7 +20,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import lombok.Data;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -260,9 +259,8 @@ public class ProductController {
         }
     }
 
-    // Static DTOs for requests/responses
+    // Static DTOs for requests/responses (explicit getters/setters to avoid relying on Lombok during compilation)
 
-    @Data
     @Schema(name = "ProductRequest", description = "Request payload to create a Product")
     public static class ProductRequest {
         private String name;
@@ -282,9 +280,61 @@ public class ProductController {
         private java.util.Map<String, Object> options;
         private java.util.Map<String, Object> relationships;
         private java.util.Map<String, Product.Localization> localizations;
+
+        public ProductRequest() {}
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getSku() { return sku; }
+        public void setSku(String sku) { this.sku = sku; }
+
+        public Double getPrice() { return price; }
+        public void setPrice(Double price) { this.price = price; }
+
+        public Integer getQuantityAvailable() { return quantityAvailable; }
+        public void setQuantityAvailable(Integer quantityAvailable) { this.quantityAvailable = quantityAvailable; }
+
+        public String getCategory() { return category; }
+        public void setCategory(String category) { this.category = category; }
+
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
+
+        public String getWarehouseId() { return warehouseId; }
+        public void setWarehouseId(String warehouseId) { this.warehouseId = warehouseId; }
+
+        public List<String> getMedia() { return media; }
+        public void setMedia(List<String> media) { this.media = media; }
+
+        public List<java.util.Map<String, Object>> getBundles() { return bundles; }
+        public void setBundles(List<java.util.Map<String, Object>> bundles) { this.bundles = bundles; }
+
+        public List<java.util.Map<String, Object>> getVariants() { return variants; }
+        public void setVariants(List<java.util.Map<String, Object>> variants) { this.variants = variants; }
+
+        public List<Object> getEvents() { return events; }
+        public void setEvents(List<Object> events) { this.events = events; }
+
+        public java.util.Map<String, Object> getAttributes() { return attributes; }
+        public void setAttributes(java.util.Map<String, Object> attributes) { this.attributes = attributes; }
+
+        public java.util.Map<String, Object> getCompliance() { return compliance; }
+        public void setCompliance(java.util.Map<String, Object> compliance) { this.compliance = compliance; }
+
+        public java.util.Map<String, Object> getInventory() { return inventory; }
+        public void setInventory(java.util.Map<String, Object> inventory) { this.inventory = inventory; }
+
+        public java.util.Map<String, Object> getOptions() { return options; }
+        public void setOptions(java.util.Map<String, Object> options) { this.options = options; }
+
+        public java.util.Map<String, Object> getRelationships() { return relationships; }
+        public void setRelationships(java.util.Map<String, Object> relationships) { this.relationships = relationships; }
+
+        public java.util.Map<String, Product.Localization> getLocalizations() { return localizations; }
+        public void setLocalizations(java.util.Map<String, Product.Localization> localizations) { this.localizations = localizations; }
     }
 
-    @Data
     @Schema(name = "ProductFullResponse", description = "Full Product document as persisted")
     public static class ProductFullResponse {
         private String name;
@@ -304,9 +354,61 @@ public class ProductController {
         private java.util.Map<String, Object> options;
         private java.util.Map<String, Object> relationships;
         private java.util.Map<String, Product.Localization> localizations;
+
+        public ProductFullResponse() {}
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getSku() { return sku; }
+        public void setSku(String sku) { this.sku = sku; }
+
+        public Double getPrice() { return price; }
+        public void setPrice(Double price) { this.price = price; }
+
+        public Integer getQuantityAvailable() { return quantityAvailable; }
+        public void setQuantityAvailable(Integer quantityAvailable) { this.quantityAvailable = quantityAvailable; }
+
+        public String getCategory() { return category; }
+        public void setCategory(String category) { this.category = category; }
+
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
+
+        public String getWarehouseId() { return warehouseId; }
+        public void setWarehouseId(String warehouseId) { this.warehouseId = warehouseId; }
+
+        public List<String> getMedia() { return media; }
+        public void setMedia(List<String> media) { this.media = media; }
+
+        public List<java.util.Map<String, Object>> getBundles() { return bundles; }
+        public void setBundles(List<java.util.Map<String, Object>> bundles) { this.bundles = bundles; }
+
+        public List<java.util.Map<String, Object>> getVariants() { return variants; }
+        public void setVariants(List<java.util.Map<String, Object>> variants) { this.variants = variants; }
+
+        public List<Object> getEvents() { return events; }
+        public void setEvents(List<Object> events) { this.events = events; }
+
+        public java.util.Map<String, Object> getAttributes() { return attributes; }
+        public void setAttributes(java.util.Map<String, Object> attributes) { this.attributes = attributes; }
+
+        public java.util.Map<String, Object> getCompliance() { return compliance; }
+        public void setCompliance(java.util.Map<String, Object> compliance) { this.compliance = compliance; }
+
+        public java.util.Map<String, Object> getInventory() { return inventory; }
+        public void setInventory(java.util.Map<String, Object> inventory) { this.inventory = inventory; }
+
+        public java.util.Map<String, Object> getOptions() { return options; }
+        public void setOptions(java.util.Map<String, Object> options) { this.options = options; }
+
+        public java.util.Map<String, Object> getRelationships() { return relationships; }
+        public void setRelationships(java.util.Map<String, Object> relationships) { this.relationships = relationships; }
+
+        public java.util.Map<String, Product.Localization> getLocalizations() { return localizations; }
+        public void setLocalizations(java.util.Map<String, Product.Localization> localizations) { this.localizations = localizations; }
     }
 
-    @Data
     @Schema(name = "ProductSlimResponse", description = "Slim product representation for lists")
     public static class ProductSlimResponse {
         private String sku;
@@ -314,11 +416,32 @@ public class ProductController {
         private Double price;
         private String category;
         private Integer quantityAvailable;
+
+        public ProductSlimResponse() {}
+
+        public String getSku() { return sku; }
+        public void setSku(String sku) { this.sku = sku; }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public Double getPrice() { return price; }
+        public void setPrice(Double price) { this.price = price; }
+
+        public String getCategory() { return category; }
+        public void setCategory(String category) { this.category = category; }
+
+        public Integer getQuantityAvailable() { return quantityAvailable; }
+        public void setQuantityAvailable(Integer quantityAvailable) { this.quantityAvailable = quantityAvailable; }
     }
 
-    @Data
     @Schema(name = "TechnicalIdResponse", description = "Response containing technicalId only")
     public static class TechnicalIdResponse {
         private String technicalId;
+
+        public TechnicalIdResponse() {}
+
+        public String getTechnicalId() { return technicalId; }
+        public void setTechnicalId(String technicalId) { this.technicalId = technicalId; }
     }
 }

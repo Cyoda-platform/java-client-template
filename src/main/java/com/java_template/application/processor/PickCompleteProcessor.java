@@ -96,9 +96,9 @@ public class PickCompleteProcessor implements CyodaProcessor {
                         Order order = objectMapper.treeToValue(payload.getData(), Order.class);
 
                         if (order != null) {
-                            // If order is in PICKING or WAITING_TO_FULFILL, move to WAITING_TO_SEND.
+                            // Only move order to WAITING_TO_SEND when it's in a pre-shipping state
                             String current = order.getStatus();
-                            if (current == null || !"WAITING_TO_SEND".equalsIgnoreCase(current)) {
+                            if (current == null || "PICKING".equalsIgnoreCase(current) || "WAITING_TO_FULFILL".equalsIgnoreCase(current)) {
                                 order.setStatus("WAITING_TO_SEND");
                                 order.setUpdatedAt(Instant.now().toString());
 
@@ -122,6 +122,8 @@ public class PickCompleteProcessor implements CyodaProcessor {
                                 } else {
                                     logger.warn("No technicalId found for Order referenced by shipment {}. Skipping update.", shipment.getShipmentId());
                                 }
+                            } else {
+                                logger.debug("Order {} current status '{}' does not require transition to WAITING_TO_SEND", order.getOrderId(), current);
                             }
                         }
                     } else {

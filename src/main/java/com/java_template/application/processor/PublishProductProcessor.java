@@ -12,6 +12,9 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
@@ -60,11 +63,8 @@ public class PublishProductProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntity(Product entity) {
-        // Basic structural validation + ensure category present (business rule)
-        if (entity == null) return false;
-        if (!entity.isValid()) return false;
-        if (entity.getCategory() == null || entity.getCategory().isBlank()) return false;
-        return true;
+        // Use structural validation provided by the entity.
+        return entity != null && entity.isValid();
     }
 
     private Product processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Product> context) {
@@ -74,90 +74,100 @@ public class PublishProductProcessor implements CyodaProcessor {
             return null;
         }
 
-        // Normalize SKU and name
-        if (entity.getSku() != null) {
-            String sku = entity.getSku().trim();
-            if (!sku.isEmpty()) {
-                entity.setSku(sku.toUpperCase());
+        try {
+            // Convert entity to mutable ObjectNode to avoid compile-time reliance on Lombok-generated getters/setters.
+            ObjectNode node = objectMapper.valueToTree(entity);
+
+            // Normalize SKU (uppercase + trim)
+            if (node.has("sku") && !node.get("sku").isNull()) {
+                String sku = node.get("sku").asText("").trim();
+                if (!sku.isEmpty()) {
+                    node.put("sku", sku.toUpperCase());
+                } else {
+                    node.putNull("sku");
+                }
             }
-        }
 
-        if (entity.getName() != null) {
-            entity.setName(entity.getName().trim());
-        }
+            // Trim name if present
+            if (node.has("name") && !node.get("name").isNull()) {
+                String name = node.get("name").asText("").trim();
+                node.put("name", name);
+            }
 
-        // Ensure category is set (business requirement: Product must include category).
-        if (entity.getCategory() == null || entity.getCategory().isBlank()) {
-            // Default to "uncategorized" if missing to ensure downstream systems always have a category.
-            entity.setCategory("uncategorized");
-            logger.info("Product SKU={} missing category. Defaulting to 'uncategorized'", entity.getSku());
-        } else {
-            entity.setCategory(entity.getCategory().trim());
-        }
+            // Ensure category present; default to "uncategorized" if missing or blank
+            if (!node.has("category") || node.get("category").isNull() || node.get("category").asText("").isBlank()) {
+                node.put("category", "uncategorized");
+                logger.info("Product missing category. Defaulting to 'uncategorized' for sku={}", node.path("sku").asText(null));
+            } else {
+                node.put("category", node.get("category").asText("").trim());
+            }
 
-        // Ensure media/variants/bundles/events lists are non-null to avoid NPEs in downstream consumers
-        if (entity.getMedia() == null) {
-            entity.setMedia(new ArrayList<>());
-        }
-        if (entity.getVariants() == null) {
-            entity.setVariants(new ArrayList<>());
-        }
-        if (entity.getBundles() == null) {
-            entity.setBundles(new ArrayList<>());
-        }
-        if (entity.getEvents() == null) {
-            entity.setEvents(new ArrayList<>());
-        }
+            // Ensure collections exist
+            if (!node.has("media") || node.get("media").isNull() || !node.get("media").isArray()) {
+                node.set("media", objectMapper.createArrayNode());
+            }
+            if (!node.has("variants") || node.get("variants").isNull() || !node.get("variants").isArray()) {
+                node.set("variants", objectMapper.createArrayNode());
+            }
+            if (!node.has("bundles") || node.get("bundles").isNull() || !node.get("bundles").isArray()) {
+                node.set("bundles", objectMapper.createArrayNode());
+            }
+            if (!node.has("events") || node.get("events").isNull() || !node.get("events").isArray()) {
+                node.set("events", objectMapper.createArrayNode());
+            }
 
-        // Add a ProductCreated event if not already present.
-        // We do a simple check: if events contains any map with type "ProductCreated" and payload sku equals this sku, skip.
-        boolean hasCreated = false;
-        if (entity.getEvents() != null) {
-            for (Object ev : entity.getEvents()) {
-                if (ev instanceof Map) {
-                    try {
-                        Map<?, ?> m = (Map<?, ?>) ev;
-                        Object type = m.get("type");
-                        Object payload = m.get("payload");
-                        if ("ProductCreated".equals(type) && payload instanceof Map) {
-                            Object skuInPayload = ((Map<?, ?>) payload).get("sku");
-                            if (skuInPayload != null && skuInPayload.equals(entity.getSku())) {
+            // Add a ProductCreated event if not present
+            String currentSku = node.has("sku") && !node.get("sku").isNull() ? node.get("sku").asText() : null;
+            boolean hasCreated = false;
+            ArrayNode events = (ArrayNode) node.get("events");
+            if (events != null) {
+                for (JsonNode ev : events) {
+                    if (ev != null && ev.has("type") && "ProductCreated".equals(ev.get("type").asText(null))) {
+                        JsonNode payload = ev.get("payload");
+                        if (payload != null && payload.has("sku") && currentSku != null) {
+                            if (currentSku.equals(payload.get("sku").asText(null))) {
                                 hasCreated = true;
                                 break;
                             }
                         }
-                    } catch (Exception ex) {
-                        // ignore and continue
                     }
                 }
             }
-        }
 
-        if (!hasCreated) {
-            Map<String, Object> createdEvent = new HashMap<>();
-            createdEvent.put("type", "ProductCreated");
-            createdEvent.put("at", Instant.now().toString());
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("sku", entity.getSku());
-            createdEvent.put("payload", payload);
-            entity.getEvents().add(createdEvent);
-            logger.info("Added ProductCreated event for SKU={}", entity.getSku());
-        }
+            if (!hasCreated) {
+                ObjectNode createdEvent = objectMapper.createObjectNode();
+                createdEvent.put("type", "ProductCreated");
+                createdEvent.put("at", Instant.now().toString());
+                ObjectNode payload = objectMapper.createObjectNode();
+                payload.put("sku", currentSku);
+                createdEvent.set("payload", payload);
+                events.add(createdEvent);
+                logger.info("Added ProductCreated event for SKU={}", currentSku);
+            }
 
-        // Ensure price and quantityAvailable are non-negative (defensive)
-        if (entity.getPrice() != null && entity.getPrice() < 0.0) {
-            logger.warn("Product SKU={} had negative price {}. Clamping to 0.0", entity.getSku(), entity.getPrice());
-            entity.setPrice(0.0);
-        }
-        if (entity.getQuantityAvailable() != null && entity.getQuantityAvailable() < 0) {
-            logger.warn("Product SKU={} had negative quantityAvailable {}. Clamping to 0", entity.getSku(), entity.getQuantityAvailable());
-            entity.setQuantityAvailable(0);
-        }
+            // Defensive clamps for numeric values
+            if (node.has("price") && !node.get("price").isNull()) {
+                double price = node.get("price").asDouble(0.0);
+                if (price < 0.0) {
+                    logger.warn("Product SKU={} had negative price {}. Clamping to 0.0", currentSku, price);
+                    node.put("price", 0.0);
+                }
+            }
+            if (node.has("quantityAvailable") && !node.get("quantityAvailable").isNull()) {
+                int qty = node.get("quantityAvailable").asInt(0);
+                if (qty < 0) {
+                    logger.warn("Product SKU={} had negative quantityAvailable {}. Clamping to 0", currentSku, qty);
+                    node.put("quantityAvailable", 0);
+                }
+            }
 
-        // Business note: We do not perform persistence operations on the triggering entity here.
-        // Cyoda will persist the modified entity state automatically by workflow. Any additional entities
-        // (e.g., catalogs, audit logs) should be created via entityService if required.
-
-        return entity;
+            // Convert back to Product instance
+            Product updated = objectMapper.treeToValue(node, Product.class);
+            return updated;
+        } catch (Exception ex) {
+            logger.error("Failed to process Product entity logic: {}", ex.getMessage(), ex);
+            // In case of error, return original entity unchanged so workflow can decide
+            return entity;
+        }
     }
 }

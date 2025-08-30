@@ -65,12 +65,16 @@ public class DecrementStockProcessor implements CyodaProcessor {
 
     private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         Order order = context.entity();
-        if (order.getLines() == null || order.getLines().isEmpty()) {
+        if (order == null) return null;
+
+        // Defensive: ensure lines exist
+        List<Order.Line> lines = order.getLines();
+        if (lines == null || lines.isEmpty()) {
             logger.info("Order {} has no lines, nothing to decrement.", order.getOrderId());
             return order;
         }
 
-        for (Order.Line line : order.getLines()) {
+        for (Order.Line line : lines) {
             if (line == null) continue;
             String sku = line.getSku();
             Integer qty = line.getQty();
@@ -99,8 +103,27 @@ public class DecrementStockProcessor implements CyodaProcessor {
 
                 // Use first matching product
                 DataPayload payload = dataPayloads.get(0);
+                if (payload == null || payload.getData() == null) {
+                    logger.warn("Empty payload for product sku {} while processing order {}. Skipping.", sku, order.getOrderId());
+                    continue;
+                }
+
                 Product product = objectMapper.treeToValue(payload.getData(), Product.class);
-                String technicalId = payload.getMeta().get("entityId").asText();
+
+                // extract technical id from meta safely
+                String technicalId = null;
+                if (payload.getMeta() != null && payload.getMeta().has("entityId") && !payload.getMeta().get("entityId").isNull()) {
+                    try {
+                        technicalId = payload.getMeta().get("entityId").asText();
+                    } catch (Exception e) {
+                        logger.warn("Failed to read technical entityId meta for product sku {}: {}", sku, e.getMessage());
+                    }
+                }
+
+                if (product == null) {
+                    logger.warn("Deserialized product null for sku {} while processing order {}. Skipping.", sku, order.getOrderId());
+                    continue;
+                }
 
                 Integer currentQty = product.getQuantityAvailable() != null ? product.getQuantityAvailable() : 0;
                 int newQty = currentQty - qty;
@@ -110,11 +133,16 @@ public class DecrementStockProcessor implements CyodaProcessor {
                 }
                 product.setQuantityAvailable(newQty);
 
+                if (technicalId == null || technicalId.isBlank()) {
+                    logger.warn("No technical entityId found for product sku {} while processing order {}. Skipping update.", sku, order.getOrderId());
+                    continue;
+                }
+
                 // Update product in datastore
                 CompletableFuture<UUID> updateFuture = entityService.updateItem(UUID.fromString(technicalId), product);
                 UUID updatedId = updateFuture.get();
-                logger.info("Updated product {} (sku={}) quantityAvailable: {} -> {} (entityId={})",
-                    product.getSku(), sku, currentQty, newQty, updatedId);
+                logger.info("Updated product sku={} quantityAvailable: {} -> {} (entityId={})",
+                    sku, currentQty, newQty, updatedId);
 
             } catch (Exception ex) {
                 logger.error("Failed to decrement stock for sku {} on order {}: {}", sku, order.getOrderId(), ex.getMessage(), ex);

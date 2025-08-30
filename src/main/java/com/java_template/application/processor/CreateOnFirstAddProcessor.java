@@ -60,16 +60,20 @@ public class CreateOnFirstAddProcessor implements CyodaProcessor {
             String status = entity.getStatus();
             List<Cart.Line> lines = entity.getLines();
 
-            // If no lines present, nothing to do beyond ensuring totals are zero and status NEW (or existing)
+            // If no lines present, ensure totals are zero and leave status as-is (likely NEW)
             if (lines == null || lines.isEmpty()) {
                 if (entity.getTotalItems() == null || entity.getTotalItems() != 0) {
                     entity.setTotalItems(0);
                 }
-                if (entity.getGrandTotal() == null || entity.getGrandTotal() != 0.0) {
+                if (entity.getGrandTotal() == null || Double.compare(entity.getGrandTotal(), 0.0) != 0) {
                     entity.setGrandTotal(0.0);
                 }
-                // keep status as-is (likely NEW)
-                entity.setUpdatedAt(OffsetDateTime.now().toString());
+                // Do not force a transition; keep status as is (expected NEW) but ensure timestamps updated
+                try {
+                    entity.setUpdatedAt(OffsetDateTime.now().toString());
+                } catch (Exception ex) {
+                    logger.debug("Unable to set updatedAt on cart: {}", ex.getMessage());
+                }
                 return entity;
             }
 
@@ -86,13 +90,24 @@ public class CreateOnFirstAddProcessor implements CyodaProcessor {
             entity.setTotalItems(totalItems);
             entity.setGrandTotal(grandTotal);
 
-            // Transition NEW -> ACTIVE when first line is added
+            // If this is the first add (cart NEW or not set), transition to ACTIVE and ensure createdAt
             if (status == null || status.isBlank()) {
+                // If cart had no explicit status, treat this as first add -> ACTIVE
                 entity.setStatus("ACTIVE");
             } else if ("NEW".equalsIgnoreCase(status)) {
                 // If cart was NEW and now has at least one line, activate it
                 entity.setStatus("ACTIVE");
             }
+
+            // Ensure createdAt is set if missing (first persist might rely on controller but defend here)
+            if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) {
+                try {
+                    entity.setCreatedAt(OffsetDateTime.now().toString());
+                } catch (Exception ex) {
+                    logger.debug("Unable to set createdAt on cart: {}", ex.getMessage());
+                }
+            }
+
             // Update timestamp
             entity.setUpdatedAt(OffsetDateTime.now().toString());
 

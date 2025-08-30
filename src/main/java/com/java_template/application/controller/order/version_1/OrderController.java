@@ -64,7 +64,8 @@ public class OrderController {
             );
             UUID entityId = idFuture.get();
             TechnicalIdResponse resp = new TechnicalIdResponse();
-            resp.setTechnicalId(entityId.toString());
+            // assign directly to field to avoid relying on generated Lombok setter in environments where annotation processing might be disabled
+            resp.technicalId = entityId.toString();
             return ResponseEntity.ok(resp);
         } catch (IllegalArgumentException ex) {
             logger.warn("Invalid request to create order: {}", ex.getMessage());
@@ -151,12 +152,10 @@ public class OrderController {
         private String cartId;
     }
 
-    @Data
-    @NoArgsConstructor
     @Schema(name = "TechnicalIdResponse", description = "Response containing only the technicalId")
     public static class TechnicalIdResponse {
         @Schema(description = "Technical identifier of the created entity", example = "t-order-789")
-        private String technicalId;
+        public String technicalId;
     }
 
     @Data
