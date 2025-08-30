@@ -75,7 +75,7 @@ public class MarkDeliveredActionTest {
         // Return payload for getItem(...) call
         DataPayload orderPayload = new DataPayload();
         orderPayload.setData(objectMapper.valueToTree(order));
-        when(entityService.getItem(eq(Order.ENTITY_NAME), eq(Order.ENTITY_VERSION), any(UUID.class)))
+        when(entityService.getItem(any(UUID.class)))
                 .thenReturn(CompletableFuture.completedFuture(orderPayload));
         // Stub updateItem to succeed
         when(entityService.updateItem(any(UUID.class), any()))

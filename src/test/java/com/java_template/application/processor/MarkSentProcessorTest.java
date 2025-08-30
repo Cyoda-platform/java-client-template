@@ -82,7 +82,7 @@ public class MarkSentProcessorTest {
         orderPayload.setData(objectMapper.valueToTree(order));
 
         // Stub EntityService.getItem(...) called by processor to retrieve the related Order
-        when(entityService.getItem(anyString(), anyInt(), any(UUID.class)))
+        when(entityService.getItem(any(UUID.class)))
                 .thenReturn(CompletableFuture.completedFuture(orderPayload));
 
         // Stub EntityService.updateItem(...) to simulate successful persistence
@@ -137,7 +137,7 @@ public class MarkSentProcessorTest {
         assertEquals("SENT", returnedData.get("status").asText());
 
         // Verify that entityService was used to fetch and update the Order
-        verify(entityService, atLeastOnce()).getItem(eq(Order.ENTITY_NAME), eq(Order.ENTITY_VERSION), any(UUID.class));
+        verify(entityService, atLeastOnce()).getItem(any(UUID.class));
         verify(entityService, atLeastOnce()).updateItem(any(UUID.class), any());
     }
 }

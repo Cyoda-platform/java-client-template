@@ -71,7 +71,7 @@ public class PickCompleteProcessorTest {
         totals.setGrand(10.0);
         totals.setItems(10.0);
 
-        Order.GuestContact.Address address = new Order.GuestContact.Address();
+        Order.Address address = new Order.Address();
         address.setLine1("1 Test St");
         address.setCity("Testville");
         address.setCountry("TS");
