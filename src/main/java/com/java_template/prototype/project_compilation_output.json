@@ -1,0 +1,11 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "/home/runner/work/java-client-template/java-client-template/src/main/java/com/java_template/application/processor/NotifyOwnerProcessor.java:152: error: exception InterruptedException is never thrown in body of corresponding try statement"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/NotifyOwnerProcessor.java"
+        }
+    ]
+}
