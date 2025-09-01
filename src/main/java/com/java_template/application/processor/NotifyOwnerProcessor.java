@@ -72,12 +72,7 @@ public class NotifyOwnerProcessor implements CyodaProcessor {
     private Owner processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Owner> context) {
         Owner owner = context.entity();
 
-        // Business logic:
-        // - If owner has contactEmail, attempt to locate pending AdoptionJob(s) created for this owner
-        // - For each found AdoptionJob, append a small marker to resultsPreview indicating a notification was sent to the owner's email
-        // - Update resultCount to reflect the modified resultsPreview and persist the AdoptionJob
-        // - If no contactEmail provided, just log and return owner unchanged
-
+        // Defensive: ensure we always return the owner object (no nulls)
         if (owner == null) {
             logger.warn("Owner entity is null in processEntityLogic");
             return null;
@@ -124,14 +119,18 @@ public class NotifyOwnerProcessor implements CyodaProcessor {
                         job.setResultsPreview(preview);
                     }
 
-                    // Add notification marker
+                    // Add notification marker if not already present (idempotent)
                     String marker = "notificationSentTo:" + contactEmail;
-                    preview.add(marker);
-                    job.setResultCount(preview.size());
+                    if (!preview.contains(marker)) {
+                        preview.add(marker);
+                        job.setResultCount(preview.size());
+                    } else {
+                        logger.debug("AdoptionJob for owner {} already contains marker {}; skipping duplicate marker", owner.getId(), marker);
+                    }
 
                     // Persist update to the AdoptionJob (we are allowed to update other entities)
                     String technicalId = null;
-                    if (payload.getMeta() != null && payload.getMeta().get("entityId") != null) {
+                    if (payload.getMeta() != null && payload.getMeta().has("entityId")) {
                         technicalId = payload.getMeta().get("entityId").asText();
                     }
 
@@ -140,19 +139,28 @@ public class NotifyOwnerProcessor implements CyodaProcessor {
                             CompletableFuture<UUID> updatedIdFuture = entityService.updateItem(UUID.fromString(technicalId), job);
                             UUID updated = updatedIdFuture.get();
                             logger.info("Updated AdoptionJob {} after notifying owner {} (marker={})", updated, owner.getId(), marker);
-                        } catch (InterruptedException | ExecutionException e) {
-                            logger.error("Failed to update AdoptionJob for owner {}: {}", owner.getId(), e.getMessage(), e);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            logger.error("Interrupted while updating AdoptionJob for owner {}: {}", owner.getId(), ie.getMessage(), ie);
+                        } catch (ExecutionException ee) {
+                            logger.error("Failed to update AdoptionJob for owner {}: {}", owner.getId(), ee.getMessage(), ee);
                         }
                     } else {
                         logger.warn("AdoptionJob payload missing technical entityId meta; cannot update job for owner {}", owner.getId());
                     }
 
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    logger.error("Interrupted while processing AdoptionJob payload for owner {}: {}", owner.getId(), ie.getMessage(), ie);
                 } catch (Exception e) {
                     logger.error("Error processing AdoptionJob payload for owner {}: {}", owner.getId(), e.getMessage(), e);
                 }
             }
 
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Failed to query AdoptionJob for owner {} due to interruption: {}", owner.getId(), ie.getMessage(), ie);
+        } catch (ExecutionException e) {
             logger.error("Failed to query AdoptionJob for owner {}: {}", owner.getId(), e.getMessage(), e);
         }
 

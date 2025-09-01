@@ -42,7 +42,8 @@ public class PreferencesCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name matching (case-sensitive)
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Owner> context) {
@@ -65,8 +66,8 @@ public class PreferencesCriterion implements CyodaCriterion {
 
              boolean hasSpecies = root.has("species") && !root.get("species").asText("").isBlank();
              boolean hasBreed = root.has("breed") && !root.get("breed").asText("").isBlank();
-             boolean hasAgeMin = root.has("ageMin") && root.get("ageMin").canConvertToInt();
-             boolean hasAgeMax = root.has("ageMax") && root.get("ageMax").canConvertToInt();
+             boolean hasAgeMin = root.has("ageMin") && (root.get("ageMin").canConvertToInt() || root.get("ageMin").isInt());
+             boolean hasAgeMax = root.has("ageMax") && (root.get("ageMax").canConvertToInt() || root.get("ageMax").isInt());
 
              if (!hasSpecies && !hasBreed && !hasAgeMin && !hasAgeMax) {
                  return EvaluationOutcome.fail("Preferences JSON must contain at least one of: species, breed, ageMin, ageMax", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);

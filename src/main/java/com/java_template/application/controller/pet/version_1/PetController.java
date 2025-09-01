@@ -18,7 +18,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -28,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.concurrent.ExecutionException;
 import java.util.*;
 import java.util.NoSuchElementException;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/pets")
@@ -267,7 +267,6 @@ public class PetController {
     }
 
     // Static DTOs for requests/responses
-    @Data
     @Schema(name = "PetRequest", description = "Request payload to create or update a Pet")
     public static class PetRequest {
         @Schema(description = "Business id (serialized UUID). If absent the caller may provide one.", example = "pet-12")
@@ -288,9 +287,37 @@ public class PetController {
         private List<String> photoUrls;
         @Schema(description = "Vaccination records", example = "[\"rabies\",\"distemper\"]")
         private List<String> vaccinations;
+
+        public PetRequest() {}
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getSpecies() { return species; }
+        public void setSpecies(String species) { this.species = species; }
+
+        public String getBreed() { return breed; }
+        public void setBreed(String breed) { this.breed = breed; }
+
+        public Integer getAge() { return age; }
+        public void setAge(Integer age) { this.age = age; }
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+
+        public String getSourceUrl() { return sourceUrl; }
+        public void setSourceUrl(String sourceUrl) { this.sourceUrl = sourceUrl; }
+
+        public List<String> getPhotoUrls() { return photoUrls; }
+        public void setPhotoUrls(List<String> photoUrls) { this.photoUrls = photoUrls; }
+
+        public List<String> getVaccinations() { return vaccinations; }
+        public void setVaccinations(List<String> vaccinations) { this.vaccinations = vaccinations; }
     }
 
-    @Data
     @Schema(name = "PetResponse", description = "Response payload for Pet entity")
     public static class PetResponse {
         @Schema(description = "Business id (serialized UUID)", example = "pet-12")
@@ -313,5 +340,37 @@ public class PetController {
         private List<String> photoUrls;
         @Schema(description = "Vaccination records", example = "[\"rabies\",\"distemper\"]")
         private List<String> vaccinations;
+
+        public PetResponse() {}
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+
+        public String getTechnicalId() { return technicalId; }
+        public void setTechnicalId(String technicalId) { this.technicalId = technicalId; }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getSpecies() { return species; }
+        public void setSpecies(String species) { this.species = species; }
+
+        public String getBreed() { return breed; }
+        public void setBreed(String breed) { this.breed = breed; }
+
+        public Integer getAge() { return age; }
+        public void setAge(Integer age) { this.age = age; }
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+
+        public String getSourceUrl() { return sourceUrl; }
+        public void setSourceUrl(String sourceUrl) { this.sourceUrl = sourceUrl; }
+
+        public List<String> getPhotoUrls() { return photoUrls; }
+        public void setPhotoUrls(List<String> photoUrls) { this.photoUrls = photoUrls; }
+
+        public List<String> getVaccinations() { return vaccinations; }
+        public void setVaccinations(List<String> vaccinations) { this.vaccinations = vaccinations; }
     }
 }

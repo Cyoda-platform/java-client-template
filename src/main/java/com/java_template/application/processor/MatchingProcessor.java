@@ -15,8 +15,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +22,6 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.CompletableFuture;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Component
 public class MatchingProcessor implements CyodaProcessor {
@@ -73,15 +70,18 @@ public class MatchingProcessor implements CyodaProcessor {
             return null;
         }
 
-        // Default failure handling
         try {
-            // Load owner
+            // Load owner by UUID (EntityService#getItem expects single UUID)
             Owner owner = null;
             try {
-                CompletableFuture<DataPayload> ownerFuture = entityService.getItem(Owner.ENTITY_NAME, Owner.ENTITY_VERSION, UUID.fromString(job.getOwnerId()));
-                DataPayload ownerPayload = ownerFuture.get();
-                if (ownerPayload != null && ownerPayload.getData() != null) {
-                    owner = objectMapper.treeToValue(ownerPayload.getData(), Owner.class);
+                if (job.getOwnerId() != null && !job.getOwnerId().isBlank()) {
+                    CompletableFuture<DataPayload> ownerFuture = entityService.getItem(UUID.fromString(job.getOwnerId()));
+                    DataPayload ownerPayload = ownerFuture.get();
+                    if (ownerPayload != null && ownerPayload.getData() != null) {
+                        owner = objectMapper.treeToValue(ownerPayload.getData(), Owner.class);
+                    }
+                } else {
+                    logger.warn("AdoptionJob {} has empty ownerId", job.getId());
                 }
             } catch (Exception e) {
                 logger.error("Failed to load owner with id {}: {}", job.getOwnerId(), e.getMessage(), e);
@@ -208,7 +208,9 @@ public class MatchingProcessor implements CyodaProcessor {
                     .collect(Collectors.toList());
 
             List<String> previewIds = top.stream()
-                    .map(s -> s.pet != null ? s.pet.getId() : null)
+                    .map(s -> s.pet)
+                    .filter(Objects::nonNull)
+                    .map(Pet::getId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
 

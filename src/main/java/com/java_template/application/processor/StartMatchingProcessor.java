@@ -99,7 +99,8 @@ public class StartMatchingProcessor implements CyodaProcessor {
                 return job;
             }
 
-            CompletableFuture<DataPayload> ownerFuture = entityService.getItem(Owner.ENTITY_NAME, Owner.ENTITY_VERSION, ownerUuid);
+            // Use the single-argument EntityService.getItem(UUID) as per EntityService contract
+            CompletableFuture<DataPayload> ownerFuture = entityService.getItem(ownerUuid);
             DataPayload ownerPayload = ownerFuture != null ? ownerFuture.get() : null;
 
             if (ownerPayload == null || ownerPayload.getData() == null) {

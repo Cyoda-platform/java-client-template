@@ -31,7 +31,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import lombok.Data;
 
 @RestController
 @RequestMapping("/owners/v1")
@@ -392,7 +391,6 @@ public class OwnerController {
 
     // Static DTO classes for requests/responses
 
-    @Data
     @Schema(name = "OwnerRequest", description = "Owner create/update request payload")
     public static class OwnerRequest {
         @Schema(description = "Technical id (optional on create)", example = "a3f1e9c2-...") private String id;
@@ -401,9 +399,58 @@ public class OwnerController {
         @Schema(description = "Contact phone", example = "+1-555-5555") private String phone;
         @Schema(description = "Contact email", example = "ava@example.com") private String contactEmail;
         @Schema(description = "Preferences JSON string", example = "{\"species\":\"cat\",\"ageMax\":3}") private String preferences;
+
+        public OwnerRequest() {}
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getAddress() {
+            return address;
+        }
+
+        public void setAddress(String address) {
+            this.address = address;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
+
+        public String getContactEmail() {
+            return contactEmail;
+        }
+
+        public void setContactEmail(String contactEmail) {
+            this.contactEmail = contactEmail;
+        }
+
+        public String getPreferences() {
+            return preferences;
+        }
+
+        public void setPreferences(String preferences) {
+            this.preferences = preferences;
+        }
     }
 
-    @Data
     @Schema(name = "OwnerResponse", description = "Owner response payload")
     public static class OwnerResponse {
         @Schema(description = "Technical id", example = "a3f1e9c2-...") private String id;
@@ -412,5 +459,55 @@ public class OwnerController {
         @Schema(description = "Contact phone", example = "+1-555-5555") private String phone;
         @Schema(description = "Contact email", example = "ava@example.com") private String contactEmail;
         @Schema(description = "Preferences JSON string", example = "{\"species\":\"cat\",\"ageMax\":3}") private String preferences;
+
+        public OwnerResponse() {}
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getAddress() {
+            return address;
+        }
+
+        public void setAddress(String address) {
+            this.address = address;
+        }
+
+        public String getPhone() {
+            return phone;
+        }
+
+        public void setPhone(String phone) {
+            this.phone = phone;
+        }
+
+        public String getContactEmail() {
+            return contactEmail;
+        }
+
+        public void setContactEmail(String contactEmail) {
+            this.contactEmail = contactEmail;
+        }
+
+        public String getPreferences() {
+            return preferences;
+        }
+
+        public void setPreferences(String preferences) {
+            this.preferences = preferences;
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.java_template.application.processor;
 import com.java_template.application.entity.adoptionjob.version_1.AdoptionJob;
+import com.java_template.application.entity.owner.version_1.Owner;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ErrorInfo;
@@ -65,17 +66,28 @@ public class JobValidationProcessor implements CyodaProcessor {
     private AdoptionJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<AdoptionJob> context) {
         AdoptionJob job = context.entity();
 
-        // Default safe-reset of results for a validation run
-        job.setResultCount(0);
-        job.setResultsPreview(new ArrayList<>());
+        if (job == null) return null;
 
-        // Only validate if job is in PENDING state, otherwise leave as-is but still perform checks
+        String originalStatus = job.getStatus() != null ? job.getStatus() : "";
+
+        // If job is in PENDING state we perform a safe reset of previous results for this validation run.
+        if ("PENDING".equalsIgnoreCase(originalStatus)) {
+            job.setResultCount(0);
+            job.setResultsPreview(new ArrayList<>());
+        }
+
         try {
             // Validate criteria JSON
+            if (job.getCriteria() == null || job.getCriteria().isBlank()) {
+                logger.warn("AdoptionJob {} has empty criteria", job.getId());
+                job.setStatus("FAILED");
+                return job;
+            }
+            JsonNode criteriaNode;
             try {
-                JsonNode criteriaNode = objectMapper.readTree(job.getCriteria());
+                criteriaNode = objectMapper.readTree(job.getCriteria());
                 if (criteriaNode == null || criteriaNode.isNull()) {
-                    logger.warn("AdoptionJob {} has empty/invalid criteria", job.getId());
+                    logger.warn("AdoptionJob {} has empty/invalid criteria structure", job.getId());
                     job.setStatus("FAILED");
                     return job;
                 }
@@ -85,13 +97,34 @@ public class JobValidationProcessor implements CyodaProcessor {
                 return job;
             }
 
-            // Validate owner existence
+            // Validate owner existence and basic validity
+            if (job.getOwnerId() == null || job.getOwnerId().isBlank()) {
+                logger.warn("AdoptionJob {} has no ownerId", job.getId());
+                job.setStatus("FAILED");
+                return job;
+            }
+
+            Owner ownerObj = null;
             try {
                 UUID ownerUuid = UUID.fromString(job.getOwnerId());
                 CompletableFuture<DataPayload> ownerFuture = entityService.getItem(ownerUuid);
                 DataPayload ownerPayload = ownerFuture != null ? ownerFuture.get() : null;
                 if (ownerPayload == null || ownerPayload.getData() == null) {
                     logger.warn("AdoptionJob {} references missing owner {}", job.getId(), job.getOwnerId());
+                    job.setStatus("FAILED");
+                    return job;
+                }
+                // Try to convert payload to Owner to validate its state
+                try {
+                    ownerObj = objectMapper.treeToValue(ownerPayload.getData(), Owner.class);
+                    if (ownerObj == null || !ownerObj.isValid()) {
+                        logger.warn("AdoptionJob {} owner {} is invalid", job.getId(), job.getOwnerId());
+                        job.setStatus("FAILED");
+                        return job;
+                    }
+                } catch (Exception e) {
+                    // If deserialization fails but payload exists, treat as invalid owner
+                    logger.warn("Failed to deserialize owner payload for AdoptionJob {} ownerId={}: {}", job.getId(), job.getOwnerId(), e.getMessage());
                     job.setStatus("FAILED");
                     return job;
                 }
@@ -105,8 +138,13 @@ public class JobValidationProcessor implements CyodaProcessor {
                 return job;
             }
 
-            // All validations passed -> advance to RUNNING
-            job.setStatus("RUNNING");
+            // All validations passed -> advance to RUNNING only if original was PENDING
+            if ("PENDING".equalsIgnoreCase(originalStatus)) {
+                job.setStatus("RUNNING");
+            } else {
+                // If job was already in another active state, keep status but log
+                logger.info("AdoptionJob {} validation passed but original status was '{}'; leaving status unchanged.", job.getId(), originalStatus);
+            }
             return job;
         } catch (Exception e) {
             logger.error("Unexpected error validating AdoptionJob {}: {}", job != null ? job.getId() : "unknown", e.getMessage(), e);
