@@ -1,0 +1,53 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Workflow design for Product entity",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_01",
+                    "next": "state_01",
+                    "manual": false
+                }
+            ]
+        },
+        "state_01": {
+            "transitions": [
+                {
+                    "name": "transition_to_02",
+                    "next": "state_02",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CartCreateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_02": {
+            "transitions": [
+                {
+                    "name": "transition_with_criterion_simple",
+                    "next": "state_criterion_check_01",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "OrderCreateCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

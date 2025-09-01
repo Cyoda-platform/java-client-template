@@ -1,0 +1,86 @@
+{
+    "version": "1.0",
+    "name": "Shipment Workflow",
+    "desc": "Shipment tracking workflow that drives order status updates.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "CREATE_SHIPMENT",
+                    "next": "PICKING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ShipmentCreateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PICKING": {
+            "transitions": [
+                {
+                    "name": "READY_FOR_DISPATCH",
+                    "next": "WAITING_TO_SEND",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentReadyProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "WAITING_TO_SEND": {
+            "transitions": [
+                {
+                    "name": "DISPATCH_SHIPMENT",
+                    "next": "SENT",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentDispatchProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": [
+                {
+                    "name": "CONFIRM_DELIVERY",
+                    "next": "DELIVERED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentDeliveryProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DELIVERED": {
+            "transitions": [
+                {
+                    "name": "complete_shipment",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
