@@ -3,8 +3,7 @@
     "files_with_errors": [
         {
             "errors": [
-                "<anonymous com.java_template.application.processor.FetchAndSendProcessorTest$1> is not abstract and does not override abstract method <T>sendAsync(HttpRequest,BodyHandler<T>,PushPromiseHandler<T>) in HttpClient",
-                "package java.net.ssl does not exist",
+                "<anonymous com.java_template.application.processor.FetchAndSendProcessorTest$1> is not abstract and does not override abstract method executor() in HttpClient",
                 "method does not override or implement a method from a supertype"
             ],
             "file_path": "src/test/java/com/java_template/application/processor/FetchAndSendProcessorTest.java"
