@@ -1,0 +1,80 @@
+{
+    "version": "1.0",
+    "name": "Subscriber Workflow",
+    "desc": "Workflow for Subscriber entity derived from functional requirements (PENDING_CONFIRMATION -> ACTIVE -> UNSUBSCRIBED/BOUNCED)",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_to_pending_confirmation",
+                    "next": "PENDING_CONFIRMATION",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING_CONFIRMATION": {
+            "transitions": [
+                {
+                    "name": "confirm_subscriber",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ConfirmSubscriberProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "unsubscribe",
+                    "next": "UNSUBSCRIBED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "UnsubscribeProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_bounced",
+                    "next": "BOUNCED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "BounceCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "MarkBouncedProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "UNSUBSCRIBED": {
+            "transitions": []
+        },
+        "BOUNCED": {
+            "transitions": []
+        }
+    }
+}

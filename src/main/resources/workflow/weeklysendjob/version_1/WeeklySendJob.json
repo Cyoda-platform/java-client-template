@@ -1,0 +1,97 @@
+{
+    "version": "1.0",
+    "name": "WeeklySendJob Workflow",
+    "desc": "Workflow for WeeklySendJob entity derived from functional requirements (CREATED -> RUNNING -> DISPATCHED -> COMPLETED / FAILED)",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "init_to_created",
+                    "next": "CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "CREATED": {
+            "transitions": [
+                {
+                    "name": "start_job",
+                    "next": "RUNNING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "StartJobProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "RUNNING": {
+            "transitions": [
+                {
+                    "name": "fetch_and_send",
+                    "next": "DISPATCHED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "FetchAndSendProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "error_to_failed",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ErrorCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "FailJobProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DISPATCHED": {
+            "transitions": [
+                {
+                    "name": "complete_job",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CompleteJobProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        }
+    }
+}

@@ -1,0 +1,148 @@
+{
+    "version": "1.0",
+    "name": "CatFact Workflow",
+    "desc": "Workflow for CatFact entity (validation, scheduling, sending, archiving) extracted from functional requirements",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "pending_to_validation",
+                    "next": "VALIDATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ValidateCatFactProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "attachEntity": true,
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATION": {
+            "transitions": [
+                {
+                    "name": "validation_to_valid",
+                    "next": "VALID",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidationPassedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "validation_to_invalid",
+                    "next": "INVALID",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidationFailedCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "VALID": {
+            "transitions": [
+                {
+                    "name": "valid_to_scheduled_for_send",
+                    "next": "SCHEDULED_FOR_SEND",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ScheduleSendProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "attachEntity": true,
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SCHEDULED_FOR_SEND": {
+            "transitions": [
+                {
+                    "name": "scheduled_for_send_to_sent",
+                    "next": "SENT",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SendEmailProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "attachEntity": true,
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": [
+                {
+                    "name": "sent_to_archived",
+                    "next": "ARCHIVED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ArchiveOldFactProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "attachEntity": true,
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INVALID": {
+            "transitions": [
+                {
+                    "name": "invalid_to_archived",
+                    "next": "ARCHIVED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ArchiveInvalidFactProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "attachEntity": true,
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ARCHIVED": {
+            "transitions": []
+        }
+    }
+}
