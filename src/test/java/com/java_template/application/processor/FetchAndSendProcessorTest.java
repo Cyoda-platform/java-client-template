@@ -88,6 +88,11 @@ public class FetchAndSendProcessorTest {
             }
 
             @Override
+            public java.net.http.HttpClient.Version version() {
+                return java.net.http.HttpClient.Version.HTTP_1_1;
+            }
+
+            @Override
             public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) throws IOException, InterruptedException {
                 // Build a minimal HttpResponse<String> with a valid JSON body
                 @SuppressWarnings("unchecked")
