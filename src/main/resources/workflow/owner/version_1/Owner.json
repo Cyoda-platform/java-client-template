@@ -1,0 +1,91 @@
+{
+    "version": "1.0",
+    "name": "Owner Workflow",
+    "desc": "Workflow for Owner entity based on functional requirements (OwnerValidationProcessor, PreferencesCriterion, NotifyOwnerProcessor).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "validate_owner",
+                    "next": "VALIDATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OwnerValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATED": {
+            "transitions": [
+                {
+                    "name": "apply_preferences_criterion",
+                    "next": "OWNER_READY",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PreferencesCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "OWNER_READY": {
+            "transitions": [
+                {
+                    "name": "manual_request_match",
+                    "next": "MATCH_REQUESTED",
+                    "manual": true
+                }
+            ]
+        },
+        "MATCH_REQUESTED": {
+            "transitions": [
+                {
+                    "name": "notify_owner",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyOwnerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED": {
+            "transitions": [
+                {
+                    "name": "complete_workflow",
+                    "next": "FINAL",
+                    "manual": false
+                }
+            ]
+        },
+        "FINAL": {
+            "transitions": []
+        }
+    }
+}

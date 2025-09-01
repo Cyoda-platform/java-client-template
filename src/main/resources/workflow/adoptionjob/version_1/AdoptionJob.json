@@ -1,0 +1,129 @@
+{
+    "version": "1.0",
+    "name": "AdoptionJob Workflow",
+    "desc": "Workflow for AdoptionJob entity translated from functional requirements mermaid diagram",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "init_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "pending_to_validated",
+                    "next": "VALIDATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "JobValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATED": {
+            "transitions": [
+                {
+                    "name": "validated_to_running",
+                    "next": "RUNNING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "StartMatchingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "RUNNING": {
+            "transitions": [
+                {
+                    "name": "running_to_aggregating",
+                    "next": "AGGREGATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MatchingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "AGGREGATING": {
+            "transitions": [
+                {
+                    "name": "aggregation_success",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AggregationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "$.aggregation.failed",
+                        "operation": "EQUALS",
+                        "value": false
+                    }
+                },
+                {
+                    "name": "aggregation_failure",
+                    "next": "FAILED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AggregationFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "name": "completed_to_notified",
+                    "next": "NOTIFIED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifyResultsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        }
+    }
+}
