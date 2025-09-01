@@ -94,8 +94,8 @@ public class FetchAndSendProcessorTest {
                     @Override public java.net.http.HttpHeaders headers() { return java.net.http.HttpHeaders.of(java.util.Map.of(), (a,b)->true); }
                     @Override public URI uri() { return request.uri(); }
                     @Override public java.net.http.HttpClient.Version version() { return java.net.http.HttpClient.Version.HTTP_1_1; }
-                    @Override public java.util.Optional<java.net.ssl.SSLSession> sslSession() { return java.util.Optional.empty(); }
-                    @Override public java.util.Map<String,Object> trailers() { return java.util.Map.of(); }
+                    @Override public java.util.Optional<javax.net.ssl.SSLSession> sslSession() { return java.util.Optional.empty(); }
+                    @Override public java.util.concurrent.CompletableFuture<java.net.http.HttpHeaders> trailers() { return java.util.concurrent.CompletableFuture.completedFuture(java.net.http.HttpHeaders.of(java.util.Map.of(), (a,b)->true)); }
                 };
                 return resp;
             }
@@ -110,6 +110,12 @@ public class FetchAndSendProcessorTest {
                     f.completeExceptionally(e);
                     return f;
                 }
+            }
+
+            @Override
+            public <T> CompletableFuture<HttpResponse<T>> sendAsync(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler, HttpResponse.PushPromiseHandler<T> pushPromiseHandler) {
+                // Ignore push promises for this test; delegate to the two-arg sendAsync
+                return sendAsync(request, responseBodyHandler);
             }
         };
 
