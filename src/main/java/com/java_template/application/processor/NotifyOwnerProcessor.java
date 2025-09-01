@@ -149,9 +149,6 @@ public class NotifyOwnerProcessor implements CyodaProcessor {
                         logger.warn("AdoptionJob payload missing technical entityId meta; cannot update job for owner {}", owner.getId());
                     }
 
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    logger.error("Interrupted while processing AdoptionJob payload for owner {}: {}", owner.getId(), ie.getMessage(), ie);
                 } catch (Exception e) {
                     logger.error("Error processing AdoptionJob payload for owner {}: {}", owner.getId(), e.getMessage(), e);
                 }
