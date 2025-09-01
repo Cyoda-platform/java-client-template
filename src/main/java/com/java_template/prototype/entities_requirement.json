@@ -1,0 +1,43 @@
+{
+    "entities": [
+        {
+            "Job": {
+                "entity_data_example": {
+                    "createdTimestamp": "2023-10-01T12:00:00Z",
+                    "id": "job_123",
+                    "status": "SCHEDULED",
+                    "updatedTimestamp": "2023-10-01T12:00:00Z"
+                }
+            }
+        },
+        {
+            "Laureate": {
+                "entity_data_example": {
+                    "born": "1867-11-07",
+                    "borncity": "Warsaw",
+                    "borncountry": "Poland",
+                    "borncountrycode": "PL",
+                    "category": "Physics",
+                    "city": "Paris",
+                    "country": "France",
+                    "died": "1934-07-04",
+                    "firstname": "Marie",
+                    "gender": "female",
+                    "id": 1,
+                    "motivation": "for their joint research on radiation phenomena",
+                    "name": "University of Paris",
+                    "surname": "Curie",
+                    "year": 1903
+                }
+            }
+        },
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "contactInfo": "subscriber@example.com",
+                    "id": "subscriber_456"
+                }
+            }
+        }
+    ]
+}
