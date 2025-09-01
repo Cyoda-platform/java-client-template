@@ -1,4 +1,4 @@
-package com.java_template.common.grpc.client;
+package com.java_template.common.grpc.client.event_handling;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -11,7 +11,11 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 @Component
-public class CriteriaEventStrategy extends AbstractEventStrategy<EntityCriteriaCalculationRequest, EntityCriteriaCalculationResponse, OperationSpecification.Criterion> {
+public class CriteriaEventStrategy extends AbstractEventStrategy<
+        EntityCriteriaCalculationRequest,
+        EntityCriteriaCalculationResponse,
+        OperationSpecification.Criterion
+        > {
 
     public CriteriaEventStrategy(
             OperationFactory operationFactory,
@@ -20,7 +24,6 @@ public class CriteriaEventStrategy extends AbstractEventStrategy<EntityCriteriaC
     ) {
         super(operationFactory, objectMapper, eventContextFactory);
     }
-
 
     @Override
     protected Class<EntityCriteriaCalculationRequest> getRequestClass() {
@@ -34,7 +37,6 @@ public class CriteriaEventStrategy extends AbstractEventStrategy<EntityCriteriaC
         EntityMetadata modelKey = parseForModelKey(request.getPayload().getMeta());
         return OperationSpecification.create(request, modelKey);
     }
-
 
     @Override
     protected EntityCriteriaCalculationResponse executeOperation(
@@ -54,7 +56,10 @@ public class CriteriaEventStrategy extends AbstractEventStrategy<EntityCriteriaC
     }
 
     @Override
-    protected void setRequestIdInErrorResponse(EntityCriteriaCalculationResponse errorResponse, String requestId) {
+    protected void setRequestIdInErrorResponse(
+            EntityCriteriaCalculationResponse errorResponse,
+            String requestId
+    ) {
         errorResponse.setRequestId(requestId);
     }
 

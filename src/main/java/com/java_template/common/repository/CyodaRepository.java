@@ -2,16 +2,47 @@ package com.java_template.common.repository;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.java_template.common.repository.dto.Meta;
-import com.java_template.common.util.HttpUtils;
+import com.google.common.collect.Streams;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.java_template.common.grpc.client.event_handling.CloudEventBuilder;
+import com.java_template.common.grpc.client.event_handling.CloudEventParser;
+import io.cloudevents.v1.proto.CloudEvent;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.cyoda.cloud.api.event.common.BaseEvent;
+import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.entity.EntityCreatePayload;
+import org.cyoda.cloud.api.event.entity.EntityCreateRequest;
+import org.cyoda.cloud.api.event.entity.EntityDeleteAllRequest;
+import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
+import org.cyoda.cloud.api.event.entity.EntityDeleteRequest;
+import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
+import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.cyoda.cloud.api.event.entity.EntityTransitionRequest;
+import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
+import org.cyoda.cloud.api.event.entity.EntityUpdateCollectionRequest;
+import org.cyoda.cloud.api.event.entity.EntityUpdatePayload;
+import org.cyoda.cloud.api.event.entity.EntityUpdateRequest;
+import org.cyoda.cloud.api.event.search.EntityGetAllRequest;
+import org.cyoda.cloud.api.event.search.EntityGetRequest;
+import org.cyoda.cloud.api.event.search.EntityResponse;
+import org.cyoda.cloud.api.event.search.EntitySearchRequest;
+import org.cyoda.cloud.api.event.search.EntitySnapshotSearchRequest;
+import org.cyoda.cloud.api.event.search.EntitySnapshotSearchResponse;
+import org.cyoda.cloud.api.event.search.SearchSnapshotStatus;
+import org.cyoda.cloud.api.event.search.SnapshotGetRequest;
+import org.cyoda.cloud.api.event.search.SnapshotGetStatusRequest;
+import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.stereotype.Repository;
 
 import java.io.IOException;
 import java.util.*;
@@ -20,337 +51,421 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static com.java_template.common.config.Config.CYODA_API_URL;
+import static com.java_template.common.config.Config.GRPC_COMMUNICATION_DATA_FORMAT;
 
-@Component
+@Repository
 public class CyodaRepository implements CrudRepository {
-    private final Logger logger = LoggerFactory.getLogger(CyodaRepository.class);
-    private final HttpUtils httpUtils;
+    private static final int SNAPSHOT_CREATION_AWAIT_LIMIT_MS = 10_000;
+    private static final int SNAPSHOT_CREATION_POLL_INTERVAL_MS = 500;
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
     private final ObjectMapper objectMapper;
+    private final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub;
+    private final CloudEventBuilder cloudEventBuilder;
+    private final CloudEventParser cloudEventParser;
 
-    private final String FORMAT = "JSON"; // or "XML"
-
-    public CyodaRepository(HttpUtils httpUtils, ObjectMapper objectMapper) {
+    public CyodaRepository(
+            final ObjectMapper objectMapper,
+            final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub,
+            final CloudEventBuilder cloudEventBuilder,
+            final CloudEventParser cloudEventParser
+    ) {
         this.objectMapper = objectMapper;
-        this.httpUtils = httpUtils;
+        this.cloudEventsServiceBlockingStub = cloudEventsServiceBlockingStub;
+        this.cloudEventBuilder = cloudEventBuilder;
+        this.cloudEventParser = cloudEventParser;
     }
 
     @Override
-    public CompletableFuture<ObjectNode> findById(Meta meta, UUID id) {
-        return getById(meta, id);
+    public CompletableFuture<DataPayload> findById(final UUID id) {
+        return getById(id);
+    }
+
+    private CompletableFuture<DataPayload> getById(final UUID entityId) {
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entityManage,
+                new EntityGetRequest().withId(UUID.randomUUID().toString()).withEntityId(entityId),
+                EntityResponse.class
+        ).thenApply(EntityResponse::getPayload);
     }
 
     @Override
-    public CompletableFuture<ArrayNode> findAllByCriteria(Meta meta, Object criteria) {
-        return findAllByCondition(meta, criteria);
+    public CompletableFuture<List<DataPayload>> findAllByCriteria(
+            @NotNull final String modelName,
+            final int modelVersion,
+            @NotNull final GroupCondition condition,
+            final int pageSize,
+            final int pageNumber,
+            final boolean inMemory
+    ) {
+        return inMemory
+                ? findAllByConditionInMemory(modelName, modelVersion, pageSize, condition)
+                : findAllByCondition(modelName, modelVersion, pageSize, pageNumber, condition);
     }
 
-    @Override
-    public CompletableFuture<ArrayNode> findAllByCriteria(Meta meta, Object criteria, boolean inMemory) {
-        if (inMemory) {
-            return findAllByConditionInMemory(meta, criteria);
-        } else {
-            return findAllByCondition(meta, criteria);
-        }
-    }
-
-    @Override
-    public CompletableFuture<ArrayNode> save(Meta meta, Object entity) {
-        return saveNewEntities(meta, entity);
-    }
-
-    @Override
-    public CompletableFuture<ArrayNode> saveAll(Meta meta, Object entities) {
-        return saveNewEntities(meta, entities);
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> update(Meta meta, UUID id, Object entity) {
-        return updateEntity(meta, id, entity);
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> updateAll(Meta meta, List<Object> entities) {
-        return null;
-    }
-
-    @Override
-    public Meta getMeta(String token, String entityModel, String entityVersion) {
-        return new Meta(token, entityModel, entityVersion);
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> count(Meta meta) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> deleteById(Meta meta, UUID id) {
-        return deleteEntity(meta, id);
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> delete(Meta meta, Object entity) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ArrayNode> deleteAll(Meta meta) {
-        return deleteAllByModel(meta);
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> deleteAllEntities(Meta meta, List<Object> entities) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> deleteAllByKey(Meta meta, List<Object> keys) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> deleteByKey(Meta meta, Object key) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> existsByKey(Meta meta, Object key) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ArrayNode> findAll(Meta meta) {
-        return getAllEntities(meta);
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> findAllByKey(Meta meta, List<Object> keys) {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<ObjectNode> findByKey(Meta meta, Object key) {
-        return null;
-    }
-
-    private CompletableFuture<ArrayNode> getAllEntities(Meta meta) {
-        String path = String.format("entity/%s/%s", meta.getEntityModel(), meta.getEntityVersion());
-        return httpUtils.sendGetRequest(meta.getToken(), CYODA_API_URL, path)
-                .thenApply(response -> {
-                    JsonNode jsonNode = response.get("json");
-                    if (jsonNode != null && jsonNode.isArray()) {
-                        return (ArrayNode) jsonNode;
-                    } else {
-                        logger.warn("Expected an ArrayNode under 'json', but got: {}", jsonNode);
-                        return JsonNodeFactory.instance.arrayNode();
-                    }
-                });
-    }
-
-    private CompletableFuture<ObjectNode> getById(Meta meta, UUID id) {
-        String path = String.format("entity/%s", id);
-        return httpUtils.sendGetRequest(meta.getToken(), CYODA_API_URL, path)
-                .thenApply(response -> (ObjectNode) response.get("json"));
-    }
-
-    private CompletableFuture<ArrayNode> saveNewEntities(Meta meta, Object data) {
-        String path = String.format("entity/%s/%s/%s", FORMAT, meta.getEntityModel(), meta.getEntityVersion());
-
-        return httpUtils.sendPostRequest(meta.getToken(), CYODA_API_URL, path, data)
-                .thenApply(response -> {
-                    if (response != null) {
-                        JsonNode jsonNode = response.get("json");
-
-                        if (jsonNode != null && jsonNode.isArray()) {
-                            logger.info("Successfully saved new entities. Response: {}", response);
-                            return (ArrayNode) jsonNode;
-                        } else {
-                            logger.error("Response does not contain a valid 'json' array. Response: {}", response);
-                            throw new RuntimeException("Response does not contain a valid 'json' array");
-                        }
-                    } else {
-                        logger.error("Failed to save new entity. Response is null");
-                        throw new RuntimeException("Failed to save new entity: Response is null");
-                    }
-                });
-    }
-
-    private CompletableFuture<ObjectNode> updateEntity(Meta meta, UUID id, Object entity) {
-        String path = String.format("entity/%s/%s/%s", FORMAT, id, meta.getUpdateTransition());
-        return httpUtils.sendPutRequest(meta.getToken(), CYODA_API_URL, path, entity)
-                .thenApply(response -> (ObjectNode) response.get("json"));
-    }
-
-    private CompletableFuture<ObjectNode> deleteEntity(Meta meta, UUID id) {
-        String path = String.format("entity/%s", id);
-
-        return httpUtils.sendDeleteRequest(meta.getToken(), CYODA_API_URL, path).thenApply(response -> (ObjectNode) response.get("json"));
-    }
-
-    private CompletableFuture<ArrayNode> deleteAllByModel(Meta meta) {
-        String path = String.format("entity/%s/%s", meta.getEntityModel(), meta.getEntityVersion());
-
-        return httpUtils.sendDeleteRequest(meta.getToken(), CYODA_API_URL, path).thenApply(response -> (ArrayNode) response.get("json"));
-    }
-
-    private CompletableFuture<ArrayNode> findAllByCondition(Meta meta, Object condition) {
-        return searchEntities(meta, condition)
-                .thenApply(resp -> {
-                    if (resp.get("json").get("page").get("totalElements").asInt() == 0) {
-                        return objectMapper.createArrayNode();
-                    }
-                    return (ArrayNode) resp.get("json").get("_embedded").get("objectNodes");
-                })
-                .exceptionally(ex -> {
-                    Throwable cause = ex instanceof CompletionException ? ex.getCause() : ex;
-                    if (cause instanceof ResponseStatusException rsEx &&
-                            rsEx.getStatusCode() == HttpStatus.NOT_FOUND) {
-                        logger.warn("Model not found, returning empty array: {}", rsEx.getReason());
-                        return objectMapper.createArrayNode();
-                    }
-                    throw new CompletionException("Unhandled error", cause);
-                });
-    }
-
-    private CompletableFuture<ArrayNode> findAllByConditionInMemory(Meta meta, Object condition) {
-        return searchEntitiesInMemory(meta, condition)
-                .thenApply(response -> {
-                    JsonNode jsonNode = response.get("json");
-                    if (jsonNode != null && jsonNode.isArray()) {
-                        ArrayNode results = objectMapper.createArrayNode();
-                        for (JsonNode item : jsonNode) {
-                            if (item.has("data")) {
-                                results.add(item.get("data"));
-                            }
-                        }
-                        return results;
-                    } else {
-                        logger.warn("Expected an ArrayNode under 'json' for in-memory search, but got: {}", jsonNode);
-                        return objectMapper.createArrayNode();
-                    }
-                })
-                .exceptionally(ex -> {
-                    Throwable cause = ex instanceof CompletionException ? ex.getCause() : ex;
-                    if (cause instanceof ResponseStatusException rsEx &&
-                            rsEx.getStatusCode() == HttpStatus.NOT_FOUND) {
-                        logger.warn("Model not found for in-memory search, returning empty array: {}", rsEx.getReason());
-                        return objectMapper.createArrayNode();
-                    }
-                    throw new CompletionException("Unhandled error in in-memory search", cause);
-                });
-    }
-
-    private CompletableFuture<ObjectNode> searchEntities(Meta meta, Object condition) {
-        return searchEntities(meta, condition, 100, 0);
-    }
-
-    private CompletableFuture<ObjectNode> searchEntities(Meta meta, Object condition, int pageSize, int pageNumber) {
-        return createSnapshotSearch(meta.getToken(), meta.getEntityModel(), meta.getEntityVersion(), condition)
-                .thenCompose(snapshotId -> {
-                    if (snapshotId == null) {
+    private CompletableFuture<List<DataPayload>> findAllByCondition(
+            @NotNull final String modelName,
+            final int modelVersion,
+            final int pageSize,
+            final int pageNumber,
+            @NotNull final GroupCondition condition
+    ) {
+        return createSnapshotSearch(modelName, modelVersion, condition).thenComposeAsync(snapshotInfo -> {
+                    if (snapshotInfo.getSnapshotId() == null) {
                         logger.error("Snapshot ID not found in response");
-                        return CompletableFuture.completedFuture(objectMapper.createObjectNode());
+                        return CompletableFuture.completedFuture(null);
                     }
+
+                    // NOTE: To avoid redundant polling, if snapshot is already done
+                    if (SearchSnapshotStatus.Status.SUCCESSFUL.equals(snapshotInfo.getStatus())) {
+                        return CompletableFuture.completedFuture(snapshotInfo.getSnapshotId());
+                    }
+
                     try {
-                        return waitForSearchCompletion(meta.getToken(), snapshotId, 10_000, 500)
-                                .thenCompose(statusResponse -> getSearchResult(meta.getToken(), snapshotId, pageSize, pageNumber));
+                        return waitForSearchCompletion(
+                                snapshotInfo.getSnapshotId(),
+                                SNAPSHOT_CREATION_AWAIT_LIMIT_MS,
+                                SNAPSHOT_CREATION_POLL_INTERVAL_MS
+                        ).thenApply(it -> snapshotInfo.getSnapshotId());
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                });
+                }).thenCompose(snapshotId -> getSearchResult(snapshotId, pageSize, pageNumber))
+                .exceptionally(this::handleNotFoundOrThrow);
     }
 
-    private CompletableFuture<ObjectNode> searchEntitiesInMemory(Meta meta, Object condition) {
-        return searchEntitiesInMemory(meta, condition, 1000, 60000);
+    private CompletableFuture<List<DataPayload>> findAllByConditionInMemory(
+            @NotNull final String modelName,
+            final int modelVersion,
+            final int pageSize,
+            @NotNull final GroupCondition condition
+    ) {
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entitySearchCollection,
+                new EntitySearchRequest().withId(generateEventId())
+                        .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
+                        .withLimit(pageSize)
+                        .withCondition(condition),
+                EntityResponse.class
+        ).thenApply(entities -> entities.map(EntityResponse::getPayload).toList())
+                .exceptionally(this::handleNotFoundOrThrow);
     }
 
-    private CompletableFuture<ObjectNode> searchEntitiesInMemory(Meta meta, Object condition, int limit, int timeoutMillis) {
-        String searchPath = String.format("search/%s/%s", meta.getEntityModel(), meta.getEntityVersion());
+    @Override
+    public CompletableFuture<List<DataPayload>> findAll(
+            @NotNull final String modelName,
+            final int modelVersion,
+            final int pageSize,
+            final int pageNumber,
+            @Nullable final Date pointInTime
+    ) {
+        return getAllEntities(modelName, modelVersion, pageSize, pageNumber, pointInTime);
+    }
 
-        // Create search request with parameters
-        ObjectNode searchRequest = objectMapper.createObjectNode();
+    private CompletableFuture<List<DataPayload>> getAllEntities(
+            @NotNull final String modelName,
+            final int modelVersion,
+            final int pageSize,
+            final int pageNumber,
+            @Nullable final Date pointInTime
+    ) {
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entityManageCollection,
+                new EntityGetAllRequest().withId(UUID.randomUUID().toString())
+                        .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
+                        .withPageSize(pageSize)
+                        .withPageNumber(pageNumber)
+                        .withPointInTime(pointInTime),
+                EntityResponse.class
+        ).thenApply(entities -> entities.map(EntityResponse::getPayload).toList());
+    }
+
+    @Override
+    public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> save(
+            @NotNull final String modelName,
+            final int modelVersion,
+            @NotNull final ENTITY_TYPE entity
+    ) {
+        return saveNewEntities(modelName, modelVersion, entity);
+    }
+
+    @Override
+    public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
+            @NotNull final String modelName,
+            final int modelVersion,
+            @NotNull final Collection<ENTITY_TYPE> entities
+    ) {
+        return saveNewEntities(modelName, modelVersion, entities);
+    }
+
+    @Override
+    public CompletableFuture<EntityTransitionResponse> applyTransition(
+            @NotNull final UUID entityId,
+            @NotNull final String transitionName
+    ) {
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entityManage,
+                new EntityTransitionRequest().withId(generateEventId())
+                        .withEntityId(entityId)
+                        .withTransition(transitionName),
+                EntityTransitionResponse.class
+        );
+    }
+
+    @Override
+    public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> update(
+            @NotNull final UUID id,
+            @NotNull final ENTITY_TYPE entity,
+            @NotNull final String transition
+    ) {
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entityManage,
+                new EntityUpdateRequest().withId(generateEventId())
+                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withPayload(
+                                new EntityUpdatePayload().withEntityId(id)
+                                        .withData(objectMapper.valueToTree(entity))
+                                        .withTransition(transition)
+                        ),
+                EntityTransactionResponse.class
+        );
+    }
+
+    @Override
+    public <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull final Collection<ENTITY_TYPE> entities,
+            @NotNull final String transition
+    ) {
+        final var entitiesByIds = entities.stream()
+                .map(objectMapper::valueToTree)
+                .map(entity -> (JsonNode) entity)
+                .collect(Collectors.toMap(
+                                entity -> UUID.fromString(entity.get("id").asText()),
+                                entity -> entity
+                        )
+                );
+
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entityManageCollection,
+                new EntityUpdateCollectionRequest().withId(generateEventId())
+                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withPayloads(entitiesByIds.entrySet()
+                                .stream()
+                                .map(entity -> new EntityUpdatePayload().withTransition(transition)
+                                        .withEntityId(entity.getKey())
+                                        .withData(entity.getValue()))
+                                .toList()),
+                EntityTransactionResponse.class
+        ).thenApply(Stream::toList);
+    }
+
+    @Override
+    public CompletableFuture<EntityDeleteResponse> deleteById(@NotNull final UUID id) {
+        return deleteEntity(id);
+    }
+
+    @Override
+    public CompletableFuture<List<EntityDeleteAllResponse>> deleteAll(
+            @NotNull final String modelName,
+            final int modelVersion
+    ) {
+        return deleteAllByModel(modelName, modelVersion);
+    }
+
+    private <RESPONSE_PAYLOAD_TYPE extends BaseEvent> CompletableFuture<RESPONSE_PAYLOAD_TYPE> sendAndGet(
+            final Function<CloudEvent, CloudEvent> apiCall,
+            final BaseEvent baseEvent,
+            final Class<RESPONSE_PAYLOAD_TYPE> responsePayloadType
+    ) {
         try {
-            // Convert condition to JsonNode if it's not already
-            JsonNode conditionNode;
-            if (condition instanceof JsonNode) {
-                conditionNode = (JsonNode) condition;
-            } else {
-                conditionNode = objectMapper.valueToTree(condition);
-            }
-
-            // Copy the condition structure
-            searchRequest.setAll((ObjectNode) conditionNode);
-
-            // Add query parameters for in-memory search
-            Map<String, String> queryParams = new HashMap<>();
-            queryParams.put("limit", String.valueOf(limit));
-            queryParams.put("timeoutMillis", String.valueOf(timeoutMillis));
-
-            logger.info("Performing in-memory search for entity: {}/{} with condition: {}",
-                       meta.getEntityModel(), meta.getEntityVersion(), searchRequest);
-
-            return httpUtils.sendPostRequest(meta.getToken(), CYODA_API_URL, searchPath, searchRequest, queryParams);
-
-        } catch (Exception e) {
-            logger.error("Error preparing in-memory search request", e);
-            return CompletableFuture.failedFuture(e);
+            final CloudEvent requestEvent = cloudEventBuilder.buildEvent(baseEvent);
+            return CompletableFuture.supplyAsync(() -> requestAndGetOrThrow(apiCall, requestEvent))
+                    .thenApply(response -> cloudEventParser.parseCloudEvent(response, responsePayloadType))
+                    .thenApply(this::getOrNull);
+        } catch (InvalidProtocolBufferException e) {
+            throw new RuntimeException(e);
         }
     }
 
-    private CompletableFuture<String> createSnapshotSearch(String token, String entityModel, String entityVersion, Object condition) {
-        String searchPath = String.format("search/snapshot/%s/%s", entityModel, entityVersion);
-        return httpUtils.sendPostRequest(token, CYODA_API_URL, searchPath, condition)
-                .thenApply(response -> response.get("json").asText());
+    private <RESPONSE_PAYLOAD_TYPE extends BaseEvent> CompletableFuture<Stream<RESPONSE_PAYLOAD_TYPE>> sendAndGetCollection(
+            final Function<CloudEvent, Iterator<CloudEvent>> apiCall,
+            final BaseEvent baseEvent,
+            final Class<RESPONSE_PAYLOAD_TYPE> responsePayloadClass
+    ) {
+        try {
+            final var requestEvent = cloudEventBuilder.buildEvent(baseEvent);
+            return CompletableFuture.supplyAsync(() -> requestAndGetOrThrow(apiCall, requestEvent))
+                    .thenApply(response -> processCollection(Streams.stream(response), responsePayloadClass));
+        } catch (InvalidProtocolBufferException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    private CompletableFuture<ObjectNode> waitForSearchCompletion(String token, String snapshotId, long timeoutMillis, long intervalMillis) throws IOException {
-        long startTime = System.currentTimeMillis();
-        return pollSnapshotStatus(token, snapshotId, startTime, timeoutMillis, intervalMillis);
+    private <RESPONSE_PAYLOAD_TYPE extends BaseEvent> Stream<RESPONSE_PAYLOAD_TYPE> processCollection(
+            final Stream<CloudEvent> stream,
+            final Class<RESPONSE_PAYLOAD_TYPE> payloadType
+    ) {
+        return stream.filter(Objects::nonNull)
+                .map(elm -> cloudEventParser.parseCloudEvent(elm, payloadType))
+                .map(this::getOrNull)
+                .filter(Objects::nonNull);
     }
 
-    private CompletableFuture<ObjectNode> pollSnapshotStatus(String token, String snapshotId, long startTime, long timeoutMillis, long intervalMillis) throws IOException {
-        return getSnapshotStatus(token, snapshotId).thenCompose(statusResponse -> {
-            String status = statusResponse.get("json").get("snapshotStatus").asText();
+    private <RESPONSE_PAYLOAD_TYPE extends BaseEvent> RESPONSE_PAYLOAD_TYPE getOrNull(
+            final Optional<RESPONSE_PAYLOAD_TYPE> event
+    ) {
+        return event.orElse(null);
+    }
 
-            if ("SUCCESSFUL".equals(status)) {
-                return CompletableFuture.completedFuture(statusResponse);
-            } else if (!"RUNNING".equals(status)) {
-                return CompletableFuture.failedFuture(new RuntimeException("Snapshot search failed: " + statusResponse));
+    private <RESPONSE_PAYLOAD_TYPE> RESPONSE_PAYLOAD_TYPE requestAndGetOrThrow(
+            final Function<CloudEvent, RESPONSE_PAYLOAD_TYPE> apiCall,
+            final CloudEvent requestEvent
+    ) {
+        try {
+            return apiCall.apply(requestEvent);
+        } catch (Exception e) {
+            throw new CompletionException(e);
+        }
+    }
+
+    private <PAYLOAD_TYPE> CompletableFuture<EntityTransactionResponse> saveNewEntities(
+            @NotNull final String modelName,
+            final int modelVersion,
+            @NotNull final PAYLOAD_TYPE entities
+    ) {
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entityManage,
+                new EntityCreateRequest().withId(generateEventId())
+                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withPayload(new EntityCreatePayload().withData(objectMapper.valueToTree(entities))
+                                .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
+                        ),
+                EntityTransactionResponse.class
+        );
+    }
+
+    private CompletableFuture<EntityDeleteResponse> deleteEntity(@NotNull final UUID id) {
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entityManage,
+                new EntityDeleteRequest().withId(generateEventId()).withEntityId(id),
+                EntityDeleteResponse.class
+        );
+    }
+
+    private CompletableFuture<List<EntityDeleteAllResponse>> deleteAllByModel(
+            @NotNull final String modelName,
+            final int modelVersion
+    ) {
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entityManageCollection,
+                new EntityDeleteAllRequest().withId(generateEventId())
+                        .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion)),
+                EntityDeleteAllResponse.class
+        ).thenApply(Stream::toList);
+    }
+
+    private String generateEventId() {
+        return UUID.randomUUID().toString();
+    }
+
+    private CompletableFuture<SearchSnapshotStatus> createSnapshotSearch(
+            final String modelName,
+            final int modelVersion,
+            final GroupCondition condition
+    ) {
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entitySearch,
+                new EntitySnapshotSearchRequest().withId(generateEventId())
+                        .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
+                        .withCondition(condition),
+                EntitySnapshotSearchResponse.class
+        ).thenApply(EntitySnapshotSearchResponse::getStatus);
+    }
+
+    private CompletableFuture<SearchSnapshotStatus.Status> waitForSearchCompletion(
+            @NotNull final UUID snapshotId,
+            final long awaitLimitMillis,
+            final long intervalMillis
+    ) throws IOException {
+        final var startTime = System.currentTimeMillis();
+        return pollSnapshotStatus(snapshotId, startTime, awaitLimitMillis, intervalMillis);
+    }
+
+    private CompletableFuture<SearchSnapshotStatus.Status> pollSnapshotStatus(
+            @NotNull final UUID snapshotId,
+            final long startTime,
+            final long awaitLimitMillis,
+            final long intervalMillis
+    ) throws IOException {
+        logger.debug("Polling snapshot: {}", snapshotId);
+        return getSnapshotStatus(snapshotId).thenCompose(snapshotStatus -> {
+            if (SearchSnapshotStatus.Status.SUCCESSFUL.equals(snapshotStatus)) {
+                logger.debug("Snapshot is ready!");
+                return CompletableFuture.completedFuture(snapshotStatus);
+            }
+            if (!SearchSnapshotStatus.Status.RUNNING.equals(snapshotStatus)) {
+                return CompletableFuture.failedFuture(
+                        new RuntimeException("Snapshot search failed: " + snapshotStatus)
+                );
             }
 
-            long elapsedTime = System.currentTimeMillis() - startTime;
-            if (elapsedTime > timeoutMillis) {
-                return CompletableFuture.failedFuture(new TimeoutException("Timeout exceeded after " + timeoutMillis + " ms"));
+            final var elapsedTime = System.currentTimeMillis() - startTime;
+            if (elapsedTime > awaitLimitMillis) {
+                return CompletableFuture.failedFuture(
+                        new TimeoutException("Timeout exceeded after " + awaitLimitMillis + " ms"));
             }
 
-            return CompletableFuture.runAsync(() -> {}, CompletableFuture.delayedExecutor(intervalMillis, TimeUnit.MILLISECONDS))
-                    .thenCompose(ignored -> {
-                        try {
-                            return pollSnapshotStatus(token, snapshotId, startTime, timeoutMillis, intervalMillis);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
+            return CompletableFuture.runAsync(
+                    () -> {},
+                    CompletableFuture.delayedExecutor(intervalMillis, TimeUnit.MILLISECONDS)
+            ).thenCompose(ignored -> {
+                try {
+                    return pollSnapshotStatus(snapshotId, startTime, awaitLimitMillis, intervalMillis);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
         });
     }
 
-    private CompletableFuture<ObjectNode> getSnapshotStatus(String token, String snapshotId) {
-        String path = String.format("search/snapshot/%s/status", snapshotId);
-        return httpUtils.sendGetRequest(token, CYODA_API_URL, path);
+    private CompletableFuture<SearchSnapshotStatus.Status> getSnapshotStatus(@NotNull final UUID snapshotId) {
+        return sendAndGet(
+                cloudEventsServiceBlockingStub::entitySearch,
+                new SnapshotGetStatusRequest().withId(generateEventId()).withSnapshotId(snapshotId),
+                EntitySnapshotSearchResponse.class
+        ).thenApply(EntitySnapshotSearchResponse::getStatus)
+                .thenApply(SearchSnapshotStatus::getStatus);
     }
 
-    private CompletableFuture<ObjectNode> getSearchResult(String token, String snapshotId, int pageSize, int pageNumber) {
-        String path = String.format("search/snapshot/%s", snapshotId);
-        Map<String, String> params = Map.of("pageSize", String.valueOf(pageSize), "pageNumber", String.valueOf(pageNumber));
+    private CompletableFuture<List<DataPayload>> getSearchResult(
+            @NotNull final UUID snapshotId,
+            final int pageSize,
+            final int pageNumber
+    ) {
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entitySearchCollection,
+                new SnapshotGetRequest().withId(generateEventId())
+                        .withSnapshotId(snapshotId)
+                        .withPageSize(pageSize)
+                        .withPageNumber(pageNumber),
+                EntityResponse.class
+        ).thenApply(entities -> entities
+                .map(EntityResponse::getPayload)
+                .toList()
+        );
+    }
 
-        return httpUtils.sendGetRequest(token, CYODA_API_URL, path, params)
-                .thenApply(response -> {
-                    if (response != null) {
-                        return response;
-                    } else {
-                        throw new RuntimeException("Get search result failed: response is null");
-                    }
-                });
+    private <ENTITY_TYPE> List<ENTITY_TYPE> handleNotFoundOrThrow(final Throwable exception) {
+        if (isNotFound(exception)) {
+            logger.warn("Not found happens", exception);
+            return Collections.emptyList();
+        }
+        final var cause = exception instanceof CompletionException ? exception.getCause() : exception;
+        throw new CompletionException("Unhandled error", cause);
+    }
+
+    private boolean isNotFound(final Throwable exception) {
+        return exception instanceof StatusRuntimeException ex && ex.getStatus().getCode().equals(Status.Code.NOT_FOUND);
     }
 }

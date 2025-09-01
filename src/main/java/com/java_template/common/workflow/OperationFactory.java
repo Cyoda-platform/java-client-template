@@ -6,8 +6,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class OperationFactory {
@@ -17,47 +15,81 @@ public class OperationFactory {
     private final List<CyodaProcessor> processors;
     private final List<CyodaCriterion> criteria;
 
-    private final Map<OperationSpecification,CyodaProcessor> processorCache = new ConcurrentHashMap<>();
-    private final Map<OperationSpecification,CyodaCriterion> criteriaCache = new ConcurrentHashMap<>();
-
     public OperationFactory(
             List<CyodaProcessor> processorBeans,
             List<CyodaCriterion> criteriaBeans
     ) {
-        log.debug("Initializing OperationFactory with {} processor beans", processorBeans.size());
+        log.debug(
+                "Initializing OperationFactory with {} processor beans",
+                processorBeans.size()
+        );
         this.processors = processorBeans;
-        log.debug("Initializing OperationFactory with {} criteria beans", criteriaBeans.size());
+        log.debug(
+                "Initializing OperationFactory with {} criteria beans",
+                criteriaBeans.size()
+        );
         this.criteria = criteriaBeans;
     }
 
-    public @NotNull CyodaProcessor getProcessorForModel(OperationSpecification.Processor opsSpec) {
+    public @NotNull CyodaProcessor getProcessorForModel(final OperationSpecification.Processor opsSpec) {
+        log.debug(
+                "Searching for processor for OperationSpecification {}",
+                opsSpec
+        );
 
-        return processorCache.computeIfAbsent(opsSpec, k -> {
-            log.debug("Searching for processor for OperationSpecification {}", opsSpec);
-            for (CyodaProcessor processor : processors) {
-                if (processor.supports(opsSpec)) {
-                    String processorName = opsSpec.processorName();
-                    log.debug("Found processor '{}' (class: {}) for OperationSpecification {}",
-                            processorName, processor.getClass().getSimpleName(), opsSpec);
-                    return processor;
-                }
-            }
-            throw new IllegalStateException("No processor found for OperationSpecification " + opsSpec);
-        });
+        final var matchedProcessors = processors.stream()
+                .filter(p -> p.supports(opsSpec))
+                .toList();
+
+        if (matchedProcessors.isEmpty()) {
+            throw new IllegalStateException("No processor found for OperationSpecificationfor OperationSpecification " + opsSpec);
+        }
+
+        if (matchedProcessors.size() > 1) {
+            log.warn(
+                    "For OperationSpecification {} found {} processors which is seems as an app configuration issue",
+                    opsSpec,
+                    matchedProcessors.stream().map(CyodaProcessor::getClass)
+            );
+        }
+
+        final var matchedProcessor = matchedProcessors.getFirst();
+        log.info(
+                "For OperationSpecification {} selected {} processor",
+                opsSpec,
+                matchedProcessor.getClass()
+        );
+        return matchedProcessor;
     }
 
-    public @NotNull CyodaCriterion getCriteriaForModel(OperationSpecification.Criterion opsSpec) {
-        return criteriaCache.computeIfAbsent(opsSpec, k -> {
-            log.debug("Searching for criteria for OperationSpecification {}", opsSpec);
-            for (CyodaCriterion criterion : criteria) {
-                if (criterion.supports(opsSpec)) {
-                    String criteriaName = opsSpec.criterionName();
-                    log.debug("Found criteria '{}' (class: {}) for OperationSpecification {}",
-                            criteriaName, criterion.getClass().getSimpleName(), opsSpec);
-                    return criterion;
-                }
-            }
-            throw new IllegalStateException("No criteria found for OperationSpecification " + opsSpec);
-        });
+    public @NotNull CyodaCriterion getCriteriaForModel(final OperationSpecification.Criterion opsSpec) {
+        log.debug(
+                "Searching for criteria for OperationSpecification {}",
+                opsSpec
+        );
+
+        final var matchedCriteria = criteria.stream()
+                .filter(p -> p.supports(opsSpec))
+                .toList();
+
+        if (matchedCriteria.isEmpty()) {
+            throw new IllegalStateException("No criterion found for OperationSpecificationfor OperationSpecification " + opsSpec);
+        }
+
+        if (matchedCriteria.size() > 1) {
+            log.warn(
+                    "For OperationSpecification {} found {} criteria which is seems as an app configuration issue",
+                    opsSpec,
+                    matchedCriteria.stream().map(CyodaCriterion::getClass)
+            );
+        }
+
+        final var matchedCriterion = matchedCriteria.getFirst();
+        log.info(
+                "For OperationSpecification {} selected {} criterion",
+                opsSpec,
+                matchedCriterion.getClass()
+        );
+        return matchedCriterion;
     }
 }
