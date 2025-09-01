@@ -147,38 +147,67 @@ Domain logic structure. Contains entity structures.
 
 For all methods that require a `technicalId` (such as `updateItem` or `deleteItem`), this field is **automatically included** in the returned entity when using methods like `getItem(...)`, `getItems(...)`, or `getItemsByCondition(...)`.
 
-The `technicalId` represents the internal unique identifier of the entity instance and is required for update or delete operations.  
-It is injected into the resulting `ObjectNode` during data retrieval:
+### 🔑 EntityResponse<T> Structure
+
+All EntityService methods return `EntityResponse<T>` with rich metadata:
 
 ```java
-dataNode.put("technicalId", idNode.asText());
+EntityResponse<Product> response = entityService.save(product);
+
+// Access business data
+Product product = response.getData();
+
+// Access metadata
+UUID technicalId = response.getId();        // For updates/deletes
+LocalDateTime created = response.getCreatedAt();
+LocalDateTime updated = response.getUpdatedAt();
+Integer version = response.getVersion();    // For optimistic locking
 ```
 
-Make sure to preserve this field if the entity is passed to another operation.
+## ⚙️ EntityService API (JPA-Style)
 
-## 📦 Example: getItemsByCondition
+The EntityService follows **Spring Boot JPA Repository** patterns with **type-safe, synchronous operations**.
 
-To use `getItemsByCondition`, pass a condition object constructed with the following utility classes:
-
-> Please use the following classes to construct search conditions for entity queries:
-> - `Condition` – `com.java_template.common.util.Condition`
-> - `SearchConditionRequest` – `com.java_template.common.util.SearchConditionRequest`
-
-To create a condition, wrap it into a `SearchConditionRequest` with one or multiple elements in the list.
-Use logical operators `AND`, `OR`, or `NOT`:
-
+### 🔄 Core Operations
 ```java
-SearchConditionRequest.group("AND",
-    Condition.of("$.fieldName1", "EQUALS", "value"),
-    Condition.of("$.fieldName2", "GREATER_THAN", 10)
+// Save entity (JPA-style)
+EntityResponse<Product> response = entityService.save(product);
+Product savedProduct = response.getData();
+
+// Find by business ID (SKU, orderId, etc.)
+EntityResponse<Product> productResponse = entityService.findByBusinessId(Product.class, "SKU123");
+
+// Find all entities
+List<EntityResponse<Product>> responses = entityService.findAll(Product.class);
+
+// Update with optional transition
+EntityResponse<Product> updated = entityService.updateByBusinessId(product, "approve");
+
+// Delete by business ID
+boolean deleted = entityService.deleteByBusinessId(Product.class, "SKU123");
+```
+
+### 🔍 Advanced Search (Type-Safe)
+```java
+// Simple field search
+List<EntityResponse<Product>> products = entityService.findByField(Product.class, "category", "electronics");
+
+// Complex search conditions
+SearchConditionRequest condition = SearchConditionRequest.group("AND",
+    Condition.of("$.category", "EQUALS", "electronics"),
+    Condition.of("$.price", "GREATER_THAN", 100),
+    Condition.of("$.inStock", "EQUALS", true)
 );
+
+List<EntityResponse<Product>> results = entityService.findByCondition(Product.class, condition, false);
 ```
 
-You can then pass the resulting `SearchConditionRequest` object as the `condition` parameter to `getItemsByCondition`.
-
-```java
-entityService.getItemsByCondition("exampleModel", ENTITY_VERSION, yourSearchCondition);
-```
+### ✨ Key Features
+- **🔄 JPA-Style**: `save()`, `findAll()`, `deleteById()` - familiar to Spring Boot developers
+- **🛡️ Type Safety**: All methods use proper generics and `SearchConditionRequest`
+- **📊 Rich Metadata**: Every response includes technical ID, timestamps, etc.
+- **⚡ Synchronous**: Clean, simple method calls (no CompletableFuture)
+- **🎯 Transition Support**: Update operations support workflow transitions
 
 ---
 

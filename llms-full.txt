@@ -127,56 +127,114 @@ Domain logic structure. Contains entity structures.
 
 ---
 
-## ⚙️ API Reference – `EntityService`
+## ⚙️ API Reference – `EntityService` (JPA-Style)
+
+The EntityService now follows **Spring Boot JPA Repository** patterns with **type-safe, synchronous operations** and **rich metadata support**.
+
+### 🔄 Core CRUD Operations (JPA-Style)
 
 | Method                                                                                  | Return type                     | Description                           |
 |-----------------------------------------------------------------------------------------|---------------------------------|---------------------------------------|
-| `getItem(String model, String version, UUID technicalId)`                               | `CompletableFuture<ObjectNode>` | Get item by ID                        |
-| `getItems(String model, String version)`                                                | `CompletableFuture<ArrayNode>`  | Get all items by model and version    |
-| `getItemsByCondition(String entityModel, String entityVersion, Object condition)`       | `CompletableFuture<ArrayNode>`  | Get multiple items by condition       |
-| `addItem(String entityModel, String entityVersion, Object entity)`                      | `CompletableFuture<UUID>`       | Add item                              |
-| `addItems(String entityModel, String entityVersion, Object entities)`                   | `CompletableFuture<List<UUID>>` | Add multiple items                    |
-| `updateItem(String entityModel, String entityVersion, UUID technicalId, Object entity)` | `CompletableFuture<UUID>`       | Update item                           |
-| `deleteItem(String entityModel, String entityVersion, UUID technicalId)`                | `CompletableFuture<UUID>`       | Delete item                           |
-| `deleteItems(String entityModel, String entityVersion)`                                 | `CompletableFuture<ArrayNode>`  | Delete all items by model and version |
+| `save(T entity)`                                                                        | `EntityResponse<T>`             | Save entity (JPA-style)              |
+| `saveAll(Collection<T> entities)`                                                       | `List<EntityResponse<T>>`       | Save multiple entities (JPA-style)   |
+| `update(UUID id, T entity, String transition)`                                          | `EntityResponse<T>`             | Update entity with optional transition|
+| `updateAll(Collection<T> entities, String transition)`                                  | `List<EntityResponse<T>>`       | Update multiple entities              |
+| `deleteById(UUID id)`                                                                   | `UUID`                          | Delete by technical ID (JPA-style)   |
+| `deleteAll(Class<T> entityClass)`                                                       | `Integer`                       | Delete all entities (JPA-style)      |
 
-> Use `import static com.java_template.common.config.Config.ENTITY_VERSION` for consistent versioning.
+### 🔍 Query Operations (Type-Safe)
 
-### 🔑 Where to get `technicalId`
+| Method                                                                                  | Return type                     | Description                           |
+|-----------------------------------------------------------------------------------------|---------------------------------|---------------------------------------|
+| `getItem(UUID id, Class<T> entityClass)`                                               | `EntityResponse<T>`             | Get by technical ID                   |
+| `getItems(Class<T> entityClass, Integer pageSize, Integer pageNumber, Date pointTime)` | `List<EntityResponse<T>>`       | Get all with pagination               |
+| `getItemsByCondition(Class<T> entityClass, SearchConditionRequest condition, boolean inMemory)` | `List<EntityResponse<T>>` | Advanced search with conditions |
+| `getFirstItemByCondition(Class<T> entityClass, SearchConditionRequest condition, boolean inMemory)` | `Optional<EntityResponse<T>>` | Get first match |
 
-For all methods that require a `technicalId` (such as `updateItem` or `deleteItem`), this field is **automatically included** in the returned entity when using methods like `getItem(...)`, `getItems(...)`, or `getItemsByCondition(...)`.
+### 🏪 Business ID Operations (Convenience)
 
-The `technicalId` represents the internal unique identifier of the entity instance and is required for update or delete operations.
-It is injected into the resulting `ObjectNode` during data retrieval:
+| Method                                                                                  | Return type                     | Description                           |
+|-----------------------------------------------------------------------------------------|---------------------------------|---------------------------------------|
+| `findByBusinessId(Class<T> entityClass, String businessId)`                            | `EntityResponse<T>`             | Find by business ID (SKU, orderId, etc.) |
+| `findAll(Class<T> entityClass)`                                                         | `List<EntityResponse<T>>`       | Find all entities                     |
+| `findByField(Class<T> entityClass, String fieldName, String value)`                    | `List<EntityResponse<T>>`       | Find by field value (convenience)     |
+| `findByCondition(Class<T> entityClass, SearchConditionRequest condition, boolean inMemory)` | `List<EntityResponse<T>>` | Advanced search (convenience) |
+| `updateByBusinessId(T entity, String transition)`                                       | `EntityResponse<T>`             | Update by business ID                 |
+| `deleteByBusinessId(Class<T> entityClass, String businessId)`                          | `boolean`                       | Delete by business ID                 |
+
+### ✨ Key Improvements
+
+- **🔄 JPA-Style Naming**: `save()`, `findAll()`, `deleteById()` - familiar to Spring Boot developers
+- **🛡️ Type Safety**: All methods use proper generics with `<T extends CyodaEntity>`
+- **📊 Rich Metadata**: Every response includes `EntityResponse<T>` with technical ID, timestamps, etc.
+- **⚡ Synchronous**: No more `CompletableFuture` - clean, simple method calls
+- **🎯 Transition Support**: Update operations support optional workflow transitions
+- **🧠 Consistent API**: `List<EntityResponse<T>>` everywhere for multiple entities
+
+### 🔑 EntityResponse<T> - Rich Metadata Support
+
+All EntityService methods now return `EntityResponse<T>` or `List<EntityResponse<T>>`, which includes:
+
+- **`getData()`** - The business entity (Product, Order, etc.)
+- **`getId()`** - Technical UUID for update/delete operations
+- **`getCreatedAt()`** - Creation timestamp
+- **`getUpdatedAt()`** - Last modification timestamp
+- **`getVersion()`** - Entity version for optimistic locking
 
 ```java
-dataNode.put("technicalId", idNode.asText());
+EntityResponse<Product> response = entityService.save(product);
+Product savedProduct = response.getData();
+UUID technicalId = response.getId();  // Use for updates/deletes
 ```
 
-Make sure to preserve this field if the entity is passed to another operation.
+### 📦 Usage Examples
 
-## 📦 Example: getItemsByCondition
-
-To use `getItemsByCondition`, pass a condition object constructed with the following utility classes:
-
-> Please use the following classes to construct search conditions for entity queries:
-> - `Condition` – `com.java_template.common.util.Condition`
-> - `SearchConditionRequest` – `com.java_template.common.util.SearchConditionRequest`
-
-To create a condition, wrap it into a `SearchConditionRequest` with one or multiple elements in the list.
-Use logical operators `AND`, `OR`, or `NOT`:
-
+#### Simple Operations
 ```java
-SearchConditionRequest.group("AND",
-    Condition.of("$.fieldName1", "EQUALS", "value"),
-    Condition.of("$.fieldName2", "GREATER_THAN", 10)
+// Save entity (JPA-style)
+EntityResponse<Product> response = entityService.save(product);
+Product savedProduct = response.getData();
+
+// Find by business ID (SKU, orderId, etc.)
+EntityResponse<Product> productResponse = entityService.findByBusinessId(Product.class, "SKU123");
+Product product = productResponse.getData();
+
+// Find all entities
+List<EntityResponse<Product>> responses = entityService.findAll(Product.class);
+List<Product> products = responses.stream().map(EntityResponse::getData).toList();
+
+// Update with transition
+EntityResponse<Product> updated = entityService.updateByBusinessId(product, "approve");
+
+// Delete by business ID
+boolean deleted = entityService.deleteByBusinessId(Product.class, "SKU123");
+```
+
+#### Advanced Search with Type-Safe Conditions
+```java
+// Simple field search (convenience)
+List<EntityResponse<Product>> products = entityService.findByField(Product.class, "category", "electronics");
+
+// Complex search conditions (type-safe)
+SearchConditionRequest condition = SearchConditionRequest.group("AND",
+    Condition.of("$.category", "EQUALS", "electronics"),
+    Condition.of("$.price", "GREATER_THAN", 100),
+    Condition.of("$.inStock", "EQUALS", true)
 );
+
+List<EntityResponse<Product>> results = entityService.findByCondition(Product.class, condition, false);
 ```
 
-You can then pass the resulting `SearchConditionRequest` object as the `condition` parameter to `getItemsByCondition`.
-
+#### Working with Technical IDs
 ```java
-entityService.getItemsByCondition("exampleModel", ENTITY_VERSION, yourSearchCondition);
+// Get entity by technical ID
+EntityResponse<Product> response = entityService.getItem(technicalId, Product.class);
+
+// Update using technical ID with transition
+EntityResponse<Product> updated = entityService.update(technicalId, product, "transition_name");
+
+// Delete by technical ID
+UUID deletedId = entityService.deleteById(technicalId);
 ```
 
 ---
@@ -704,12 +762,14 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 ## Services
 
 - Always interact with `EntityService` interface, not repository directly
-- Use `CompletableFuture` return types for all async operations
-- Pass entity model name, version, and technical ID for entity operations
-- Use `Config.ENTITY_VERSION` for version parameter
-- Prefer `getItemsByCondition()` over manual filtering
-- Use `addItem()` for single entities, `addItems()` for bulk operations
-- Handle `InterruptedException` and `ExecutionException` in service calls
+- Use **synchronous** methods - no more `CompletableFuture` complexity
+- Use **JPA-style** naming: `save()`, `findAll()`, `deleteById()`, etc.
+- Work with **type-safe** `EntityResponse<T>` and `List<EntityResponse<T>>`
+- Use **business ID methods** for convenience: `findByBusinessId()`, `updateByBusinessId()`
+- Use **SearchConditionRequest** for type-safe search conditions (not Object)
+- Include **transition parameter** in update operations when needed
+- Extract business data with `response.getData()` from EntityResponse
+- Use technical ID from `response.getId()` for update/delete operations
 <!-- services-end -->
 
 <!-- controllers-start -->
@@ -722,7 +782,10 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 - Return appropriate HTTP status codes (400 for validation, 404 for not found, 500 for errors)
 - Log errors with context information (entity ID, operation type)
 - Use `ResponseEntity<T>` for proper HTTP response handling
-- Convert between entity objects and JSON using `ObjectMapper`
+- Extract business data from `EntityResponse<T>` using `response.getData()`
+- Use `entityService.save()` instead of `create()` for JPA consistency
+- Use `entityService.findByBusinessId()` for business ID lookups
+- Handle `List<EntityResponse<T>>` by mapping to business entities when needed
 <!-- controllers-end -->
 
 <!-- workflow-start -->
@@ -757,7 +820,9 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 - Enable prototype mode via `-Dprototype.enabled=true` system property
 - Test serializers using fluent API patterns
 - Mock `EntityService` and `SerializerFactory` in unit tests
-- Use `ObjectMapper` for JSON conversion in tests
+- Mock `EntityResponse<T>` objects in tests with proper data and metadata
+- Test with `SearchConditionRequest` objects for type-safe condition testing
+- Use synchronous EntityService methods (no CompletableFuture handling needed)
 - Test both success and error scenarios for processors and criteria
 <!-- testing-end -->
 
