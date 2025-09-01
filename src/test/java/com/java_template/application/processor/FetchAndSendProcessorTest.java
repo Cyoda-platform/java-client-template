@@ -83,6 +83,11 @@ public class FetchAndSendProcessorTest {
         // Replace internal httpClient with a test HttpClient that returns a known CatFact response
         HttpClient testHttpClient = new HttpClient() {
             @Override
+            public java.util.Optional<java.util.concurrent.Executor> executor() {
+                return java.util.Optional.empty();
+            }
+
+            @Override
             public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler) throws IOException, InterruptedException {
                 // Build a minimal HttpResponse<String> with a valid JSON body
                 @SuppressWarnings("unchecked")
