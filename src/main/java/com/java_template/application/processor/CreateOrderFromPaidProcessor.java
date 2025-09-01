@@ -154,3 +154,4 @@ public class CreateOrderFromPaidProcessor implements CyodaProcessor {
             throw new RuntimeException("Stock update failed for SKU: " + sku, e);
         }
     }
+}

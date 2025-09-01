@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -21,125 +20,108 @@ public class PaymentController {
     private EntityService entityService;
 
     @PostMapping
-    public CompletableFuture<ResponseEntity<Payment>> createPayment(@RequestBody Payment payment) {
-        logger.info("Creating payment for cart: {}", payment.getCartId());
+    public ResponseEntity<Payment> createPayment(@RequestBody Payment payment) {
+        logger.info("Creating payment with ID: {}", payment.getPaymentId());
 
-        return entityService.create(payment)
-            .thenApply(createdPayment -> {
-                logger.info("Payment created successfully with ID: {}", createdPayment.getPaymentId());
-                return ResponseEntity.ok(createdPayment);
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to create payment: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+        try {
+            Payment createdPayment = entityService.create(payment);
+            logger.info("Payment created successfully with ID: {}", createdPayment.getPaymentId());
+            return ResponseEntity.ok(createdPayment);
+        } catch (Exception e) {
+            logger.error("Failed to create payment: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/{paymentId}")
-    public CompletableFuture<ResponseEntity<Payment>> getPayment(@PathVariable String paymentId) {
+    public ResponseEntity<Payment> getPayment(@PathVariable String paymentId) {
         logger.info("Retrieving payment with ID: {}", paymentId);
 
-        return entityService.findById(Payment.class, paymentId)
-            .thenApply(payment -> {
-                if (payment != null) {
-                    logger.info("Payment found with ID: {}", paymentId);
-                    return ResponseEntity.ok(payment);
-                } else {
-                    logger.warn("Payment not found with ID: {}", paymentId);
-                    return ResponseEntity.notFound().build();
-                }
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to retrieve payment: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
-    }
-
-    @GetMapping("/cart/{cartId}")
-    public CompletableFuture<ResponseEntity<List<Payment>>> getPaymentsByCart(@PathVariable String cartId) {
-        logger.info("Retrieving payments for cart: {}", cartId);
-
-        return entityService.findByField(Payment.class, "cartId", cartId)
-            .thenApply(payments -> {
-                logger.info("Retrieved {} payments for cart: {}", payments.size(), cartId);
-                return ResponseEntity.ok(payments);
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to retrieve payments by cart: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
-    }
-
-    @PostMapping("/{paymentId}/process")
-    public CompletableFuture<ResponseEntity<Payment>> processPayment(@PathVariable String paymentId) {
-        logger.info("Processing payment with ID: {}", paymentId);
-
-        return entityService.findById(Payment.class, paymentId)
-            .thenCompose(payment -> {
-                if (payment == null) {
-                    return CompletableFuture.completedFuture(null);
-                }
-
-                // Trigger payment processing (this will be handled by the workflow)
-                return entityService.update(payment);
-            })
-            .thenApply(updatedPayment -> {
-                if (updatedPayment != null) {
-                    logger.info("Payment processing initiated successfully");
-                    return ResponseEntity.ok(updatedPayment);
-                } else {
-                    logger.warn("Payment not found with ID: {}", paymentId);
-                    return ResponseEntity.notFound().build();
-                }
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to process payment: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
-    }
-
-    @PostMapping("/{paymentId}/cancel")
-    public CompletableFuture<ResponseEntity<Payment>> cancelPayment(@PathVariable String paymentId) {
-        logger.info("Cancelling payment with ID: {}", paymentId);
-
-        return entityService.findById(Payment.class, paymentId)
-            .thenCompose(payment -> {
-                if (payment == null) {
-                    return CompletableFuture.completedFuture(null);
-                }
-
-                // Set payment status to cancelled
-                payment.setStatus("CANCELLED");
-
-                return entityService.update(payment);
-            })
-            .thenApply(updatedPayment -> {
-                if (updatedPayment != null) {
-                    logger.info("Payment cancelled successfully");
-                    return ResponseEntity.ok(updatedPayment);
-                } else {
-                    logger.warn("Payment not found with ID: {}", paymentId);
-                    return ResponseEntity.notFound().build();
-                }
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to cancel payment: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+        try {
+            Payment payment = entityService.findById(Payment.class, paymentId);
+            if (payment != null) {
+                logger.info("Payment found with ID: {}", paymentId);
+                return ResponseEntity.ok(payment);
+            } else {
+                logger.warn("Payment not found with ID: {}", paymentId);
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to retrieve payment: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping
-    public CompletableFuture<ResponseEntity<List<Payment>>> getAllPayments() {
+    public ResponseEntity<List<Payment>> getAllPayments() {
         logger.info("Retrieving all payments");
 
-        return entityService.findAll(Payment.class)
-            .thenApply(payments -> {
-                logger.info("Retrieved {} payments", payments.size());
-                return ResponseEntity.ok(payments);
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to retrieve payments: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+        try {
+            List<Payment> payments = entityService.findAll(Payment.class);
+            logger.info("Retrieved {} payments", payments.size());
+            return ResponseEntity.ok(payments);
+        } catch (Exception e) {
+            logger.error("Failed to retrieve payments: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("/{paymentId}/process")
+    public ResponseEntity<Payment> processPayment(@PathVariable String paymentId) {
+        logger.info("Processing payment with ID: {}", paymentId);
+
+        try {
+            Payment payment = entityService.findById(Payment.class, paymentId);
+            if (payment == null) {
+                logger.warn("Payment not found with ID: {}", paymentId);
+                return ResponseEntity.notFound().build();
+            }
+
+            // Trigger payment processing (this will be handled by the workflow)
+            Payment updatedPayment = entityService.update(payment);
+            
+            logger.info("Payment processing initiated successfully");
+            return ResponseEntity.ok(updatedPayment);
+        } catch (Exception e) {
+            logger.error("Failed to process payment: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("/{paymentId}/cancel")
+    public ResponseEntity<Payment> cancelPayment(@PathVariable String paymentId) {
+        logger.info("Cancelling payment with ID: {}", paymentId);
+
+        try {
+            Payment payment = entityService.findById(Payment.class, paymentId);
+            if (payment == null) {
+                logger.warn("Payment not found with ID: {}", paymentId);
+                return ResponseEntity.notFound().build();
+            }
+
+            // Set payment status to cancelled
+            payment.setStatus("CANCELLED");
+            Payment updatedPayment = entityService.update(payment);
+            
+            logger.info("Payment cancelled successfully");
+            return ResponseEntity.ok(updatedPayment);
+        } catch (Exception e) {
+            logger.error("Failed to cancel payment: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @GetMapping("/order/{orderId}")
+    public ResponseEntity<List<Payment>> getPaymentsByOrder(@PathVariable String orderId) {
+        logger.info("Retrieving payments for order: {}", orderId);
+
+        try {
+            List<Payment> payments = entityService.findByField(Payment.class, "orderId", orderId);
+            logger.info("Retrieved {} payments for order: {}", payments.size(), orderId);
+            return ResponseEntity.ok(payments);
+        } catch (Exception e) {
+            logger.error("Failed to retrieve payments by order: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

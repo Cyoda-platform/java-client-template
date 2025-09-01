@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -21,196 +20,169 @@ public class OrderController {
     private EntityService entityService;
 
     @PostMapping
-    public CompletableFuture<ResponseEntity<Order>> createOrder(@RequestBody Order order) {
-        logger.info("Creating order");
+    public ResponseEntity<Order> createOrder(@RequestBody Order order) {
+        logger.info("Creating order with ID: {}", order.getOrderId());
 
-        return entityService.create(order)
-            .thenApply(createdOrder -> {
-                logger.info("Order created successfully with ID: {}", createdOrder.getOrderId());
-                return ResponseEntity.ok(createdOrder);
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to create order: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+        try {
+            Order createdOrder = entityService.create(order);
+            logger.info("Order created successfully with ID: {}", createdOrder.getOrderId());
+            return ResponseEntity.ok(createdOrder);
+        } catch (Exception e) {
+            logger.error("Failed to create order: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/{orderId}")
-    public CompletableFuture<ResponseEntity<Order>> getOrder(@PathVariable String orderId) {
+    public ResponseEntity<Order> getOrder(@PathVariable String orderId) {
         logger.info("Retrieving order with ID: {}", orderId);
 
-        return entityService.findById(Order.class, orderId)
-            .thenApply(order -> {
-                if (order != null) {
-                    logger.info("Order found with ID: {}", orderId);
-                    return ResponseEntity.ok(order);
-                } else {
-                    logger.warn("Order not found with ID: {}", orderId);
-                    return ResponseEntity.notFound().build();
-                }
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to retrieve order: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+        try {
+            Order order = entityService.findById(Order.class, orderId);
+            if (order != null) {
+                logger.info("Order found with ID: {}", orderId);
+                return ResponseEntity.ok(order);
+            } else {
+                logger.warn("Order not found with ID: {}", orderId);
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to retrieve order: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/number/{orderNumber}")
-    public CompletableFuture<ResponseEntity<Order>> getOrderByNumber(@PathVariable String orderNumber) {
+    public ResponseEntity<Order> getOrderByNumber(@PathVariable String orderNumber) {
         logger.info("Retrieving order with number: {}", orderNumber);
 
-        return entityService.findByField(Order.class, "orderNumber", orderNumber)
-            .thenApply(orders -> {
-                if (!orders.isEmpty()) {
-                    Order order = orders.get(0);
-                    logger.info("Order found with number: {}", orderNumber);
-                    return ResponseEntity.ok(order);
-                } else {
-                    logger.warn("Order not found with number: {}", orderNumber);
-                    return ResponseEntity.notFound().build();
-                }
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to retrieve order by number: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+        try {
+            List<Order> orders = entityService.findByField(Order.class, "orderNumber", orderNumber);
+            if (!orders.isEmpty()) {
+                Order order = orders.get(0);
+                logger.info("Order found with number: {}", orderNumber);
+                return ResponseEntity.ok(order);
+            } else {
+                logger.warn("Order not found with number: {}", orderNumber);
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to retrieve order by number: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping
-    public CompletableFuture<ResponseEntity<List<Order>>> getAllOrders() {
+    public ResponseEntity<List<Order>> getAllOrders() {
         logger.info("Retrieving all orders");
 
-        return entityService.findAll(Order.class)
-            .thenApply(orders -> {
-                logger.info("Retrieved {} orders", orders.size());
-                return ResponseEntity.ok(orders);
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to retrieve orders: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+        try {
+            List<Order> orders = entityService.findAll(Order.class);
+            logger.info("Retrieved {} orders", orders.size());
+            return ResponseEntity.ok(orders);
+        } catch (Exception e) {
+            logger.error("Failed to retrieve orders: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/status/{status}")
-    public CompletableFuture<ResponseEntity<List<Order>>> getOrdersByStatus(@PathVariable String status) {
+    public ResponseEntity<List<Order>> getOrdersByStatus(@PathVariable String status) {
         logger.info("Retrieving orders with status: {}", status);
 
-        return entityService.findByField(Order.class, "status", status)
-            .thenApply(orders -> {
-                logger.info("Retrieved {} orders with status: {}", orders.size(), status);
-                return ResponseEntity.ok(orders);
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to retrieve orders by status: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+        try {
+            List<Order> orders = entityService.findByField(Order.class, "status", status);
+            logger.info("Retrieved {} orders with status: {}", orders.size(), status);
+            return ResponseEntity.ok(orders);
+        } catch (Exception e) {
+            logger.error("Failed to retrieve orders by status: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PutMapping("/{orderId}")
-    public CompletableFuture<ResponseEntity<Order>> updateOrder(@PathVariable String orderId, @RequestBody Order order) {
+    public ResponseEntity<Order> updateOrder(@PathVariable String orderId, @RequestBody Order order) {
         logger.info("Updating order with ID: {}", orderId);
 
         // Ensure the order ID in the path matches the order ID
         order.setOrderId(orderId);
 
-        return entityService.update(order)
-            .thenApply(updatedOrder -> {
-                logger.info("Order updated successfully with ID: {}", orderId);
-                return ResponseEntity.ok(updatedOrder);
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to update order: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+        try {
+            Order updatedOrder = entityService.update(order);
+            logger.info("Order updated successfully with ID: {}", orderId);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (Exception e) {
+            logger.error("Failed to update order: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PostMapping("/{orderId}/fulfill")
-    public CompletableFuture<ResponseEntity<Order>> fulfillOrder(@PathVariable String orderId) {
-        logger.info("Fulfilling order with ID: {}", orderId);
+    public ResponseEntity<Order> fulfillOrder(@PathVariable String orderId) {
+        logger.info("Initiating fulfillment for order: {}", orderId);
 
-        return entityService.findById(Order.class, orderId)
-            .thenCompose(order -> {
-                if (order == null) {
-                    return CompletableFuture.completedFuture(null);
-                }
+        try {
+            Order order = entityService.findById(Order.class, orderId);
+            if (order == null) {
+                logger.warn("Order not found with ID: {}", orderId);
+                return ResponseEntity.notFound().build();
+            }
 
-                // Update order status to trigger fulfillment workflow
-                order.setStatus("PICKING");
-
-                return entityService.update(order);
-            })
-            .thenApply(updatedOrder -> {
-                if (updatedOrder != null) {
-                    logger.info("Order fulfillment initiated successfully");
-                    return ResponseEntity.ok(updatedOrder);
-                } else {
-                    logger.warn("Order not found with ID: {}", orderId);
-                    return ResponseEntity.notFound().build();
-                }
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to fulfill order: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+            // Update order status to trigger fulfillment workflow
+            order.setStatus("PICKING");
+            Order updatedOrder = entityService.update(order);
+            
+            logger.info("Order fulfillment initiated successfully");
+            return ResponseEntity.ok(updatedOrder);
+        } catch (Exception e) {
+            logger.error("Failed to fulfill order: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PostMapping("/{orderId}/ship")
-    public CompletableFuture<ResponseEntity<Order>> shipOrder(@PathVariable String orderId) {
-        logger.info("Shipping order with ID: {}", orderId);
+    public ResponseEntity<Order> shipOrder(@PathVariable String orderId) {
+        logger.info("Initiating shipping for order: {}", orderId);
 
-        return entityService.findById(Order.class, orderId)
-            .thenCompose(order -> {
-                if (order == null) {
-                    return CompletableFuture.completedFuture(null);
-                }
+        try {
+            Order order = entityService.findById(Order.class, orderId);
+            if (order == null) {
+                logger.warn("Order not found with ID: {}", orderId);
+                return ResponseEntity.notFound().build();
+            }
 
-                // Update order status to trigger shipping workflow
-                order.setStatus("SENT");
-
-                return entityService.update(order);
-            })
-            .thenApply(updatedOrder -> {
-                if (updatedOrder != null) {
-                    logger.info("Order shipping initiated successfully");
-                    return ResponseEntity.ok(updatedOrder);
-                } else {
-                    logger.warn("Order not found with ID: {}", orderId);
-                    return ResponseEntity.notFound().build();
-                }
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to ship order: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+            // Update order status to trigger shipping workflow
+            order.setStatus("SENT");
+            Order updatedOrder = entityService.update(order);
+            
+            logger.info("Order shipping initiated successfully");
+            return ResponseEntity.ok(updatedOrder);
+        } catch (Exception e) {
+            logger.error("Failed to ship order: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @PostMapping("/{orderId}/deliver")
-    public CompletableFuture<ResponseEntity<Order>> deliverOrder(@PathVariable String orderId) {
-        logger.info("Marking order as delivered with ID: {}", orderId);
+    public ResponseEntity<Order> deliverOrder(@PathVariable String orderId) {
+        logger.info("Marking order as delivered: {}", orderId);
 
-        return entityService.findById(Order.class, orderId)
-            .thenCompose(order -> {
-                if (order == null) {
-                    return CompletableFuture.completedFuture(null);
-                }
+        try {
+            Order order = entityService.findById(Order.class, orderId);
+            if (order == null) {
+                logger.warn("Order not found with ID: {}", orderId);
+                return ResponseEntity.notFound().build();
+            }
 
-                // Update order status to delivered
-                order.setStatus("DELIVERED");
-
-                return entityService.update(order);
-            })
-            .thenApply(updatedOrder -> {
-                if (updatedOrder != null) {
-                    logger.info("Order marked as delivered successfully");
-                    return ResponseEntity.ok(updatedOrder);
-                } else {
-                    logger.warn("Order not found with ID: {}", orderId);
-                    return ResponseEntity.notFound().build();
-                }
-            })
-            .exceptionally(throwable -> {
-                logger.error("Failed to mark order as delivered: {}", throwable.getMessage(), throwable);
-                return ResponseEntity.internalServerError().build();
-            });
+            // Update order status to delivered
+            order.setStatus("DELIVERED");
+            Order updatedOrder = entityService.update(order);
+            
+            logger.info("Order marked as delivered successfully");
+            return ResponseEntity.ok(updatedOrder);
+        } catch (Exception e) {
+            logger.error("Failed to mark order as delivered: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

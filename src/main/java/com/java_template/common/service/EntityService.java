@@ -86,4 +86,41 @@ public interface EntityService {
 
     // Delete all items by modelName and modelVersion.
     CompletableFuture<Integer> deleteItems(@NotNull String modelName, @NotNull Integer modelVersion);
+
+    // Convenience methods for controllers - these provide a cleaner API
+
+    // Create an entity and return the populated entity with technical ID
+    <T extends com.java_template.common.workflow.CyodaEntity> T create(@NotNull T entity);
+
+    // Find entity by business ID (e.g., SKU, orderId, etc.)
+    <T extends com.java_template.common.workflow.CyodaEntity> T findById(@NotNull Class<T> entityClass, @NotNull String businessId);
+
+    // Find all entities of a given type
+    <T extends com.java_template.common.workflow.CyodaEntity> List<T> findAll(@NotNull Class<T> entityClass);
+
+    // Update an entity (finds by business ID and updates)
+    <T extends com.java_template.common.workflow.CyodaEntity> T update(@NotNull T entity);
+
+    // Delete entity by business ID
+    <T extends com.java_template.common.workflow.CyodaEntity> boolean delete(@NotNull Class<T> entityClass, @NotNull String businessId);
+
+    // Find entities by field value
+    <T extends com.java_template.common.workflow.CyodaEntity> List<T> findByField(@NotNull Class<T> entityClass, @NotNull String fieldName, @NotNull String value);
+
+    // Enhanced methods that return both data and metadata
+
+    // Create an entity and return with metadata
+    <T extends com.java_template.common.workflow.CyodaEntity> com.java_template.common.dto.EntityResponse<T> createWithMetadata(@NotNull T entity);
+
+    // Find entity by business ID with metadata
+    <T extends com.java_template.common.workflow.CyodaEntity> com.java_template.common.dto.EntityResponse<T> findByIdWithMetadata(@NotNull Class<T> entityClass, @NotNull String businessId);
+
+    // Find all entities with metadata
+    <T extends com.java_template.common.workflow.CyodaEntity> com.java_template.common.dto.EntityListResponse<T> findAllWithMetadata(@NotNull Class<T> entityClass);
+
+    // Update an entity and return with metadata
+    <T extends com.java_template.common.workflow.CyodaEntity> com.java_template.common.dto.EntityResponse<T> updateWithMetadata(@NotNull T entity);
+
+    // Find entities by field value with metadata
+    <T extends com.java_template.common.workflow.CyodaEntity> com.java_template.common.dto.EntityListResponse<T> findByFieldWithMetadata(@NotNull Class<T> entityClass, @NotNull String fieldName, @NotNull String value);
 }
