@@ -1,0 +1,47 @@
+{
+    "version": "1.0",
+    "name": "Subscriber Workflow",
+    "desc": "Description of the workflow for Subscriber",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "active",
+                    "manual": false
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "transition_to_notified",
+                    "next": "notified",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifySubscriberProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "notified": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}

@@ -1,0 +1,111 @@
+{
+    "version": "1.0",
+    "name": "Job Workflow",
+    "desc": "Workflow for processing jobs in the Nobel Laureates Data Ingestion application",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_scheduled",
+                    "next": "SCHEDULED",
+                    "manual": false
+                }
+            ]
+        },
+        "SCHEDULED": {
+            "transitions": [
+                {
+                    "name": "transition_to_ingesting",
+                    "next": "INGESTING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "StartIngestionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INGESTING": {
+            "transitions": [
+                {
+                    "name": "transition_to_succeeded",
+                    "next": "SUCCEEDED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DataIngestionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_failed",
+                    "next": "FAILED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ErrorHandlingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SUCCEEDED": {
+            "transitions": [
+                {
+                    "name": "transition_to_notified_subscribers",
+                    "next": "NOTIFIED_SUBSCRIBERS",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifySubscribersProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "FAILED": {
+            "transitions": [
+                {
+                    "name": "transition_to_notified_subscribers",
+                    "next": "NOTIFIED_SUBSCRIBERS",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotifySubscribersProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "NOTIFIED_SUBSCRIBERS": {
+            "transitions": [
+                {
+                    "name": "transition_to_final_state",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}

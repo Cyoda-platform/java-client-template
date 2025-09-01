@@ -1,0 +1,81 @@
+{
+    "version": "1.0",
+    "name": "Laureate Workflow",
+    "desc": "Workflow for processing and storing laureate data",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_received",
+                    "next": "RECEIVED",
+                    "manual": false
+                }
+            ]
+        },
+        "RECEIVED": {
+            "transitions": [
+                {
+                    "name": "transition_to_validated",
+                    "next": "VALIDATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ValidateLaureateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATED": {
+            "transitions": [
+                {
+                    "name": "transition_to_enriched",
+                    "next": "ENRICHED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EnrichLaureateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ENRICHED": {
+            "transitions": [
+                {
+                    "name": "transition_to_stored",
+                    "next": "STORED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "StoreLaureateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "STORED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}
