@@ -263,3 +263,13 @@ If you want, we can:
 - add a separate Interaction entity to record per-email open/click events,
 - add GET-by-condition endpoints (for example list all active subscribers),
 - or expand retention and archiving policies. Which would you like to refine next?
+
+---
+
+Example Ready-to-Copy User Response (pick one and paste)
+
+- Option A — confirm final:
+  I confirm: keep the CatFact weekly send design as-is; this is the final version.
+
+- Option B — request one refinement:
+  Please add an Interaction entity to record opens/clicks and add GET /subscribers?status=ACTIVE to list active subscribers.
