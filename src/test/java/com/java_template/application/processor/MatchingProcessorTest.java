@@ -127,7 +127,7 @@ public class MatchingProcessorTest {
         assertNotNull(response.getPayload().getData(), "Response payload data should not be null");
 
         // Convert returned payload to AdoptionJob and verify expected updates
-        AdoptionJob resultJob = objectMapper.treeToValue(response.getpayload().getData(), AdoptionJob.class);
+        AdoptionJob resultJob = objectMapper.treeToValue(response.getPayload().getData(), AdoptionJob.class);
         assertNotNull(resultJob, "Resulting AdoptionJob should be deserializable");
         assertEquals("COMPLETED", resultJob.getStatus(), "Job should be marked COMPLETED on sunny path");
         // Expect two matching pets
