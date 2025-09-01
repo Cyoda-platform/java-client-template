@@ -1,0 +1,87 @@
+{
+    "version": "1.0",
+    "name": "Payment Workflow",
+    "desc": "Workflow for Payment entity based on the functional requirements (dummy payment: INITIATED -> PAID/FAILED/CANCELED).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_dummy_payment",
+                    "next": "INITIATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CreateDummyPaymentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INITIATED": {
+            "transitions": [
+                {
+                    "name": "auto_mark_paid",
+                    "next": "PAID",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AutoMarkPaidAfter3sProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PaymentIsPaidCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "fail_payment",
+                    "next": "FAILED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "FailPaymentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "cancel_payment",
+                    "next": "CANCELED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CancelPaymentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PAID": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        },
+        "CANCELED": {
+            "transitions": []
+        }
+    }
+}

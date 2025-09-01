@@ -1,0 +1,96 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Workflow for Product entity: persist, index for search, optional inventory updates, then complete.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_to_persisted",
+                    "next": "PERSISTED",
+                    "manual": false
+                }
+            ]
+        },
+        "PERSISTED": {
+            "transitions": [
+                {
+                    "name": "persisted_to_indexed",
+                    "next": "INDEXED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "IndexProductForSearchProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INDEXED": {
+            "transitions": [
+                {
+                    "name": "indexed_to_idle",
+                    "next": "IDLE",
+                    "manual": false
+                }
+            ]
+        },
+        "IDLE": {
+            "transitions": [
+                {
+                    "name": "idle_to_inventory_updated",
+                    "next": "INVENTORY_UPDATED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "InventoryUpdateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ProductHasInventoryChangesCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "idle_to_completed_no_inventory_change",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ProductHasNoInventoryChangesCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "INVENTORY_UPDATED": {
+            "transitions": [
+                {
+                    "name": "inventory_updated_to_completed",
+                    "next": "COMPLETED",
+                    "manual": false
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": []
+        }
+    }
+}
