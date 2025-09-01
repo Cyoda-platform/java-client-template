@@ -3,7 +3,7 @@
     "files_with_errors": [
         {
             "errors": [
-                "<anonymous com.java_template.application.processor.FetchAndSendProcessorTest$1> is not abstract and does not override abstract method executor() in HttpClient",
+                "<anonymous com.java_template.application.processor.FetchAndSendProcessorTest$1> is not abstract and does not override abstract method version() in HttpClient",
                 "method does not override or implement a method from a supertype"
             ],
             "file_path": "src/test/java/com/java_template/application/processor/FetchAndSendProcessorTest.java"
