@@ -53,7 +53,7 @@ public class StartMatchingProcessorTest {
         ownerPayload.setData(objectMapper.valueToTree(owner));
 
         // Stub entityService.getItem(...) to return the owner payload
-        when(entityService.getItem(eq(Owner.ENTITY_NAME), eq(Owner.ENTITY_VERSION), eq(ownerUuid)))
+        when(entityService.getItem(eq(ownerUuid)))
                 .thenReturn(CompletableFuture.completedFuture(ownerPayload));
 
         // Create processor instance (real)
@@ -103,6 +103,6 @@ public class StartMatchingProcessorTest {
         assertEquals(0, resultJob.getResultCount().intValue(), "Processor should initialize resultCount to 0");
 
         // Verify EntityService was invoked to fetch the owner
-        verify(entityService, atLeastOnce()).getItem(eq(Owner.ENTITY_NAME), eq(Owner.ENTITY_VERSION), eq(ownerUuid));
+        verify(entityService, atLeastOnce()).getItem(eq(ownerUuid));
     }
 }

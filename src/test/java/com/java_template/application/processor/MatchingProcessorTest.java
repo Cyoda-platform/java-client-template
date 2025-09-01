@@ -45,9 +45,9 @@ public class MatchingProcessorTest {
         EntityService entityService = mock(EntityService.class);
 
         // Prepare an Owner that matches preferences
-        String ownerId = UUID.randomUUID().toString();
+        UUID ownerUuid = UUID.randomUUID();
         Owner owner = new Owner();
-        owner.setId(ownerId);
+        owner.setId(ownerUuid.toString());
         owner.setName("Jane Doe");
         // preferences JSON: wants a Dog, Labrador, age between 1 and 5
         owner.setPreferences("{\"species\":\"Dog\",\"breed\":\"Labrador\",\"ageMax\":5,\"ageMin\":1}");
@@ -57,7 +57,7 @@ public class MatchingProcessorTest {
         ownerPayload.setData(ownerJson);
 
         // Stub entityService.getItem(...) to return the owner payload
-        when(entityService.getItem(eq(Owner.ENTITY_NAME), eq(Owner.ENTITY_VERSION), any(UUID.class)))
+        when(entityService.getItem(eq(ownerUuid)))
                 .thenReturn(CompletableFuture.completedFuture(ownerPayload));
 
         // Prepare pets - two matching AVAILABLE pets
@@ -92,7 +92,7 @@ public class MatchingProcessorTest {
         // Build a valid AdoptionJob request payload that passes isValid()
         AdoptionJob job = new AdoptionJob();
         job.setId(UUID.randomUUID().toString());
-        job.setOwnerId(ownerId);
+        job.setOwnerId(ownerUuid.toString());
         job.setCriteria("{}"); // minimal non-blank
         job.setCreatedAt("2025-01-01T00:00:00Z");
         job.setStatus("PENDING");
@@ -127,7 +127,7 @@ public class MatchingProcessorTest {
         assertNotNull(response.getPayload().getData(), "Response payload data should not be null");
 
         // Convert returned payload to AdoptionJob and verify expected updates
-        AdoptionJob resultJob = objectMapper.treeToValue(response.getPayload().getData(), AdoptionJob.class);
+        AdoptionJob resultJob = objectMapper.treeToValue(response.getpayload().getData(), AdoptionJob.class);
         assertNotNull(resultJob, "Resulting AdoptionJob should be deserializable");
         assertEquals("COMPLETED", resultJob.getStatus(), "Job should be marked COMPLETED on sunny path");
         // Expect two matching pets
