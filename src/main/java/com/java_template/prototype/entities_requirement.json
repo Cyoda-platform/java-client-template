@@ -1,0 +1,53 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Siamese",
+                    "id": "pet-12",
+                    "name": "Whiskers",
+                    "photoUrls": [
+                        "https://images.example/pet-12-1.jpg",
+                        "https://images.example/pet-12-2.jpg"
+                    ],
+                    "sourceUrl": "https://petstore.example/api/pets/12",
+                    "species": "cat",
+                    "status": "AVAILABLE",
+                    "vaccinations": [
+                        "rabies",
+                        "distemper"
+                    ]
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Maple St, Springfield, USA",
+                    "contactEmail": "ava@example.com",
+                    "id": "owner-789",
+                    "name": "Ava Smith",
+                    "phone": "+1-555-0100",
+                    "preferences": "{\"species\":\"cat\",\"ageMax\":3}"
+                }
+            }
+        },
+        {
+            "AdoptionJob": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-30T12:34:56Z",
+                    "criteria": "{\"species\":\"cat\",\"ageMax\":3}",
+                    "id": "job-1",
+                    "ownerId": "owner-789",
+                    "resultCount": 2,
+                    "resultsPreview": [
+                        "pet-12",
+                        "pet-34"
+                    ],
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
