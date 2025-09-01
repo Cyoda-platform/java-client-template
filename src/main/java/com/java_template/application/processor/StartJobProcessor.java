@@ -48,17 +48,36 @@ public class StartJobProcessor implements CyodaProcessor {
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
+
     @Override
     public boolean supports(OperationSpecification modelSpec) {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Custom validation that only checks fields necessary for starting the job.
+     * We intentionally avoid calling entity.isValid() because the entity's own
+     * isValid() may require fields that are populated later in the workflow
+     * (for example runAt or catFactTechnicalId).
+     */
     private boolean isValidEntity(WeeklySendJob entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        if (entity.getScheduledFor() == null || entity.getScheduledFor().isBlank()) return false;
+        if (entity.getCreatedAt() == null || entity.getCreatedAt().isBlank()) return false;
+        // status should be present (typically CREATED). If not present, consider invalid.
+        if (entity.getStatus() == null || entity.getStatus().isBlank()) return false;
+        return true;
     }
 
     private WeeklySendJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<WeeklySendJob> context) {
         WeeklySendJob entity = context.entity();
+
+        // If the job is already beyond CREATED state, do not start it again.
+        String currentStatus = entity.getStatus();
+        if (currentStatus != null && !currentStatus.equalsIgnoreCase("CREATED")) {
+            logger.info("WeeklySendJob {} has status '{}' - StartJobProcessor will not change it.", context.request().getId(), currentStatus);
+            return entity;
+        }
 
         // Business logic:
         // - Verify scheduledFor is a valid ISO-8601 datetime.
@@ -81,10 +100,9 @@ public class StartJobProcessor implements CyodaProcessor {
 
             if (scheduledFor.isAfter(now)) {
                 // Scheduled time is in the future - do not start the job yet.
-                logger.info("WeeklySendJob scheduled for future time ({}). Current time: {}. Job will not start.", scheduledForStr, now.toString());
-                // Do not change runAt; optionally set errorMessage to indicate why it didn't start.
+                logger.info("WeeklySendJob scheduled for future time ({}). Current time: {}. Job will not start now.", scheduledForStr, now.toString());
+                // Keep status as CREATED and provide informational message
                 entity.setErrorMessage("Scheduled time is in the future; job not started");
-                // Keep status as-is (likely CREATED). Return entity unchanged otherwise.
                 return entity;
             }
 

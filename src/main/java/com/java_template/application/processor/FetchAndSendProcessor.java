@@ -26,7 +26,6 @@ import java.net.http.HttpResponse;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -63,7 +62,7 @@ public class FetchAndSendProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
-            .validate(this::isValidEntity, "Invalid entity state")
+            .validate(this::isValidEntity, "Invalid WeeklySendJob state")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
@@ -72,15 +71,25 @@ public class FetchAndSendProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * WeeklySendJob entity.isValid() is too strict for runtime execution because
+     * the job is created before the CatFact is associated. Validate only required
+     * properties for running the fetch/send workflow (scheduledFor present).
+     */
     private boolean isValidEntity(WeeklySendJob entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        // scheduledFor is required to know when job should run
+        if (entity.getScheduledFor() == null || entity.getScheduledFor().isBlank()) return false;
+        // status may be CREATED/RUNNING etc. Accept any non-blank status or allow null (runner will set it)
+        return true;
     }
 
     private WeeklySendJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<WeeklySendJob> context) {
         WeeklySendJob job = context.entity();
 
         try {
-            // Mark as RUNNING (if not already)
+            // Mark as RUNNING (if not already). Do not persist here via entityService for the triggering entity —
+            // returning the modified job will be persisted by the platform.
             job.setStatus("RUNNING");
             job.setRunAt(Instant.now().toString());
 
@@ -163,11 +172,10 @@ public class FetchAndSendProcessor implements CyodaProcessor {
                             // Simulate sending email by logging
                             logger.info("Sending weekly cat fact to subscriber: {}", subscriber.getEmail());
 
-                            // Increment send counter
+                            // Count as sent
                             sentCount++;
 
-                            // Optionally update subscriber interactionsCount asynchronously to reflect sent email.
-                            // This is allowed since we're updating other entities (not the triggering WeeklySendJob).
+                            // Optionally update subscriber entity (allowed: updating other entities)
                             try {
                                 String technicalId = null;
                                 com.fasterxml.jackson.databind.JsonNode meta = payload.getMeta();
@@ -175,12 +183,10 @@ public class FetchAndSendProcessor implements CyodaProcessor {
                                     technicalId = meta.get("entityId").asText();
                                 }
                                 if (technicalId != null && !technicalId.isBlank()) {
-                                    // Do not block overall processing on subscriber update; but perform update here synchronously
-                                    // to keep counts consistent.
-                                    Integer current = subscriber.getInteractionsCount() != null ? subscriber.getInteractionsCount() : 0;
-                                    subscriber.setInteractionsCount(current); // do not increment for sends (interactions reserved for opens/clicks)
-                                    // If you prefer to increment send-related metric, uncomment the next line:
-                                    // subscriber.setInteractionsCount(current + 1);
+                                    // interactionsCount represents opens/clicks; do not increment here.
+                                    // Persisting subscriber back without modifications is unnecessary,
+                                    // but if you want to record an alternative metric you could update here.
+                                    // We'll attempt to persist unchanged subscriber to ensure entity shape is consistent.
                                     try {
                                         entityService.updateItem(UUID.fromString(technicalId), subscriber).get();
                                     } catch (Exception ue) {

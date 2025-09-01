@@ -35,7 +35,8 @@ public class UnsubscribeProcessor implements CyodaProcessor {
                     logger.error("Failed to extract entity: {}", error.getMessage(), error);
                     return new ErrorInfo("TO_ENTITY_ERROR", "Failed to extract entity: " + error.getMessage());
                 })
-            .validate(this::isValidEntity, "Invalid entity state")
+            // Use a lightweight validator for unsubscribe transition to avoid strict model-level validation issues
+            .validate(this::isValidEntity, "Invalid entity state for unsubscribe transition")
             .map(this::processEntityLogic) // Implement business logic here
             .complete();
     }
@@ -44,8 +45,18 @@ public class UnsubscribeProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Validate only fields necessary for an unsubscribe transition.
+     * We should not rely on the full entity.isValid() here because some fields (like name) are optional
+     * and may cause a valid unsubscribe request to be rejected.
+     */
     private boolean isValidEntity(Subscriber entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        String email = entity.getEmail();
+        String status = entity.getStatus();
+        if (email == null || email.isBlank()) return false;
+        if (status == null || status.isBlank()) return false;
+        return true;
     }
 
     private Subscriber processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Subscriber> context) {

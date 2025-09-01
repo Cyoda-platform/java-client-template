@@ -38,7 +38,8 @@ public class ValidationFailedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name (case-sensitive) per critical requirements
+        return className.equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<CatFact> context) {
@@ -60,6 +61,15 @@ public class ValidationFailedCriterion implements CyodaCriterion {
          }
          if (text.length() > 1000) {
              return EvaluationOutcome.fail("CatFact text exceeds maximum length of 1000 characters", StandardEvalReasonCategories.VALIDATION_FAILURE);
+         }
+
+         // Simple profanity check (business validation rule). If found -> validation failure.
+         String lower = text.toLowerCase();
+         String[] banned = new String[] { "damn", "shit", "fuck" }; // lightweight list to catch obvious profanity
+         for (String b : banned) {
+             if (lower.contains(b)) {
+                 return EvaluationOutcome.fail("CatFact text contains prohibited language", StandardEvalReasonCategories.VALIDATION_FAILURE);
+             }
          }
 
          // Ensure required metadata present

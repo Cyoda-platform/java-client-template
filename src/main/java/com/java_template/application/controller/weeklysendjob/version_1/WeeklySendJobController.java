@@ -2,6 +2,7 @@ package com.java_template.application.controller.weeklysendjob.version_1;
 
 import static com.java_template.common.config.Config.*;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.service.EntityService;
@@ -19,11 +20,14 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
 import com.java_template.application.entity.weeklysendjob.version_1.WeeklySendJob;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -160,6 +164,57 @@ public class WeeklySendJobController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
         } catch (Exception e) {
             logger.error("Unexpected error while retrieving WeeklySendJob", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "List WeeklySendJobs", description = "Retrieve all WeeklySendJobs (unpaged).")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "OK",
+                    content = @Content(array = @ArraySchema(schema = @Schema(implementation = GetWeeklySendJobResponse.class)))),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> listWeeklySendJobs() {
+        try {
+            CompletableFuture<List<DataPayload>> itemsFuture = entityService.getItems(
+                    WeeklySendJob.ENTITY_NAME,
+                    WeeklySendJob.ENTITY_VERSION,
+                    null, null, null
+            );
+            List<DataPayload> dataPayloads = itemsFuture.get();
+
+            List<GetWeeklySendJobResponse> responses = new ArrayList<>();
+            if (dataPayloads != null) {
+                for (DataPayload payload : dataPayloads) {
+                    JsonNode data = payload.getData();
+                    if (data != null && data.isObject()) {
+                        GetWeeklySendJobResponse resp = objectMapper.treeToValue(data, GetWeeklySendJobResponse.class);
+                        if (payload.getMeta() != null && payload.getMeta().has("entityId")) {
+                            resp.setTechnicalId(payload.getMeta().get("entityId").asText());
+                        }
+                        responses.add(resp);
+                    }
+                }
+            }
+            return ResponseEntity.ok(responses);
+
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof IllegalArgumentException) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(cause.getMessage());
+            } else if (cause instanceof NoSuchElementException) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(cause.getMessage());
+            } else {
+                logger.error("ExecutionException while listing WeeklySendJobs", ee);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ee.getMessage());
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            logger.error("Interrupted while listing WeeklySendJobs", ie);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ie.getMessage());
+        } catch (Exception e) {
+            logger.error("Unexpected error while listing WeeklySendJobs", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }

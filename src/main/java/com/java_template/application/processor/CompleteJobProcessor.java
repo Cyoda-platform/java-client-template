@@ -60,8 +60,36 @@ public class CompleteJobProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Custom validation for CompleteJobProcessor:
+     * - entity must be non-null
+     * - must reference a catFactTechnicalId
+     * - must have a status that is eligible for completion (DISPATCHED or RUNNING)
+     *
+     * Do NOT rely on WeeklySendJob.isValid() here because runAt may be missing prior to completion
+     */
     private boolean isValidEntity(WeeklySendJob entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+
+        String catFactId = entity.getCatFactTechnicalId();
+        if (catFactId == null || catFactId.isBlank()) {
+            logger.debug("WeeklySendJob validation failed: missing catFactTechnicalId");
+            return false;
+        }
+
+        String status = entity.getStatus();
+        if (status == null || status.isBlank()) {
+            logger.debug("WeeklySendJob validation failed: missing status");
+            return false;
+        }
+
+        // Only allow completion for jobs that are dispatched or running
+        if (!"DISPATCHED".equalsIgnoreCase(status) && !"RUNNING".equalsIgnoreCase(status)) {
+            logger.debug("WeeklySendJob with status '{}' is not eligible for completion", status);
+            return false;
+        }
+
+        return true;
     }
 
     private WeeklySendJob processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<WeeklySendJob> context) {

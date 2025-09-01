@@ -29,7 +29,7 @@ public class ValidationPassedCriterion implements CyodaCriterion {
     @Override
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        // This is a predefined chain. Just write the business logic in processEntityLogic method.
+        // This is a predefined chain. Just write the business logic in validateEntity method.
         return serializer.withRequest(request) //always use this method name to request EntityCriteriaCalculationResponse
             .evaluateEntity(CatFact.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -38,7 +38,8 @@ public class ValidationPassedCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+        // Must use exact criterion name
+        return "ValidationPassedCriterion".equals(modelSpec.operationName());
     }
 
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<CatFact> context) {
@@ -54,6 +55,14 @@ public class ValidationPassedCriterion implements CyodaCriterion {
          }
 
          if ("VALID".equalsIgnoreCase(status)) {
+             // Additional data quality checks to ensure the fact is suitable for sending
+             String text = entity.getText();
+             if (text == null || text.isBlank()) {
+                 return EvaluationOutcome.fail("text is required for VALID CatFact", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
+             if (text.length() > 1000) {
+                 return EvaluationOutcome.fail("text exceeds maximum allowed length", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+             }
              return EvaluationOutcome.success();
          }
 

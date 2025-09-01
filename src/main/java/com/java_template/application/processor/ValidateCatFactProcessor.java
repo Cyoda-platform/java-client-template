@@ -57,8 +57,20 @@ public class ValidateCatFactProcessor implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
+    /**
+     * Lightweight validation used by this processor only.
+     * We must not rely on the entity.isValid() here because some numeric fields
+     * (sendCount, engagementScore) might be null at the moment of validation
+     * and processor will set safe defaults later.
+     *
+     * Business validation for entering this processor:
+     * - entity is not null
+     * - text is present (non-null, non-blank)
+     */
     private boolean isValidEntity(CatFact entity) {
-        return entity != null && entity.isValid();
+        if (entity == null) return false;
+        String text = entity.getText();
+        return text != null && !text.isBlank();
     }
 
     private CatFact processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<CatFact> context) {
