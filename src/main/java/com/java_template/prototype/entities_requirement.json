@@ -1,0 +1,39 @@
+{
+    "entities": [
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "email": "alice@example.com",
+                    "interactionsCount": 0,
+                    "name": "Alice",
+                    "status": "PENDING_CONFIRMATION",
+                    "subscribedAt": "2025-09-01T10:00:00Z"
+                }
+            }
+        },
+        {
+            "CatFact": {
+                "entity_data_example": {
+                    "engagementScore": 12.5,
+                    "fetchedAt": "2025-09-07T09:00:01Z",
+                    "sendCount": 1,
+                    "source": "catfact.ninja",
+                    "text": "Cats sleep 70% of their lives.",
+                    "validationStatus": "VALID"
+                }
+            }
+        },
+        {
+            "WeeklySendJob": {
+                "entity_data_example": {
+                    "catFactTechnicalId": "catfact-uuid-999",
+                    "createdAt": "2025-09-01T10:00:00Z",
+                    "errorMessage": null,
+                    "runAt": "2025-09-07T09:00:05Z",
+                    "scheduledFor": "2025-09-07T09:00:00Z",
+                    "status": "COMPLETED"
+                }
+            }
+        }
+    ]
+}
