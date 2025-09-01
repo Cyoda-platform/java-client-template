@@ -9,6 +9,7 @@ Product:
 - category: string
 - warehouseId: string|null
 - attributes: object
+- myAdditionalField: string
 - localizations: object
 - media: array
 - options: object
