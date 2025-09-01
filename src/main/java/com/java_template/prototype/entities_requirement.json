@@ -1,0 +1,242 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "attributes": {
+                        "brand": "Acme",
+                        "custom": {
+                            "color": "black"
+                        },
+                        "dimensions": {
+                            "height": 8,
+                            "length": 145,
+                            "width": 70
+                        },
+                        "hazards": [],
+                        "model": "X1000",
+                        "weight": 0.175
+                    },
+                    "bundles": [
+                        {
+                            "components": [
+                                {
+                                    "qty": 1,
+                                    "sku": "SKU-001"
+                                },
+                                {
+                                    "qty": 1,
+                                    "sku": "SKU-002"
+                                }
+                            ],
+                            "kitId": "BUNDLE-001"
+                        }
+                    ],
+                    "category": "phones",
+                    "compliance": {
+                        "docs": [
+                            {
+                                "docType": "safety",
+                                "url": "https://cdn.example.com/compliance/SKU-001/safety.pdf"
+                            }
+                        ],
+                        "restrictions": [
+                            "no-export-to-country-x"
+                        ]
+                    },
+                    "description": "Flagship smartphone with edge display",
+                    "events": [
+                        {
+                            "eventType": "CREATED",
+                            "timestamp": "2025-08-01T10:00:00Z"
+                        }
+                    ],
+                    "inventory": {
+                        "lots": [
+                            {
+                                "lotId": "LOT-2025-01",
+                                "quantity": 120
+                            }
+                        ],
+                        "nodes": [
+                            {
+                                "nodeId": "NODE-1",
+                                "quantity": 80
+                            },
+                            {
+                                "nodeId": "NODE-2",
+                                "quantity": 40
+                            }
+                        ],
+                        "policies": {
+                            "allowBackorder": false
+                        },
+                        "reservations": [
+                            {
+                                "qty": 2,
+                                "reservationId": "R-0001"
+                            }
+                        ]
+                    },
+                    "localizations": {
+                        "content": [
+                            {
+                                "description": "Flagship smartphone with edge display",
+                                "locale": "en-US",
+                                "name": "Phone X"
+                            }
+                        ],
+                        "defaultLocale": "en-US"
+                    },
+                    "media": [
+                        "https://cdn.example.com/products/SKU-001/front.jpg",
+                        "https://cdn.example.com/products/SKU-001/manual.pdf"
+                    ],
+                    "name": "Phone X",
+                    "options": {
+                        "axes": [
+                            "color",
+                            "storage"
+                        ],
+                        "constraints": {
+                            "maxQuantityPerOrder": 5
+                        }
+                    },
+                    "price": 499.99,
+                    "quantityAvailable": 120,
+                    "relationships": {
+                        "relatedProducts": [
+                            "SKU-002",
+                            "SKU-003"
+                        ],
+                        "suppliers": [
+                            "SUP-100"
+                        ]
+                    },
+                    "sku": "SKU-001",
+                    "variants": [
+                        {
+                            "optionValues": {
+                                "color": "black",
+                                "storage": "64GB"
+                            },
+                            "overrides": {
+                                "price": 499.99
+                            },
+                            "variantSku": "SKU-001-BLK-64"
+                        },
+                        {
+                            "optionValues": {
+                                "color": "white",
+                                "storage": "128GB"
+                            },
+                            "overrides": {
+                                "price": 549.99
+                            },
+                            "variantSku": "SKU-001-WHT-128"
+                        }
+                    ],
+                    "warehouseId": "WH-01"
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "cartId": "C-0001",
+                    "createdAt": "2025-08-01T10:05:00Z",
+                    "grandTotal": 999.98,
+                    "guestContact": {
+                        "address": {
+                            "city": "Town",
+                            "country": "GB",
+                            "line1": "1 Road",
+                            "postcode": "T1 1AA"
+                        },
+                        "email": "jane@example.com",
+                        "name": "Jane Doe",
+                        "phone": "+441234567890"
+                    },
+                    "lines": [
+                        {
+                            "name": "Phone X",
+                            "price": 499.99,
+                            "qty": 2,
+                            "sku": "SKU-001"
+                        }
+                    ],
+                    "status": "CHECKING_OUT",
+                    "totalItems": 2,
+                    "updatedAt": "2025-08-01T10:06:00Z"
+                }
+            }
+        },
+        {
+            "Payment": {
+                "entity_data_example": {
+                    "amount": 999.98,
+                    "cartId": "C-0001",
+                    "createdAt": "2025-08-01T10:07:00Z",
+                    "paymentId": "P-0001",
+                    "provider": "DUMMY",
+                    "status": "PAID",
+                    "updatedAt": "2025-08-01T10:07:03Z"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-01T10:08:00Z",
+                    "guestContact": {
+                        "address": {
+                            "city": "Town",
+                            "country": "GB",
+                            "line1": "1 Road",
+                            "postcode": "T1 1AA"
+                        },
+                        "email": "jane@example.com",
+                        "name": "Jane Doe",
+                        "phone": "+441234567890"
+                    },
+                    "lines": [
+                        {
+                            "lineTotal": 999.98,
+                            "name": "Phone X",
+                            "qty": 2,
+                            "sku": "SKU-001",
+                            "unitPrice": 499.99
+                        }
+                    ],
+                    "orderId": "O-0001",
+                    "orderNumber": "01FZ3A",
+                    "status": "PICKING",
+                    "totals": {
+                        "grand": 999.98,
+                        "items": 2
+                    },
+                    "updatedAt": "2025-08-01T10:08:00Z"
+                }
+            }
+        },
+        {
+            "Shipment": {
+                "entity_data_example": {
+                    "createdAt": "2025-08-01T10:08:01Z",
+                    "lines": [
+                        {
+                            "qtyOrdered": 2,
+                            "qtyPicked": 0,
+                            "qtyShipped": 0,
+                            "sku": "SKU-001"
+                        }
+                    ],
+                    "orderId": "O-0001",
+                    "shipmentId": "S-0001",
+                    "status": "PICKING",
+                    "updatedAt": "2025-08-01T10:08:01Z"
+                }
+            }
+        }
+    ]
+}
