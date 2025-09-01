@@ -1,0 +1,162 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "attributes": {
+                        "color": "black",
+                        "memory": "128GB"
+                    },
+                    "bundles": [],
+                    "category": "phones",
+                    "compliance": {
+                        "rohs": true
+                    },
+                    "createdAt": "2025-01-01T10:00:00Z",
+                    "description": "Latest model smartphone with advanced features",
+                    "events": [
+                        {
+                            "at": "2025-01-01T10:00:00Z",
+                            "type": "CREATED"
+                        }
+                    ],
+                    "inventory": {
+                        "safetyStock": 10
+                    },
+                    "localizations": {
+                        "en": {
+                            "description": "Latest model smartphone",
+                            "name": "Smartphone X"
+                        },
+                        "fr": {
+                            "description": "Mod\u00e8le le plus r\u00e9cent",
+                            "name": "Smartphone X FR"
+                        }
+                    },
+                    "media": [
+                        "https://example.com/images/sku123.jpg"
+                    ],
+                    "myAdditionalField": "additional info",
+                    "name": "Smartphone X",
+                    "options": {
+                        "warranty": "2 years"
+                    },
+                    "price": 499.99,
+                    "quantityAvailable": 120,
+                    "relationships": {
+                        "relatedSkus": [
+                            "SKU124"
+                        ]
+                    },
+                    "sku": "SKU123",
+                    "updatedAt": "2025-01-02T12:00:00Z",
+                    "variants": [
+                        {
+                            "name": "Smartphone X Black",
+                            "sku": "SKU123-BLK"
+                        }
+                    ],
+                    "warehouseId": "WH-1"
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "cartId": "cart-abc123",
+                    "createdAt": "2025-01-02T13:00:00Z",
+                    "grandTotal": 499.99,
+                    "guestContact": {
+                        "address": {
+                            "city": "Exampleville",
+                            "country": "US",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "jane@example.com",
+                        "name": "Jane Doe",
+                        "phone": ""
+                    },
+                    "lines": [
+                        {
+                            "name": "Smartphone X",
+                            "price": 499.99,
+                            "qty": 1,
+                            "sku": "SKU123"
+                        }
+                    ],
+                    "status": "ACTIVE",
+                    "totalItems": 1,
+                    "updatedAt": "2025-01-02T13:05:00Z"
+                }
+            }
+        },
+        {
+            "Payment": {
+                "entity_data_example": {
+                    "amount": 499.99,
+                    "cartId": "cart-abc123",
+                    "createdAt": "2025-01-02T13:06:00Z",
+                    "paymentId": "pay-123",
+                    "provider": "DUMMY",
+                    "status": "PAID",
+                    "updatedAt": "2025-01-02T13:06:03Z"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2025-01-02T13:07:00Z",
+                    "guestContact": {
+                        "address": {
+                            "city": "Exampleville",
+                            "country": "US",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "jane@example.com",
+                        "name": "Jane Doe",
+                        "phone": ""
+                    },
+                    "lines": [
+                        {
+                            "lineTotal": 499.99,
+                            "name": "Smartphone X",
+                            "qty": 1,
+                            "sku": "SKU123",
+                            "unitPrice": 499.99
+                        }
+                    ],
+                    "orderId": "order-1",
+                    "orderNumber": "01FZ1",
+                    "status": "WAITING_TO_FULFILL",
+                    "totals": {
+                        "grand": 499.99,
+                        "items": 1
+                    },
+                    "updatedAt": "2025-01-02T13:07:00Z"
+                }
+            }
+        },
+        {
+            "Shipment": {
+                "entity_data_example": {
+                    "createdAt": "2025-01-02T13:08:00Z",
+                    "lines": [
+                        {
+                            "qtyOrdered": 1,
+                            "qtyPicked": 0,
+                            "qtyShipped": 0,
+                            "sku": "SKU123"
+                        }
+                    ],
+                    "orderId": "order-1",
+                    "shipmentId": "ship-1",
+                    "status": "PICKING",
+                    "updatedAt": "2025-01-02T13:08:00Z"
+                }
+            }
+        }
+    ]
+}
