@@ -1,0 +1,80 @@
+{
+    "version": "1.0",
+    "name": "Payment Workflow",
+    "desc": "Workflow for Payment entity derived from functional requirements mermaid diagram (dummy auto ~3s)",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initiate_payment",
+                    "next": "INITIATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CreateDummyPaymentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INITIATED": {
+            "transitions": [
+                {
+                    "name": "auto_mark_paid",
+                    "next": "PAID",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AutoMarkPaidAfter3sProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PaymentAutoMarkPaidCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "payment_failure",
+                    "next": "FAILED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentFailureProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PaymentAutoFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "PAID": {
+            "transitions": []
+        },
+        "FAILED": {
+            "transitions": []
+        }
+    }
+}

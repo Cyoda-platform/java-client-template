@@ -1,0 +1,118 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Workflow for Product entity derived from functional requirements (product lifecycle: draft -> published -> out_of_stock -> archived). Designed from product fields (quantityAvailable) and read-only UI semantics.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "persist_product",
+                    "next": "DRAFT",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CreateProductProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DRAFT": {
+            "transitions": [
+                {
+                    "name": "publish_product",
+                    "next": "PUBLISHED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ValidateProductProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "PublishProductProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_product_from_draft",
+                    "next": "ARCHIVED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ArchiveProductProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PUBLISHED": {
+            "transitions": [
+                {
+                    "name": "auto_mark_out_of_stock",
+                    "next": "OUT_OF_STOCK",
+                    "manual": false,
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "$.quantityAvailable",
+                        "operation": "LESS_OR_EQUAL",
+                        "value": 0
+                    },
+                    "processors": [
+                        {
+                            "name": "StockMonitorProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_product_from_published",
+                    "next": "ARCHIVED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ArchiveProductProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "OUT_OF_STOCK": {
+            "transitions": [
+                {
+                    "name": "archive_product_from_out_of_stock",
+                    "next": "ARCHIVED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ArchiveProductProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ARCHIVED": {
+            "transitions": []
+        }
+    }
+}

@@ -1,0 +1,155 @@
+{
+    "version": "1.0",
+    "name": "Cart Workflow",
+    "desc": "Workflow for Cart entity derived from functional requirements (NEW -> ACTIVE -> CHECKING_OUT -> CONVERTED). Includes processors for creation, line changes and checkout, and a criterion to allow checkout only when cart has items.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_to_new",
+                    "next": "NEW",
+                    "manual": false
+                }
+            ]
+        },
+        "NEW": {
+            "transitions": [
+                {
+                    "name": "create_on_first_add",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CreateOnFirstAddProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "RecalculateTotalsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "add_or_update_line",
+                    "next": "UPDATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AddOrUpdateLineProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "RecalculateTotalsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "$.event",
+                        "operation": "EQUALS",
+                        "value": "LINE_CHANGE"
+                    }
+                },
+                {
+                    "name": "open_checkout",
+                    "next": "CHECKING_OUT",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CartHasItemsCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "criterion": {
+                                "type": "simple",
+                                "jsonPath": "$.lines.length",
+                                "operation": "GREATER_THAN",
+                                "value": 0
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "UPDATED": {
+            "transitions": [
+                {
+                    "name": "open_checkout_from_updated",
+                    "next": "CHECKING_OUT",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CartHasItemsCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "criterion": {
+                                "type": "simple",
+                                "jsonPath": "$.lines.length",
+                                "operation": "GREATER_THAN",
+                                "value": 0
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "CHECKING_OUT": {
+            "transitions": [
+                {
+                    "name": "checkout",
+                    "next": "CONVERTED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "AttachGuestContactProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "CheckoutOrchestrationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CartHasItemsCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            },
+                            "criterion": {
+                                "type": "simple",
+                                "jsonPath": "$.lines.length",
+                                "operation": "GREATER_THAN",
+                                "value": 0
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "CONVERTED": {
+            "transitions": []
+        }
+    }
+}

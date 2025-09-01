@@ -1,0 +1,89 @@
+{
+    "version": "1.0",
+    "name": "Shipment Workflow",
+    "desc": "Workflow for Shipment entity derived from functional requirements (PICKING -> WAITING_TO_SEND -> SENT -> DELIVERED).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_shipment_in_picking",
+                    "next": "PICKING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CreateShipmentInPickingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PICKING": {
+            "transitions": [
+                {
+                    "name": "mark_ready_to_send",
+                    "next": "WAITING_TO_SEND",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentAdvanceProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "WAITING_TO_SEND": {
+            "transitions": [
+                {
+                    "name": "mark_sent",
+                    "next": "SENT",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentAdvanceProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": [
+                {
+                    "name": "mark_delivered",
+                    "next": "DELIVERED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentAdvanceProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ShipmentCompleteCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "DELIVERED": {
+            "transitions": []
+        }
+    }
+}
