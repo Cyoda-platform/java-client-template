@@ -1,6 +1,8 @@
-Based on your requirements for the Nobel Laureates Data Ingestion application, I will define the functional requirements using an Event-Driven Architecture (EDA) approach. This will include the entities, their workflows, and the necessary API design rules.
+# Functional Requirements for Nobel Laureates Data Ingestion Application
 
-### 1. Entity Definitions
+This document outlines the functional requirements for the Nobel Laureates Data Ingestion application using an Event-Driven Architecture (EDA) approach. It includes entity definitions, workflows, processor classes, and API specifications.
+
+## 1. Entity Definitions
 ```
 Job:
 - id: String (unique identifier for the job)
@@ -30,9 +32,9 @@ Subscriber:
 - contactInfo: String (email or webhook URL for notifications)
 ```
 
-### 2. Entity workflows
+## 2. Entity Workflows
 
-**Job workflow:**
+### Job workflow:
 1. Initial State: Job created with SCHEDULED status
 2. Validation: Check job parameters and data sources
 3. Processing: Execute data ingestion from the API
@@ -50,7 +52,7 @@ stateDiagram-v2
     NOTIFIED_SUBSCRIBERS --> [*]
 ```
 
-**Laureate workflow:**
+### Laureate workflow:
 1. Initial State: Laureate data received
 2. Validation: Ensure required fields are populated
 3. Enrichment: Enhance or normalize data (e.g., calculating age)
@@ -65,7 +67,7 @@ stateDiagram-v2
     STORED --> [*]
 ```
 
-**Subscriber workflow:**
+### Subscriber workflow:
 1. Initial State: Subscriber created
 2. Notification: Receive notifications of laureate ingestion
 
@@ -76,9 +78,9 @@ stateDiagram-v2
     NOTIFIED --> [*]
 ```
 
-### 3. Pseudo code for each processor class
+## 3. Pseudo Code for Each Processor Class
 
-**Job Processor classes:**
+### Job Processor classes:
 ```java
 class StartIngestionProcessor {
     void process(Job job) {
@@ -105,7 +107,7 @@ class ErrorHandlingProcessor {
 }
 ```
 
-**Laureate Processor classes:**
+### Laureate Processor classes:
 ```java
 class ValidateLaureateProcessor {
     void process(Laureate laureate) {
@@ -126,7 +128,7 @@ class StoreLaureateProcessor {
 }
 ```
 
-**Subscriber Processor classes:**
+### Subscriber Processor classes:
 ```java
 class NotifySubscriberProcessor {
     void process(Subscriber subscriber) {
@@ -135,7 +137,7 @@ class NotifySubscriberProcessor {
 }
 ```
 
-### 4. API Endpoints Design Rules
+## 4. API Endpoints Design Rules
 - **POST /jobs**: Create a new job and trigger the ingestion process.
   - **Response**: 
   ```json
@@ -160,4 +162,4 @@ class NotifySubscriberProcessor {
 
 - **GET /subscribers/{technicalId}**: Retrieve subscriber details by technicalId.
 
-This structure captures the functional requirements needed for your Nobel Laureate Data Ingestion project while adhering to an Event-Driven Architecture approach. If you have any further adjustments or details you'd like to refine, feel free to ask!
+This finalized version captures the functional requirements needed for your Nobel Laureate Data Ingestion project while adhering to an Event-Driven Architecture approach.
