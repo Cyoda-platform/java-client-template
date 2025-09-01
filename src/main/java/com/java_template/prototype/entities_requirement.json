@@ -1,0 +1,238 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "attributes": {
+                        "brand": "BrandX",
+                        "bundles": [
+                            {
+                                "bundleName": "Starter Kit",
+                                "components": [
+                                    "12345",
+                                    "67890"
+                                ]
+                            }
+                        ],
+                        "compliance": [
+                            {
+                                "documentType": "Safety",
+                                "documentUrl": "http://example.com/safety.pdf"
+                            }
+                        ],
+                        "customFields": {},
+                        "dimensions": "10x10x5",
+                        "events": [
+                            {
+                                "eventType": "product_created",
+                                "timestamp": "2023-10-01T10:00:00Z"
+                            }
+                        ],
+                        "hazards": null,
+                        "inventory": [
+                            {
+                                "lotId": "LOT001",
+                                "quantity": 50
+                            },
+                            {
+                                "lotId": "LOT002",
+                                "quantity": 50
+                            }
+                        ],
+                        "localizations": [
+                            {
+                                "description": "This is a sample product description.",
+                                "locale": "en",
+                                "name": "Sample Product"
+                            },
+                            {
+                                "description": "Esta es una descripci\u00f3n del producto de muestra.",
+                                "locale": "es",
+                                "name": "Producto de Muestra"
+                            }
+                        ],
+                        "media": [
+                            {
+                                "type": "image",
+                                "url": "http://example.com/image1.jpg"
+                            },
+                            {
+                                "type": "document",
+                                "url": "http://example.com/manual.pdf"
+                            }
+                        ],
+                        "model": "ModelY",
+                        "options": [
+                            {
+                                "type": "color",
+                                "values": [
+                                    "red",
+                                    "blue",
+                                    "green"
+                                ]
+                            },
+                            {
+                                "type": "capacity",
+                                "values": [
+                                    "small",
+                                    "medium",
+                                    "large"
+                                ]
+                            }
+                        ],
+                        "relationships": {
+                            "relatedProducts": [
+                                "67890"
+                            ],
+                            "suppliers": [
+                                {
+                                    "supplierId": "SUP001",
+                                    "supplierName": "Supplier A"
+                                }
+                            ]
+                        },
+                        "variants": [
+                            {
+                                "barcode": "1234567890123",
+                                "optionValues": {
+                                    "capacity": "medium",
+                                    "color": "red"
+                                },
+                                "priceOverride": 25.99
+                            },
+                            {
+                                "barcode": "1234567890124",
+                                "optionValues": {
+                                    "capacity": "large",
+                                    "color": "blue"
+                                },
+                                "priceOverride": 27.99
+                            }
+                        ],
+                        "weight": 1.5
+                    },
+                    "category": "Electronics",
+                    "description": "This is a sample product description.",
+                    "name": "Sample Product",
+                    "price": 29.99,
+                    "quantityAvailable": 100,
+                    "sku": "12345",
+                    "warehouseId": "WH001"
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "cartId": "CART12345",
+                    "createdAt": "2023-10-01T10:00:00Z",
+                    "grandTotal": 79.97,
+                    "guestContact": {
+                        "address": {
+                            "city": "Anytown",
+                            "country": "USA",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "john@example.com",
+                        "name": "John Doe",
+                        "phone": "123-456-7890"
+                    },
+                    "lines": [
+                        {
+                            "name": "Sample Product",
+                            "price": 29.99,
+                            "qty": 2,
+                            "sku": "12345"
+                        },
+                        {
+                            "name": "Another Product",
+                            "price": 19.99,
+                            "qty": 1,
+                            "sku": "67890"
+                        }
+                    ],
+                    "totalItems": 3,
+                    "updatedAt": "2023-10-01T10:00:00Z"
+                }
+            }
+        },
+        {
+            "Payment": {
+                "entity_data_example": {
+                    "amount": 79.97,
+                    "cartId": "CART12345",
+                    "createdAt": "2023-10-01T10:00:00Z",
+                    "paymentId": "PAY12345",
+                    "provider": "DUMMY",
+                    "updatedAt": "2023-10-01T10:00:00Z"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2023-10-01T10:00:00Z",
+                    "guestContact": {
+                        "address": {
+                            "city": "Anytown",
+                            "country": "USA",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "john@example.com",
+                        "name": "John Doe",
+                        "phone": "123-456-7890"
+                    },
+                    "lines": [
+                        {
+                            "lineTotal": 59.98,
+                            "name": "Sample Product",
+                            "qty": 2,
+                            "sku": "12345",
+                            "unitPrice": 29.99
+                        },
+                        {
+                            "lineTotal": 19.99,
+                            "name": "Another Product",
+                            "qty": 1,
+                            "sku": "67890",
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "orderId": "ORDER12345",
+                    "orderNumber": "ORD-0001",
+                    "totals": {
+                        "grand": 79.97,
+                        "items": 3
+                    },
+                    "updatedAt": "2023-10-01T10:00:00Z"
+                }
+            }
+        },
+        {
+            "Shipment": {
+                "entity_data_example": {
+                    "createdAt": "2023-10-01T10:00:00Z",
+                    "lines": [
+                        {
+                            "qtyOrdered": 2,
+                            "qtyPicked": 2,
+                            "qtyShipped": 2,
+                            "sku": "12345"
+                        },
+                        {
+                            "qtyOrdered": 1,
+                            "qtyPicked": 1,
+                            "qtyShipped": 1,
+                            "sku": "67890"
+                        }
+                    ],
+                    "orderId": "ORDER12345",
+                    "shipmentId": "SHIP12345",
+                    "updatedAt": "2023-10-01T10:00:00Z"
+                }
+            }
+        }
+    ]
+}
