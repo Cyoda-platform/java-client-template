@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.order.version_1.Order;
@@ -73,8 +74,8 @@ public class OrderCreateFromPaidProcessor implements CyodaProcessor {
     private Order processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         try {
             // Get input data
-            String paymentId = (String) context.getInputData().get("paymentId");
-            String cartId = (String) context.getInputData().get("cartId");
+            String paymentId = (String) context.getRequest().getInputData().get("paymentId");
+            String cartId = (String) context.getRequest().getInputData().get("cartId");
 
             if (paymentId == null || cartId == null) {
                 throw new IllegalArgumentException("paymentId and cartId are required");
@@ -333,3 +334,4 @@ public class OrderCreateFromPaidProcessor implements CyodaProcessor {
         }
     }
 }
+```

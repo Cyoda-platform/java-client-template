@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.controller;
 
 import com.java_template.application.entity.cart.version_1.Cart;
@@ -85,7 +86,7 @@ public class CartController {
                 if (optionalPayload.isPresent()) {
                     try {
                         Cart cart = objectMapper.convertValue(optionalPayload.get().getData(), Cart.class);
-                        String state = optionalPayload.get().getMetadata().getState();
+                        String state = optionalPayload.get().getMetadata().get("state");
 
                         Map<String, Object> response = createCartResponse(cart, state);
                         return ResponseEntity.ok(response);
@@ -218,7 +219,7 @@ public class CartController {
             true
         ).thenApply(optionalPayload -> {
             if (optionalPayload.isPresent()) {
-                return optionalPayload.get().getMetadata().getId();
+                return optionalPayload.get().getMetadata().get("id");
             }
             return null;
         });
@@ -238,7 +239,7 @@ public class CartController {
                 if (optionalPayload.isPresent()) {
                     try {
                         Cart cart = objectMapper.convertValue(optionalPayload.get().getData(), Cart.class);
-                        String state = optionalPayload.get().getMetadata().getState();
+                        String state = optionalPayload.get().getMetadata().get("state");
 
                         Map<String, Object> response = createCartResponse(cart, state);
                         return ResponseEntity.ok(response);
@@ -271,3 +272,4 @@ public class CartController {
         return response;
     }
 }
+```

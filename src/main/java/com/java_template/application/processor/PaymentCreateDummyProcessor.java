@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.payment.version_1.Payment;
@@ -10,7 +11,6 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,8 +72,8 @@ public class PaymentCreateDummyProcessor implements CyodaProcessor {
             }
 
             // Get input data from request payload
-            String cartId = (String) context.getInputData().get("cartId");
-            Double amount = (Double) context.getInputData().get("amount");
+            String cartId = (String) context.request().getInputData().get("cartId");
+            Double amount = (Double) context.request().getInputData().get("amount");
 
             if (cartId == null || amount == null || amount <= 0) {
                 throw new IllegalArgumentException("Invalid input: cartId and positive amount are required");
@@ -116,3 +116,4 @@ public class PaymentCreateDummyProcessor implements CyodaProcessor {
         }, 3, TimeUnit.SECONDS);
     }
 }
+```

@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.product.version_1.Product;
@@ -64,3 +65,4 @@ public class ProductStockAvailableCriterion implements CyodaCriterion {
         return EvaluationOutcome.success();
     }
 }
+```

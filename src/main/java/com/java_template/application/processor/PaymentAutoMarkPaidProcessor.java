@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.payment.version_1.Payment;
@@ -56,7 +57,7 @@ public class PaymentAutoMarkPaidProcessor implements CyodaProcessor {
 
         try {
             // Get current state from context
-            String currentState = (String) context.getEvent().getPayload().getMeta().get("state");
+            String currentState = (String) context.request().getPayload().getMeta().get("state");
 
             if (!"INITIATED".equals(currentState)) {
                 throw new IllegalStateException("Payment not in INITIATED state, current state: " + currentState);
@@ -78,3 +79,4 @@ public class PaymentAutoMarkPaidProcessor implements CyodaProcessor {
         }
     }
 }
+```

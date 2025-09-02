@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.order.version_1.Order;
@@ -136,9 +137,10 @@ public class OrderMarkDeliveredProcessor implements CyodaProcessor {
             true
         ).thenApply(optionalPayload -> {
             if (optionalPayload.isPresent()) {
-                return optionalPayload.get().getMetadata().getId();
+                return optionalPayload.get().getData().getId(); // Changed from getMetadata().getId() to getData().getId()
             }
             return null;
         });
     }
 }
+```
