@@ -1,0 +1,188 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "attributes": {
+                        "brand": "BrandName",
+                        "model": "ModelX"
+                    },
+                    "bundles": [],
+                    "category": "Electronics",
+                    "compliance": {
+                        "documents": [
+                            {
+                                "type": "safety",
+                                "url": "http://example.com/safety.pdf"
+                            }
+                        ]
+                    },
+                    "description": "This is a sample product.",
+                    "events": [
+                        {
+                            "event": "created",
+                            "timestamp": "2023-10-01T00:00:00Z"
+                        }
+                    ],
+                    "inventory": {
+                        "locations": [
+                            {
+                                "quantity": 50,
+                                "warehouseId": "WH1"
+                            },
+                            {
+                                "quantity": 50,
+                                "warehouseId": "WH2"
+                            }
+                        ]
+                    },
+                    "localizations": {
+                        "en": {
+                            "description": "Sample Product Description"
+                        },
+                        "es": {
+                            "description": "Descripci\u00f3n del Producto de Muestra"
+                        }
+                    },
+                    "media": [
+                        {
+                            "type": "image/jpeg",
+                            "url": "http://example.com/image1.jpg"
+                        }
+                    ],
+                    "name": "Sample Product",
+                    "options": {
+                        "color": [
+                            "red",
+                            "blue"
+                        ],
+                        "size": [
+                            "S",
+                            "M",
+                            "L"
+                        ]
+                    },
+                    "price": 19.99,
+                    "quantityAvailable": 100,
+                    "relationships": {
+                        "relatedProducts": [
+                            "54321"
+                        ]
+                    },
+                    "sku": "12345",
+                    "variants": [
+                        {
+                            "options": {
+                                "color": "red",
+                                "size": "S"
+                            },
+                            "sku": "12345-red-S"
+                        },
+                        {
+                            "options": {
+                                "color": "blue",
+                                "size": "M"
+                            },
+                            "sku": "12345-blue-M"
+                        }
+                    ],
+                    "warehouseId": "WH1"
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "cartId": "cart_12345",
+                    "createdAt": "2023-10-01T00:00:00Z",
+                    "grandTotal": 19.99,
+                    "guestContact": {
+                        "address": {
+                            "city": "Anytown",
+                            "country": "USA",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "john@example.com",
+                        "name": "John Doe",
+                        "phone": "1234567890"
+                    },
+                    "lines": [
+                        {
+                            "name": "Sample Product",
+                            "price": 19.99,
+                            "qty": 1,
+                            "sku": "12345"
+                        }
+                    ],
+                    "totalItems": 1,
+                    "updatedAt": "2023-10-01T00:00:00Z"
+                }
+            }
+        },
+        {
+            "Payment": {
+                "entity_data_example": {
+                    "amount": 19.99,
+                    "cartId": "cart_12345",
+                    "createdAt": "2023-10-01T00:00:00Z",
+                    "paymentId": "payment_12345",
+                    "provider": "DUMMY",
+                    "updatedAt": "2023-10-01T00:00:00Z"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2023-10-01T00:00:00Z",
+                    "guestContact": {
+                        "address": {
+                            "city": "Anytown",
+                            "country": "USA",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "john@example.com",
+                        "name": "John Doe",
+                        "phone": "1234567890"
+                    },
+                    "lines": [
+                        {
+                            "lineTotal": 19.99,
+                            "name": "Sample Product",
+                            "qty": 1,
+                            "sku": "12345",
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "orderId": "order_12345",
+                    "orderNumber": "ULID123456",
+                    "totals": {
+                        "grand": 19.99,
+                        "items": 1
+                    },
+                    "updatedAt": "2023-10-01T00:00:00Z"
+                }
+            }
+        },
+        {
+            "Shipment": {
+                "entity_data_example": {
+                    "createdAt": "2023-10-01T00:00:00Z",
+                    "lines": [
+                        {
+                            "qtyOrdered": 1,
+                            "qtyPicked": 1,
+                            "qtyShipped": 1,
+                            "sku": "12345"
+                        }
+                    ],
+                    "orderId": "order_12345",
+                    "shipmentId": "shipment_12345",
+                    "updatedAt": "2023-10-01T00:00:00Z"
+                }
+            }
+        }
+    ]
+}
