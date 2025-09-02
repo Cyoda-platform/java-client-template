@@ -1,0 +1,72 @@
+{
+    "version": "1.0",
+    "name": "Shipment Workflow",
+    "desc": "Manages shipment processing and tracking",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_shipment",
+                    "next": "PICKING",
+                    "manual": false
+                }
+            ]
+        },
+        "PICKING": {
+            "transitions": [
+                {
+                    "name": "ready_to_send",
+                    "next": "WAITING_TO_SEND",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ShipmentUpdateOrderStateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "WAITING_TO_SEND": {
+            "transitions": [
+                {
+                    "name": "mark_sent",
+                    "next": "SENT",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ShipmentUpdateOrderStateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": [
+                {
+                    "name": "mark_delivered",
+                    "next": "DELIVERED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ShipmentUpdateOrderStateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DELIVERED": {
+            "transitions": []
+        }
+    }
+}

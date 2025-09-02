@@ -1,0 +1,65 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Description of the workflow for Product",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_01",
+                    "next": "state_01",
+                    "manual": false
+                }
+            ]
+        },
+        "state_01": {
+            "transitions": [
+                {
+                    "name": "transition_to_02",
+                    "next": "state_02",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_02": {
+            "transitions": [
+                {
+                    "name": "transition_with_criterion_01",
+                    "next": "state_03",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ProductCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "state_03": {
+            "transitions": [
+                {
+                    "name": "transition_to_04",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}

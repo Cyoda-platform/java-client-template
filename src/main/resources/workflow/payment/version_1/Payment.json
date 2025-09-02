@@ -1,0 +1,72 @@
+{
+    "version": "1.0",
+    "name": "Payment Workflow",
+    "desc": "Manages dummy payment processing with auto-approval",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_payment",
+                    "next": "INITIATED",
+                    "manual": false
+                }
+            ]
+        },
+        "INITIATED": {
+            "transitions": [
+                {
+                    "name": "auto_mark_paid",
+                    "next": "PAID",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentAutoMarkPaidProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "FAILED",
+                    "manual": true
+                },
+                {
+                    "name": "cancel_payment",
+                    "next": "CANCELED",
+                    "manual": true
+                }
+            ]
+        },
+        "PAID": {
+            "transitions": [
+                {
+                    "name": "end_payment",
+                    "next": "initial_state",
+                    "manual": true
+                }
+            ]
+        },
+        "FAILED": {
+            "transitions": [
+                {
+                    "name": "end_payment",
+                    "next": "initial_state",
+                    "manual": true
+                }
+            ]
+        },
+        "CANCELED": {
+            "transitions": [
+                {
+                    "name": "end_payment",
+                    "next": "initial_state",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}
