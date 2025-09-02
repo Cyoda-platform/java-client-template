@@ -1,0 +1,128 @@
+{
+    "version": "1.0",
+    "name": "Subscriber Workflow",
+    "desc": "Workflow for managing the Subscriber entity in the Weekly Cat Fact Subscription application.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "pending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SubscriberProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SubscriberCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "transition_to_unsubscribed",
+                    "next": "unsubscribed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "transition_to_inactive",
+                    "next": "inactive",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_unsubscribed",
+                    "next": "unsubscribed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "inactive": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_unsubscribed",
+                    "next": "unsubscribed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "unsubscribed": {
+            "transitions": []
+        }
+    }
+}

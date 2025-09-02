@@ -1,0 +1,47 @@
+{
+    "version": "1.0",
+    "name": "Interaction Workflow",
+    "desc": "Description of the workflow for Interaction",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_recorded",
+                    "next": "recorded",
+                    "manual": false
+                }
+            ]
+        },
+        "recorded": {
+            "transitions": [
+                {
+                    "name": "transition_to_processed",
+                    "next": "processed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "InteractionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "InteractionCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "processed": {
+            "transitions": []
+        }
+    }
+}

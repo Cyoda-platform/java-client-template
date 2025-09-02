@@ -1,0 +1,85 @@
+{
+    "version": "1.0",
+    "name": "CatFact Workflow",
+    "desc": "Description of the workflow for CatFact",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_retrieved",
+                    "next": "retrieved",
+                    "manual": false
+                }
+            ]
+        },
+        "retrieved": {
+            "transitions": [
+                {
+                    "name": "transition_to_validated",
+                    "next": "validated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CatFactProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "transition_to_ready",
+                    "next": "ready",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CatFactProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_archived_reject",
+                    "next": "archived",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CatFactProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ready": {
+            "transitions": [
+                {
+                    "name": "transition_to_archived",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CatFactProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "archived": {
+            "transitions": []
+        }
+    }
+}
