@@ -1,0 +1,121 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "attributes": {},
+                    "bundles": {},
+                    "category": "Electronics",
+                    "compliance": {},
+                    "description": "This is a sample product description.",
+                    "events": {},
+                    "inventory": {},
+                    "localizations": {},
+                    "media": {},
+                    "name": "Sample Product",
+                    "options": {},
+                    "price": 19.99,
+                    "quantityAvailable": 100,
+                    "relationships": {},
+                    "sku": "P12345",
+                    "variants": {},
+                    "warehouseId": "W1"
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "cartId": "CART123",
+                    "createdAt": "2023-10-01T12:00:00Z",
+                    "grandTotal": 39.98,
+                    "guestContact": {
+                        "address": {
+                            "city": "Anytown",
+                            "country": "USA",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "john@example.com",
+                        "name": "John Doe",
+                        "phone": "1234567890"
+                    },
+                    "lines": [
+                        {
+                            "name": "Sample Product",
+                            "price": 19.99,
+                            "qty": 2,
+                            "sku": "P12345"
+                        }
+                    ],
+                    "totalItems": 2,
+                    "updatedAt": "2023-10-01T12:00:00Z"
+                }
+            }
+        },
+        {
+            "Payment": {
+                "entity_data_example": {
+                    "amount": 39.98,
+                    "cartId": "CART123",
+                    "createdAt": "2023-10-01T12:00:00Z",
+                    "paymentId": "PAY123",
+                    "provider": "DUMMY",
+                    "updatedAt": "2023-10-01T12:00:00Z"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2023-10-01T12:00:00Z",
+                    "guestContact": {
+                        "address": {
+                            "city": "Anytown",
+                            "country": "USA",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "john@example.com",
+                        "name": "John Doe",
+                        "phone": "1234567890"
+                    },
+                    "lines": [
+                        {
+                            "lineTotal": 39.98,
+                            "name": "Sample Product",
+                            "qty": 2,
+                            "sku": "P12345",
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "orderId": "ORDER123",
+                    "orderNumber": "ORD123456",
+                    "totals": {
+                        "grand": 39.98,
+                        "items": 2
+                    },
+                    "updatedAt": "2023-10-01T12:00:00Z"
+                }
+            }
+        },
+        {
+            "Shipment": {
+                "entity_data_example": {
+                    "createdAt": "2023-10-01T12:00:00Z",
+                    "lines": [
+                        {
+                            "qtyOrdered": 2,
+                            "qtyPicked": 2,
+                            "qtyShipped": 2,
+                            "sku": "P12345"
+                        }
+                    ],
+                    "orderId": "ORDER123",
+                    "shipmentId": "SHIP123",
+                    "updatedAt": "2023-10-01T12:00:00Z"
+                }
+            }
+        }
+    ]
+}
