@@ -1,0 +1,128 @@
+{
+    "version": "1.0",
+    "name": "Cart Workflow",
+    "desc": "Manages shopping cart lifecycle from creation through conversion to order.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "CREATE_ON_FIRST_ADD",
+                    "next": "state_new",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CartCreationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_new": {
+            "transitions": [
+                {
+                    "name": "ACTIVATE_CART",
+                    "next": "state_active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CartActivationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_active": {
+            "transitions": [
+                {
+                    "name": "ADD_ITEM",
+                    "next": "state_active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartAddItemProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "UPDATE_ITEM",
+                    "next": "state_active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartUpdateItemProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "REMOVE_ITEM",
+                    "next": "state_active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartRemoveItemProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "OPEN_CHECKOUT",
+                    "next": "state_checking_out",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartCheckoutProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_checking_out": {
+            "transitions": [
+                {
+                    "name": "CHECKOUT",
+                    "next": "state_converted",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartConversionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_converted": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "end_state": {
+            "transitions": []
+        }
+    }
+}
