@@ -1,0 +1,40 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/MailSendGloomyMailProcessor.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/MailSendHappyMailProcessor.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/MailIsHappyCriterion.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/MailIsGloomyCriterion.java"
+        },
+        {
+            "errors": [
+                "illegal character: '`'",
+                "class, interface, enum, or record expected"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/mail/version_1/MailController.java"
+        }
+    ]
+}
