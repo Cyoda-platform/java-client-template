@@ -1,0 +1,106 @@
+{
+    "version": "1.0",
+    "name": "Mail Workflow",
+    "desc": "Description of the workflow for Mail",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_mail",
+                    "next": "pending",
+                    "manual": false
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "process_happy_mail",
+                    "next": "processing_happy",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MailSendHappyMailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "MailIsHappyCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "process_gloomy_mail",
+                    "next": "processing_gloomy",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MailSendGloomyMailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "MailIsGloomyCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "processing_happy": {
+            "transitions": [
+                {
+                    "name": "happy_mail_sent",
+                    "next": "sent",
+                    "manual": false
+                },
+                {
+                    "name": "happy_mail_failed",
+                    "next": "failed",
+                    "manual": false
+                }
+            ]
+        },
+        "processing_gloomy": {
+            "transitions": [
+                {
+                    "name": "gloomy_mail_sent",
+                    "next": "sent",
+                    "manual": false
+                },
+                {
+                    "name": "gloomy_mail_failed",
+                    "next": "failed",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry_processing",
+                    "next": "pending",
+                    "manual": true
+                }
+            ]
+        },
+        "sent": {
+            "transitions": []
+        }
+    }
+}
