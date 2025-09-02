@@ -1,0 +1,1 @@
+build an app that sends happy mails. We need only one entity mail. It has 2 fields: isHappy and mailList. It has 2 processors: sendHapppyMail and sendGloomyMail and 2 criteria which define if the mail is happy or gloomy.
