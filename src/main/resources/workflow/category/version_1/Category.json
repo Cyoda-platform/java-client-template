@@ -1,0 +1,89 @@
+{
+    "version": "1.0",
+    "name": "Category Workflow",
+    "desc": "Description of the workflow for Category",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "activate_category",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CategoryActivationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "deactivate_category",
+                    "next": "inactive",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CategoryDeactivationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_category",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CategoryArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "inactive": {
+            "transitions": [
+                {
+                    "name": "reactivate_category",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CategoryReactivationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_category",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CategoryArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "archived": {
+            "transitions": []
+        }
+    }
+}

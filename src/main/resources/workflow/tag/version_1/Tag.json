@@ -1,0 +1,89 @@
+{
+    "version": "1.0",
+    "name": "Tag Workflow",
+    "desc": "Description of the workflow for Tag",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "activate_tag",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TagActivationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "deactivate_tag",
+                    "next": "inactive",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TagDeactivationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_tag",
+                    "next": "archived",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TagArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "inactive": {
+            "transitions": [
+                {
+                    "name": "reactivate_tag",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TagReactivationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_tag",
+                    "next": "archived",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TagArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "archived": {
+            "transitions": []
+        }
+    }
+}

@@ -1,0 +1,156 @@
+{
+    "version": "1.0",
+    "name": "Order Workflow",
+    "desc": "Workflow for managing the lifecycle of an Order",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_order",
+                    "next": "pending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderCreationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "confirm_order",
+                    "next": "confirmed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "OrderValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "cancel_order",
+                    "next": "cancelled",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderCancellationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "confirmed": {
+            "transitions": [
+                {
+                    "name": "start_processing",
+                    "next": "processing",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderProcessingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "cancel_confirmed_order",
+                    "next": "cancelled",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderCancellationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "ship_order",
+                    "next": "shipped",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderShippingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "shipped": {
+            "transitions": [
+                {
+                    "name": "deliver_order",
+                    "next": "delivered",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderDeliveryProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "delivered": {
+            "transitions": [
+                {
+                    "name": "refund_order",
+                    "next": "refunded",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderRefundProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "cancelled": {
+            "transitions": [
+                {
+                    "name": "finalize_cancel",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        },
+        "refunded": {
+            "transitions": [
+                {
+                    "name": "finalize_refund",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

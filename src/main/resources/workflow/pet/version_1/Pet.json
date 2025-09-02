@@ -1,0 +1,258 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Description of the workflow for Pet",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_pet",
+                    "next": "draft",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PetInitializationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "draft": {
+            "transitions": [
+                {
+                    "name": "submit_for_review",
+                    "next": "pending_review",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetSubmissionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_pet",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending_review": {
+            "transitions": [
+                {
+                    "name": "approve_pet",
+                    "next": "available",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetApprovalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PetValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "reject_pet",
+                    "next": "draft",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetRejectionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_pet",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "available": {
+            "transitions": [
+                {
+                    "name": "reserve_pet",
+                    "next": "reserved",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetReservationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_unavailable",
+                    "next": "unavailable",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetUnavailabilityProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_pet",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "reserved": {
+            "transitions": [
+                {
+                    "name": "complete_adoption",
+                    "next": "adopted",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetAdoptionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "cancel_reservation",
+                    "next": "available",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetReservationCancellationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_pet",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "unavailable": {
+            "transitions": [
+                {
+                    "name": "mark_available",
+                    "next": "available",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetAvailabilityProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_pet",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "adopted": {
+            "transitions": [
+                {
+                    "name": "archive_pet",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "archived": {
+            "transitions": [
+                {
+                    "name": "archive_pet",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetArchivalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
