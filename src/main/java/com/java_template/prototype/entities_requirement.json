@@ -1,0 +1,93 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "birthDate": "2021-05-01",
+                    "breed": "Siamese",
+                    "category": {
+                        "active": true,
+                        "description": "Domestic cats",
+                        "id": 1,
+                        "imageUrl": "http://example.com/cat.jpg",
+                        "name": "Cats"
+                    },
+                    "color": "Cream",
+                    "description": "Fluffy is a playful cat.",
+                    "id": 1,
+                    "microchipped": true,
+                    "name": "Fluffy",
+                    "neutered": false,
+                    "photoUrls": [
+                        "http://example.com/photo1.jpg",
+                        "http://example.com/photo2.jpg"
+                    ],
+                    "price": 299.99,
+                    "specialNeeds": "None",
+                    "tags": [
+                        {
+                            "active": true,
+                            "color": "#FF5733",
+                            "description": "Very friendly",
+                            "id": 1,
+                            "name": "friendly"
+                        },
+                        {
+                            "active": true,
+                            "color": "#33FF57",
+                            "description": "Well trained",
+                            "id": 2,
+                            "name": "trained"
+                        }
+                    ],
+                    "vaccinated": true,
+                    "weight": 4.5
+                }
+            }
+        },
+        {
+            "Category": {
+                "entity_data_example": {
+                    "active": true,
+                    "description": "Domestic cats",
+                    "id": 1,
+                    "imageUrl": "http://example.com/cat.jpg",
+                    "name": "Cats"
+                }
+            }
+        },
+        {
+            "Tag": {
+                "entity_data_example": {
+                    "active": true,
+                    "color": "#FF5733",
+                    "description": "Very friendly",
+                    "id": 1,
+                    "name": "friendly"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "complete": true,
+                    "customerAddress": "123 Main St, Anytown, USA",
+                    "customerEmail": "john.doe@example.com",
+                    "customerName": "John Doe",
+                    "customerPhone": "123-456-7890",
+                    "id": 1,
+                    "notes": "Leave at the front door",
+                    "orderDate": "2023-10-01T10:00:00",
+                    "paymentMethod": "Credit Card",
+                    "paymentStatus": "Paid",
+                    "petId": 1,
+                    "quantity": 1,
+                    "shipDate": "2023-10-02T10:00:00",
+                    "shippingMethod": "Standard",
+                    "totalAmount": 299.99,
+                    "trackingNumber": "TRACK123456"
+                }
+            }
+        }
+    ]
+}
