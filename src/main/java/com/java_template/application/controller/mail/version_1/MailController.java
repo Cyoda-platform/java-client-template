@@ -43,7 +43,7 @@ public class MailController {
             mail.setIsHappy(request.getIsHappy());
             mail.setMailList(request.getMailList());
 
-            UUID entityId = entityService.addItem(Mail.ENTITY_NAME, Mail.ENTITY_VERSION, mail).get();
+            UUID entityId = entityService.save(mail).get();
             return ResponseEntity.status(HttpStatus.CREATED).body(entityId);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
@@ -66,7 +66,7 @@ public class MailController {
     public ResponseEntity<MailResponse> getMailById(@Parameter(description = "Technical ID of the mail entity") @PathVariable String technicalId) {
         try {
             UUID id = UUID.fromString(technicalId);
-            DataPayload dataPayload = entityService.getItem(id).get();
+            DataPayload dataPayload = entityService.getItem(id, Mail.class).get();
 
             if (dataPayload != null) {
                 MailResponse response = objectMapper.treeToValue(dataPayload.getData(), MailResponse.class);
