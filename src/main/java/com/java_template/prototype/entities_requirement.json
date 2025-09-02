@@ -1,0 +1,55 @@
+{
+    "entities": [
+        {
+            "CommentAnalysisRequest": {
+                "entity_data_example": {
+                    "postId": 1,
+                    "recipientEmail": "user@example.com",
+                    "requestId": "req-12345",
+                    "requestedAt": "2023-10-01T12:00:00"
+                }
+            }
+        },
+        {
+            "Comment": {
+                "entity_data_example": {
+                    "body": "This is a sample comment.",
+                    "commentId": 1,
+                    "email": "author@example.com",
+                    "fetchedAt": "2023-10-01T12:01:00",
+                    "name": "Sample Comment",
+                    "postId": 1,
+                    "requestId": "req-12345"
+                }
+            }
+        },
+        {
+            "CommentAnalysis": {
+                "entity_data_example": {
+                    "analysisCompletedAt": "2023-10-01T12:10:00",
+                    "analysisId": "anl-56789",
+                    "averageCommentLength": 45.6,
+                    "requestId": "req-12345",
+                    "sentimentSummary": "{\"positive\": 3, \"negative\": 1, \"neutral\": 1}",
+                    "topKeywords": "{\"keyword1\": 10, \"keyword2\": 5}",
+                    "totalComments": 5,
+                    "uniqueAuthors": 3
+                }
+            }
+        },
+        {
+            "EmailReport": {
+                "entity_data_example": {
+                    "emailStatus": "SENT",
+                    "htmlContent": "<h1>Comment Analysis Report</h1>",
+                    "recipientEmail": "user@example.com",
+                    "reportId": "report-98765",
+                    "requestId": "req-12345",
+                    "sentAt": "2023-10-01T12:15:00",
+                    "subject": "Comment Analysis Report",
+                    "textContent": "Comment Analysis Report"
+                }
+            }
+        }
+    ]
+}
