@@ -8,13 +8,13 @@ import lombok.Setter;
 public class Condition {
     private String type;
     private String jsonPath;
-    private String operatorType;
+    private String operator;
     private Object value;
 
     public Condition(String type, String jsonPath, String operatorType, Object value) {
         this.type = type;
         this.jsonPath = jsonPath;
-        this.operatorType = operatorType;
+        this.operator = operatorType;
         this.value = value;
     }
 
