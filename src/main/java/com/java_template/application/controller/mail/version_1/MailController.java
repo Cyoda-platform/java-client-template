@@ -3,7 +3,6 @@ package com.java_template.application.controller.mail.version_1;
 
 import com.java_template.application.entity.mail.version_1.Mail;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -22,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;

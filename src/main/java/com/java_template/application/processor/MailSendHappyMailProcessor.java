@@ -23,7 +23,7 @@ public class MailSendHappyMailProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(MailSendHappyMailProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    
+
     // Email validation pattern
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
         "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$"
