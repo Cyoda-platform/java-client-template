@@ -1,0 +1,120 @@
+{
+    "version": "1.0",
+    "name": "Cart Workflow",
+    "desc": "Manages shopping cart states and operations",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_on_first_add",
+                    "next": "new",
+                    "manual": false
+                }
+            ]
+        },
+        "new": {
+            "transitions": [
+                {
+                    "name": "activate_cart",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CartActivateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "add_item",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartAddItemProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "update_item",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartUpdateItemProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "remove_item",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartRemoveItemProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "open_checkout",
+                    "next": "checking_out",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartOpenCheckoutProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "checking_out": {
+            "transitions": [
+                {
+                    "name": "checkout",
+                    "next": "converted",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartCheckoutProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "converted": {
+            "transitions": [
+                {
+                    "name": "end_conversion",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "end_state": {
+            "transitions": []
+        }
+    }
+}

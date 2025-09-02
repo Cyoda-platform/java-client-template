@@ -1,0 +1,96 @@
+{
+    "version": "1.0",
+    "name": "Payment Workflow",
+    "desc": "Manages payment processing states",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_dummy_payment",
+                    "next": "initiated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentStartProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "initiated": {
+            "transitions": [
+                {
+                    "name": "auto_mark_paid",
+                    "next": "paid",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentAutoMarkPaidProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "failed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PaymentMarkFailedProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_canceled",
+                    "next": "canceled",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PaymentMarkCanceledProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "paid": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "canceled": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

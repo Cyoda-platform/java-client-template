@@ -1,0 +1,30 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Manages product lifecycle states",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "activate_product",
+                    "next": "active",
+                    "manual": false
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "end_workflow",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "end_state": {
+            "transitions": []
+        }
+    }
+}

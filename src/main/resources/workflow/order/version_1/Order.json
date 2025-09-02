@@ -1,0 +1,97 @@
+{
+    "version": "1.0",
+    "name": "Order Workflow",
+    "desc": "Manages order fulfillment lifecycle",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_order_from_paid",
+                    "next": "waiting_to_fulfill",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderCreateFromPaidProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "waiting_to_fulfill": {
+            "transitions": [
+                {
+                    "name": "start_picking",
+                    "next": "picking",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderStartPickingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "picking": {
+            "transitions": [
+                {
+                    "name": "ready_to_send",
+                    "next": "waiting_to_send",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderReadyToSendProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "waiting_to_send": {
+            "transitions": [
+                {
+                    "name": "mark_sent",
+                    "next": "sent",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderMarkSentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "mark_delivered",
+                    "next": "delivered",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderMarkDeliveredProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "delivered": {
+            "transitions": []
+        }
+    }
+}
