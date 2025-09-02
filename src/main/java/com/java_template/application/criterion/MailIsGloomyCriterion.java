@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.mail.version_1.Mail;
@@ -55,11 +56,6 @@ public class MailIsGloomyCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("isHappy field is null", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
         
-        if (!(entity.getIsHappy() instanceof Boolean)) {
-            logger.warn("isHappy field is not a boolean type");
-            return EvaluationOutcome.fail("isHappy field is not a boolean type", StandardEvalReasonCategories.VALIDATION_FAILURE);
-        }
-        
         if (!entity.getIsHappy()) {
             logger.debug("Mail is marked as gloomy");
             return EvaluationOutcome.success();
@@ -69,3 +65,4 @@ public class MailIsGloomyCriterion implements CyodaCriterion {
         }
     }
 }
+```

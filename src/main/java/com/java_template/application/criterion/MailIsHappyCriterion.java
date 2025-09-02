@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.mail.version_1.Mail;
@@ -69,3 +70,4 @@ public class MailIsHappyCriterion implements CyodaCriterion {
         }
     }
 }
+```

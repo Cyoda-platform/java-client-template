@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.mail.version_1.Mail;
@@ -22,7 +23,7 @@ public class MailSendGloomyMailProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(MailSendGloomyMailProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    
+
     // Email validation pattern
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
         "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$"
@@ -133,3 +134,4 @@ public class MailSendGloomyMailProcessor implements CyodaProcessor {
         return true; // Simulate successful sending
     }
 }
+```

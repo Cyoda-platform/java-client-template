@@ -1,3 +1,4 @@
+```java
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.mail.version_1.Mail;
@@ -133,3 +134,4 @@ public class MailSendHappyMailProcessor implements CyodaProcessor {
         return true; // Simulate successful sending
     }
 }
+```
