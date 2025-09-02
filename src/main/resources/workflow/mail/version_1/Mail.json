@@ -1,0 +1,98 @@
+{
+    "version": "1.0",
+    "name": "Mail Workflow",
+    "desc": "Manages the lifecycle of mail sending operations, determining whether a mail is happy or gloomy and processing it through the appropriate sending mechanism.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_mail",
+                    "next": "pending",
+                    "manual": false
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "send_happy_mail",
+                    "next": "happy_sent",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MailSendHappyMailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "MailIsHappyCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "send_gloomy_mail",
+                    "next": "gloomy_sent",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MailSendGloomyMailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "MailIsGloomyCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "sending_failed",
+                    "next": "failed",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry_sending",
+                    "next": "pending",
+                    "manual": true
+                }
+            ]
+        },
+        "happy_sent": {
+            "transitions": [
+                {
+                    "name": "end_happy_mail",
+                    "next": "[*]",
+                    "manual": false
+                }
+            ]
+        },
+        "gloomy_sent": {
+            "transitions": [
+                {
+                    "name": "end_gloomy_mail",
+                    "next": "[*]",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
