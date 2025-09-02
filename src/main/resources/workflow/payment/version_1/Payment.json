@@ -1,0 +1,80 @@
+{
+    "version": "1.0",
+    "name": "Payment Workflow",
+    "desc": "Description of the workflow for Payment",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "START_DUMMY_PAYMENT",
+                    "next": "INITIATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentCreateDummyProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INITIATED": {
+            "transitions": [
+                {
+                    "name": "AUTO_MARK_PAID",
+                    "next": "PAID",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentAutoMarkPaidProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "MARK_FAILED",
+                    "next": "FAILED",
+                    "manual": true
+                },
+                {
+                    "name": "CANCEL_PAYMENT",
+                    "next": "CANCELED",
+                    "manual": true
+                }
+            ]
+        },
+        "PAID": {
+            "transitions": [
+                {
+                    "name": "complete_payment",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "FAILED": {
+            "transitions": [
+                {
+                    "name": "handle_failure",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "CANCELED": {
+            "transitions": [
+                {
+                    "name": "handle_cancellation",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
