@@ -11,7 +11,7 @@ import java.util.List;
 
 @Data
 public class Shipment implements CyodaEntity {
-    public static final String ENTITY_NAME = "SHIPMENT";
+    public static final String ENTITY_NAME = "Shipment";
     public static final Integer ENTITY_VERSION = 1;
 
     @JsonProperty("shipmentId")

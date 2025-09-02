@@ -10,7 +10,7 @@ import java.time.Instant;
 
 @Data
 public class Payment implements CyodaEntity {
-    public static final String ENTITY_NAME = "PAYMENT";
+    public static final String ENTITY_NAME = "Payment";
     public static final Integer ENTITY_VERSION = 1;
 
     @JsonProperty("paymentId")

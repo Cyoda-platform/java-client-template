@@ -186,7 +186,7 @@ public class CartController {
         try {
             Condition cartIdCondition = Condition.of("$.cartId", "EQUALS", cartId);
             SearchConditionRequest condition = new SearchConditionRequest();
-            condition.setType("simple");
+            condition.setType("group");
             condition.setConditions(List.of(cartIdCondition));
 
             Optional<EntityResponse<Cart>> cartResponse = entityService.getFirstItemByCondition(

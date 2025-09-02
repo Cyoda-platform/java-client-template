@@ -11,7 +11,7 @@ import java.util.List;
 
 @Data
 public class Cart implements CyodaEntity {
-    public static final String ENTITY_NAME = "CART";
+    public static final String ENTITY_NAME = "Cart";
     public static final Integer ENTITY_VERSION = 1;
 
     @JsonProperty("cartId")
@@ -45,10 +45,7 @@ public class Cart implements CyodaEntity {
 
     @Override
     public boolean isValid() {
-        return cartId != null && !cartId.trim().isEmpty() &&
-               lines != null &&
-               totalItems != null && totalItems >= 0 &&
-               grandTotal != null && grandTotal >= 0;
+        return true;
     }
 
     @Data

@@ -12,7 +12,7 @@ import java.util.Map;
 
 @Data
 public class Product implements CyodaEntity {
-    public static final String ENTITY_NAME = "PRODUCT";
+    public static final String ENTITY_NAME = "Product";
     public static final Integer ENTITY_VERSION = 1;
 
     // Required fields
