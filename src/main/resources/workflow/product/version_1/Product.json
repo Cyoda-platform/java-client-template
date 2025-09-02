@@ -1,0 +1,78 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Description of the workflow for Product",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_product_creation",
+                    "next": "product_created",
+                    "manual": false
+                }
+            ]
+        },
+        "product_created": {
+            "transitions": [
+                {
+                    "name": "transition_to_product_active",
+                    "next": "product_active",
+                    "manual": false
+                },
+                {
+                    "name": "transition_to_product_archived",
+                    "next": "product_archived",
+                    "manual": false
+                }
+            ]
+        },
+        "product_active": {
+            "transitions": [
+                {
+                    "name": "transition_to_product_updated",
+                    "next": "product_updated",
+                    "manual": false
+                },
+                {
+                    "name": "transition_to_product_archived",
+                    "next": "product_archived",
+                    "manual": false
+                }
+            ]
+        },
+        "product_updated": {
+            "transitions": [
+                {
+                    "name": "transition_to_product_active",
+                    "next": "product_active",
+                    "manual": false
+                },
+                {
+                    "name": "transition_to_product_archived",
+                    "next": "product_archived",
+                    "manual": false
+                }
+            ]
+        },
+        "product_archived": {
+            "transitions": [
+                {
+                    "name": "transition_to_product_active",
+                    "next": "product_active",
+                    "manual": false
+                }
+            ]
+        },
+        "product_deleted": {
+            "transitions": [
+                {
+                    "name": "transition_to_product_archived",
+                    "next": "product_archived",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

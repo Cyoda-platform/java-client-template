@@ -1,0 +1,89 @@
+{
+    "version": "1.0",
+    "name": "Shipment Workflow",
+    "desc": "Description of the workflow for Shipment",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "CREATE_SHIPMENT",
+                    "next": "PICKING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ShipmentCreateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PICKING": {
+            "transitions": [
+                {
+                    "name": "READY_TO_SEND",
+                    "next": "WAITING_TO_SEND",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentUpdateOrderStateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "WAITING_TO_SEND": {
+            "transitions": [
+                {
+                    "name": "MARK_SENT",
+                    "next": "SENT",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentUpdateOrderStateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": [
+                {
+                    "name": "MARK_DELIVERED",
+                    "next": "DELIVERED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentUpdateOrderStateProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DELIVERED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}
