@@ -1,0 +1,74 @@
+{
+    "compilation_status": "FAILURE",
+    "files_with_errors": [
+        {
+            "errors": [
+                "cannot find symbol: method getInputData() in context",
+                "cannot find symbol: method getInputData() in context"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/PaymentCreateDummyProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getMetadata() in optionalPayload.get()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/OrderMarkDeliveredProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getMetadata() in optionalPayload.get()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/OrderMarkSentProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getInputData() in context",
+                "cannot find symbol: method getMetadata() in optionalPayload.get()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/OrderCreateFromPaidProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getInputData() in context"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/CartCreateProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getMetadata() in optionalPayload.get()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/OrderReadyToSendProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getEvent() in context"
+            ],
+            "file_path": "src/main/java/com/java_template/application/processor/PaymentAutoMarkPaidProcessor.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getInputData() in context"
+            ],
+            "file_path": "src/main/java/com/java_template/application/criterion/ProductStockAvailableCriterion.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getMetadata() in optionalPayload.get()"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/CartController.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getMetadata() in optionalPayload.get()",
+                "cannot find symbol: method get() in optionalPayload"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/PaymentController.java"
+        },
+        {
+            "errors": [
+                "cannot find symbol: method getMetadata() in payload"
+            ],
+            "file_path": "src/main/java/com/java_template/application/controller/OrderController.java"
+        }
+    ]
+}
