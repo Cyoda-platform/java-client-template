@@ -85,16 +85,81 @@ public class EntityResponse<T extends CyodaEntity> {
     
     // Factory method for creating from DataPayload
     public static <T extends CyodaEntity> EntityResponse<T> fromDataPayload(
-            org.cyoda.cloud.api.event.common.DataPayload payload, 
+            org.cyoda.cloud.api.event.common.DataPayload payload,
             Class<T> entityClass,
             com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
-        
+
         T entity = objectMapper.convertValue(payload.getData(), entityClass);
         EntityMetadata metadata = objectMapper.convertValue(payload.getMeta(), EntityMetadata.class);
-        
+
         return new EntityResponse<>(entity, metadata);
     }
-    
+
+    // Factory method for creating from EntityTransactionResponse (for save/update operations)
+    public static <T extends CyodaEntity> EntityResponse<T> fromTransactionResponse(
+            org.cyoda.cloud.api.event.entity.EntityTransactionResponse response,
+            T entity,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+
+        // Create basic metadata from transaction info
+        EntityMetadata metadata = new EntityMetadata();
+        if (response.getTransactionInfo() != null && !response.getTransactionInfo().getEntityIds().isEmpty()) {
+            metadata.setId(response.getTransactionInfo().getEntityIds().getFirst());
+        }
+
+        return new EntityResponse<>(entity, metadata);
+    }
+
+    // Factory method for creating list from EntityTransactionResponse (for saveAll operations)
+    public static <T extends CyodaEntity> java.util.List<EntityResponse<T>> fromTransactionResponseList(
+            org.cyoda.cloud.api.event.entity.EntityTransactionResponse response,
+            java.util.Collection<T> entities,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+
+        java.util.List<java.util.UUID> entityIds = response.getTransactionInfo() != null ?
+            response.getTransactionInfo().getEntityIds() : java.util.List.of();
+
+        java.util.List<T> entitiesList = new java.util.ArrayList<>(entities);
+        java.util.List<EntityResponse<T>> responses = new java.util.ArrayList<>();
+
+        for (int i = 0; i < entitiesList.size(); i++) {
+            EntityMetadata metadata = new EntityMetadata();
+            if (i < entityIds.size()) {
+                metadata.setId(entityIds.get(i));
+            }
+            responses.add(new EntityResponse<>(entitiesList.get(i), metadata));
+        }
+
+        return responses;
+    }
+
+    // Factory method for creating list from multiple EntityTransactionResponse (for updateAll operations)
+    public static <T extends CyodaEntity> java.util.List<EntityResponse<T>> fromTransactionResponseList(
+            java.util.List<org.cyoda.cloud.api.event.entity.EntityTransactionResponse> responses,
+            java.util.Collection<T> entities,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+
+        java.util.List<java.util.UUID> allEntityIds = new java.util.ArrayList<>();
+        for (org.cyoda.cloud.api.event.entity.EntityTransactionResponse response : responses) {
+            if (response.getTransactionInfo() != null) {
+                allEntityIds.addAll(response.getTransactionInfo().getEntityIds());
+            }
+        }
+
+        java.util.List<T> entitiesList = new java.util.ArrayList<>(entities);
+        java.util.List<EntityResponse<T>> entityResponses = new java.util.ArrayList<>();
+
+        for (int i = 0; i < entitiesList.size(); i++) {
+            EntityMetadata metadata = new EntityMetadata();
+            if (i < allEntityIds.size()) {
+                metadata.setId(allEntityIds.get(i));
+            }
+            entityResponses.add(new EntityResponse<>(entitiesList.get(i), metadata));
+        }
+
+        return entityResponses;
+    }
+
     @Override
     public String toString() {
         return "EntityResponse{" +

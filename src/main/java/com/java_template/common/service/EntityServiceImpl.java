@@ -8,9 +8,6 @@ import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
 import com.java_template.common.dto.EntityResponse;
-import com.java_template.common.registry.EntityRegistry;
-import com.java_template.common.util.SearchConditionRequest;
-import com.java_template.common.util.Condition;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import java.util.Collection;
@@ -40,16 +37,13 @@ public class EntityServiceImpl implements EntityService {
 
     private final CrudRepository repository;
     private final ObjectMapper objectMapper;
-    private final EntityRegistry entityRegistry;
 
     public EntityServiceImpl(
             final CrudRepository repository,
-            final ObjectMapper objectMapper,
-            final EntityRegistry entityRegistry
+            final ObjectMapper objectMapper
     ) {
         this.repository = repository;
         this.objectMapper = objectMapper;
-        this.entityRegistry = entityRegistry;
     }
 
     @Override
@@ -68,14 +62,13 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public <T extends CyodaEntity> List<EntityResponse<T>> getItems(
             @NotNull final Class<T> entityClass,
+            @NotNull final String modelName,
+            @NotNull final Integer modelVersion,
             @Nullable final Integer pageSize,
             @Nullable final Integer pageNumber,
             @Nullable final Date pointTime
     ) {
         try {
-            String modelName = entityRegistry.getModelName(entityClass);
-            Integer modelVersion = entityRegistry.getModelVersion(entityClass);
-
             List<DataPayload> payloads = repository.findAll(
                     modelName,
                     modelVersion,
@@ -95,13 +88,12 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public <T extends CyodaEntity> Optional<EntityResponse<T>> getFirstItemByCondition(
             @NotNull final Class<T> entityClass,
+            @NotNull final String modelName,
+            @NotNull final Integer modelVersion,
             @NotNull final SearchConditionRequest condition,
             final boolean inMemory
     ) {
         try {
-            String modelName = entityRegistry.getModelName(entityClass);
-            Integer modelVersion = entityRegistry.getModelVersion(entityClass);
-
             List<DataPayload> payloads = repository.findAllByCriteria(
                     modelName,
                     modelVersion,
@@ -122,13 +114,12 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public <T extends CyodaEntity> List<EntityResponse<T>> getItemsByCondition(
             @NotNull final Class<T> entityClass,
+            @NotNull final String modelName,
+            @NotNull final Integer modelVersion,
             @NotNull final SearchConditionRequest condition,
             final boolean inMemory
     ) {
         try {
-            String modelName = entityRegistry.getModelName(entityClass);
-            Integer modelVersion = entityRegistry.getModelVersion(entityClass);
-
             List<DataPayload> payloads = repository.findAllByCriteria(
                     modelName,
                     modelVersion,
@@ -150,13 +141,11 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public <T extends CyodaEntity> EntityResponse<T> save(@NotNull final T entity) {
         try {
-            String modelName = entityRegistry.getModelName((Class<T>) entity.getClass());
-            Integer modelVersion = entityRegistry.getModelVersion((Class<T>) entity.getClass());
+            String modelName = entity.getModelKey().modelKey().getName();
+            Integer modelVersion = entity.getModelKey().modelKey().getVersion();
 
             EntityTransactionResponse response = repository.save(modelName, modelVersion, objectMapper.valueToTree(entity)).join();
-            UUID entityId = response.getTransactionInfo().getEntityIds().getFirst();
-
-            return getItem(entityId, (Class<T>) entity.getClass());
+            return EntityResponse.fromTransactionResponse(response, entity, objectMapper);
         } catch (Exception e) {
             throw new RuntimeException("Failed to save entity: " + e.getMessage(), e);
         }
@@ -165,8 +154,8 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public <T extends CyodaEntity> ObjectNode saveAndReturnTransactionInfo(@NotNull final T entity) {
         try {
-            String modelName = entityRegistry.getModelName((Class<T>) entity.getClass());
-            Integer modelVersion = entityRegistry.getModelVersion((Class<T>) entity.getClass());
+            String modelName = entity.getModelKey().modelKey().getName();
+            Integer modelVersion = entity.getModelKey().modelKey().getVersion();
 
             EntityTransactionResponse response = repository.save(modelName, modelVersion, objectMapper.valueToTree(entity)).join();
             return objectMapper.valueToTree(response.getTransactionInfo());
@@ -183,16 +172,11 @@ public class EntityServiceImpl implements EntityService {
 
         try {
             T firstEntity = entities.iterator().next();
-            Class<T> entityClass = (Class<T>) firstEntity.getClass();
-            String modelName = entityRegistry.getModelName(entityClass);
-            Integer modelVersion = entityRegistry.getModelVersion(entityClass);
+            String modelName = firstEntity.getModelKey().modelKey().getName();
+            Integer modelVersion = firstEntity.getModelKey().modelKey().getVersion();
 
             EntityTransactionResponse response = repository.saveAll(modelName, modelVersion, entities).join();
-            List<UUID> entityIds = response.getTransactionInfo().getEntityIds();
-
-            return entityIds.stream()
-                    .map(id -> getItem(id, entityClass))
-                    .toList();
+            return EntityResponse.fromTransactionResponseList(response, entities, objectMapper);
         } catch (Exception e) {
             throw new RuntimeException("Failed to save entities: " + e.getMessage(), e);
         }
@@ -206,9 +190,8 @@ public class EntityServiceImpl implements EntityService {
 
         try {
             T firstEntity = entities.iterator().next();
-            Class<T> entityClass = (Class<T>) firstEntity.getClass();
-            String modelName = entityRegistry.getModelName(entityClass);
-            Integer modelVersion = entityRegistry.getModelVersion(entityClass);
+            String modelName = firstEntity.getModelKey().modelKey().getName();
+            Integer modelVersion = firstEntity.getModelKey().modelKey().getVersion();
 
             EntityTransactionResponse response = repository.saveAll(
                     modelName,
@@ -231,9 +214,7 @@ public class EntityServiceImpl implements EntityService {
         try {
             String transitionToUse = transition != null ? transition : UPDATE_TRANSITION;
             EntityTransactionResponse response = repository.update(entityId, objectMapper.valueToTree(entity), transitionToUse).join();
-            UUID updatedEntityId = response.getTransactionInfo().getEntityIds().getFirst();
-
-            return getItem(updatedEntityId, (Class<T>) entity.getClass());
+            return EntityResponse.fromTransactionResponse(response, entity, objectMapper);
         } catch (Exception e) {
             throw new RuntimeException("Failed to update entity: " + e.getMessage(), e);
         }
@@ -246,20 +227,10 @@ public class EntityServiceImpl implements EntityService {
         }
 
         try {
-            T firstEntity = entities.iterator().next();
-            Class<T> entityClass = (Class<T>) firstEntity.getClass();
             String transitionToUse = transition != null ? transition : UPDATE_TRANSITION;
 
             List<EntityTransactionResponse> responses = repository.updateAll(objectMapper.convertValue(entities, new TypeReference<>() {}), transitionToUse).join();
-            List<UUID> entityIds = responses.stream()
-                    .map(EntityTransactionResponse::getTransactionInfo)
-                    .map(EntityTransactionInfo::getEntityIds)
-                    .flatMap(Collection::stream)
-                    .toList();
-
-            return entityIds.stream()
-                    .map(id -> getItem(id, entityClass))
-                    .toList();
+            return EntityResponse.fromTransactionResponseList(responses, entities, objectMapper);
         } catch (Exception e) {
             throw new RuntimeException("Failed to update entities: " + e.getMessage(), e);
         }
@@ -278,11 +249,8 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> Integer deleteAll(@NotNull final Class<T> entityClass) {
+    public Integer deleteAll(@NotNull final String modelName, @NotNull final Integer modelVersion) {
         try {
-            String modelName = entityRegistry.getModelName(entityClass);
-            Integer modelVersion = entityRegistry.getModelVersion(entityClass);
-
             List<EntityDeleteAllResponse> results = repository.deleteAll(modelName, modelVersion).join();
             return results.stream()
                     .map(EntityDeleteAllResponse::getNumDeleted)
@@ -297,15 +265,12 @@ public class EntityServiceImpl implements EntityService {
     // Note: save() method is already implemented above as the core method
 
     @Override
-    public <T extends CyodaEntity> EntityResponse<T> findByBusinessId(@NotNull Class<T> entityClass, @NotNull String businessId) {
+    public <T extends CyodaEntity> EntityResponse<T> findByBusinessId(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull String businessId, @NotNull String businessIdField) {
         try {
-            // Determine the business ID field name based on entity type
-            String businessIdField = entityRegistry.getBusinessIdField(entityClass);
-
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$." + businessIdField, "EQUALS", businessId));
 
-            Optional<EntityResponse<T>> optionalResponse = getFirstItemByCondition(entityClass, condition, false);
+            Optional<EntityResponse<T>> optionalResponse = getFirstItemByCondition(entityClass, modelName, modelVersion, condition, false);
 
             return optionalResponse.orElse(null);
         } catch (Exception e) {
@@ -314,20 +279,21 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull Class<T> entityClass) {
-        return getItems(entityClass, null, null, null);
+    public <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion) {
+        return getItems(entityClass, modelName, modelVersion, null, null, null);
     }
 
     @Override
-    public <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(@NotNull T entity, @Nullable String transition) {
+    public <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(@NotNull T entity, @NotNull String businessIdField, @Nullable String transition) {
         try {
-            String businessIdField = entityRegistry.getBusinessIdField((Class<T>) entity.getClass());
             String businessId = getBusinessIdValue(entity, businessIdField);
+            String modelName = entity.getModelKey().modelKey().getName();
+            Integer modelVersion = entity.getModelKey().modelKey().getVersion();
 
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$." + businessIdField, "EQUALS", businessId));
 
-            Optional<EntityResponse<T>> optionalResponse = getFirstItemByCondition((Class<T>) entity.getClass(), condition, false);
+            Optional<EntityResponse<T>> optionalResponse = getFirstItemByCondition((Class<T>) entity.getClass(), modelName, modelVersion, condition, false);
 
             if (optionalResponse.isPresent()) {
                 UUID entityId = optionalResponse.get().getId();
@@ -341,17 +307,25 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> boolean deleteByBusinessId(@NotNull Class<T> entityClass, @NotNull String businessId) {
+    public boolean deleteByBusinessId(@NotNull String modelName, @NotNull Integer modelVersion, @NotNull String businessId, @NotNull String businessIdField) {
         try {
-            String businessIdField = entityRegistry.getBusinessIdField(entityClass);
-
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$." + businessIdField, "EQUALS", businessId));
 
-            Optional<EntityResponse<T>> optionalResponse = getFirstItemByCondition(entityClass, condition, false);
+            // Find the entity using raw repository call since we only need the ID
+            List<DataPayload> payloads = repository.findAllByCriteria(
+                    modelName,
+                    modelVersion,
+                    objectMapper.convertValue(condition, GroupCondition.class),
+                    1,
+                    1,
+                    false
+            ).join();
 
-            if (optionalResponse.isPresent()) {
-                UUID entityId = optionalResponse.get().getId();
+            if (!payloads.isEmpty()) {
+                DataPayload payload = payloads.getFirst();
+                EntityMetadata metadata = objectMapper.convertValue(payload.getMeta(), EntityMetadata.class);
+                UUID entityId = metadata.getId();
                 deleteById(entityId);
                 return true;
             } else {
@@ -363,16 +337,16 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityResponse<T>> findByField(@NotNull Class<T> entityClass, @NotNull String fieldName, @NotNull String value) {
+    public <T extends CyodaEntity> List<EntityResponse<T>> findByField(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull String fieldName, @NotNull String value) {
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
             Condition.of("$." + fieldName, "EQUALS", value));
 
-        return getItemsByCondition(entityClass, condition, false);
+        return getItemsByCondition(entityClass, modelName, modelVersion, condition, false);
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityResponse<T>> findByCondition(@NotNull Class<T> entityClass, @NotNull SearchConditionRequest condition, boolean inMemory) {
-        return getItemsByCondition(entityClass, condition, inMemory);
+    public <T extends CyodaEntity> List<EntityResponse<T>> findByCondition(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull SearchConditionRequest condition, boolean inMemory) {
+        return getItemsByCondition(entityClass, modelName, modelVersion, condition, inMemory);
     }
 
     // Helper methods

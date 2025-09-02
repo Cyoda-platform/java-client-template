@@ -28,6 +28,8 @@ public interface EntityService {
     // Retrieve an item based on a condition with metadata
     <T extends CyodaEntity> Optional<EntityResponse<T>> getFirstItemByCondition(
             @NotNull Class<T> entityClass,
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
             @NotNull SearchConditionRequest condition,
             boolean inMemory
     );
@@ -35,6 +37,8 @@ public interface EntityService {
     // Retrieve multiple items based on the entity model and version with metadata
     <T extends CyodaEntity> List<EntityResponse<T>> getItems(
             @NotNull Class<T> entityClass,
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
             @Nullable Integer pageSize,
             @Nullable Integer pageNumber,
             @Nullable Date pointTime
@@ -43,6 +47,8 @@ public interface EntityService {
     // Retrieve items based on a condition with option for in-memory search with metadata
     <T extends CyodaEntity> List<EntityResponse<T>> getItemsByCondition(
             @NotNull Class<T> entityClass,
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
             @NotNull SearchConditionRequest condition,
             boolean inMemory
     );
@@ -70,27 +76,27 @@ public interface EntityService {
     // Delete operations (JPA style naming)
     UUID deleteById(@NotNull UUID entityId);
 
-    <T extends CyodaEntity> Integer deleteAll(@NotNull Class<T> entityClass);
+    Integer deleteAll(@NotNull String modelName, @NotNull Integer modelVersion);
 
     // High-level convenience methods - business ID based operations
 
     // Find entity by business ID with metadata
-    <T extends CyodaEntity> EntityResponse<T> findByBusinessId(@NotNull Class<T> entityClass, @NotNull String businessId);
+    <T extends CyodaEntity> EntityResponse<T> findByBusinessId(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull String businessId, @NotNull String businessIdField);
 
     // Find all entities with metadata (JPA style)
-    <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull Class<T> entityClass);
+    <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion);
 
     // Update an entity by business ID with optional transition
-    <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(@NotNull T entity, @Nullable String transition);
+    <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(@NotNull T entity, @NotNull String businessIdField, @Nullable String transition);
 
     // Delete entity by business ID
-    <T extends CyodaEntity> boolean deleteByBusinessId(@NotNull Class<T> entityClass, @NotNull String businessId);
+    boolean deleteByBusinessId(@NotNull String modelName, @NotNull Integer modelVersion, @NotNull String businessId, @NotNull String businessIdField);
 
     // Find entities by field value with metadata (convenience method)
-    <T extends CyodaEntity> List<EntityResponse<T>> findByField(@NotNull Class<T> entityClass, @NotNull String fieldName, @NotNull String value);
+    <T extends CyodaEntity> List<EntityResponse<T>> findByField(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull String fieldName, @NotNull String value);
 
     // Find entities by search condition with metadata (advanced search)
-    <T extends CyodaEntity> List<EntityResponse<T>> findByCondition(@NotNull Class<T> entityClass, @NotNull SearchConditionRequest condition, boolean inMemory);
+    <T extends CyodaEntity> List<EntityResponse<T>> findByCondition(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull SearchConditionRequest condition, boolean inMemory);
 
     // Convenience methods for backward compatibility - extract data from EntityResponse
 
