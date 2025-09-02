@@ -1,0 +1,1 @@
+Let's make an Egg Alarm app. It needs to let users choose between soft-boiled, medium-boiled, or hard-boiled eggs and then set the alarm.
