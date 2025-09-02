@@ -137,7 +137,7 @@ public class OrderMarkDeliveredProcessor implements CyodaProcessor {
             true
         ).thenApply(optionalPayload -> {
             if (optionalPayload.isPresent()) {
-                return optionalPayload.get().getData().getId(); // Changed from getMetadata().getId() to getData().getId()
+                return optionalPayload.get().getData().getId();
             }
             return null;
         });
