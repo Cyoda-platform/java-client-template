@@ -1,0 +1,74 @@
+{
+    "version": "1.0",
+    "name": "CommentAnalysis Workflow",
+    "desc": "Manages the analysis process of comments.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_analysis",
+                    "next": "analyzing",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisStartProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "analyzing": {
+            "transitions": [
+                {
+                    "name": "complete_analysis",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisCompleteProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_analysis",
+                    "next": "failed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisFailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": [
+                {
+                    "name": "end",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "end",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

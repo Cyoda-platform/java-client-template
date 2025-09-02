@@ -1,0 +1,104 @@
+{
+    "version": "1.0",
+    "name": "EmailReport Workflow",
+    "desc": "Manages the email report generation and sending process.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "prepare_email",
+                    "next": "preparing",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailReportPrepareProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "preparing": {
+            "transitions": [
+                {
+                    "name": "send_email",
+                    "next": "sending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailReportSendProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_preparation",
+                    "next": "failed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "EmailReportFailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending": {
+            "transitions": [
+                {
+                    "name": "confirm_sent",
+                    "next": "sent",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailReportConfirmProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_sending",
+                    "next": "failed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "EmailReportFailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "end",
+                    "next": "none",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "end",
+                    "next": "none",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

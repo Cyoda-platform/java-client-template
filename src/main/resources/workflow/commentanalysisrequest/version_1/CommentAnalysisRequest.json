@@ -1,0 +1,182 @@
+{
+    "version": "1.0",
+    "name": "CommentAnalysisRequest Workflow",
+    "desc": "Manages the complete lifecycle of a comment analysis request from creation to completion.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_request",
+                    "next": "pending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestInitializeProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "start_fetching",
+                    "next": "fetching",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestStartFetchingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "failed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestFailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "fetching": {
+            "transitions": [
+                {
+                    "name": "start_analysis",
+                    "next": "analyzing",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestStartAnalysisProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "failed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestFailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "analyzing": {
+            "transitions": [
+                {
+                    "name": "start_report_generation",
+                    "next": "generating_report",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestStartReportProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "failed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestFailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "generating_report": {
+            "transitions": [
+                {
+                    "name": "start_email_sending",
+                    "next": "sending_email",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestStartEmailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "failed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestFailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending_email": {
+            "transitions": [
+                {
+                    "name": "complete_request",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestCompleteProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "failed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisRequestFailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        }
+    }
+}

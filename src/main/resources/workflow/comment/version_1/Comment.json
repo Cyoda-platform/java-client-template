@@ -1,0 +1,69 @@
+{
+    "version": "1.0",
+    "name": "Comment Workflow",
+    "desc": "Manages the lifecycle of individual comments from fetching to processing.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "fetch_comment",
+                    "next": "fetched",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentFetchProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "fetched": {
+            "transitions": [
+                {
+                    "name": "process_comment",
+                    "next": "processed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentProcessProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "processed": {
+            "transitions": [
+                {
+                    "name": "complete",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "mark_failed",
+                    "next": "initial_state",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentFailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
