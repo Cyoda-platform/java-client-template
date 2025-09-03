@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.dto.EntityResponse;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.util.SearchConditionRequest;
@@ -15,98 +14,205 @@ import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 
+/**
+ * Simplified EntityService interface with clear method selection guidance.
+ *
+ * METHOD SELECTION GUIDE:
+ *
+ * FOR RETRIEVAL:
+ * - Use getById() when you have the technical UUID (fastest, most efficient)
+ * - Use findByBusinessId() when you have a business identifier (e.g., "CART-123", "PAY-456")
+ * - Use findAll() to get all entities of a type (use sparingly, can be slow)
+ * - Use search() for complex queries with multiple conditions
+ *
+ * FOR MUTATIONS:
+ * - Use save() for new entities
+ * - Use update() for existing entities with technical UUID
+ * - Use updateByBusinessId() for existing entities with business identifier
+ *
+ * PERFORMANCE NOTES:
+ * - Technical UUID operations are fastest (direct lookup)
+ * - Business ID operations require field search (slower)
+ * - Complex search operations are slowest but most flexible
+ * - Always set inMemory=true for better performance in development
+ */
 public interface EntityService {
 
-    // Core retrieval methods - all synchronous for consistency
+    // ========================================
+    // PRIMARY RETRIEVAL METHODS (Use These)
+    // ========================================
 
-    // Retrieve a single item based on its ID with metadata
-    <T extends CyodaEntity> EntityResponse<T> getItem(
+    /**
+     * Get entity by technical UUID (FASTEST - use when you have the UUID)
+     *
+     * @param entityId Technical UUID from EntityResponse.getMetadata().getId()
+     * @param entityClass Entity class type
+     * @return EntityResponse with entity and metadata
+     */
+    <T extends CyodaEntity> EntityResponse<T> getById(
             @NotNull UUID entityId,
             @NotNull Class<T> entityClass
     );
 
-    // Retrieve an item based on a condition with metadata
-    <T extends CyodaEntity> Optional<EntityResponse<T>> getFirstItemByCondition(
+    /**
+     * Find entity by business identifier (MEDIUM SPEED - use for user-facing IDs)
+     * Examples: cartId="CART-123", paymentId="PAY-456", orderId="ORD-789"
+     *
+     * @param entityClass Entity class type
+     * @param businessId Business identifier value (e.g., "CART-123")
+     * @param businessIdField Field name containing the business ID (e.g., "cartId")
+     * @return EntityResponse with entity and metadata, or null if not found
+     */
+    <T extends CyodaEntity> EntityResponse<T> findByBusinessId(
             @NotNull Class<T> entityClass,
-            @NotNull String modelName,
-            @NotNull Integer modelVersion,
-            @NotNull SearchConditionRequest condition,
-            boolean inMemory
+            @NotNull String businessId,
+            @NotNull String businessIdField
     );
 
-    // Retrieve multiple items based on the entity model and version with metadata
-    <T extends CyodaEntity> List<EntityResponse<T>> getItems(
+    /**
+     * Get all entities of a type (SLOW - use sparingly)
+     *
+     * @param entityClass Entity class type
+     * @return List of EntityResponse with entities and metadata
+     */
+    <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull Class<T> entityClass);
+
+    /**
+     * Search entities with complex conditions (SLOWEST - most flexible)
+     * Use for advanced queries with multiple conditions, filtering, etc.
+     *
+     * @param entityClass Entity class type
+     * @param condition Search condition (use SearchConditionRequest.builder())
+     * @return List of EntityResponse with entities and metadata
+     */
+    <T extends CyodaEntity> List<EntityResponse<T>> search(
             @NotNull Class<T> entityClass,
-            @NotNull String modelName,
-            @NotNull Integer modelVersion,
-            @Nullable Integer pageSize,
-            @Nullable Integer pageNumber,
-            @Nullable Date pointTime
+            @NotNull SearchConditionRequest condition
     );
 
-    // Retrieve items based on a condition with option for in-memory search with metadata
-    <T extends CyodaEntity> List<EntityResponse<T>> getItemsByCondition(
-            @NotNull Class<T> entityClass,
-            @NotNull String modelName,
-            @NotNull Integer modelVersion,
-            @NotNull SearchConditionRequest condition,
-            boolean inMemory
-    );
+    // ========================================
+    // PRIMARY MUTATION METHODS (Use These)
+    // ========================================
 
-    // Mutation methods - Spring Boot JPA style naming, all synchronous
-
-    // Save a new entity and return with full metadata (JPA style)
+    /**
+     * Save a new entity (CREATE operation)
+     *
+     * @param entity New entity to save
+     * @return EntityResponse with saved entity and metadata (including technical UUID)
+     */
     <T extends CyodaEntity> EntityResponse<T> save(@NotNull T entity);
 
-    // Save a new entity and return transaction info (for advanced use cases)
-    <T extends CyodaEntity> ObjectNode saveAndReturnTransactionInfo(@NotNull T entity);
+    /**
+     * Update existing entity by technical UUID (FASTEST - use when you have UUID)
+     *
+     * @param entityId Technical UUID from EntityResponse.getMetadata().getId()
+     * @param entity Updated entity data
+     * @param transition Optional workflow transition name (null to stay in same state)
+     * @return EntityResponse with updated entity and metadata
+     */
+    <T extends CyodaEntity> EntityResponse<T> update(
+            @NotNull UUID entityId,
+            @NotNull T entity,
+            @Nullable String transition
+    );
 
-    // Save multiple entities and return with metadata (JPA style)
+    /**
+     * Update existing entity by business identifier (MEDIUM SPEED)
+     *
+     * @param entity Updated entity data (must contain business ID)
+     * @param businessIdField Field name containing the business ID (e.g., "cartId")
+     * @param transition Optional workflow transition name (null to stay in same state)
+     * @return EntityResponse with updated entity and metadata
+     */
+    <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(
+            @NotNull T entity,
+            @NotNull String businessIdField,
+            @Nullable String transition
+    );
+
+    /**
+     * Delete entity by technical UUID (FASTEST)
+     *
+     * @param entityId Technical UUID to delete
+     * @return UUID of deleted entity
+     */
+    <T extends CyodaEntity> UUID deleteById(@NotNull UUID entityId);
+
+    /**
+     * Delete entity by business identifier
+     *
+     * @param entityClass Entity class type
+     * @param businessId Business identifier value
+     * @param businessIdField Field name containing the business ID
+     * @return true if deleted, false if not found
+     */
+    <T extends CyodaEntity> boolean deleteByBusinessId(
+            @NotNull Class<T> entityClass,
+            @NotNull String businessId,
+            @NotNull String businessIdField
+    );
+
+    // ========================================
+    // BATCH OPERATIONS (Use Sparingly)
+    // ========================================
+
+    /**
+     * Save multiple entities in batch
+     *
+     * @param entities Collection of entities to save
+     * @return List of EntityResponse with saved entities and metadata
+     */
     <T extends CyodaEntity> List<EntityResponse<T>> saveAll(@NotNull Collection<T> entities);
 
-    // Save multiple entities and return transaction info (for advanced use cases)
-    <T extends CyodaEntity> EntityTransactionInfo saveAllAndReturnTransactionInfo(@NotNull Collection<T> entities);
+    /**
+     * Delete all entities of a type (DANGEROUS - use with caution)
+     *
+     * @param entityClass Entity class type
+     * @return Number of entities deleted
+     */
+    <T extends CyodaEntity> Integer deleteAll(@NotNull Class<T> entityClass);
 
-    // Update an existing entity with optional transition and return with metadata
-    <T extends CyodaEntity> EntityResponse<T> update(@NotNull UUID entityId, @NotNull T entity, @Nullable String transition);
+    // ========================================
+    // LEGACY COMPATIBILITY METHODS
+    // ========================================
 
-    // Update multiple entities with optional transition and return with metadata
-    <T extends CyodaEntity> List<EntityResponse<T>> updateAll(@NotNull Collection<T> entities, @Nullable String transition);
-
-    // Delete operations (JPA style naming)
-    UUID deleteById(@NotNull UUID entityId);
-
-    Integer deleteAll(@NotNull String modelName, @NotNull Integer modelVersion);
-
-    // High-level convenience methods - business ID based operations
-
-    // Find entity by business ID with metadata
-    <T extends CyodaEntity> EntityResponse<T> findByBusinessId(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull String businessId, @NotNull String businessIdField);
-
-    // Find all entities with metadata (JPA style)
-    <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion);
-
-    // Update an entity by business ID with optional transition
-    <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(@NotNull T entity, @NotNull String businessIdField, @Nullable String transition);
-
-    // Delete entity by business ID
-    boolean deleteByBusinessId(@NotNull String modelName, @NotNull Integer modelVersion, @NotNull String businessId, @NotNull String businessIdField);
-
-    // Find entities by field value with metadata (convenience method)
-    <T extends CyodaEntity> List<EntityResponse<T>> findByField(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull String fieldName, @NotNull String value);
-
-    // Find entities by search condition with metadata (advanced search)
-    <T extends CyodaEntity> List<EntityResponse<T>> findByCondition(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull SearchConditionRequest condition, boolean inMemory);
-
-    // Convenience methods for backward compatibility - extract data from EntityResponse
-
-    // Get just the business data (for backward compatibility)
-    default <T extends CyodaEntity> T getData(EntityResponse<T> response) {
-        return response.getData();
+    /**
+     * @deprecated Use getById() instead for better clarity
+     */
+    @Deprecated
+    default <T extends CyodaEntity> EntityResponse<T> getItem(
+            @NotNull UUID entityId,
+            @NotNull Class<T> entityClass
+    ) {
+        return getById(entityId, entityClass);
     }
 
-    // Get just the business data list (for backward compatibility)
-    default <T extends CyodaEntity> List<T> getData(List<EntityResponse<T>> responses) {
-        return responses.stream().map(EntityResponse::getData).toList();
+    /**
+     * @deprecated Use search() instead for better clarity
+     */
+    @Deprecated
+    default <T extends CyodaEntity> List<EntityResponse<T>> findByCondition(
+            @NotNull Class<T> entityClass,
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @NotNull SearchConditionRequest condition,
+            boolean inMemory
+    ) {
+        return search(entityClass, condition);
+    }
+
+    /**
+     * @deprecated Use search() with single field condition instead
+     */
+    @Deprecated
+    default <T extends CyodaEntity> List<EntityResponse<T>> findByField(
+            @NotNull Class<T> entityClass,
+            @NotNull String modelName,
+            @NotNull Integer modelVersion,
+            @NotNull String fieldName,
+            @NotNull String value
+    ) {
+        // Implementation would create a single field condition and call search()
+        throw new UnsupportedOperationException("Use search() with SearchConditionRequest instead");
     }
 }

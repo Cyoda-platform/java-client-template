@@ -8,6 +8,9 @@ default branch: main
 
 - [README](https://github.com/Cyoda-platform/java-client-template/${branch}/README.md): Complete project documentation including setup, architecture, and workflow configuration
 - [Usage Rules](https://github.com/Cyoda-platform/java-client-template/${branch}/usage-rules.md): Developer and AI agent guidelines for following project conventions
+- [EntityService Improvements](https://github.com/Cyoda-platform/java-client-template/${branch}/ENTITYSERVICE_IMPROVEMENTS.md): Complete guide to the new simplified EntityService API and processor patterns
+- [Design Issues Analysis](https://github.com/Cyoda-platform/java-client-template/${branch}/design_issues_analysis.md): Analysis of design patterns that lead to AI inconsistencies
+- [Implementation Summary](https://github.com/Cyoda-platform/java-client-template/${branch}/implementation_summary.md): Summary of all improvements made to eliminate AI confusion
 
 ## Requirements & Specifications
 
@@ -18,6 +21,10 @@ default branch: main
 
 - [Build Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/build.gradle): Gradle build configuration with dependencies and plugins
 - [Environment Template](https://github.com/Cyoda-platform/java-client-template/${branch}/.env.template): Environment variables template for Cyoda integration
+
+## AI Development
+
+- [New Prompt Template](https://github.com/Cyoda-platform/java-client-template/${branch}/new_prompt.txt): Updated AI prompt template with improved EntityService patterns and anti-patterns guidance
 
 ## API Documentation
 
