@@ -1,0 +1,62 @@
+{
+    "version": "1.0",
+    "name": "Order Workflow",
+    "desc": "Manages order fulfillment from creation to delivery.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_picking",
+                    "next": "picking",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderCreateOrderFromPaidProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "picking": {
+            "transitions": [
+                {
+                    "name": "transition_to_waiting_to_send",
+                    "next": "waiting_to_send",
+                    "manual": false
+                }
+            ]
+        },
+        "waiting_to_send": {
+            "transitions": [
+                {
+                    "name": "transition_to_sent",
+                    "next": "sent",
+                    "manual": false
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "transition_to_delivered",
+                    "next": "delivered",
+                    "manual": false
+                }
+            ]
+        },
+        "delivered": {
+            "transitions": [
+                {
+                    "name": "transition_to_final_state",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

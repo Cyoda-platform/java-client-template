@@ -1,0 +1,66 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Description of the workflow for Product",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "active_state",
+                    "manual": false
+                }
+            ]
+        },
+        "active_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "active_state",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartRecalculateTotalsProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_checking_out",
+                    "next": "checking_out_state",
+                    "manual": true
+                },
+                {
+                    "name": "transition_to_converted",
+                    "next": "converted_state",
+                    "manual": false
+                }
+            ]
+        },
+        "checking_out_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_converted",
+                    "next": "converted_state",
+                    "manual": true
+                }
+            ]
+        },
+        "converted_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "end_state": {
+            "transitions": []
+        }
+    }
+}
