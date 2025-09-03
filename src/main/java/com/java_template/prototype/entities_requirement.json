@@ -1,0 +1,107 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "category": "Food",
+                    "categoryId": 101,
+                    "createdAt": "2023-01-01T10:15:30",
+                    "id": 1,
+                    "lastSaleDate": "2023-10-01T10:15:30",
+                    "name": "Dog Food",
+                    "photoUrls": [
+                        "url1",
+                        "url2"
+                    ],
+                    "price": 29.99,
+                    "revenue": 8997.0,
+                    "salesVolume": 300,
+                    "stockQuantity": 150,
+                    "tags": [
+                        "dog",
+                        "food"
+                    ],
+                    "updatedAt": "2023-10-01T10:15:30"
+                }
+            }
+        },
+        {
+            "PerformanceMetric": {
+                "entity_data_example": {
+                    "calculatedAt": "2023-10-01T10:15:30",
+                    "calculationPeriod": "MONTHLY",
+                    "id": 1,
+                    "isOutlier": false,
+                    "metricType": "SALES_VOLUME",
+                    "metricValue": 300,
+                    "periodEnd": "2023-09-30",
+                    "periodStart": "2023-09-01",
+                    "productId": 1
+                }
+            }
+        },
+        {
+            "Report": {
+                "entity_data_example": {
+                    "fileFormat": "PDF",
+                    "filePath": "/reports/october_sales_report.pdf",
+                    "generationDate": "2023-10-01T10:15:30",
+                    "id": 1,
+                    "keyInsights": [
+                        "Increase in dog food sales",
+                        "Need to restock cat food"
+                    ],
+                    "reportName": "October Sales Report",
+                    "reportPeriodEnd": "2023-10-31",
+                    "reportPeriodStart": "2023-10-01",
+                    "reportType": "MONTHLY_ANALYSIS",
+                    "summary": "Summary of sales for October.",
+                    "topPerformingProducts": [
+                        "Dog Food",
+                        "Cat Food"
+                    ],
+                    "totalProducts": 5,
+                    "underperformingProducts": [
+                        "Fish Food"
+                    ]
+                }
+            }
+        },
+        {
+            "EmailNotification": {
+                "entity_data_example": {
+                    "actualSendTime": "2023-10-01T11:00:00",
+                    "attachmentPath": "/reports/october_sales_report.pdf",
+                    "bodyContent": "Dear Customer, your report is ready.",
+                    "deliveryStatus": "SENT",
+                    "errorMessage": null,
+                    "id": 1,
+                    "maxRetries": 3,
+                    "recipientEmail": "customer@example.com",
+                    "reportId": 1,
+                    "retryCount": 0,
+                    "scheduledSendTime": "2023-10-01T11:00:00",
+                    "subject": "Your October Sales Report is Ready"
+                }
+            }
+        },
+        {
+            "DataExtractionJob": {
+                "entity_data_example": {
+                    "apiEndpoint": "/api/products",
+                    "endTime": "2023-10-01T06:15:00",
+                    "errorLog": null,
+                    "extractionType": "PRODUCTS",
+                    "id": 1,
+                    "jobName": "Daily Product Extract",
+                    "nextScheduledRun": "2023-10-02T06:00:00",
+                    "recordsExtracted": 100,
+                    "recordsFailed": 0,
+                    "recordsProcessed": 100,
+                    "scheduledTime": "2023-10-01T06:00:00",
+                    "startTime": "2023-10-01T06:05:00"
+                }
+            }
+        }
+    ]
+}
