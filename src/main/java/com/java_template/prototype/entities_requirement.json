@@ -1,0 +1,89 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "analysisDate": "2023-10-01T09:00:00",
+                    "category": "Food",
+                    "categoryId": 1,
+                    "extractionDate": "2023-10-01T08:00:00",
+                    "inventoryTurnoverRate": 2.0,
+                    "isUnderperforming": false,
+                    "lastSaleDate": "2023-10-01T10:00:00",
+                    "name": "Dog Food",
+                    "needsRestocking": false,
+                    "performanceScore": 85.5,
+                    "petId": 123,
+                    "photoUrls": [
+                        "url1",
+                        "url2"
+                    ],
+                    "price": 19.99,
+                    "revenue": 1999.0,
+                    "salesVolume": 100,
+                    "stockLevel": 50,
+                    "tags": [
+                        "dog",
+                        "food"
+                    ]
+                }
+            }
+        },
+        {
+            "DataExtraction": {
+                "entity_data_example": {
+                    "apiEndpoint": "https://petstore.com/api/pets",
+                    "dataQualityScore": 0.95,
+                    "endTime": "2023-10-01T07:15:00",
+                    "errorMessage": "",
+                    "extractionFormat": "JSON",
+                    "extractionId": "ext123",
+                    "extractionType": "SCHEDULED",
+                    "retryCount": 0,
+                    "scheduledTime": "2023-10-01T07:00:00",
+                    "startTime": "2023-10-01T07:05:00",
+                    "totalInventoryRecords": 150,
+                    "totalProductsExtracted": 100
+                }
+            }
+        },
+        {
+            "Report": {
+                "entity_data_example": {
+                    "averageInventoryTurnover": 1.5,
+                    "emailSent": true,
+                    "emailSentDate": "2023-10-01T09:00:00",
+                    "generationDate": "2023-10-01T08:30:00",
+                    "recipientEmail": "user@example.com",
+                    "reportFilePath": "/reports/weekly_summary.pdf",
+                    "reportFormat": "PDF",
+                    "reportId": "rep123",
+                    "reportPeriodEnd": "2023-10-01T00:00:00",
+                    "reportPeriodStart": "2023-09-25T00:00:00",
+                    "reportSummary": "Summary of weekly performance.",
+                    "reportType": "WEEKLY_SUMMARY",
+                    "restockingRequiredCount": 15,
+                    "topPerformingProductCount": 10,
+                    "totalProductsAnalyzed": 100,
+                    "totalRevenue": 5000.0,
+                    "underperformingProductCount": 5
+                }
+            }
+        },
+        {
+            "EmailNotification": {
+                "entity_data_example": {
+                    "attachmentPath": "/reports/weekly_summary.pdf",
+                    "deliveryStatus": "SENT",
+                    "emailBody": "Here is your weekly report.",
+                    "errorMessage": "",
+                    "notificationId": "notif123",
+                    "recipientEmail": "user@example.com",
+                    "retryCount": 0,
+                    "sentDate": "2023-10-01T09:00:00",
+                    "subject": "Weekly Report"
+                }
+            }
+        }
+    ]
+}
