@@ -1,0 +1,113 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "attributes": {},
+                    "bundles": {},
+                    "category": "Electronics",
+                    "compliance": {},
+                    "description": "This is a sample product.",
+                    "events": {},
+                    "inventory": {},
+                    "localizations": {},
+                    "media": {},
+                    "name": "Sample Product",
+                    "options": {},
+                    "price": 19.99,
+                    "quantityAvailable": 100,
+                    "relationships": {},
+                    "sku": "P12345",
+                    "variants": {},
+                    "warehouseId": "W1"
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "cartId": "C12345",
+                    "grandTotal": 19.99,
+                    "guestContact": {
+                        "address": {
+                            "city": "Anytown",
+                            "country": "USA",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "johndoe@example.com",
+                        "name": "John Doe",
+                        "phone": "1234567890"
+                    },
+                    "lines": [
+                        {
+                            "name": "Sample Product",
+                            "price": 19.99,
+                            "qty": 1,
+                            "sku": "P12345"
+                        }
+                    ],
+                    "totalItems": 1
+                }
+            }
+        },
+        {
+            "Payment": {
+                "entity_data_example": {
+                    "amount": 19.99,
+                    "cartId": "C12345",
+                    "paymentId": "PAY12345",
+                    "provider": "DUMMY"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "guestContact": {
+                        "address": {
+                            "city": "Anytown",
+                            "country": "USA",
+                            "line1": "123 Main St",
+                            "postcode": "12345"
+                        },
+                        "email": "johndoe@example.com",
+                        "name": "John Doe",
+                        "phone": "1234567890"
+                    },
+                    "lines": [
+                        {
+                            "lineTotal": 19.99,
+                            "name": "Sample Product",
+                            "qty": 1,
+                            "sku": "P12345",
+                            "unitPrice": 19.99
+                        }
+                    ],
+                    "orderId": "O12345",
+                    "orderNumber": "ULID1234",
+                    "totals": {
+                        "grand": 19.99,
+                        "items": 1
+                    }
+                }
+            }
+        },
+        {
+            "Shipment": {
+                "entity_data_example": {
+                    "lines": [
+                        {
+                            "qtyOrdered": 1,
+                            "qtyPicked": 1,
+                            "qtyShipped": 1,
+                            "sku": "P12345"
+                        }
+                    ],
+                    "orderId": "O12345",
+                    "shipmentId": "S12345"
+                }
+            }
+        }
+    ]
+}
