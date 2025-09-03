@@ -128,86 +128,72 @@ Domain logic structure. Contains entity structures.
 
 ---
 
-## ⚙️ API Reference – `EntityService`
+## ⚙️ EntityService API - Simplified & Performance-Optimized
 
-| Method                                                                                  | Return type                     | Description                           |
-|-----------------------------------------------------------------------------------------|---------------------------------|---------------------------------------|
-| `getItem(String model, String version, UUID technicalId)`                               | `CompletableFuture<ObjectNode>` | Get item by ID                        |
-| `getItems(String model, String version)`                                                | `CompletableFuture<ArrayNode>`  | Get all items by model and version    |
-| `getItemsByCondition(String entityModel, String entityVersion, Object condition)`       | `CompletableFuture<ArrayNode>`  | Get multiple items by condition       |
-| `addItem(String entityModel, String entityVersion, Object entity)`                      | `CompletableFuture<UUID>`       | Add item                              |
-| `addItems(String entityModel, String entityVersion, Object entities)`                   | `CompletableFuture<List<UUID>>` | Add multiple items                    |
-| `updateItem(String entityModel, String entityVersion, UUID technicalId, Object entity)` | `CompletableFuture<UUID>`       | Update item                           |
-| `deleteItem(String entityModel, String entityVersion, UUID technicalId)`                | `CompletableFuture<UUID>`       | Delete item                           |
-| `deleteItems(String entityModel, String entityVersion)`                                 | `CompletableFuture<ArrayNode>`  | Delete all items by model and version |
+The EntityService has been redesigned with **clear performance guidance** and **simplified method signatures** to eliminate AI confusion and improve developer experience.
 
-> Use `import static com.java_template.common.config.Config.ENTITY_VERSION` for consistent versioning.
+### 🚀 **Primary Methods (Use These)**
 
-### 🔑 Where to get `technicalId`
+| Method | Performance | Use Case | Example |
+|--------|-------------|----------|---------|
+| `getById(UUID id, Class<T> clazz)` | **FASTEST** | When you have technical UUID | `entityService.getById(uuid, Cart.class)` |
+| `findByBusinessId(Class<T> clazz, String businessId, String fieldName)` | **MEDIUM** | User-facing identifiers | `entityService.findByBusinessId(Cart.class, "CART-123", "cartId")` |
+| `findAll(Class<T> clazz)` | **SLOW** | Get all entities (use sparingly) | `entityService.findAll(Product.class)` |
+| `search(Class<T> clazz, SearchConditionRequest condition)` | **SLOWEST** | Complex queries | `entityService.search(Product.class, condition)` |
 
-For all methods that require a `technicalId` (such as `updateItem` or `deleteItem`), this field is **automatically included** in the returned entity when using methods like `getItem(...)`, `getItems(...)`, or `getItemsByCondition(...)`.
+### 💾 **Mutation Methods**
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `save(T entity)` | Create new entity | `entityService.save(newCart)` |
+| `update(UUID id, T entity, String transition)` | Update by technical ID | `entityService.update(uuid, cart, "CHECKOUT")` |
+| `updateByBusinessId(T entity, String fieldName, String transition)` | Update by business ID | `entityService.updateByBusinessId(cart, "cartId", null)` |
+| `deleteById(UUID id)` | Delete by technical ID | `entityService.deleteById(uuid)` |
+| `deleteByBusinessId(Class<T> clazz, String businessId, String fieldName)` | Delete by business ID | `entityService.deleteByBusinessId(Cart.class, "CART-123", "cartId")` |
+
+### 🎯 **Method Selection Guide**
+
+```java
+// ✅ FASTEST - Use when you have the technical UUID (from previous EntityResponse)
+EntityResponse<Cart> cart = entityService.getById(technicalId, Cart.class);
+
+// ✅ MEDIUM SPEED - Use for user-facing identifiers (cartId, paymentId, orderId, etc.)
+EntityResponse<Cart> cart = entityService.findByBusinessId(Cart.class, "CART-123", "cartId");
+
+// ⚠️ SLOW - Use sparingly for small datasets
+List<EntityResponse<Product>> allProducts = entityService.findAll(Product.class);
+
+// ⚠️ SLOWEST - Use for complex filtering/search
+SearchConditionRequest condition = SearchConditionRequest.group("AND",
+    Condition.of("$.price", "GREATER_THAN", 100));
+List<EntityResponse<Product>> expensiveProducts = entityService.search(Product.class, condition);
+```
 
 ### 🔑 EntityResponse<T> Structure
 
-All EntityService methods return `EntityResponse<T>` with rich metadata:
+All EntityService methods return `EntityResponse<T>` which contains both the entity data and metadata:
 
 ```java
-EntityResponse<Product> response = entityService.save(product);
+EntityResponse<Cart> response = entityService.getById(cartId, Cart.class);
 
-// Access business data
-Product product = response.getData();
+// Access the entity data
+Cart cart = response.getData();
 
-// Access metadata
-UUID technicalId = response.getId();        // For updates/deletes
-LocalDateTime created = response.getCreatedAt();
-LocalDateTime updated = response.getUpdatedAt();
-Integer version = response.getVersion();    // For optimistic locking
+// Access metadata (includes technical UUID and workflow state)
+UUID technicalId = response.getMetadata().getId();      // Use for subsequent operations
+String workflowState = response.getMetadata().getState(); // Current workflow state
+LocalDateTime created = response.getMetadata().getCreatedAt();
+LocalDateTime updated = response.getMetadata().getUpdatedAt();
 ```
 
-## ⚙️ EntityService API (JPA-Style)
+### 💡 **Performance Tips**
 
-The EntityService follows **Spring Boot JPA Repository** patterns with **type-safe, synchronous operations**.
+- **Store Technical UUIDs**: Save `response.getMetadata().getId()` for future operations
+- **Use Business IDs for APIs**: Expose user-friendly IDs (cartId, orderId) in REST endpoints
+- **Cache Frequently Used Data**: Consider caching results from `findAll()` operations
+- **Batch Operations**: Use `saveAll()` for multiple entities when possible
 
-### 🔄 Core Operations
-```java
-// Save entity (JPA-style)
-EntityResponse<Product> response = entityService.save(product);
-Product savedProduct = response.getData();
 
-// Find by business ID (SKU, orderId, etc.)
-EntityResponse<Product> productResponse = entityService.findByBusinessId(Product.class, "SKU123");
-
-// Find all entities
-List<EntityResponse<Product>> responses = entityService.findAll(Product.class);
-
-// Update with optional transition
-EntityResponse<Product> updated = entityService.updateByBusinessId(product, "approve");
-
-// Delete by business ID
-boolean deleted = entityService.deleteByBusinessId(Product.class, "SKU123");
-```
-
-### 🔍 Advanced Search (Type-Safe)
-```java
-// Simple field search
-List<EntityResponse<Product>> products = entityService.findByField(Product.class, "category", "electronics");
-
-// Complex search conditions
-SearchConditionRequest condition = SearchConditionRequest.group("AND",
-    Condition.of("$.category", "EQUALS", "electronics"),
-    Condition.of("$.price", "GREATER_THAN", 100),
-    Condition.of("$.inStock", "EQUALS", true)
-);
-
-List<EntityResponse<Product>> results = entityService.findByCondition(Product.class, condition, false);
-```
-
-### ✨ Key Features
-- **🔄 JPA-Style**: `save()`, `findAll()`, `deleteById()` - familiar to Spring Boot developers
-- **🛡️ Type Safety**: All methods use proper generics and `SearchConditionRequest`
-- **📊 Rich Metadata**: Every response includes technical ID, timestamps, etc.
-- **⚡ Synchronous**: Clean, simple method calls (no CompletableFuture)
-- **🎯 Transition Support**: Update operations support workflow transitions
 
 ---
 
@@ -433,37 +419,75 @@ CONTAINS, STARTS_WITH, ENDS_WITH, NOT_CONTAINS, NOT_STARTS_WITH, NOT_ENDS_WITH, 
 
 The logic for processing workflows is implemented using **CyodaProcessor** and **CyodaCriterion** interfaces in the `application/` directory.
 
-### Processor Architecture
+### Processor Architecture - Simplified & Clean
 
-Processors implement the `CyodaProcessor` interface and use the **EntityProcessingChain** API for type-safe entity processing. Processors are configured in workflow transitions with execution modes and configuration options:
+Processors implement the `CyodaProcessor` interface with **minimal dependencies** and follow the **"Entity as Payload"** principle:
 
 ```java
 @Component
 public class AddLastModifiedTimestamp implements CyodaProcessor {
-
     private final ProcessorSerializer serializer;
+    // Optional: Only inject EntityService if you need to interact with other entities
+    private final EntityService entityService;
+
+    // Constructor WITHOUT EntityService (for simple processors)
+    public AddLastModifiedTimestamp(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+    }
+
+    // Constructor WITH EntityService (only if needed for other entity interactions)
+    public AddLastModifiedTimestamp(SerializerFactory serializerFactory, EntityService entityService) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+    }
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
 
-        // Fluent entity processing with validation
         return serializer.withRequest(request)
             .toEntity(Pet.class)
             .validate(pet -> pet.getId() != null && pet.getName() != null)
-            .map(pet -> {
-                pet.addLastModifiedTimestamp();
-                return pet;
-            })
+            .map(this::processBusinessLogic)
             .complete();
+    }
+
+    private Pet processBusinessLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Pet> context) {
+        Pet pet = context.entity();
+
+        // CRITICAL: The entity already contains all the data you need
+        // Never extract from request payload - use entity getters directly
+
+        // If you need to interact with other entities, use EntityService:
+        // EntityResponse<Owner> owner = entityService.getById(pet.getOwnerId(), Owner.class);
+
+        pet.addLastModifiedTimestamp();
+        return pet;
     }
 
     @Override
     public boolean supports(OperationSpecification modelKey) {
-        // Match based on processor name from workflow configuration
         return "example_function_name".equals(modelKey.operationName());
     }
 }
+```
+
+### 🚫 **Anti-Patterns to Avoid**
+
+```java
+// ❌ DON'T: Extract from payload manually
+Map<String, Object> payloadMap = objectMapper.convertValue(request.getPayload().getData(), Map.class);
+
+// ❌ DON'T: Inject ObjectMapper in processors
+public AddLastModifiedTimestamp(SerializerFactory factory, ObjectMapper objectMapper) { ... }
+
+// ❌ DON'T: Manual entity reconstruction
+Pet pet = new Pet();
+pet.setName((String) payloadMap.get("name"));
+
+// ✅ DO: Use entity directly
+Pet pet = context.entity();
+String name = pet.getName();
 ```
 
 ### Processor Configuration
