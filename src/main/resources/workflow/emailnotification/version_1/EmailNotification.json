@@ -1,0 +1,93 @@
+{
+    "version": "1.0",
+    "name": "EmailNotification Workflow",
+    "desc": "Manages email notification delivery with retry logic.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initiate_send",
+                    "next": "sending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailInitiationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending": {
+            "transitions": [
+                {
+                    "name": "email_sent",
+                    "next": "sent",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailSentProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "email_delivered",
+                    "next": "delivered",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "DeliveryConfirmationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "email_delivery_failed",
+                    "next": "failed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "DeliveryFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry_email_send",
+                    "next": "sending",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EmailRetryEligibilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

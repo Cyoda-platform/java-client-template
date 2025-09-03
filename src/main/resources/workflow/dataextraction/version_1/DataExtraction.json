@@ -1,0 +1,120 @@
+{
+    "version": "1.0",
+    "name": "DataExtraction Workflow",
+    "desc": "Manages the data extraction process from Pet Store API with scheduling and error handling.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "schedule_extraction",
+                    "next": "scheduled",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ExtractionSchedulingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "scheduled": {
+            "transitions": [
+                {
+                    "name": "start_extraction",
+                    "next": "in_progress",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DataExtractionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "in_progress": {
+            "transitions": [
+                {
+                    "name": "complete_extraction",
+                    "next": "completed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ExtractionSuccessCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "ExtractionCompletionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_extraction",
+                    "next": "failed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ExtractionFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "ExtractionFailureProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry_extraction",
+                    "next": "scheduled",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "RetryEligibilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "ExtractionRetryProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

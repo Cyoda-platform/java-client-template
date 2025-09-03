@@ -1,0 +1,109 @@
+{
+    "version": "1.0",
+    "name": "Report Workflow",
+    "desc": "Manages report generation, formatting, and email delivery.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_report_generation",
+                    "next": "generating",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportInitializationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "generating": {
+            "transitions": [
+                {
+                    "name": "complete_report",
+                    "next": "generated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportGenerationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "generated": {
+            "transitions": [
+                {
+                    "name": "send_email",
+                    "next": "emailed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailSendingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "email_send_failed",
+                    "next": "email_failed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EmailFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "email_failed": {
+            "transitions": [
+                {
+                    "name": "retry_email",
+                    "next": "generated",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EmailRetryEligibilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "emailed": {
+            "transitions": [
+                {
+                    "name": "regenerate_report",
+                    "next": "generating",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ReportRegenerationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,69 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Manages the lifecycle of product data from extraction through analysis and reporting.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_extracted",
+                    "next": "extracted",
+                    "manual": false
+                }
+            ]
+        },
+        "extracted": {
+            "transitions": [
+                {
+                    "name": "analyze_performance",
+                    "next": "analyzed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductExtractionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "analyzed": {
+            "transitions": [
+                {
+                    "name": "include_in_report",
+                    "next": "reported",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductAnalysisProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "reported": {
+            "transitions": [
+                {
+                    "name": "reanalyze_product",
+                    "next": "analyzed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ProductAnalysisProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
