@@ -1,0 +1,54 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Description of the workflow for Product",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_product",
+                    "next": "state_01",
+                    "manual": false
+                }
+            ]
+        },
+        "state_01": {
+            "transitions": [
+                {
+                    "name": "transition_to_state_02",
+                    "next": "state_02",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductCreationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_02": {
+            "transitions": [
+                {
+                    "name": "transition_to_state_03",
+                    "next": "state_03",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductValidationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

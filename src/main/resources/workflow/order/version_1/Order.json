@@ -1,0 +1,99 @@
+{
+    "version": "1.0",
+    "name": "Order Workflow",
+    "desc": "Manages order fulfillment from creation to delivery.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_order",
+                    "next": "WAITING_TO_FULFILL",
+                    "manual": false
+                }
+            ]
+        },
+        "WAITING_TO_FULFILL": {
+            "transitions": [
+                {
+                    "name": "create_order_from_paid",
+                    "next": "PICKING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderCreateFromPaidProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PICKING": {
+            "transitions": [
+                {
+                    "name": "ready_to_send",
+                    "next": "WAITING_TO_SEND",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderReadyToSendProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "WAITING_TO_SEND": {
+            "transitions": [
+                {
+                    "name": "mark_sent",
+                    "next": "SENT",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderMarkSentProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": [
+                {
+                    "name": "mark_delivered",
+                    "next": "DELIVERED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderMarkDeliveredProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DELIVERED": {
+            "transitions": [
+                {
+                    "name": "complete_order",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
