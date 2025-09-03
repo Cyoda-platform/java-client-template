@@ -1,0 +1,49 @@
+package com.java_template.application.entity.payment.version_1;
+
+import com.java_template.common.workflow.CyodaEntity;
+import com.java_template.common.workflow.OperationSpecification;
+import lombok.Data;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+
+import java.time.Instant;
+
+@Data
+public class Payment implements CyodaEntity {
+    public static final String ENTITY_NAME = Payment.class.getSimpleName();
+    public static final Integer ENTITY_VERSION = 1;
+
+    // Required fields
+    private String paymentId;
+    private String cartId;
+    private Double amount;
+    private String provider;
+    
+    // Auto-generated timestamps
+    private Instant createdAt;
+    private Instant updatedAt;
+
+    @Override
+    public OperationSpecification getModelKey() {
+        ModelSpec modelSpec = new ModelSpec();
+        modelSpec.setName(ENTITY_NAME);
+        modelSpec.setVersion(ENTITY_VERSION);
+        return new OperationSpecification.Entity(modelSpec, ENTITY_NAME);
+    }
+
+    @Override
+    public boolean isValid() {
+        return paymentId != null && !paymentId.trim().isEmpty() &&
+               cartId != null && !cartId.trim().isEmpty() &&
+               amount != null && amount > 0 &&
+               provider != null && "DUMMY".equals(provider);
+    }
+    
+    // Helper methods for business logic
+    public boolean isDummyProvider() {
+        return "DUMMY".equals(provider);
+    }
+    
+    public boolean hasValidAmount() {
+        return amount != null && amount > 0;
+    }
+}
