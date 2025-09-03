@@ -16,20 +16,20 @@ import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 
 /**
  * Simplified EntityService interface with clear method selection guidance.
- *
+
  * METHOD SELECTION GUIDE:
- *
+
  * FOR RETRIEVAL:
  * - Use getById() when you have the technical UUID (fastest, most efficient)
  * - Use findByBusinessId() when you have a business identifier (e.g., "CART-123", "PAY-456")
  * - Use findAll() to get all entities of a type (use sparingly, can be slow)
  * - Use search() for complex queries with multiple conditions
- *
+
  * FOR MUTATIONS:
  * - Use save() for new entities
  * - Use update() for existing entities with technical UUID
  * - Use updateByBusinessId() for existing entities with business identifier
- *
+
  * PERFORMANCE NOTES:
  * - Technical UUID operations are fastest (direct lookup)
  * - Business ID operations require field search (slower)

@@ -2,6 +2,7 @@ package com.java_template.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.java_template.common.workflow.CyodaEntity;
+import lombok.Data;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
@@ -9,35 +10,37 @@ import java.util.Date;
 import java.util.UUID;
 
 /**
- * Generic wrapper that encapsulates both business entity data and Cyoda metadata.
+ * Generic wrapper that encapsulates both business entity and Cyoda metadata.
  * Uses the Envelope/Wrapper pattern to provide a clean API for accessing both
- * business data and technical metadata.
- * 
+ * entity data and technical metadata.
+
+ * JSON Structure:
+ * {
+ *   "entity": { ... business entity data ... },
+ *   "metadata": { "id": "uuid", "state": "workflow_state", ... }
+ * }
+
+ * Usage:
+ * - getEntity() - Access the business entity (preferred)
+ * - getMetadata() - Access Cyoda metadata (UUID, state, timestamps)
+
  * @param <T> The type of the business entity
  */
+@Data
 public class EntityResponse<T extends CyodaEntity> {
-    
-    @JsonProperty("data")
-    private final T data;
-    
+
+    @JsonProperty("entity")
+    private final T entity;
+
     @JsonProperty("meta")
     private final EntityMetadata metadata;
     
     // Constructor for internal use
-    public EntityResponse(T data, EntityMetadata metadata) {
-        this.data = data;
+    public EntityResponse(T entity, EntityMetadata metadata) {
+        this.entity = entity;
         this.metadata = metadata;
     }
-    
-    // Getters for the wrapped data and metadata
-    public T getData() {
-        return data;
-    }
-    
-    public EntityMetadata getMetadata() {
-        return metadata;
-    }
-    
+
     // Convenience methods for commonly accessed metadata fields
     public UUID getId() {
         return metadata != null ? metadata.getId() : null;
@@ -65,21 +68,21 @@ public class EntityResponse<T extends CyodaEntity> {
     }
     
     public static class Builder<T extends CyodaEntity> {
-        private T data;
+        private T entity;
         private EntityMetadata metadata;
-        
-        public Builder<T> data(T data) {
-            this.data = data;
+
+        public Builder<T> entity(T entity) {
+            this.entity = entity;
             return this;
         }
-        
+
         public Builder<T> metadata(EntityMetadata metadata) {
             this.metadata = metadata;
             return this;
         }
-        
+
         public EntityResponse<T> build() {
-            return new EntityResponse<>(data, metadata);
+            return new EntityResponse<>(entity, metadata);
         }
     }
     
@@ -160,11 +163,4 @@ public class EntityResponse<T extends CyodaEntity> {
         return entityResponses;
     }
 
-    @Override
-    public String toString() {
-        return "EntityResponse{" +
-                "data=" + data +
-                ", metadata=" + metadata +
-                '}';
-    }
 }

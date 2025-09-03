@@ -2,6 +2,31 @@
 
 A structured template for building scalable web clients using **Spring Boot**, designed for seamless integration with **Cyoda** over **gRPC** and **REST**.
 
+## 🚀 **Latest Improvements - EntityService Redesigned**
+
+The EntityService has been completely redesigned with **performance-optimized methods** and **AI-friendly patterns** to eliminate confusion and improve developer experience:
+
+### **Key Improvements:**
+- ✅ **Clear Performance Guidance**: Methods labeled FASTEST, MEDIUM, SLOW, SLOWEST
+- ✅ **Simplified API**: Removed confusing method overloads and redundant parameters
+- ✅ **Consistent Naming**: EntityResponse uses `getEntity()` with Lombok @Data
+- ✅ **Clean JSON Structure**: `{"entity": {...}, "metadata": {...}}`
+- ✅ **Anti-Pattern Prevention**: Explicit guidance on what NOT to do
+
+### **Quick Start:**
+```java
+// ✅ FASTEST - Use when you have technical UUID
+EntityResponse<Cart> cart = entityService.getById(uuid, Cart.class);
+
+// ✅ MEDIUM - Use for user-facing identifiers
+EntityResponse<Cart> cart = entityService.findByBusinessId(Cart.class, "CART-123", "cartId");
+
+// Access entity and metadata
+Cart cartEntity = cart.getEntity();  // Lombok-generated getter
+UUID technicalId = cart.getMetadata().getId();
+String state = cart.getMetadata().getState();
+```
+
 ## 🤖 AI-Friendly Documentation
 
 ### Background
@@ -171,13 +196,13 @@ List<EntityResponse<Product>> expensiveProducts = entityService.search(Product.c
 
 ### 🔑 EntityResponse<T> Structure
 
-All EntityService methods return `EntityResponse<T>` which contains both the entity data and metadata:
+All EntityService methods return `EntityResponse<T>` which contains both the entity and metadata:
 
 ```java
 EntityResponse<Cart> response = entityService.getById(cartId, Cart.class);
 
-// Access the entity data
-Cart cart = response.getData();
+// Access the entity (Lombok @Data generates getEntity() automatically)
+Cart cart = response.getEntity();
 
 // Access metadata (includes technical UUID and workflow state)
 UUID technicalId = response.getMetadata().getId();      // Use for subsequent operations
@@ -186,12 +211,59 @@ LocalDateTime created = response.getMetadata().getCreatedAt();
 LocalDateTime updated = response.getMetadata().getUpdatedAt();
 ```
 
+**JSON Structure:**
+```json
+{
+  "entity": {
+    "cartId": "CART-123",
+    "items": [...],
+    "total": 99.99
+  },
+  "metadata": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "state": "ACTIVE"
+  }
+}
+```
+
 ### 💡 **Performance Tips**
 
 - **Store Technical UUIDs**: Save `response.getMetadata().getId()` for future operations
 - **Use Business IDs for APIs**: Expose user-friendly IDs (cartId, orderId) in REST endpoints
 - **Cache Frequently Used Data**: Consider caching results from `findAll()` operations
 - **Batch Operations**: Use `saveAll()` for multiple entities when possible
+
+### 🔄 **Unified Processor Interface**
+
+Processors support both traditional entity processing and the new unified EntityResponse interface:
+
+```java
+// Traditional entity processing
+return serializer.withRequest(request)
+    .toEntity(EntityName.class)
+    .validate(this::isValidEntity, "Invalid entity")
+    .map(this::processEntityLogic)
+    .complete();
+
+// NEW: Unified EntityResponse processing (recommended for consistency)
+return serializer.withRequest(request)
+    .toEntityResponse(EntityName.class)  // Same interface as controllers
+    .validate(this::isValidEntityResponse, "Invalid entity response")
+    .map(this::processEntityResponseLogic)
+    .complete();
+
+private EntityResponse<EntityName> processEntityResponseLogic(ProcessorEntityResponseExecutionContext<EntityName> context) {
+    EntityResponse<EntityName> entityResponse = context.entityResponse();
+    EntityName entity = entityResponse.getEntity();
+
+    // Direct access to metadata (unified with controllers)
+    UUID currentEntityId = entityResponse.getMetadata().getId();
+    String currentState = entityResponse.getMetadata().getState();
+
+    // Process business logic
+    return entityResponse; // Cannot modify current entity state
+}
+```
 
 
 
@@ -459,7 +531,8 @@ public class AddLastModifiedTimestamp implements CyodaProcessor {
         // Never extract from request payload - use entity getters directly
 
         // If you need to interact with other entities, use EntityService:
-        // EntityResponse<Owner> owner = entityService.getById(pet.getOwnerId(), Owner.class);
+        // EntityResponse<Owner> ownerResponse = entityService.getById(pet.getOwnerId(), Owner.class);
+        // Owner owner = ownerResponse.getEntity();
 
         pet.addLastModifiedTimestamp();
         return pet;
@@ -471,6 +544,44 @@ public class AddLastModifiedTimestamp implements CyodaProcessor {
     }
 }
 ```
+
+### 🚫 **Processor Anti-Patterns to Avoid**
+
+```java
+// ❌ DON'T: Extract from payload manually
+Map<String, Object> payloadMap = objectMapper.convertValue(request.getPayload().getData(), Map.class);
+
+// ❌ DON'T: Inject ObjectMapper in processors
+public ProcessorName(SerializerFactory factory, ObjectMapper objectMapper) { ... }
+
+// ❌ DON'T: Manual entity reconstruction
+Pet pet = new Pet();
+pet.setName((String) payloadMap.get("name"));
+
+// ❌ DON'T: Try to update current entity in processor
+EntityResponse<Pet> updated = entityService.update(currentEntityId, pet, "TRANSITION");
+
+// ✅ DO: Use entity directly
+Pet pet = context.entity();
+String name = pet.getName();
+
+// ✅ DO: Use EntityService for OTHER entities only
+EntityResponse<Owner> ownerResponse = entityService.getById(ownerId, Owner.class);
+Owner owner = ownerResponse.getEntity();
+EntityResponse<Owner> updated = entityService.update(ownerId, owner, "TRANSITION");
+```
+
+### 🚨 **Critical Processor Limitations**
+
+**IMPORTANT**: Processors have specific limitations on what they can and cannot do:
+
+- ✅ **CAN**: Read current entity data using `context.entity()` or `entityResponse.getEntity()`
+- ✅ **CAN**: Access current entity metadata: `context.getEvent().getEntityId()` and state
+- ✅ **CAN**: Get, update, delete OTHER entities using EntityService
+- ❌ **CANNOT**: Update the current entity being processed
+- ❌ **CANNOT**: Change the current entity's workflow state
+- ❌ **CANNOT**: Use Java reflection - only entity getters/setters
+- ❌ **CANNOT**: Modify code in `src/main/java/com/java_template/common` directory
 
 ### 🚫 **Anti-Patterns to Avoid**
 

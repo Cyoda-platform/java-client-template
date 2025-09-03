@@ -1,6 +1,7 @@
 package com.java_template.common.serializer;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.java_template.common.dto.EntityResponse;
 import com.java_template.common.workflow.CyodaEntity;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
@@ -25,6 +26,12 @@ public interface ProcessorSerializer {
      * Provides access to both request metadata (entityId, transactionId) and entity data.
      */
     record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity) {}
+
+    /**
+     * Context record containing the original request and EntityResponse for processor evaluation.
+     * Provides access to both request metadata and complete entity response with metadata.
+     */
+    record ProcessorEntityResponseExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, EntityResponse<T> entityResponse) {}
 
     /**
      * Extracts a typed entity from the request payload.
@@ -91,6 +98,14 @@ public interface ProcessorSerializer {
          * @return EntityProcessingChain for entity-based chaining
          */
         <T extends CyodaEntity> EntityProcessingChain<T> toEntity(Class<T> clazz);
+
+        /**
+         * Extracts an entity and wraps it in EntityResponse for unified interface processing.
+         * This creates a unified interface between processors and controllers.
+         * @param clazz Entity class to extract
+         * @return EntityResponseProcessingChain for EntityResponse-based chaining
+         */
+        <T extends CyodaEntity> EntityResponseProcessingChain<T> toEntityResponse(Class<T> clazz);
 
         /**
          * Sets the error handler for the processing chain.
@@ -170,6 +185,66 @@ public interface ProcessorSerializer {
     }
 
     /**
+     * EntityResponse processing chain API for unified interface processor operations.
+     * Provides a chainable interface for transforming EntityResponse instances and building responses.
+     * This interface creates consistency between processors and controllers by working with EntityResponse.
+     */
+    interface EntityResponseProcessingChain<T extends CyodaEntity> {
+        /**
+         * Maps the current EntityResponse using the provided function with request context.
+         * Provides access to both request metadata and complete EntityResponse data.
+         * @param mapper Function to transform the EntityResponse with context
+         * @return EntityResponseProcessingChain for chaining
+         */
+        EntityResponseProcessingChain<T> map(Function<ProcessorEntityResponseExecutionContext<T>, EntityResponse<T>> mapper);
+
+        /**
+         * Validates the current EntityResponse using the provided predicate.
+         * If validation fails, the processing chain will error.
+         * @param validator Predicate to validate the EntityResponse
+         * @return EntityResponseProcessingChain for chaining
+         */
+        EntityResponseProcessingChain<T> validate(Function<EntityResponse<T>, Boolean> validator);
+
+        /**
+         * Validates the current EntityResponse with a custom error message.
+         * @param validator Predicate to validate the EntityResponse
+         * @param errorMessage Custom error message if validation fails
+         * @return EntityResponseProcessingChain for chaining
+         */
+        EntityResponseProcessingChain<T> validate(Function<EntityResponse<T>, Boolean> validator, String errorMessage);
+
+        /**
+         * Switches to entity processing by extracting the entity from EntityResponse.
+         * @return EntityProcessingChain for entity-based chaining
+         */
+        EntityProcessingChain<T> toEntityFlow();
+
+        /**
+         * Sets the error handler for the EntityResponse processing chain.
+         * @param errorHandler Function to handle errors and create error responses
+         * @return EntityResponseProcessingChain for chaining
+         */
+        EntityResponseProcessingChain<T> withErrorHandler(BiFunction<Throwable, EntityResponse<T>, ErrorInfo> errorHandler);
+
+        /**
+         * Completes the EntityResponse processing chain and returns the response.
+         * Uses the error handler if one was set, otherwise uses default error handling.
+         * The EntityResponse entity is automatically converted to JsonNode using the serializer.
+         * @return EntityProcessorCalculationResponse
+         */
+        EntityProcessorCalculationResponse complete();
+
+        /**
+         * Completes the EntityResponse processing chain with a custom converter.
+         * Uses the error handler if one was set, otherwise uses default error handling.
+         * @param converter Function to convert the final EntityResponse to JsonNode
+         * @return EntityProcessorCalculationResponse
+         */
+        EntityProcessorCalculationResponse complete(Function<EntityResponse<T>, JsonNode> converter);
+    }
+
+    /**
      * Implementation of the ProcessingChain interface.
      */
     class ProcessingChainImpl implements ProcessingChain {
@@ -227,6 +302,49 @@ public interface ProcessorSerializer {
                 }
             }
             return new EntityProcessingChainImpl<>(serializer, request, error);
+        }
+
+        @Override
+        public <T extends CyodaEntity> EntityResponseProcessingChain<T> toEntityResponse(Class<T> clazz) {
+            if (error == null) {
+                try {
+                    T entity = serializer.extractEntity(request, clazz);
+                    // Create EntityResponse with entity and metadata from request
+                    EntityResponse<T> entityResponse = createEntityResponseFromRequest(entity, request);
+                    return new EntityResponseProcessingChainImpl<>(serializer, request, entityResponse);
+                } catch (Exception e) {
+                    return new EntityResponseProcessingChainImpl<>(serializer, request, e);
+                }
+            }
+            return new EntityResponseProcessingChainImpl<>(serializer, request, error);
+        }
+
+        private <T extends CyodaEntity> EntityResponse<T> createEntityResponseFromRequest(T entity, EntityProcessorCalculationRequest request) {
+            // Create EntityMetadata from request
+            org.cyoda.cloud.api.event.common.EntityMetadata metadata = new org.cyoda.cloud.api.event.common.EntityMetadata();
+
+            // Convert String entityId to UUID
+            try {
+                if (request.getEntityId() != null) {
+                    metadata.setId(java.util.UUID.fromString(request.getEntityId()));
+                }
+            } catch (IllegalArgumentException e) {
+                // If entityId is not a valid UUID, ignore and continue
+            }
+
+            // Extract state from request payload metadata if available
+            try {
+                if (request.getPayload() != null && request.getPayload().getMeta() != null) {
+                    Object state = request.getPayload().getMeta().get("state");
+                    if (state != null) {
+                        metadata.setState(state.toString());
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore metadata extraction errors, continue with basic metadata
+            }
+
+            return new EntityResponse<>(entity, metadata);
         }
 
         @Override
@@ -397,6 +515,122 @@ public interface ProcessorSerializer {
             } catch (Exception e) {
                 if (errorHandler != null) {
                     ErrorInfo errorInfo = errorHandler.apply(e, processedEntity);
+                    return serializer.responseBuilder(request)
+                            .withError(errorInfo.code(), errorInfo.message())
+                            .build();
+                } else {
+                    return serializer.responseBuilder(request)
+                            .withError("CONVERSION_ERROR", e.getMessage())
+                            .build();
+                }
+            }
+        }
+    }
+
+    /**
+     * Implementation of the EntityResponseProcessingChain interface.
+     */
+    class EntityResponseProcessingChainImpl<T extends CyodaEntity> implements EntityResponseProcessingChain<T> {
+        private final ProcessorSerializer serializer;
+        private final EntityProcessorCalculationRequest request;
+        private EntityResponse<T> processedEntityResponse;
+        private Throwable error;
+        private BiFunction<Throwable, EntityResponse<T>, ErrorInfo> errorHandler;
+
+        EntityResponseProcessingChainImpl(ProcessorSerializer serializer, EntityProcessorCalculationRequest request, EntityResponse<T> entityResponse) {
+            this.serializer = serializer;
+            this.request = request;
+            this.processedEntityResponse = entityResponse;
+            this.error = null;
+        }
+
+        EntityResponseProcessingChainImpl(ProcessorSerializer serializer, EntityProcessorCalculationRequest request, Throwable error) {
+            this.serializer = serializer;
+            this.request = request;
+            this.processedEntityResponse = null;
+            this.error = error;
+        }
+
+        @Override
+        public EntityResponseProcessingChain<T> map(Function<ProcessorEntityResponseExecutionContext<T>, EntityResponse<T>> mapper) {
+            if (error == null && processedEntityResponse != null) {
+                try {
+                    ProcessorEntityResponseExecutionContext<T> context = new ProcessorEntityResponseExecutionContext<>(request, processedEntityResponse);
+                    EntityResponse<T> result = mapper.apply(context);
+                    return new EntityResponseProcessingChainImpl<>(serializer, request, result);
+                } catch (Exception e) {
+                    return new EntityResponseProcessingChainImpl<>(serializer, request, e);
+                }
+            }
+            return this;
+        }
+
+        @Override
+        public EntityResponseProcessingChain<T> validate(Function<EntityResponse<T>, Boolean> validator) {
+            return validate(validator, "Validation failed");
+        }
+
+        @Override
+        public EntityResponseProcessingChain<T> validate(Function<EntityResponse<T>, Boolean> validator, String errorMessage) {
+            if (error == null && processedEntityResponse != null) {
+                try {
+                    if (!validator.apply(processedEntityResponse)) {
+                        return new EntityResponseProcessingChainImpl<>(serializer, request, new IllegalArgumentException(errorMessage));
+                    }
+                } catch (Exception e) {
+                    return new EntityResponseProcessingChainImpl<>(serializer, request, e);
+                }
+            }
+            return this;
+        }
+
+        @Override
+        public EntityProcessingChain<T> toEntityFlow() {
+            if (error == null && processedEntityResponse != null) {
+                T entity = processedEntityResponse.getEntity();
+                return new EntityProcessingChainImpl<>(serializer, request, entity);
+            }
+            return new EntityProcessingChainImpl<>(serializer, request, error != null ? error : new IllegalStateException("EntityResponse is null"));
+        }
+
+        @Override
+        public EntityResponseProcessingChain<T> withErrorHandler(BiFunction<Throwable, EntityResponse<T>, ErrorInfo> errorHandler) {
+            this.errorHandler = errorHandler;
+            return this;
+        }
+
+        @Override
+        public EntityProcessorCalculationResponse complete() {
+            return complete(entityResponse -> serializer.entityToJsonNode(entityResponse.getEntity()));
+        }
+
+        @Override
+        public EntityProcessorCalculationResponse complete(Function<EntityResponse<T>, JsonNode> converter) {
+            if (error != null) {
+                if (errorHandler != null) {
+                    ErrorInfo errorInfo = errorHandler.apply(error, processedEntityResponse);
+                    return serializer.responseBuilder(request)
+                            .withError(errorInfo.code(), errorInfo.message())
+                            .build();
+                } else {
+                    return serializer.responseBuilder(request)
+                            .withError("PROCESSING_ERROR", error.getMessage())
+                            .build();
+                }
+            }
+            if (processedEntityResponse == null) {
+                return serializer.responseBuilder(request)
+                        .withError("PROCESSING_ERROR", "EntityResponse is null")
+                        .build();
+            }
+            try {
+                JsonNode entityJson = converter.apply(processedEntityResponse);
+                return serializer.responseBuilder(request)
+                        .withSuccess(entityJson)
+                        .build();
+            } catch (Exception e) {
+                if (errorHandler != null) {
+                    ErrorInfo errorInfo = errorHandler.apply(e, processedEntityResponse);
                     return serializer.responseBuilder(request)
                             .withError(errorInfo.code(), errorInfo.message())
                             .build();

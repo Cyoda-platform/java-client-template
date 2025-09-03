@@ -1,18 +1,45 @@
-# Usage Rules
+# Usage Rules - Java Client Template
 
-This file helps both developers and AI agents follow conventions in the Java Client Template project.
+This file provides comprehensive guidelines for developers and AI agents working with the Java Client Template project. All patterns shown are current best practices.
 
-You can sync rules via:
-```bash
-# Project-specific tooling for rule synchronization
-./gradlew syncUsageRules --all --link-to-folder src
+## 🚀 **Core Principles**
+
+- **Performance-Optimized**: Use EntityService methods with clear performance guidance
+- **Type-Safe**: Work with EntityResponse<T> throughout the application
+- **Unified Interface**: Consistent patterns between processors and controllers
+- **Clean Architecture**: Minimal dependencies, clear separation of concerns
+- **No Deprecated Patterns**: Only current, recommended approaches
+
+## 📦 **EntityService - Performance-Optimized API**
+
+### ✅ **Correct EntityService Usage**
+```java
+// FASTEST - Use when you have technical UUID
+EntityResponse<MyEntity> myEntity = entityService.getById(uuid, MyEntity.class);
+
+// MEDIUM SPEED - Use for user-facing identifiers
+EntityResponse<MyEntity> myEntity = entityService.findByBusinessId(MyEntity.class, "CART-123", "myEntityId");
+
+// SLOW - Use sparingly for small datasets
+List<EntityResponse<MyOtherEntity>> myOtherEntitys = entityService.findAll(MyOtherEntity.class);
+
+// SLOWEST - Use for complex queries
+List<EntityResponse<MyOtherEntity>> results = entityService.search(MyOtherEntity.class, condition);
+
+// Mutations
+EntityResponse<MyEntity> saved = entityService.save(newMyEntity);
+EntityResponse<MyEntity> updated = entityService.update(uuid, myEntity, "CHECKOUT");
 ```
 
-This file can be updated via project-specific tooling and should be maintained alongside code changes.
+### ❌ **Forbidden EntityService Patterns**
+```java
+// NEVER use old method patterns
+entityService.getItem(uuid, Class); // Use getById() instead
+entityService.findByCondition(...); // Use search() instead
+entityService.findByField(...); // Use search() instead
+```
 
-<!-- entities-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for entities -->
-## Entities
+## 🏗️ **Entities**
 
 - Always implement `CyodaEntity` interface for domain entities
 - Use `Config.ENTITY_VERSION` constant instead of hardcoded version strings
@@ -20,114 +47,276 @@ This file can be updated via project-specific tooling and should be maintained a
 - Implement `getModelKey()` to return `OperationSpecification.Entity` with proper ModelSpec
 - Override `isValid()` method to provide entity-specific validation logic
 - Use static `ENTITY_NAME` constant for consistent entity naming
-- Entity `id` types vary by entity (e.g., Pet uses `Long`, Mail uses different types)
-<!-- entities-end -->
+- Work with EntityResponse<T> wrapper that includes entity + metadata
 
-<!-- processors-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for processors -->
-## Processors (CyodaProcessor)
+## ⚙️ **Processors (CyodaProcessor)**
 
-- Implement `CyodaProcessor` interface for workflow processing components
-- Use `@Component` annotation for automatic Spring discovery
-- Inject `SerializerFactory` in constructor and get specific serializer immediately
-- Use `ProcessorSerializer.withRequest(request).toEntity(Class).map().complete()` pattern
-- Implement `supports(OperationSpecification)` method for processor selection
-- Processor names are matched via `supports()` method against workflow configuration
-- Use fluent EntityProcessingChain API for type-safe entity processing
-- Always handle exceptions properly - either log and handle or throw without logging, never both
-<!-- processors-end -->
+### ✅ **Correct Processor Patterns**
+```java
+@Component
+public class ExampleProcessor implements CyodaProcessor {
+    private final ProcessorSerializer serializer;
+    // Optional: Only inject EntityService if you need to interact with other entities
+    private final EntityService entityService;
 
-<!-- criteria-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for criteria -->
-## Criteria (CyodaCriterion)
+    // Constructor WITHOUT EntityService (for simple processors)
+    public ExampleProcessor(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+    }
 
-- Implement `CyodaCriterion` interface for workflow criteria checking
+    // Constructor WITH EntityService (only if needed)
+    public ExampleProcessor(SerializerFactory serializerFactory, EntityService entityService) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+    }
+
+    @Override
+    public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
+        EntityProcessorCalculationRequest request = context.getEvent();
+
+        // Option 1: Traditional entity processing
+        return serializer.withRequest(request)
+            .toEntity(EntityName.class)
+            .validate(this::isValidEntity, "Invalid entity")
+            .map(this::processEntityLogic)
+            .complete();
+
+        // Option 2: NEW - Unified EntityResponse processing (recommended)
+        /*
+        return serializer.withRequest(request)
+            .toEntityResponse(EntityName.class)  // Unified with controllers
+            .validate(this::isValidEntityResponse, "Invalid entity response")
+            .map(this::processEntityResponseLogic)
+            .complete();
+        */
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelKey) {
+        return "ExampleProcessor".equals(modelKey.operationName());
+    }
+}
+```
+
+### 🚨 **Critical Processor Limitations**
+- ✅ **CAN**: Read current entity data using `context.entity()` or `entityResponse.getEntity()`
+- ✅ **CAN**: Access current entity metadata: `context.getEvent().getEntityId()` and state
+- ✅ **CAN**: Get, update, delete OTHER entities using EntityService
+- ❌ **CANNOT**: Update the current entity being processed
+- ❌ **CANNOT**: Change the current entity's workflow state
+- ❌ **CANNOT**: Use Java reflection - only entity getters/setters
+- ❌ **CANNOT**: Modify code in `src/main/java/com/java_template/common` directory
+
+### ❌ **Forbidden Processor Patterns**
+```java
+// NEVER inject ObjectMapper in processors
+public ProcessorName(SerializerFactory factory, ObjectMapper objectMapper) { ... }
+
+// NEVER extract from payload manually
+Map<String, Object> payloadMap = objectMapper.convertValue(request.getPayload().getData(), Map.class);
+
+// NEVER try to update current entity in processor
+EntityResponse<EntityName> updated = entityService.update(currentEntityId, entity, "TRANSITION");
+```
+
+## 🔍 **Criteria (CyodaCriterion)**
+
+### ✅ **Correct Criteria Patterns**
+```java
+@Component
+public class ExampleCriterion implements CyodaCriterion {
+    private final CriterionSerializer serializer;
+
+    public ExampleCriterion(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+    }
+
+    @Override
+    public EntityCriterionCalculationResponse evaluate(CyodaEventContext<EntityCriterionCalculationRequest> context) {
+        EntityCriterionCalculationRequest request = context.getEvent();
+
+        return serializer.withRequest(request)
+            .evaluateEntity(EntityName.class, this::validateEntity)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
+    }
+
+    private EvaluationOutcome validateEntity(EntityName entity) {
+        return EvaluationOutcome.and(
+            EvaluationOutcome.of(entity.getId() != null, "Entity ID must not be null"),
+            EvaluationOutcome.of(entity.isValid(), "Entity must be valid")
+        );
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelKey) {
+        return "ExampleCriterion".equals(modelKey.operationName());
+    }
+}
+```
+
+### 🎯 **Criteria Guidelines**
 - Criteria MUST be pure functions - no side effects or payload modifications
-- Use `CriterionSerializer.withRequest(request).evaluateEntity(Class, validator).complete()` pattern
-- Implement `supports(OperationSpecification)` method for criteria selection
-- Use `EvaluationOutcome.and()` chaining for validation logic
 - Return boolean evaluation results only - no entity modifications
+- Use `EvaluationOutcome.and()` chaining for validation logic
 - Use `withReasonAttachment(ReasonAttachmentStrategy.toWarnings())` for validation feedback
-<!-- criteria-end -->
 
-<!-- serializers-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for serializers -->
-## Serializers
+## 🔄 **Serializers**
 
+### ✅ **Correct Serializer Usage**
+```java
+// In processor constructor
+public ExampleProcessor(SerializerFactory serializerFactory) {
+    this.serializer = serializerFactory.getDefaultProcessorSerializer();
+}
+
+// In criterion constructor
+public ExampleCriterion(SerializerFactory serializerFactory) {
+    this.serializer = serializerFactory.getDefaultCriterionSerializer();
+}
+
+// Processor fluent API patterns
+return serializer.withRequest(request)
+    .toEntity(EntityName.class)                    // Traditional
+    .toEntityResponse(EntityName.class)            // NEW - Unified interface
+    .validate(validator, "Error message")
+    .map(this::processLogic)
+    .complete();
+
+// Criterion fluent API pattern
+return serializer.withRequest(request)
+    .evaluateEntity(EntityName.class, this::validateEntity)
+    .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+    .complete();
+```
+
+### 🎯 **Serializer Guidelines**
 - Use `SerializerFactory` to get appropriate serializer instances
 - Prefer `ProcessorSerializer` for processors and `CriterionSerializer` for criteria
-- Use fluent APIs: `withRequest().toEntity().map().complete()` for processors
-- Use fluent APIs: `withRequest().evaluateEntity().complete()` for criteria
-- Jackson serializers are the default implementation (`SerializerEnum.JACKSON`)
+- Jackson serializers are the default implementation
 - Always validate requests before processing in serializer implementations
-- Use `ResponseBuilder.forProcessor()` and `ResponseBuilder.forCriterion()` for responses
-<!-- serializers-end -->
 
-<!-- services-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for services -->
-## Services
+## 🎯 **Controllers**
 
-- Always interact with `EntityService` interface, not repository directly
-- Use `CompletableFuture` return types for all async operations
-- Pass entity model name, version, and technical ID for entity operations
-- Use `Config.ENTITY_VERSION` for version parameter
-- Prefer `getItemsByCondition()` over manual filtering
-- Use `addItem()` for single entities, `addItems()` for bulk operations
-- Handle `InterruptedException` and `ExecutionException` in service calls
-<!-- services-end -->
+### ✅ **Correct Controller Patterns**
+```java
+@RestController
+@RequestMapping("/ui/entityname")
+@CrossOrigin(origins = "*")
+public class EntityNameController {
+    private final EntityService entityService;
 
-<!-- controllers-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for controllers -->
-## Controllers
+    public EntityNameController(EntityService entityService) {
+        this.entityService = entityService;
+    }
 
-- Use `@RestController` and `@RequestMapping` for REST endpoints
-- Inject `EntityService` and `ObjectMapper` via constructor
-- Use `@Valid` annotation for request body validation
-- Return appropriate HTTP status codes (400 for validation, 404 for not found, 500 for errors)
-- Log errors with context information (entity ID, operation type)
-- Use `ResponseEntity<T>` for proper HTTP response handling
-- Convert between entity objects and JSON using `ObjectMapper`
-<!-- controllers-end -->
+    @PostMapping
+    public ResponseEntity<EntityResponse<EntityName>> create(@RequestBody EntityName entity) {
+        EntityResponse<EntityName> response = entityService.save(entity);
+        return ResponseEntity.ok(response);
+    }
 
-<!-- workflow-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for workflow -->
-## Workflow Configuration
+    @GetMapping("/{id}")
+    public ResponseEntity<EntityResponse<EntityName>> getById(@PathVariable UUID id) {
+        EntityResponse<EntityName> response = entityService.getById(id, EntityName.class);
+        return ResponseEntity.ok(response);
+    }
 
+    @GetMapping("/business/{businessId}")
+    public ResponseEntity<EntityResponse<EntityName>> getByBusinessId(@PathVariable String businessId) {
+        EntityResponse<EntityName> response = entityService.findByBusinessId(
+            EntityName.class, businessId, "businessIdField");
+        return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
+    }
+}
+```
+
+### ❌ **Forbidden Controller Patterns**
+```java
+// NEVER accept Map<String, Object> as request body
+@PostMapping
+public ResponseEntity<Object> create(@RequestBody Map<String, Object> request) { ... }
+
+// NEVER return generic Object responses
+public ResponseEntity<Object> someMethod() { ... }
+```
+
+### 🎯 **Controller Guidelines**
+- Always return `ResponseEntity<EntityResponse<T>>` for single entities
+- Always return `ResponseEntity<List<EntityResponse<T>>>` for multiple entities
+- Use appropriate EntityService methods based on performance needs
+- Handle errors with proper HTTP status codes (400, 404, 500)
+
+## 📋 **EntityResponse<T> Structure**
+
+### ✅ **Working with EntityResponse**
+```java
+EntityResponse<MyEntity> response = entityService.getById(myEntityId, MyEntity.class);
+
+// Access the entity (Lombok @Data generates getEntity() automatically)
+MyEntity myEntity = response.getEntity();
+
+// Access metadata (includes technical UUID and workflow state)
+UUID technicalId = response.getMetadata().getId();      // Use for subsequent operations
+String workflowState = response.getMetadata().getState(); // Current workflow state
+LocalDateTime created = response.getMetadata().getCreatedAt();
+LocalDateTime updated = response.getMetadata().getUpdatedAt();
+```
+
+### 📄 **JSON Structure**
+```json
+{
+  "entity": {
+    "myEntityId": "CART-123",
+    "items": [...],
+    "total": 99.99
+  },
+  "metadata": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "state": "ACTIVE"
+  }
+}
+```
+
+## 🔄 **Workflow Configuration**
+
+### ✅ **Workflow Best Practices**
 - Place `Workflow.json` files alongside entity classes in `application/entity/` directory
 - Use finite-state machine (FSM) model for workflow definitions
 - Avoid cyclic FSM states in workflow configuration
 - Component operation names must match `supports()` method implementations
 - Use `WorkflowImportTool` for importing workflow configurations
 - Workflow methods should be separate processor classes, not switch-based dispatch
-<!-- workflow-end -->
+- Check workflow documentation for valid transitions when updating entities
 
-<!-- config-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for config -->
-## Configuration
+### 🎯 **Workflow Transitions**
+```java
+// In processors: Update OTHER entities with transitions
+EntityResponse<OtherEntity> updated = entityService.update(otherEntityId, otherEntity, "TRANSITION_NAME");
+
+// Without transition: Entity loops back to same state
+EntityResponse<OtherEntity> updated = entityService.update(otherEntityId, otherEntity, null);
+```
+
+## ⚙️ **Configuration**
 
 - Use `Config` class constants instead of hardcoded values
 - Load environment variables via `Dotenv` in Config class
-- Use `Config.ENTITY_VERSION` for entity versioning (default '1')
+- Use `Config.ENTITY_VERSION` for entity versioning (default '1000')
 - Configure GRPC settings via environment variables
 - Use `Config.CYODA_HOST` and related constants for Cyoda integration
 - SSL and authentication settings should be configurable via environment
-<!-- config-end -->
 
-<!-- testing-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for testing -->
-## Testing
+## 🧪 **Testing**
 
 - Use `PrototypeApplicationTest` for test-based prototype development
 - Enable prototype mode via `-Dprototype.enabled=true` system property
 - Test serializers using fluent API patterns
 - Mock `EntityService` and `SerializerFactory` in unit tests
-- Use `ObjectMapper` for JSON conversion in tests
 - Test both success and error scenarios for processors and criteria
-<!-- testing-end -->
+- Add tests to `src/test/java/com/java_template/application` directory
 
-<!-- architecture-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for architecture -->
-## Architecture Guidelines
+## 🏗️ **Architecture Guidelines**
 
 - Follow separation of concerns: entities, processors, criteria, services, controllers
 - Use dependency injection via Spring constructor injection
@@ -135,12 +324,9 @@ This file can be updated via project-specific tooling and should be maintained a
 - Use sealed classes for type-safe operation specifications
 - Prefer composition over inheritance in workflow components
 - Use factory patterns for component selection and instantiation
-- Handle async operations with CompletableFuture consistently
-<!-- architecture-end -->
+- Work with EntityResponse<T> for unified interface consistency
 
-<!-- grpc-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for grpc -->
-## gRPC Integration
+## 🌐 **gRPC Integration**
 
 - Use `CyodaCalculationMemberClient` for gRPC communication with Cyoda
 - Configure gRPC settings via `Config.GRPC_ADDRESS` and `Config.GRPC_SERVER_PORT`
@@ -148,24 +334,17 @@ This file can be updated via project-specific tooling and should be maintained a
 - Handle gRPC streaming with proper error handling and connection management
 - Use protobuf message types for type-safe gRPC communication
 - Configure SSL/TLS settings via environment variables
-<!-- grpc-end -->
 
-<!-- error-handling-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for error-handling -->
-## Error Handling
+## ⚠️ **Error Handling**
 
 - Use `ErrorInfo` class for structured error information
 - Prefer `StandardErrorCodes` enum over hardcoded error strings
 - Use `EvaluationOutcome.Fail` for criteria validation failures
 - Log errors with appropriate context (entity ID, operation type, stack trace)
 - Use `ResponseBuilder` for consistent error response formatting
-- Handle `CompletableFuture` exceptions with proper error propagation
 - Never log and rethrow exceptions - choose one approach consistently
-<!-- error-handling-end -->
 
-<!-- validation-start -->
-<!-- SYNC_COMMENT: synchronize via project tooling for validation -->
-## Validation
+## ✅ **Validation**
 
 - Use `@Valid` annotation for request body validation in controllers
 - Implement `isValid()` method in entity classes for business validation
@@ -174,4 +353,12 @@ This file can be updated via project-specific tooling and should be maintained a
 - Use `ReasonAttachmentStrategy` to attach validation reasons to responses
 - Validate requests in serializer implementations before processing
 - Use `Condition` and `SearchConditionRequest` for query validation
-<!-- validation-end -->
+
+## 🚫 **Critical Restrictions**
+
+- **CANNOT** use Java reflection - only entity getters/setters
+- **CANNOT** modify code in `src/main/java/com/java_template/common` directory
+- **CANNOT** update current entity in processors - only OTHER entities
+- **MUST** run compilation checks frequently
+- **MUST** use performance-optimized EntityService methods
+- **MUST** work with EntityResponse<T> for consistency
