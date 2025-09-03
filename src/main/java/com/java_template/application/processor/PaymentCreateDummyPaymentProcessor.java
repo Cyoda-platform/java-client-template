@@ -2,6 +2,7 @@ package com.java_template.application.processor;
 
 import com.java_template.application.entity.payment.version_1.Payment;
 import com.java_template.application.entity.cart.version_1.Cart;
+import com.java_template.common.dto.EntityResponse;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ErrorInfo;
@@ -61,20 +62,18 @@ public class PaymentCreateDummyPaymentProcessor implements CyodaProcessor {
 
         try {
             // Validate cart exists and is in CHECKING_OUT state
-            var cartResponse = entityService.findByField(
+            EntityResponse<Cart> cartResponse = entityService.findByBusinessId(
                 Cart.class,
-                Cart.ENTITY_NAME,
-                Cart.ENTITY_VERSION,
-                "cartId",
-                payment.getCartId()
+                payment.getCartId(),
+                "cartId"
             );
 
-            if (cartResponse.isEmpty()) {
+            if (cartResponse == null) {
                 throw new RuntimeException("Cart not found with ID: " + payment.getCartId());
             }
 
-            Cart cart = cartResponse.get(0).getData();
-            String cartState = cartResponse.get(0).getMetadata().getState();
+            Cart cart = cartResponse.getData();
+            String cartState = cartResponse.getMetadata().getState();
 
             if (!"CHECKING_OUT".equals(cartState)) {
                 throw new RuntimeException("Cart must be in CHECKING_OUT state, current state: " + cartState);

@@ -46,8 +46,12 @@ public class EntityServiceImpl implements EntityService {
         this.objectMapper = objectMapper;
     }
 
+    // ========================================
+    // PRIMARY RETRIEVAL METHODS IMPLEMENTATION
+    // ========================================
+
     @Override
-    public <T extends CyodaEntity> EntityResponse<T> getItem(
+    public <T extends CyodaEntity> EntityResponse<T> getById(
             @NotNull final UUID entityId,
             @NotNull final Class<T> entityClass
     ) {
@@ -55,11 +59,65 @@ public class EntityServiceImpl implements EntityService {
             DataPayload payload = repository.findById(entityId).join();
             return EntityResponse.fromDataPayload(payload, entityClass, objectMapper);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to get item: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to get entity by ID: " + e.getMessage(), e);
         }
     }
 
     @Override
+    public <T extends CyodaEntity> EntityResponse<T> findByBusinessId(
+            @NotNull final Class<T> entityClass,
+            @NotNull final String businessId,
+            @NotNull final String businessIdField
+    ) {
+        try {
+            // Extract model info from entity class
+            T tempEntity = entityClass.getDeclaredConstructor().newInstance();
+            String modelName = tempEntity.getModelKey().modelKey().getName();
+            Integer modelVersion = tempEntity.getModelKey().modelKey().getVersion();
+
+            SearchConditionRequest condition = SearchConditionRequest.group("AND",
+                Condition.of("$." + businessIdField, "EQUALS", businessId));
+
+            Optional<EntityResponse<T>> result = getFirstItemByCondition(
+                entityClass, modelName, modelVersion, condition, true);
+
+            return result.orElse(null);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find entity by business ID: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull final Class<T> entityClass) {
+        try {
+            // Extract model info from entity class
+            T tempEntity = entityClass.getDeclaredConstructor().newInstance();
+            String modelName = tempEntity.getModelKey().modelKey().getName();
+            Integer modelVersion = tempEntity.getModelKey().modelKey().getVersion();
+
+            return getItems(entityClass, modelName, modelVersion, null, null, null);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find all entities: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public <T extends CyodaEntity> List<EntityResponse<T>> search(
+            @NotNull final Class<T> entityClass,
+            @NotNull final SearchConditionRequest condition
+    ) {
+        try {
+            // Extract model info from entity class
+            T tempEntity = entityClass.getDeclaredConstructor().newInstance();
+            String modelName = tempEntity.getModelKey().modelKey().getName();
+            Integer modelVersion = tempEntity.getModelKey().modelKey().getVersion();
+
+            return getItemsByCondition(entityClass, modelName, modelVersion, condition, true);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to search entities: " + e.getMessage(), e);
+        }
+    }
+
     public <T extends CyodaEntity> List<EntityResponse<T>> getItems(
             @NotNull final Class<T> entityClass,
             @NotNull final String modelName,
@@ -85,7 +143,6 @@ public class EntityServiceImpl implements EntityService {
         }
     }
 
-    @Override
     public <T extends CyodaEntity> Optional<EntityResponse<T>> getFirstItemByCondition(
             @NotNull final Class<T> entityClass,
             @NotNull final String modelName,
@@ -111,7 +168,6 @@ public class EntityServiceImpl implements EntityService {
         }
     }
 
-    @Override
     public <T extends CyodaEntity> List<EntityResponse<T>> getItemsByCondition(
             @NotNull final Class<T> entityClass,
             @NotNull final String modelName,
@@ -138,6 +194,10 @@ public class EntityServiceImpl implements EntityService {
         }
     }
 
+    // ========================================
+    // PRIMARY MUTATION METHODS IMPLEMENTATION
+    // ========================================
+
     @Override
     public <T extends CyodaEntity> EntityResponse<T> save(@NotNull final T entity) {
         try {
@@ -152,6 +212,91 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
+    public <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(
+            @NotNull final T entity,
+            @NotNull final String businessIdField,
+            @Nullable final String transition
+    ) {
+        try {
+            // First find the entity by business ID to get its technical UUID
+            Class<T> entityClass = (Class<T>) entity.getClass();
+
+            // Get business ID value from entity using reflection-like approach
+            String businessIdValue = getBusinessIdValue(entity, businessIdField);
+
+            EntityResponse<T> existingEntity = findByBusinessId(entityClass, businessIdValue, businessIdField);
+            if (existingEntity == null) {
+                throw new RuntimeException("Entity not found with business ID: " + businessIdValue);
+            }
+
+            UUID technicalId = existingEntity.getMetadata().getId();
+
+            // Now update using technical ID
+            return update(technicalId, entity, transition);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to update entity by business ID: " + e.getMessage(), e);
+        }
+    }
+
+    private <T extends CyodaEntity> String getBusinessIdValue(T entity, String businessIdField) {
+        try {
+            // Use Jackson to convert entity to JsonNode and extract the field
+            var entityNode = objectMapper.valueToTree(entity);
+            var fieldValue = entityNode.get(businessIdField);
+            return fieldValue != null ? fieldValue.asText() : null;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to extract business ID field: " + businessIdField, e);
+        }
+    }
+
+    @Override
+    public <T extends CyodaEntity> UUID deleteById(@NotNull final UUID entityId) {
+        try {
+            EntityDeleteResponse response = repository.deleteById(entityId).join();
+            return response.getEntityId();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to delete entity by ID: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public <T extends CyodaEntity> boolean deleteByBusinessId(
+            @NotNull final Class<T> entityClass,
+            @NotNull final String businessId,
+            @NotNull final String businessIdField
+    ) {
+        try {
+            // First find the entity to get its technical ID
+            EntityResponse<T> entityResponse = findByBusinessId(entityClass, businessId, businessIdField);
+            if (entityResponse == null) {
+                return false;
+            }
+
+            UUID entityId = entityResponse.getMetadata().getId();
+            deleteById(entityId);
+            return true;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to delete entity by business ID: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public <T extends CyodaEntity> Integer deleteAll(@NotNull final Class<T> entityClass) {
+        try {
+            // Extract model info from entity class
+            T tempEntity = entityClass.getDeclaredConstructor().newInstance();
+            String modelName = tempEntity.getModelKey().modelKey().getName();
+            Integer modelVersion = tempEntity.getModelKey().modelKey().getVersion();
+
+            List<EntityDeleteAllResponse> results = repository.deleteAll(modelName, modelVersion).join();
+            return results.stream()
+                    .map(EntityDeleteAllResponse::getNumDeleted)
+                    .reduce(0, Integer::sum);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to delete all entities: " + e.getMessage(), e);
+        }
+    }
+
     public <T extends CyodaEntity> ObjectNode saveAndReturnTransactionInfo(@NotNull final T entity) {
         try {
             String modelName = entity.getModelKey().modelKey().getName();
@@ -182,7 +327,6 @@ public class EntityServiceImpl implements EntityService {
         }
     }
 
-    @Override
     public <T extends CyodaEntity> EntityTransactionInfo saveAllAndReturnTransactionInfo(@NotNull final Collection<T> entities) {
         if (entities.isEmpty()) {
             return null;
@@ -220,7 +364,6 @@ public class EntityServiceImpl implements EntityService {
         }
     }
 
-    @Override
     public <T extends CyodaEntity> List<EntityResponse<T>> updateAll(@NotNull final Collection<T> entities, @Nullable final String transition) {
         if (entities.isEmpty()) {
             return List.of();
@@ -238,17 +381,8 @@ public class EntityServiceImpl implements EntityService {
 
 
 
-    @Override
-    public UUID deleteById(@NotNull final UUID entityId) {
-        try {
-            EntityDeleteResponse response = repository.deleteById(entityId).join();
-            return response.getEntityId();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to delete entity: " + e.getMessage(), e);
-        }
-    }
 
-    @Override
+
     public Integer deleteAll(@NotNull final String modelName, @NotNull final Integer modelVersion) {
         try {
             List<EntityDeleteAllResponse> results = repository.deleteAll(modelName, modelVersion).join();
@@ -257,118 +391,6 @@ public class EntityServiceImpl implements EntityService {
                     .reduce(0, Integer::sum);
         } catch (Exception e) {
             throw new RuntimeException("Failed to delete entities: " + e.getMessage(), e);
-        }
-    }
-
-    // Convenience methods implementation
-
-    // Note: save() method is already implemented above as the core method
-
-    @Override
-    public <T extends CyodaEntity> EntityResponse<T> findByBusinessId(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull String businessId, @NotNull String businessIdField) {
-        try {
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$." + businessIdField, "EQUALS", businessId));
-
-            Optional<EntityResponse<T>> optionalResponse = getFirstItemByCondition(entityClass, modelName, modelVersion, condition, false);
-
-            return optionalResponse.orElse(null);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to find entity by business ID: " + e.getMessage(), e);
-        }
-    }
-
-    @Override
-    public <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion) {
-        return getItems(entityClass, modelName, modelVersion, null, null, null);
-    }
-
-    @Override
-    public <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(@NotNull T entity, @NotNull String businessIdField, @Nullable String transition) {
-        try {
-            String businessId = getBusinessIdValue(entity, businessIdField);
-            String modelName = entity.getModelKey().modelKey().getName();
-            Integer modelVersion = entity.getModelKey().modelKey().getVersion();
-
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$." + businessIdField, "EQUALS", businessId));
-
-            Optional<EntityResponse<T>> optionalResponse = getFirstItemByCondition((Class<T>) entity.getClass(), modelName, modelVersion, condition, false);
-
-            if (optionalResponse.isPresent()) {
-                UUID entityId = optionalResponse.get().getId();
-                return update(entityId, entity, transition);
-            } else {
-                throw new RuntimeException("Entity not found for update");
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to update entity by business ID: " + e.getMessage(), e);
-        }
-    }
-
-    @Override
-    public boolean deleteByBusinessId(@NotNull String modelName, @NotNull Integer modelVersion, @NotNull String businessId, @NotNull String businessIdField) {
-        try {
-            SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$." + businessIdField, "EQUALS", businessId));
-
-            // Find the entity using raw repository call since we only need the ID
-            List<DataPayload> payloads = repository.findAllByCriteria(
-                    modelName,
-                    modelVersion,
-                    objectMapper.convertValue(condition, GroupCondition.class),
-                    1,
-                    1,
-                    false
-            ).join();
-
-            if (!payloads.isEmpty()) {
-                DataPayload payload = payloads.getFirst();
-                EntityMetadata metadata = objectMapper.convertValue(payload.getMeta(), EntityMetadata.class);
-                UUID entityId = metadata.getId();
-                deleteById(entityId);
-                return true;
-            } else {
-                return false;
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to delete entity by business ID: " + e.getMessage(), e);
-        }
-    }
-
-    @Override
-    public <T extends CyodaEntity> List<EntityResponse<T>> findByField(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull String fieldName, @NotNull String value) {
-        SearchConditionRequest condition = SearchConditionRequest.group("AND",
-            Condition.of("$." + fieldName, "EQUALS", value));
-
-        return getItemsByCondition(entityClass, modelName, modelVersion, condition, false);
-    }
-
-    @Override
-    public <T extends CyodaEntity> List<EntityResponse<T>> findByCondition(@NotNull Class<T> entityClass, @NotNull String modelName, @NotNull Integer modelVersion, @NotNull SearchConditionRequest condition, boolean inMemory) {
-        return getItemsByCondition(entityClass, modelName, modelVersion, condition, inMemory);
-    }
-
-    // Helper methods
-
-
-
-    private <T extends CyodaEntity> String getBusinessIdValue(T entity, String fieldName) {
-        try {
-            String getterName = "get" + fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
-            Object value = entity.getClass().getMethod(getterName).invoke(entity);
-            return value != null ? value.toString() : null;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to get business ID value: " + e.getMessage(), e);
-        }
-    }
-
-    private <T extends CyodaEntity> void setTechnicalId(T entity, Object metaData) {
-        try {
-            EntityMetadata metadata = objectMapper.convertValue(metaData, EntityMetadata.class);
-            entity.getClass().getMethod("setId", String.class).invoke(entity, metadata.getId().toString());
-        } catch (Exception e) {
-            // Ignore if entity doesn't have setId method or metadata is invalid
         }
     }
 }

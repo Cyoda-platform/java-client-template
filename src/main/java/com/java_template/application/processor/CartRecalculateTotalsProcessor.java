@@ -1,7 +1,6 @@
 package com.java_template.application.processor;
 
 import com.java_template.application.entity.cart.version_1.Cart;
-import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ErrorInfo;
@@ -11,17 +10,11 @@ import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 @Component
 public class CartRecalculateTotalsProcessor implements CyodaProcessor {
@@ -29,13 +22,9 @@ public class CartRecalculateTotalsProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(CartRecalculateTotalsProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public CartRecalculateTotalsProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public CartRecalculateTotalsProcessor(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -65,23 +54,10 @@ public class CartRecalculateTotalsProcessor implements CyodaProcessor {
 
     private Cart processCartLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Cart> context) {
         Cart cart = context.entity();
-        EntityProcessorCalculationRequest request = context.request();
 
         try {
-            // Check if there's line item data in the request payload
-            Map<String, Object> payloadMap = objectMapper.convertValue(request.getPayload().getData(), Map.class);
-            
-            if (payloadMap.containsKey("lineItemData")) {
-                Map<String, Object> lineItemData = (Map<String, Object>) payloadMap.get("lineItemData");
-                String sku = (String) lineItemData.get("sku");
-                Integer qty = (Integer) lineItemData.get("qty");
-                
-                if (sku != null && qty != null) {
-                    updateCartLine(cart, sku, qty);
-                }
-            }
-
-            // Recalculate totals
+            // The cart entity itself contains all the line item data - no need for payload extraction
+            // Simply recalculate totals based on current cart lines
             recalculateTotals(cart);
 
             logger.info("Cart totals recalculated - Items: {}, Total: {}", cart.getTotalItems(), cart.getGrandTotal());
@@ -93,52 +69,8 @@ public class CartRecalculateTotalsProcessor implements CyodaProcessor {
         }
     }
 
-    private void updateCartLine(Cart cart, String sku, Integer qty) {
-        if (cart.getLines() == null) {
-            cart.setLines(new ArrayList<>());
-        }
 
-        // Find existing line
-        Cart.CartLine existingLine = cart.getLines().stream()
-            .filter(line -> sku.equals(line.getSku()))
-            .findFirst()
-            .orElse(null);
 
-        if (existingLine != null) {
-            if (qty > 0) {
-                existingLine.setQty(qty);
-            } else {
-                cart.getLines().remove(existingLine);
-            }
-        } else if (qty > 0) {
-            // Add new line - need to get product details
-            try {
-                var productResponse = entityService.findByField(
-                    Product.class, 
-                    Product.ENTITY_NAME, 
-                    Product.ENTITY_VERSION, 
-                    "sku", 
-                    sku
-                );
-                
-                if (!productResponse.isEmpty()) {
-                    Product product = productResponse.get(0).getData();
-                    Cart.CartLine newLine = new Cart.CartLine();
-                    newLine.setSku(sku);
-                    newLine.setName(product.getName());
-                    newLine.setPrice(product.getPrice());
-                    newLine.setQty(qty);
-                    cart.getLines().add(newLine);
-                } else {
-                    logger.warn("Product not found for SKU: {}", sku);
-                    throw new RuntimeException("Product not found for SKU: " + sku);
-                }
-            } catch (Exception e) {
-                logger.error("Error fetching product for SKU {}: {}", sku, e.getMessage(), e);
-                throw new RuntimeException("Failed to fetch product details: " + e.getMessage(), e);
-            }
-        }
-    }
 
     private void recalculateTotals(Cart cart) {
         if (cart.getLines() == null) {

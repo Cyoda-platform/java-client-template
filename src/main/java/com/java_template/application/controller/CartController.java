@@ -2,6 +2,7 @@ package com.java_template.application.controller;
 
 import com.java_template.application.entity.cart.version_1.Cart;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.dto.EntityResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -26,191 +27,113 @@ public class CartController {
     }
 
     @PostMapping
-    public ResponseEntity<Object> createOrGetCart(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<EntityResponse<Cart>> createOrGetCart(@RequestBody Cart cart) {
         try {
-            String sku = (String) request.get("sku");
-            Integer qty = (Integer) request.get("qty");
+            logger.info("Creating or getting cart with first item - Cart ID: {}", cart.getCartId());
 
-            logger.info("Creating or getting cart with first item - SKU: {}, Qty: {}", sku, qty);
-
-            if (sku == null || qty == null || qty <= 0) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "INVALID_REQUEST", "message", "SKU and positive quantity are required"));
-            }
-
-            // Create new cart
-            Cart cart = new Cart();
-            cart.setCartId("CART-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-            cart.setLines(new ArrayList<>());
-            cart.setTotalItems(0);
-            cart.setGrandTotal(0.0);
-            cart.setCreatedAt(LocalDateTime.now());
-            cart.setUpdatedAt(LocalDateTime.now());
-
-            // Save cart with CREATE_ON_FIRST_ADD transition and line item data
-            Map<String, Object> lineItemData = new HashMap<>();
-            lineItemData.put("sku", sku);
-            lineItemData.put("qty", qty);
-
-            // Create payload with line item data for processor
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("lineItemData", lineItemData);
-
-            // For now, save the cart and then update it with the processor logic
-            var savedCartResponse = entityService.save(cart);
-            UUID cartEntityId = savedCartResponse.getMetadata().getId();
-
-            // Update with line item using CREATE_ON_FIRST_ADD transition
-            var updatedCartResponse = entityService.update(cartEntityId, cart, "CREATE_ON_FIRST_ADD");
-            Cart updatedCart = updatedCartResponse.getData();
-
-            logger.info("Cart created with ID: {}", updatedCart.getCartId());
-            return ResponseEntity.ok(updatedCart);
-
+            // Save cart with CREATE_ON_FIRST_ADD transition
+            // The entity itself is the payload - no need for manual payload manipulation
+            EntityResponse<Cart> response = entityService.save(cart);
+            logger.info("Cart created with ID: {}", response.getMetadata().getId());
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error creating cart: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "CART_CREATION_ERROR", "message", "Failed to create cart: " + e.getMessage()));
+            logger.error("Error creating cart", e);
+            return ResponseEntity.badRequest().build();
         }
     }
 
     @PostMapping("/{cartId}/lines")
-    public ResponseEntity<Object> addItemToCart(@PathVariable String cartId, @RequestBody Map<String, Object> request) {
+    public ResponseEntity<EntityResponse<Cart>> addItemToCart(@PathVariable String cartId, @RequestBody Cart cart) {
         try {
-            String sku = (String) request.get("sku");
-            Integer qty = (Integer) request.get("qty");
-
-            logger.info("Adding item to cart {} - SKU: {}, Qty: {}", cartId, sku, qty);
-
-            if (sku == null || qty == null || qty <= 0) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "INVALID_REQUEST", "message", "SKU and positive quantity are required"));
-            }
+            logger.info("Adding item to cart: {}", cartId);
 
             // Find cart
-            var cartResponses = entityService.findByField(
-                    Cart.class, Cart.ENTITY_NAME, Cart.ENTITY_VERSION, "cartId", cartId);
+            EntityResponse<Cart> cartResponse = entityService.findByBusinessId(Cart.class, cartId, "cartId");
 
-            if (cartResponses.isEmpty()) {
+            if (cartResponse == null) {
                 return ResponseEntity.notFound().build();
             }
 
-            Cart cart = cartResponses.get(0).getData();
-            UUID cartEntityId = cartResponses.get(0).getMetadata().getId();
+            UUID cartEntityId = cartResponse.getMetadata().getId();
 
-            // Update cart with ADD_ITEM transition
-            var updatedCartResponse = entityService.update(cartEntityId, cart, "ADD_ITEM");
-            Cart updatedCart = updatedCartResponse.getData();
-
+            // Update cart with ADD_ITEM transition - the cart entity itself contains the new line item data
+            EntityResponse<Cart> response = entityService.update(cartEntityId, cart, "ADD_ITEM");
             logger.info("Item added to cart: {}", cartId);
-            return ResponseEntity.ok(updatedCart);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            logger.error("Error adding item to cart {}: {}", cartId, e.getMessage(), e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "CART_UPDATE_ERROR", "message", "Failed to add item to cart: " + e.getMessage()));
+            logger.error("Error adding item to cart: {}", cartId, e);
+            return ResponseEntity.badRequest().build();
         }
     }
 
     @PatchMapping("/{cartId}/lines")
-    public ResponseEntity<Object> updateCartItem(@PathVariable String cartId, @RequestBody Map<String, Object> request) {
+    public ResponseEntity<EntityResponse<Cart>> updateCartItem(@PathVariable String cartId, @RequestBody Cart cart) {
         try {
-            String sku = (String) request.get("sku");
-            Integer qty = (Integer) request.get("qty");
-
-            logger.info("Updating cart item {} - SKU: {}, Qty: {}", cartId, sku, qty);
-
-            if (sku == null || qty == null || qty < 0) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "INVALID_REQUEST", "message", "SKU and non-negative quantity are required"));
-            }
+            logger.info("Updating cart item: {}", cartId);
 
             // Find cart
-            var cartResponses = entityService.findByField(
-                    Cart.class, Cart.ENTITY_NAME, Cart.ENTITY_VERSION, "cartId", cartId);
+            EntityResponse<Cart> cartResponse = entityService.findByBusinessId(Cart.class, cartId, "cartId");
 
-            if (cartResponses.isEmpty()) {
+            if (cartResponse == null) {
                 return ResponseEntity.notFound().build();
             }
 
-            Cart cart = cartResponses.get(0).getData();
-            UUID cartEntityId = cartResponses.get(0).getMetadata().getId();
+            UUID cartEntityId = cartResponse.getMetadata().getId();
 
-            // Choose transition based on quantity
-            String transition = qty > 0 ? "DECREMENT_ITEM" : "REMOVE_ITEM";
-
-            // Update cart
-            var updatedCartResponse = entityService.update(cartEntityId, cart, transition);
-            Cart updatedCart = updatedCartResponse.getData();
+            // Update cart with UPDATE_ITEM transition - the cart entity contains the updated line item data
+            EntityResponse<Cart> response = entityService.update(cartEntityId, cart, "UPDATE_ITEM");
 
             logger.info("Cart item updated: {}", cartId);
-            return ResponseEntity.ok(updatedCart);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            logger.error("Error updating cart item {}: {}", cartId, e.getMessage(), e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "CART_UPDATE_ERROR", "message", "Failed to update cart item: " + e.getMessage()));
+            logger.error("Error updating cart item: {}", cartId, e);
+            return ResponseEntity.badRequest().build();
         }
     }
 
     @PostMapping("/{cartId}/open-checkout")
-    public ResponseEntity<Object> openCheckout(@PathVariable String cartId) {
+    public ResponseEntity<EntityResponse<Cart>> openCheckout(@PathVariable String cartId) {
         try {
             logger.info("Opening checkout for cart: {}", cartId);
 
             // Find cart
-            var cartResponses = entityService.findByField(
-                    Cart.class, Cart.ENTITY_NAME, Cart.ENTITY_VERSION, "cartId", cartId);
+            EntityResponse<Cart> cartResponse = entityService.findByBusinessId(Cart.class, cartId, "cartId");
 
-            if (cartResponses.isEmpty()) {
+            if (cartResponse == null) {
                 return ResponseEntity.notFound().build();
             }
 
-            Cart cart = cartResponses.get(0).getData();
-            UUID cartEntityId = cartResponses.get(0).getMetadata().getId();
+            Cart existingCart = cartResponse.getData();
+            UUID cartEntityId = cartResponse.getMetadata().getId();
 
             // Update cart with OPEN_CHECKOUT transition
-            var updatedCartResponse = entityService.update(cartEntityId, cart, "OPEN_CHECKOUT");
-            Cart updatedCart = updatedCartResponse.getData();
-            String newState = updatedCartResponse.getMetadata().getState();
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("cartId", updatedCart.getCartId());
-            response.put("status", newState);
-            response.put("lines", updatedCart.getLines());
-            response.put("totalItems", updatedCart.getTotalItems());
-            response.put("grandTotal", updatedCart.getGrandTotal());
-
+            EntityResponse<Cart> response = entityService.update(cartEntityId, existingCart, "OPEN_CHECKOUT");
             logger.info("Checkout opened for cart: {}", cartId);
             return ResponseEntity.ok(response);
-
         } catch (Exception e) {
-            logger.error("Error opening checkout for cart {}: {}", cartId, e.getMessage(), e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "CHECKOUT_ERROR", "message", "Failed to open checkout: " + e.getMessage()));
+            logger.error("Error opening checkout for cart: {}", cartId, e);
+            return ResponseEntity.badRequest().build();
         }
     }
 
     @GetMapping("/{cartId}")
-    public ResponseEntity<Object> getCart(@PathVariable String cartId) {
+    public ResponseEntity<EntityResponse<Cart>> getCart(@PathVariable String cartId) {
         try {
             logger.info("Getting cart details: {}", cartId);
 
             // Find cart
-            var cartResponses = entityService.findByField(
-                    Cart.class, Cart.ENTITY_NAME, Cart.ENTITY_VERSION, "cartId", cartId);
+            EntityResponse<Cart> response = entityService.findByBusinessId(Cart.class, cartId, "cartId");
 
-            if (cartResponses.isEmpty()) {
+            if (response == null) {
                 return ResponseEntity.notFound().build();
             }
-
-            Cart cart = cartResponses.get(0).getData();
-            return ResponseEntity.ok(cart);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            logger.error("Error getting cart {}: {}", cartId, e.getMessage(), e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "CART_ERROR", "message", "Failed to get cart: " + e.getMessage()));
+            logger.error("Error getting cart: {}", cartId, e);
+            return ResponseEntity.badRequest().build();
         }
     }
 }

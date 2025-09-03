@@ -70,7 +70,7 @@ public class ProductController {
             List<Product> products;
             if (conditions.isEmpty()) {
                 // Get all products
-                var productResponses = entityService.findAll(Product.class, Product.ENTITY_NAME, Product.ENTITY_VERSION);
+                var productResponses = entityService.findAll(Product.class);
                 products = productResponses.stream().map(r -> r.getData()).collect(Collectors.toList());
             } else {
                 SearchConditionRequest finalCondition = new SearchConditionRequest();
@@ -78,8 +78,7 @@ public class ProductController {
                 finalCondition.setOperator("AND");
                 finalCondition.setConditions(conditions);
 
-                var productResponses = entityService.findByCondition(
-                        Product.class, Product.ENTITY_NAME, Product.ENTITY_VERSION, finalCondition, true);
+                var productResponses = entityService.search(Product.class, finalCondition);
                 products = productResponses.stream().map(r -> r.getData()).collect(Collectors.toList());
             }
 

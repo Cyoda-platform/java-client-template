@@ -21,6 +21,10 @@ public class Order implements CyodaEntity {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // Temporary fields used during order creation (not persisted)
+    private String paymentId;
+    private String cartId;
+
     @Override
     public OperationSpecification getModelKey() {
         ModelSpec modelSpec = new ModelSpec();

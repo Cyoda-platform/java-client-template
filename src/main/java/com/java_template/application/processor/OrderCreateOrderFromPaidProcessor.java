@@ -5,6 +5,7 @@ import com.java_template.application.entity.payment.version_1.Payment;
 import com.java_template.application.entity.cart.version_1.Cart;
 import com.java_template.application.entity.product.version_1.Product;
 import com.java_template.application.entity.shipment.version_1.Shipment;
+import com.java_template.common.dto.EntityResponse;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.ErrorInfo;
@@ -18,11 +19,9 @@ import com.java_template.common.service.EntityService;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -32,12 +31,10 @@ public class OrderCreateOrderFromPaidProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public OrderCreateOrderFromPaidProcessor(SerializerFactory serializerFactory, EntityService entityService, ObjectMapper objectMapper) {
+    public OrderCreateOrderFromPaidProcessor(SerializerFactory serializerFactory, EntityService entityService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -67,53 +64,47 @@ public class OrderCreateOrderFromPaidProcessor implements CyodaProcessor {
 
     private Order processOrderLogic(ProcessorSerializer.ProcessorEntityExecutionContext<Order> context) {
         Order order = context.entity();
-        EntityProcessorCalculationRequest request = context.request();
 
         try {
-            // Extract paymentId and cartId from request payload
-            Map<String, Object> payloadMap = objectMapper.convertValue(request.getPayload().getData(), Map.class);
-            String paymentId = (String) payloadMap.get("paymentId");
-            String cartId = (String) payloadMap.get("cartId");
+            // Get paymentId and cartId from the order entity itself
+            String paymentId = order.getPaymentId();
+            String cartId = order.getCartId();
 
             if (paymentId == null || cartId == null) {
                 throw new RuntimeException("Both paymentId and cartId are required");
             }
 
             // Validate payment exists and is PAID
-            var paymentResponse = entityService.findByField(
+            EntityResponse<Payment> paymentResponse = entityService.findByBusinessId(
                 Payment.class,
-                Payment.ENTITY_NAME,
-                Payment.ENTITY_VERSION,
-                "paymentId",
-                paymentId
+                paymentId,
+                "paymentId"
             );
 
-            if (paymentResponse.isEmpty()) {
+            if (paymentResponse == null) {
                 throw new RuntimeException("Payment not found with ID: " + paymentId);
             }
 
-            Payment payment = paymentResponse.get(0).getData();
-            String paymentState = paymentResponse.get(0).getMetadata().getState();
+            Payment payment = paymentResponse.getData();
+            String paymentState = paymentResponse.getMetadata().getState();
 
             if (!"paid".equals(paymentState)) {
                 throw new RuntimeException("Payment must be PAID, current state: " + paymentState);
             }
 
             // Validate cart exists and is CONVERTED
-            var cartResponse = entityService.findByField(
+            EntityResponse<Cart> cartResponse = entityService.findByBusinessId(
                 Cart.class,
-                Cart.ENTITY_NAME,
-                Cart.ENTITY_VERSION,
-                "cartId",
-                cartId
+                cartId,
+                "cartId"
             );
 
-            if (cartResponse.isEmpty()) {
+            if (cartResponse == null) {
                 throw new RuntimeException("Cart not found with ID: " + cartId);
             }
 
-            Cart cart = cartResponse.get(0).getData();
-            String cartState = cartResponse.get(0).getMetadata().getState();
+            Cart cart = cartResponse.getData();
+            String cartState = cartResponse.getMetadata().getState();
 
             if (!"CONVERTED".equals(cartState)) {
                 throw new RuntimeException("Cart must be CONVERTED, current state: " + cartState);
@@ -172,20 +163,18 @@ public class OrderCreateOrderFromPaidProcessor implements CyodaProcessor {
 
     private void decrementProductStock(String sku, Integer qty) {
         try {
-            var productResponse = entityService.findByField(
+            EntityResponse<Product> productResponse = entityService.findByBusinessId(
                 Product.class,
-                Product.ENTITY_NAME,
-                Product.ENTITY_VERSION,
-                "sku",
-                sku
+                sku,
+                "sku"
             );
 
-            if (productResponse.isEmpty()) {
+            if (productResponse == null) {
                 throw new RuntimeException("Product not found for SKU: " + sku);
             }
 
-            Product product = productResponse.get(0).getData();
-            UUID productId = productResponse.get(0).getMetadata().getId();
+            Product product = productResponse.getData();
+            UUID productId = productResponse.getMetadata().getId();
 
             if (product.getQuantityAvailable() < qty) {
                 throw new RuntimeException("Insufficient stock for " + sku + 

@@ -2,6 +2,7 @@ package com.java_template.application.controller;
 
 import com.java_template.application.entity.order.version_1.Order;
 import com.java_template.application.entity.payment.version_1.Payment;
+import com.java_template.common.dto.EntityResponse;
 import com.java_template.common.service.EntityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,16 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
+class CreateOrderRequest {
+    private String paymentId;
+    private String cartId;
+
+    public String getPaymentId() { return paymentId; }
+    public void setPaymentId(String paymentId) { this.paymentId = paymentId; }
+    public String getCartId() { return cartId; }
+    public void setCartId(String cartId) { this.cartId = cartId; }
+}
 
 @RestController
 @RequestMapping("/ui/order")
@@ -26,10 +37,10 @@ public class OrderController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<Object> createOrder(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<Object> createOrder(@RequestBody CreateOrderRequest request) {
         try {
-            String paymentId = (String) request.get("paymentId");
-            String cartId = (String) request.get("cartId");
+            String paymentId = request.getPaymentId();
+            String cartId = request.getCartId();
 
             logger.info("Creating order from payment: {} and cart: {}", paymentId, cartId);
 
@@ -39,33 +50,28 @@ public class OrderController {
             }
 
             // Validate payment exists and is PAID
-            var paymentResponses = entityService.findByField(
-                    Payment.class, Payment.ENTITY_NAME, Payment.ENTITY_VERSION, "paymentId", paymentId);
+            EntityResponse<Payment> paymentResponse = entityService.findByBusinessId(Payment.class, paymentId, "paymentId");
 
-            if (paymentResponses.isEmpty()) {
+            if (paymentResponse == null) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "PAYMENT_NOT_FOUND", "message", "Payment not found with ID: " + paymentId));
             }
 
-            String paymentState = paymentResponses.get(0).getMetadata().getState();
+            String paymentState = paymentResponse.getMetadata().getState();
             if (!"paid".equals(paymentState)) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "PAYMENT_NOT_PAID", "message", "Payment must be PAID to create order"));
             }
 
-            // Create order entity
+            // Create order entity with payment and cart IDs
             Order order = new Order();
             order.setOrderId("ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+            order.setPaymentId(paymentId);  // Temporary field for processor
+            order.setCartId(cartId);        // Temporary field for processor
             order.setCreatedAt(LocalDateTime.now());
             order.setUpdatedAt(LocalDateTime.now());
 
-            // Create payload with payment and cart IDs for processor
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("paymentId", paymentId);
-            payload.put("cartId", cartId);
-
-            // Save order with CREATE_ORDER_FROM_PAID transition
-            // The processor will handle the complex logic of creating the order from paid payment
+            // Save order - the entity itself contains all the data needed
             var savedOrderResponse = entityService.save(order);
             UUID orderEntityId = savedOrderResponse.getMetadata().getId();
 
@@ -96,15 +102,14 @@ public class OrderController {
             logger.info("Getting order details: {}", orderId);
 
             // Find order
-            var orderResponses = entityService.findByField(
-                    Order.class, Order.ENTITY_NAME, Order.ENTITY_VERSION, "orderId", orderId);
+            EntityResponse<Order> orderResponse = entityService.findByBusinessId(Order.class, orderId, "orderId");
 
-            if (orderResponses.isEmpty()) {
+            if (orderResponse == null) {
                 return ResponseEntity.notFound().build();
             }
 
-            Order order = orderResponses.get(0).getData();
-            String orderState = orderResponses.get(0).getMetadata().getState();
+            Order order = orderResponse.getData();
+            String orderState = orderResponse.getMetadata().getState();
 
             // Create response with order details and current state
             Map<String, Object> response = new HashMap<>();
