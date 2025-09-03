@@ -1,0 +1,113 @@
+{
+    "version": "1.0",
+    "name": "Report Workflow",
+    "desc": "Manages the generation and distribution of performance reports.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "schedule_report",
+                    "next": "scheduled",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportSchedulingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "scheduled": {
+            "transitions": [
+                {
+                    "name": "start_generation",
+                    "next": "generating",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportGenerationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "generating": {
+            "transitions": [
+                {
+                    "name": "complete_generation",
+                    "next": "generated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportCompletionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "generated": {
+            "transitions": [
+                {
+                    "name": "review_report",
+                    "next": "reviewed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ReportQualityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "reviewed": {
+            "transitions": [
+                {
+                    "name": "distribute_report",
+                    "next": "distributed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportDistributionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "distributed": {
+            "transitions": [
+                {
+                    "name": "archive_report",
+                    "next": "archived",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ReportArchiveCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

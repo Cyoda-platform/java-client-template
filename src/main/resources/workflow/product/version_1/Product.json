@@ -1,0 +1,122 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Manages the lifecycle of products from extraction to performance analysis.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "extract_product",
+                    "next": "extracted",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductExtractionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "extracted": {
+            "transitions": [
+                {
+                    "name": "validate_product",
+                    "next": "validated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "make_available",
+                    "next": "available",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ProductAvailabilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "available": {
+            "transitions": [
+                {
+                    "name": "start_analysis",
+                    "next": "analyzing",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ProductAnalysisInitiatorProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "analyzing": {
+            "transitions": [
+                {
+                    "name": "complete_analysis",
+                    "next": "analyzed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductAnalysisCompletionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "analyzed": {
+            "transitions": [
+                {
+                    "name": "archive_product",
+                    "next": "archived",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ProductArchiveCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "archived": {
+            "transitions": [
+                {
+                    "name": "reactivate_product",
+                    "next": "available",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,118 @@
+{
+    "version": "1.0",
+    "name": "EmailNotification Workflow",
+    "desc": "Manages email notification delivery process.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "queue_email",
+                    "next": "pending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailQueueProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "start_sending",
+                    "next": "sending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailSendingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending": {
+            "transitions": [
+                {
+                    "name": "mark_sent",
+                    "next": "sent",
+                    "manual": false
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "failed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EmailFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "confirm_delivery",
+                    "next": "delivered",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailDeliveryConfirmationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "queue_retry",
+                    "next": "retry",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EmailRetryCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "retry": {
+            "transitions": [
+                {
+                    "name": "retry_send",
+                    "next": "sending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailRetryProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,114 @@
+{
+    "version": "1.0",
+    "name": "PerformanceMetric Workflow",
+    "desc": "Manages the calculation and validation of performance metrics.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "queue_calculation",
+                    "next": "pending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MetricQueueProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "start_calculation",
+                    "next": "calculating",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MetricCalculationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "calculating": {
+            "transitions": [
+                {
+                    "name": "complete_calculation",
+                    "next": "calculated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MetricCompletionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "calculated": {
+            "transitions": [
+                {
+                    "name": "validate_metric",
+                    "next": "validated",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "MetricValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "publish_metric",
+                    "next": "published",
+                    "manual": false
+                }
+            ]
+        },
+        "published": {
+            "transitions": [
+                {
+                    "name": "expire_metric",
+                    "next": "expired",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "MetricExpirationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "expired": {
+            "transitions": [
+                {
+                    "name": "recalculate_metric",
+                    "next": "pending",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,112 @@
+{
+    "version": "1.0",
+    "name": "DataExtractionJob Workflow",
+    "desc": "Manages automated data extraction jobs from Pet Store API.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "schedule_job",
+                    "next": "scheduled",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "JobSchedulingProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "scheduled": {
+            "transitions": [
+                {
+                    "name": "start_execution",
+                    "next": "running",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "JobExecutionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "running": {
+            "transitions": [
+                {
+                    "name": "complete_job",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "JobCompletionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_job",
+                    "next": "failed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "JobFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "queue_retry",
+                    "next": "retrying",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "JobRetryCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "retrying": {
+            "transitions": [
+                {
+                    "name": "retry_execution",
+                    "next": "running",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "JobRetryProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
