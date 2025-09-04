@@ -1,0 +1,64 @@
+{
+    "version": "1.0",
+    "name": "Book Workflow",
+    "desc": "Manages the lifecycle of book data from API extraction through analysis completion.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "extract_book_data",
+                    "next": "extracted",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "BookDataExtractionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "extracted": {
+            "transitions": [
+                {
+                    "name": "analyze_book_data",
+                    "next": "analyzed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "BookAnalysisProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "BookDataValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "analyzed": {
+            "transitions": [
+                {
+                    "name": "complete_book_processing",
+                    "next": "completed",
+                    "manual": false
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        }
+    }
+}

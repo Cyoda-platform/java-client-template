@@ -1,0 +1,74 @@
+{
+    "version": "1.0",
+    "name": "Report Workflow",
+    "desc": "Manages the lifecycle of analytics reports from generation through email delivery.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "generate_report",
+                    "next": "generated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportGenerationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "generated": {
+            "transitions": [
+                {
+                    "name": "send_report_email",
+                    "next": "email_sending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportEmailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "email_sending": {
+            "transitions": [
+                {
+                    "name": "confirm_email_delivery",
+                    "next": "delivered",
+                    "manual": false
+                },
+                {
+                    "name": "retry_email_sending",
+                    "next": "email_sending",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ReportEmailProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "delivered": {
+            "transitions": [
+                {
+                    "name": "completed",
+                    "next": "completed",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

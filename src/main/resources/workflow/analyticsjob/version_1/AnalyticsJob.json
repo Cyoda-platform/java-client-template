@@ -1,0 +1,108 @@
+{
+    "version": "1.0",
+    "name": "AnalyticsJob Workflow",
+    "desc": "Manages the lifecycle of scheduled analytics jobs from scheduling through completion.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "schedule_job",
+                    "next": "scheduled",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AnalyticsJobSchedulerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "scheduled": {
+            "transitions": [
+                {
+                    "name": "start_job_execution",
+                    "next": "running",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AnalyticsJobExecutorProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "AnalyticsJobScheduleCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "running": {
+            "transitions": [
+                {
+                    "name": "complete_job_successfully",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AnalyticsJobCompletionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "fail_job_execution",
+                    "next": "failed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "AnalyticsJobErrorProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": [
+                {
+                    "name": "end_workflow",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry_failed_job",
+                    "next": "scheduled",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "AnalyticsJobSchedulerProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
