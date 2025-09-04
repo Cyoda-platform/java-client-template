@@ -16,10 +16,11 @@ This template provides a production-ready foundation with **performance-optimize
 ### **Quick Start:**
 ```java
 // ✅ FASTEST - Use when you have technical UUID
-EntityWithMetadata<Cart> cart = entityService.getById(uuid, Cart.class);
+ModelSpec modelSpec = new ModelSpec().withName("Cart").withVersion(1);
+EntityWithMetadata<Cart> cart = entityService.getById(uuid, modelSpec, Cart.class);
 
 // ✅ MEDIUM - Use for user-facing identifiers
-EntityWithMetadata<Cart> cart = entityService.findByBusinessId(Cart.class, "CART-123", "cartId");
+EntityWithMetadata<Cart> cart = entityService.findByBusinessId(modelSpec, "CART-123", "cartId", Cart.class);
 
 // Access entity and metadata
 Cart cartEntity = cart.getEntity();  // Lombok-generated getter

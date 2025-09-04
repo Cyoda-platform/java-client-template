@@ -14,17 +14,20 @@ This file provides comprehensive guidelines for developers and AI agents working
 
 ### ✅ **Correct EntityService Usage**
 ```java
+// Create ModelSpec for entity operations
+ModelSpec modelSpec = new ModelSpec().withName("MyEntity").withVersion(1);
+
 // FASTEST - Use when you have technical UUID
-EntityResponse<MyEntity> myEntity = entityService.getById(uuid, MyEntity.class);
+EntityResponse<MyEntity> myEntity = entityService.getById(uuid, modelSpec, MyEntity.class);
 
 // MEDIUM SPEED - Use for user-facing identifiers
-EntityResponse<MyEntity> myEntity = entityService.findByBusinessId(MyEntity.class, "CART-123", "myEntityId");
+EntityResponse<MyEntity> myEntity = entityService.findByBusinessId(modelSpec, "CART-123", "myEntityId", MyEntity.class);
 
 // SLOW - Use sparingly for small datasets
-List<EntityResponse<MyOtherEntity>> myOtherEntitys = entityService.findAll(MyOtherEntity.class);
+List<EntityResponse<MyOtherEntity>> myOtherEntitys = entityService.findAll(modelSpec, MyOtherEntity.class);
 
 // SLOWEST - Use for complex queries
-List<EntityResponse<MyOtherEntity>> results = entityService.search(MyOtherEntity.class, condition);
+List<EntityResponse<MyOtherEntity>> results = entityService.search(modelSpec, condition, MyOtherEntity.class);
 
 // Mutations
 EntityResponse<MyEntity> saved = entityService.save(newMyEntity);

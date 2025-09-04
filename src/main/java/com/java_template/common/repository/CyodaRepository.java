@@ -92,26 +92,24 @@ public class CyodaRepository implements CrudRepository {
 
     @Override
     public CompletableFuture<List<DataPayload>> findAllByCriteria(
-            @NotNull final String modelName,
-            final int modelVersion,
+            @NotNull final ModelSpec modelSpec,
             @NotNull final GroupCondition condition,
             final int pageSize,
             final int pageNumber,
             final boolean inMemory
     ) {
         return inMemory
-                ? findAllByConditionInMemory(modelName, modelVersion, pageSize, condition)
-                : findAllByCondition(modelName, modelVersion, pageSize, pageNumber, condition);
+                ? findAllByConditionInMemory(modelSpec, pageSize, condition)
+                : findAllByCondition(modelSpec, pageSize, pageNumber, condition);
     }
 
     private CompletableFuture<List<DataPayload>> findAllByCondition(
-            @NotNull final String modelName,
-            final int modelVersion,
+            @NotNull final ModelSpec modelSpec,
             final int pageSize,
             final int pageNumber,
             @NotNull final GroupCondition condition
     ) {
-        return createSnapshotSearch(modelName, modelVersion, condition).thenComposeAsync(snapshotInfo -> {
+        return createSnapshotSearch(modelSpec, condition).thenComposeAsync(snapshotInfo -> {
                     if (snapshotInfo.getSnapshotId() == null) {
                         logger.error("Snapshot ID not found in response");
                         return CompletableFuture.completedFuture(null);
@@ -136,15 +134,14 @@ public class CyodaRepository implements CrudRepository {
     }
 
     private CompletableFuture<List<DataPayload>> findAllByConditionInMemory(
-            @NotNull final String modelName,
-            final int modelVersion,
+            @NotNull final ModelSpec modelSpec,
             final int pageSize,
             @NotNull final GroupCondition condition
     ) {
         return sendAndGetCollection(
                 cloudEventsServiceBlockingStub::entitySearchCollection,
                 new EntitySearchRequest().withId(generateEventId())
-                        .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
+                        .withModel(modelSpec)
                         .withLimit(pageSize)
                         .withCondition(condition),
                 EntityResponse.class
@@ -154,18 +151,16 @@ public class CyodaRepository implements CrudRepository {
 
     @Override
     public CompletableFuture<List<DataPayload>> findAll(
-            @NotNull final String modelName,
-            final int modelVersion,
+            @NotNull final ModelSpec modelSpec,
             final int pageSize,
             final int pageNumber,
             @Nullable final Date pointInTime
     ) {
-        return getAllEntities(modelName, modelVersion, pageSize, pageNumber, pointInTime);
+        return getAllEntities(modelSpec, pageSize, pageNumber, pointInTime);
     }
 
     private CompletableFuture<List<DataPayload>> getAllEntities(
-            @NotNull final String modelName,
-            final int modelVersion,
+            @NotNull final ModelSpec modelSpec,
             final int pageSize,
             final int pageNumber,
             @Nullable final Date pointInTime
@@ -173,7 +168,7 @@ public class CyodaRepository implements CrudRepository {
         return sendAndGetCollection(
                 cloudEventsServiceBlockingStub::entityManageCollection,
                 new EntityGetAllRequest().withId(UUID.randomUUID().toString())
-                        .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
+                        .withModel(modelSpec)
                         .withPageSize(pageSize)
                         .withPageNumber(pageNumber)
                         .withPointInTime(pointInTime),
@@ -183,20 +178,18 @@ public class CyodaRepository implements CrudRepository {
 
     @Override
     public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> save(
-            @NotNull final String modelName,
-            final int modelVersion,
+            @NotNull final ModelSpec modelSpec,
             @NotNull final ENTITY_TYPE entity
     ) {
-        return saveNewEntities(modelName, modelVersion, entity);
+        return saveNewEntities(modelSpec, entity);
     }
 
     @Override
     public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
-            @NotNull final String modelName,
-            final int modelVersion,
+            @NotNull final ModelSpec modelSpec,
             @NotNull final Collection<ENTITY_TYPE> entities
     ) {
-        return saveNewEntities(modelName, modelVersion, entities);
+        return saveNewEntities(modelSpec, entities);
     }
 
     @Override
@@ -267,10 +260,9 @@ public class CyodaRepository implements CrudRepository {
 
     @Override
     public CompletableFuture<List<EntityDeleteAllResponse>> deleteAll(
-            @NotNull final String modelName,
-            final int modelVersion
+            @NotNull final ModelSpec modelSpec
     ) {
-        return deleteAllByModel(modelName, modelVersion);
+        return deleteAllByModel(modelSpec);
     }
 
     private <RESPONSE_PAYLOAD_TYPE extends BaseEvent> CompletableFuture<RESPONSE_PAYLOAD_TYPE> sendAndGet(
@@ -330,8 +322,7 @@ public class CyodaRepository implements CrudRepository {
     }
 
     private <PAYLOAD_TYPE> CompletableFuture<EntityTransactionResponse> saveNewEntities(
-            @NotNull final String modelName,
-            final int modelVersion,
+            @NotNull final ModelSpec modelSpec,
             @NotNull final PAYLOAD_TYPE entities
     ) {
         return sendAndGet(
@@ -339,7 +330,7 @@ public class CyodaRepository implements CrudRepository {
                 new EntityCreateRequest().withId(generateEventId())
                         .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
                         .withPayload(new EntityCreatePayload().withData(objectMapper.valueToTree(entities))
-                                .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
+                                .withModel(modelSpec)
                         ),
                 EntityTransactionResponse.class
         );
@@ -354,13 +345,12 @@ public class CyodaRepository implements CrudRepository {
     }
 
     private CompletableFuture<List<EntityDeleteAllResponse>> deleteAllByModel(
-            @NotNull final String modelName,
-            final int modelVersion
+            @NotNull final ModelSpec modelSpec
     ) {
         return sendAndGetCollection(
                 cloudEventsServiceBlockingStub::entityManageCollection,
                 new EntityDeleteAllRequest().withId(generateEventId())
-                        .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion)),
+                        .withModel(modelSpec),
                 EntityDeleteAllResponse.class
         ).thenApply(Stream::toList);
     }
@@ -370,14 +360,13 @@ public class CyodaRepository implements CrudRepository {
     }
 
     private CompletableFuture<SearchSnapshotStatus> createSnapshotSearch(
-            final String modelName,
-            final int modelVersion,
+            final ModelSpec modelSpec,
             final GroupCondition condition
     ) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entitySearch,
                 new EntitySnapshotSearchRequest().withId(generateEventId())
-                        .withModel(new ModelSpec().withName(modelName).withVersion(modelVersion))
+                        .withModel(modelSpec)
                         .withCondition(condition),
                 EntitySnapshotSearchResponse.class
         ).thenApply(EntitySnapshotSearchResponse::getStatus);

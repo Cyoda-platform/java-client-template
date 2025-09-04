@@ -115,6 +115,10 @@ class EntityServiceImplTest {
         return SearchConditionRequest.group("AND", Condition.of("$.status", "EQUALS", "ACTIVE"));
     }
 
+    private ModelSpec createTestModelSpec() {
+        return new ModelSpec().withName(MODEL_NAME).withVersion(MODEL_VERSION);
+    }
+
     private void assertEntityMatches(TestEntity actual, TestEntity expected) {
         assertEquals(expected.getId(), actual.getId());
         assertEquals(expected.getName(), actual.getName());
@@ -174,7 +178,7 @@ class EntityServiceImplTest {
         when(repository.findById(testEntityId))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Repository error")));
 
-        assertRepositoryFailure(() -> entityService.getById(testEntityId, TestEntity.class), "Repository error");
+        assertRepositoryFailure(() -> entityService.getById(testEntityId, createTestModelSpec(), TestEntity.class), "Repository error");
         verify(repository).findById(testEntityId);
     }
 
@@ -191,11 +195,11 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("save should handle repository failure gracefully")
     void testCreateRepositoryFailure() {
-        when(repository.save(eq(MODEL_NAME), eq(MODEL_VERSION), any()))
+        when(repository.save(eq(createTestModelSpec()), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Save failed")));
 
         assertRepositoryFailure(() -> entityService.create(testEntity), "Save failed");
-        verify(repository).save(eq(MODEL_NAME), eq(MODEL_VERSION), any());
+        verify(repository).save(eq(createTestModelSpec()), any());
     }
 
     @Test
@@ -219,7 +223,7 @@ class EntityServiceImplTest {
         when(repository.findById(testEntityId))
                 .thenReturn(CompletableFuture.completedFuture(dataPayload));
 
-        EntityWithMetadata<TestEntity> result = entityService.getById(testEntityId, TestEntity.class);
+        EntityWithMetadata<TestEntity> result = entityService.getById(testEntityId, createTestModelSpec(), TestEntity.class);
 
         assertNotNull(result);
         assertNotNull(result.entity());
@@ -234,7 +238,7 @@ class EntityServiceImplTest {
     void testCreateSuccess() {
         UUID savedEntityId = UUID.randomUUID();
         EntityTransactionResponse transactionResponse = createTransactionResponse(savedEntityId);
-        when(repository.save(eq(MODEL_NAME), eq(MODEL_VERSION), any()))
+        when(repository.save(eq(createTestModelSpec()), any()))
                 .thenReturn(CompletableFuture.completedFuture(transactionResponse));
 
         EntityWithMetadata<TestEntity> result = entityService.create(testEntity);
@@ -244,7 +248,7 @@ class EntityServiceImplTest {
         assertNotNull(result.metadata());
         assertEntityMatches(result.entity(), testEntity);
         assertEquals(savedEntityId, result.metadata().getId());
-        verify(repository).save(eq(MODEL_NAME), eq(MODEL_VERSION), any());
+        verify(repository).save(eq(createTestModelSpec()), any());
     }
 
     @Test
@@ -267,13 +271,13 @@ class EntityServiceImplTest {
                 createDeleteAllResponse(5),
                 createDeleteAllResponse(3)
         );
-        when(repository.deleteAll(MODEL_NAME, MODEL_VERSION))
+        when(repository.deleteAll(createTestModelSpec()))
                 .thenReturn(CompletableFuture.completedFuture(responses));
 
-        Integer result = entityService.deleteAll(TestEntity.class);
+        Integer result = entityService.deleteAll(createTestModelSpec());
 
         assertEquals(8, result);
-        verify(repository).deleteAll(MODEL_NAME, MODEL_VERSION);
+        verify(repository).deleteAll(createTestModelSpec());
     }
 
     @Test
@@ -281,14 +285,15 @@ class EntityServiceImplTest {
     void testDeleteAllWithModelParameters() {
         String customModel = "custom-model";
         int customVersion = 2;
+        ModelSpec customModelSpec = new ModelSpec().withName(customModel).withVersion(customVersion);
         List<EntityDeleteAllResponse> responses = List.of(createDeleteAllResponse(10));
-        when(repository.deleteAll(eq(customModel), eq(customVersion)))
+        when(repository.deleteAll(eq(customModelSpec)))
                 .thenReturn(CompletableFuture.completedFuture(responses));
 
-        Integer result = entityService.deleteAll(customModel, customVersion);
+        Integer result = entityService.deleteAll(customModelSpec);
 
         assertEquals(10, result);
-        verify(repository).deleteAll(eq(customModel), eq(customVersion));
+        verify(repository).deleteAll(eq(customModelSpec));
     }
 
     // ========================================
@@ -342,7 +347,7 @@ class EntityServiceImplTest {
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
-        verify(repository, never()).saveAll(anyString(), anyInt(), any());
+        verify(repository, never()).saveAll(any(ModelSpec.class), any());
     }
 
     @Test
@@ -353,7 +358,7 @@ class EntityServiceImplTest {
         var result = entityService.saveAllAndReturnTransactionInfo(emptyEntities);
 
         assertNull(result);
-        verify(repository, never()).saveAll(anyString(), anyInt(), any());
+        verify(repository, never()).saveAll(any(ModelSpec.class), any());
     }
 
     @Test
@@ -396,34 +401,34 @@ class EntityServiceImplTest {
     @DisplayName("getItems should call repository.findAll with correct parameters")
     void testGetItemsRepositoryCall() {
         List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
-        when(repository.findAll(MODEL_NAME, MODEL_VERSION, 50, 2, null))
+        when(repository.findAll(createTestModelSpec(), 50, 2, null))
                 .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        List<EntityWithMetadata<TestEntity>> result = entityService.getItems(TestEntity.class, MODEL_NAME, MODEL_VERSION, 50, 2, null);
+        List<EntityWithMetadata<TestEntity>> result = entityService.getItems(TestEntity.class, createTestModelSpec(), 50, 2, null);
 
         assertNotNull(result);
         assertEquals(1, result.size());
         EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAll(MODEL_NAME, MODEL_VERSION, 50, 2, null);
+        verify(repository).findAll(createTestModelSpec(), 50, 2, null);
     }
 
     @Test
     @DisplayName("getItems should use default pagination when parameters are null")
     void testGetItemsWithDefaultPagination() {
         List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
-        when(repository.findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null))
+        when(repository.findAll(createTestModelSpec(), 100, 1, null))
                 .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        List<EntityWithMetadata<TestEntity>> result = entityService.getItems(TestEntity.class, MODEL_NAME, MODEL_VERSION, null, null, null);
+        List<EntityWithMetadata<TestEntity>> result = entityService.getItems(TestEntity.class, createTestModelSpec(), null, null, null);
 
         assertNotNull(result);
         assertEquals(1, result.size());
         EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null);
+        verify(repository).findAll(createTestModelSpec(), 100, 1, null);
     }
 
     // ========================================
@@ -435,55 +440,55 @@ class EntityServiceImplTest {
     void testFindByBusinessIdRepositoryCall() {
         TestEntity entityWithBusinessId = new TestEntity(123L, "TEST-123", "ACTIVE");
         List<DataPayload> payloads = List.of(createTestDataPayload(entityWithBusinessId, testEntityId));
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        EntityWithMetadata<TestEntity> result = entityService.findByBusinessId(TestEntity.class, "TEST-123", BUSINESS_ID_FIELD);
+        EntityWithMetadata<TestEntity> result = entityService.findByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class);
 
         assertNotNull(result);
         assertNotNull(result.entity());
         assertNotNull(result.metadata());
         assertEntityMatches(result.entity(), entityWithBusinessId);
         assertMetadata(result, testEntityId, entityWithBusinessId.getStatus());
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
     }
 
     @Test
     @DisplayName("findByBusinessId should handle repository failure")
     void testFindByBusinessIdRepositoryFailure() {
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Search failed")));
 
-        assertRepositoryFailure(() -> entityService.findByBusinessId(TestEntity.class, "TEST-123", BUSINESS_ID_FIELD),
+        assertRepositoryFailure(() -> entityService.findByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class),
                 "Search failed");
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
     }
 
     @Test
     @DisplayName("findAll should call repository.findAll with correct model parameters")
     void testFindAllRepositoryCall() {
         List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
-        when(repository.findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null))
+        when(repository.findAll(createTestModelSpec(), 100, 1, null))
                 .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        List<EntityWithMetadata<TestEntity>> result = entityService.findAll(TestEntity.class);
+        List<EntityWithMetadata<TestEntity>> result = entityService.findAll(createTestModelSpec(), TestEntity.class);
 
         assertNotNull(result);
         assertEquals(1, result.size());
         EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null);
+        verify(repository).findAll(createTestModelSpec(), 100, 1, null);
     }
 
     @Test
     @DisplayName("findAll should handle repository failure")
     void testFindAllRepositoryFailure() {
-        when(repository.findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null))
+        when(repository.findAll(createTestModelSpec(), 100, 1, null))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find all failed")));
 
-        assertRepositoryFailure(() -> entityService.findAll(TestEntity.class), "Find all failed");
-        verify(repository).findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null);
+        assertRepositoryFailure(() -> entityService.findAll(createTestModelSpec(), TestEntity.class), "Find all failed");
+        verify(repository).findAll(createTestModelSpec(), 100, 1, null);
     }
 
     @Test
@@ -491,28 +496,28 @@ class EntityServiceImplTest {
     void testSearchRepositoryCall() {
         SearchConditionRequest condition = createActiveStatusCondition();
         List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        List<EntityWithMetadata<TestEntity>> result = entityService.search(TestEntity.class, condition);
+        List<EntityWithMetadata<TestEntity>> result = entityService.search(createTestModelSpec(), condition, TestEntity.class);
 
         assertNotNull(result);
         assertEquals(1, result.size());
         EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true));
     }
 
     @Test
     @DisplayName("search should handle repository failure")
     void testSearchRepositoryFailure() {
         SearchConditionRequest condition = createActiveStatusCondition();
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Search failed")));
 
-        assertRepositoryFailure(() -> entityService.search(TestEntity.class, condition), "Search failed");
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true));
+        assertRepositoryFailure(() -> entityService.search(createTestModelSpec(), condition, TestEntity.class), "Search failed");
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true));
     }
 
     // ========================================
@@ -526,38 +531,38 @@ class EntityServiceImplTest {
         transactionInfo.setEntityIds(List.of(testEntityId));
         EntityTransactionResponse response = new EntityTransactionResponse();
         response.setTransactionInfo(transactionInfo);
-        when(repository.save(eq(MODEL_NAME), eq(MODEL_VERSION), any()))
+        when(repository.save(eq(createTestModelSpec()), any()))
                 .thenReturn(CompletableFuture.completedFuture(response));
 
         ObjectNode result = entityService.saveAndReturnTransactionInfo(testEntity);
 
         assertNotNull(result);
         assertTrue(result.has("entityIds"));
-        verify(repository).save(eq(MODEL_NAME), eq(MODEL_VERSION), any());
+        verify(repository).save(eq(createTestModelSpec()), any());
     }
 
     @Test
     @DisplayName("saveAndReturnTransactionInfo should handle repository failure")
     void testCreateAndReturnTransactionInfoFailure() {
-        when(repository.save(eq(MODEL_NAME), eq(MODEL_VERSION), any()))
+        when(repository.save(eq(createTestModelSpec()), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Save failed")));
 
         assertRepositoryFailure(() -> entityService.saveAndReturnTransactionInfo(testEntity), "Save failed");
-        verify(repository).save(eq(MODEL_NAME), eq(MODEL_VERSION), any());
+        verify(repository).save(eq(createTestModelSpec()), any());
     }
 
     @Test
     @DisplayName("getFirstItemByCondition should return empty optional when no entities found")
     void testGetFirstItemByConditionEmpty() {
         SearchConditionRequest condition = createActiveStatusCondition();
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
 
-        var result = entityService.getFirstItemByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
+        var result = entityService.getFirstItemByCondition(TestEntity.class, createTestModelSpec(), condition, true);
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
     }
 
     @Test
@@ -571,30 +576,30 @@ class EntityServiceImplTest {
         DataPayload secondPayload = createTestDataPayload(secondEntity, testEntityId2);
         List<DataPayload> payloads = List.of(firstPayload, secondPayload);
 
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        var result = entityService.getFirstItemByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
+        var result = entityService.getFirstItemByCondition(TestEntity.class, createTestModelSpec(), condition, true);
 
         assertTrue(result.isPresent());
         var entityWithMetadata = result.get();
         assertEntityMatches(entityWithMetadata.entity(), firstEntity);
         assertMetadata(entityWithMetadata, testEntityId, firstEntity.getStatus());
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
     }
 
     @Test
     @DisplayName("getItemsByCondition should return empty list when no entities found")
     void testGetItemsByConditionEmpty() {
         SearchConditionRequest condition = createActiveStatusCondition();
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
 
-        List<EntityWithMetadata<TestEntity>> result = entityService.getItemsByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
+        List<EntityWithMetadata<TestEntity>> result = entityService.getItemsByCondition(TestEntity.class, createTestModelSpec(), condition, true);
 
         assertNotNull(result);
         assertTrue(result.isEmpty());
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true));
     }
 
     @Test
@@ -606,27 +611,27 @@ class EntityServiceImplTest {
         payloadsWithNull.add(null);
         payloadsWithNull.add(validPayload);
 
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(payloadsWithNull));
 
-        List<EntityWithMetadata<TestEntity>> result = entityService.getItemsByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
+        List<EntityWithMetadata<TestEntity>> result = entityService.getItemsByCondition(TestEntity.class, createTestModelSpec(), condition, true);
 
         assertNotNull(result);
         assertEquals(1, result.size()); // Only the valid payload should be processed
         EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true));
     }
 
     @Test
     @DisplayName("deleteAll should handle repository failure")
     void testDeleteAllRepositoryFailure() {
-        when(repository.deleteAll(MODEL_NAME, MODEL_VERSION))
+        when(repository.deleteAll(createTestModelSpec()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Delete all failed")));
 
-        assertRepositoryFailure(() -> entityService.deleteAll(TestEntity.class), "Delete all failed");
-        verify(repository).deleteAll(MODEL_NAME, MODEL_VERSION);
+        assertRepositoryFailure(() -> entityService.deleteAll(createTestModelSpec()), "Delete all failed");
+        verify(repository).deleteAll(createTestModelSpec());
     }
 
     @Test
@@ -634,34 +639,35 @@ class EntityServiceImplTest {
     void testDeleteAllWithModelParametersFailure() {
         String customModel = "custom-model";
         int customVersion = 2;
-        when(repository.deleteAll(customModel, customVersion))
+        ModelSpec customModelSpec = new ModelSpec().withName(customModel).withVersion(customVersion);
+        when(repository.deleteAll(customModelSpec))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Delete failed")));
 
-        assertRepositoryFailure(() -> entityService.deleteAll(customModel, customVersion), "Delete failed");
-        verify(repository).deleteAll(customModel, customVersion);
+        assertRepositoryFailure(() -> entityService.deleteAll(customModelSpec), "Delete failed");
+        verify(repository).deleteAll(customModelSpec);
     }
 
     @Test
     @DisplayName("getItems should handle repository failure")
     void testGetItemsRepositoryFailure() {
-        when(repository.findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null))
+        when(repository.findAll(createTestModelSpec(), 100, 1, null))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find all failed")));
 
-        assertRepositoryFailure(() -> entityService.getItems(TestEntity.class, MODEL_NAME, MODEL_VERSION, null, null, null),
+        assertRepositoryFailure(() -> entityService.getItems(TestEntity.class, createTestModelSpec(), null, null, null),
                 "Find all failed");
-        verify(repository).findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null);
+        verify(repository).findAll(createTestModelSpec(), 100, 1, null);
     }
 
     @Test
     @DisplayName("updateByBusinessId should handle repository failure during find")
     void testUpdateByBusinessIdFindFailure() {
         testEntity.setName("TEST-123");
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find failed")));
 
         assertRepositoryFailure(() -> entityService.updateByBusinessId(testEntity, BUSINESS_ID_FIELD, TRANSITION_ACTIVATE),
                 "Find failed");
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
         verify(repository, never()).update(any(UUID.class), any(), anyString());
     }
 
@@ -669,13 +675,13 @@ class EntityServiceImplTest {
     @DisplayName("updateByBusinessId should handle entity not found")
     void testUpdateByBusinessIdEntityNotFound() {
         testEntity.setName("NONEXISTENT");
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
 
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> entityService.updateByBusinessId(testEntity, BUSINESS_ID_FIELD, TRANSITION_ACTIVATE));
         assertTrue(exception.getMessage().contains("Entity not found with business ID"));
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
         verify(repository, never()).update(any(UUID.class), any(), anyString());
     }
 
@@ -687,7 +693,7 @@ class EntityServiceImplTest {
 
         TestEntity foundEntity = new TestEntity(123L, "TEST-123", "ACTIVE");
         DataPayload foundPayload = createTestDataPayload(foundEntity, existingEntityTechnicalId);
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of(foundPayload)));
 
         EntityTransactionResponse updateResponse = createTransactionResponse(existingEntityTechnicalId);
@@ -701,32 +707,32 @@ class EntityServiceImplTest {
         assertNotNull(result.metadata());
         assertEntityMatches(result.entity(), testEntity);
         assertEquals(existingEntityTechnicalId, result.metadata().getId());
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
         verify(repository).update(eq(existingEntityTechnicalId), any(), eq(TRANSITION_ACTIVATE));
     }
 
     @Test
     @DisplayName("deleteByBusinessId should handle repository failure during find")
     void testDeleteByBusinessIdFindFailure() {
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find failed")));
 
-        assertRepositoryFailure(() -> entityService.deleteByBusinessId(TestEntity.class, "TEST-123", BUSINESS_ID_FIELD),
+        assertRepositoryFailure(() -> entityService.deleteByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class),
                 "Find failed");
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
         verify(repository, never()).deleteById(any(UUID.class));
     }
 
     @Test
     @DisplayName("deleteByBusinessId should return false when entity not found")
     void testDeleteByBusinessIdEntityNotFound() {
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
 
-        boolean result = entityService.deleteByBusinessId(TestEntity.class, "NONEXISTENT", BUSINESS_ID_FIELD);
+        boolean result = entityService.deleteByBusinessId(createTestModelSpec(), "NONEXISTENT", BUSINESS_ID_FIELD, TestEntity.class);
 
         assertFalse(result);
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
         verify(repository, never()).deleteById(any(UUID.class));
     }
 
@@ -736,17 +742,17 @@ class EntityServiceImplTest {
         UUID entityTechnicalId = UUID.randomUUID();
         TestEntity foundEntity = new TestEntity(123L, "TEST-123", "ACTIVE");
         DataPayload foundPayload = createTestDataPayload(foundEntity, entityTechnicalId);
-        when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of(foundPayload)));
 
         EntityDeleteResponse deleteResponse = createDeleteResponse(entityTechnicalId);
         when(repository.deleteById(entityTechnicalId))
                 .thenReturn(CompletableFuture.completedFuture(deleteResponse));
 
-        boolean result = entityService.deleteByBusinessId(TestEntity.class, "TEST-123", BUSINESS_ID_FIELD);
+        boolean result = entityService.deleteByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class);
 
         assertTrue(result);
-        verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true));
         verify(repository).deleteById(entityTechnicalId);
     }
 
@@ -758,7 +764,7 @@ class EntityServiceImplTest {
         transactionInfo.setEntityIds(List.of(testEntityId, testEntityId2));
         EntityTransactionResponse transactionResponse = new EntityTransactionResponse();
         transactionResponse.setTransactionInfo(transactionInfo);
-        when(repository.saveAll(MODEL_NAME, MODEL_VERSION, entities))
+        when(repository.saveAll(createTestModelSpec(), entities))
                 .thenReturn(CompletableFuture.completedFuture(transactionResponse));
 
         List<EntityWithMetadata<TestEntity>> result = entityService.save(entities);
@@ -770,18 +776,18 @@ class EntityServiceImplTest {
         assertEntityMatches(result.get(1).entity(), testEntity2);
         assertEquals(testEntityId, result.get(0).metadata().getId());
         assertEquals(testEntityId2, result.get(1).metadata().getId());
-        verify(repository).saveAll(MODEL_NAME, MODEL_VERSION, entities);
+        verify(repository).saveAll(createTestModelSpec(), entities);
     }
 
     @Test
     @DisplayName("saveAll should handle repository failure with non-empty collection")
     void testCreateAllWithEntitiesRepositoryFailure() {
         Collection<TestEntity> entities = List.of(testEntity, testEntity2);
-        when(repository.saveAll(MODEL_NAME, MODEL_VERSION, entities))
+        when(repository.saveAll(createTestModelSpec(), entities))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Save all failed")));
 
         assertRepositoryFailure(() -> entityService.save(entities), "Save all failed");
-        verify(repository).saveAll(MODEL_NAME, MODEL_VERSION, entities);
+        verify(repository).saveAll(createTestModelSpec(), entities);
     }
 
     @Test
@@ -792,13 +798,13 @@ class EntityServiceImplTest {
         EntityTransactionResponse mockTransactionResponse = new EntityTransactionResponse();
         mockTransactionResponse.setTransactionInfo(mockTransactionInfo);
 
-        when(repository.saveAll(anyString(), anyInt(), any()))
+        when(repository.saveAll(any(ModelSpec.class), any()))
                 .thenReturn(CompletableFuture.completedFuture(mockTransactionResponse));
 
         EntityTransactionInfo result = entityService.saveAllAndReturnTransactionInfo(entities);
 
         assertNotNull(result);
         assertEquals(mockTransactionInfo, result);
-        verify(repository).saveAll(eq(MODEL_NAME), eq(MODEL_VERSION), any());
+        verify(repository).saveAll(eq(createTestModelSpec()), any());
     }
 }

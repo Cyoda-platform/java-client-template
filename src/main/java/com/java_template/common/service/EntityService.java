@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.util.SearchConditionRequest;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -43,11 +44,13 @@ public interface EntityService {
      * Get entity by technical UUID (FASTEST - use when you have the UUID)
      *
      * @param entityId Technical UUID from EntityWithMetadata.getMetadata().getId()
-     * @param entityClass Entity class type
+     * @param modelSpec Model specification containing name and version
+     * @param entityClass Entity class type for deserialization
      * @return EntityWithMetadata with entity and metadata
      */
     <T extends CyodaEntity> EntityWithMetadata<T> getById(
             @NotNull UUID entityId,
+            @NotNull ModelSpec modelSpec,
             @NotNull Class<T> entityClass
     );
 
@@ -55,36 +58,44 @@ public interface EntityService {
      * Find entity by business identifier (MEDIUM SPEED - use for user-facing IDs)
      * Examples: cartId="CART-123", paymentId="PAY-456", orderId="ORD-789"
      *
-     * @param entityClass Entity class type
+     * @param modelSpec Model specification containing name and version
      * @param businessId Business identifier value (e.g., "CART-123")
      * @param businessIdField Field name containing the business ID (e.g., "cartId")
+     * @param entityClass Entity class type for deserialization
      * @return EntityWithMetadata with entity and metadata, or null if not found
      */
     <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessId(
-            @NotNull Class<T> entityClass,
+            @NotNull ModelSpec modelSpec,
             @NotNull String businessId,
-            @NotNull String businessIdField
+            @NotNull String businessIdField,
+            @NotNull Class<T> entityClass
     );
 
     /**
      * Get all entities of a type (SLOW - use sparingly)
      *
-     * @param entityClass Entity class type
+     * @param modelSpec Model specification containing name and version
+     * @param entityClass Entity class type for deserialization
      * @return List of EntityWithMetadata with entities and metadata
      */
-    <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(@NotNull Class<T> entityClass);
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(
+            @NotNull ModelSpec modelSpec,
+            @NotNull Class<T> entityClass
+    );
 
     /**
      * Search entities with complex conditions (SLOWEST - most flexible)
      * Use for advanced queries with multiple conditions, filtering, etc.
      *
-     * @param entityClass Entity class type
+     * @param modelSpec Model specification containing name and version
      * @param condition Search condition (use SearchConditionRequest.builder())
+     * @param entityClass Entity class type for deserialization
      * @return List of EntityWithMetadata with entities and metadata
      */
     <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
-            @NotNull Class<T> entityClass,
-            @NotNull SearchConditionRequest condition
+            @NotNull ModelSpec modelSpec,
+            @NotNull SearchConditionRequest condition,
+            @NotNull Class<T> entityClass
     );
 
     // ========================================
@@ -138,15 +149,17 @@ public interface EntityService {
     /**
      * Delete entity by business identifier
      *
-     * @param entityClass Entity class type
+     * @param modelSpec Model specification containing name and version
      * @param businessId Business identifier value
      * @param businessIdField Field name containing the business ID
+     * @param entityClass Entity class type for deserialization
      * @return true if deleted, false if not found
      */
     <T extends CyodaEntity> boolean deleteByBusinessId(
-            @NotNull Class<T> entityClass,
+            @NotNull ModelSpec modelSpec,
             @NotNull String businessId,
-            @NotNull String businessIdField
+            @NotNull String businessIdField,
+            @NotNull Class<T> entityClass
     );
 
     // ========================================
@@ -164,9 +177,9 @@ public interface EntityService {
     /**
      * Delete all entities of a type (DANGEROUS - use with caution)
      *
-     * @param entityClass Entity class type
+     * @param modelSpec Model specification containing name and version
      * @return Number of entities deleted
      */
-    <T extends CyodaEntity> Integer deleteAll(@NotNull Class<T> entityClass);
+    <T extends CyodaEntity> Integer deleteAll(@NotNull ModelSpec modelSpec);
 
 }

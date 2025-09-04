@@ -21,10 +21,11 @@ Always use appropriate package managers for dependency management instead of man
 ### ✅ CORRECT EntityService Patterns
 ```java
 // Use performance-optimized methods with clear guidance
-EntityWithMetadata<Cart> myEntity = entityService.getById(uuid, Cart.class);
-EntityWithMetadata<Cart> myEntity = entityService.findByBusinessId(Cart.class, "CART-123", "myEntityId");
-List<EntityWithMetadata<MyOtherEntity>> myOtherEntitys = entityService.findAll(MyOtherEntity.class);
-List<EntityWithMetadata<MyOtherEntity>> results = entityService.search(MyOtherEntity.class, condition);
+ModelSpec modelSpec = new ModelSpec().withName("Cart").withVersion(1);
+EntityWithMetadata<Cart> myEntity = entityService.getById(uuid, modelSpec, Cart.class);
+EntityWithMetadata<Cart> myEntity = entityService.findByBusinessId(modelSpec, "CART-123", "myEntityId", Cart.class);
+List<EntityWithMetadata<MyOtherEntity>> myOtherEntitys = entityService.findAll(modelSpec, MyOtherEntity.class);
+List<EntityWithMetadata<MyOtherEntity>> results = entityService.search(modelSpec, condition, MyOtherEntity.class);
 
 // Always work with EntityWithMetadata<T> (uses Lombok @Data)
 Cart myEntityEntity = response.getEntity();  // Lombok generates this getter
@@ -152,14 +153,16 @@ public class EntityNameController {
 
     @GetMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<EntityName>> getById(@PathVariable UUID id) {
-        EntityWithMetadata<EntityName> response = entityService.getById(id, EntityName.class);
+        ModelSpec modelSpec = new ModelSpec().withName("EntityName").withVersion(1);
+        EntityWithMetadata<EntityName> response = entityService.getById(id, modelSpec, EntityName.class);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/business/{businessId}")
     public ResponseEntity<EntityWithMetadata<EntityName>> getByBusinessId(@PathVariable String businessId) {
+        ModelSpec modelSpec = new ModelSpec().withName("EntityName").withVersion(1);
         EntityWithMetadata<EntityName> response = entityService.findByBusinessId(
-            EntityName.class, businessId, "businessIdField");
+            modelSpec, businessId, "businessIdField", EntityName.class);
         return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
     }
 }

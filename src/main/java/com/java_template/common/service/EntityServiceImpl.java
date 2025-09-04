@@ -12,6 +12,7 @@ import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
@@ -46,6 +47,7 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public <T extends CyodaEntity> EntityWithMetadata<T> getById(
             @NotNull final UUID entityId,
+            @NotNull final ModelSpec modelSpec,
             @NotNull final Class<T> entityClass
     ) {
         DataPayload payload = repository.findById(entityId).join();
@@ -54,66 +56,48 @@ public class EntityServiceImpl implements EntityService {
 
     @Override
     public <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessId(
-            @NotNull final Class<T> entityClass,
+            @NotNull final ModelSpec modelSpec,
             @NotNull final String businessId,
-            @NotNull final String businessIdField
+            @NotNull final String businessIdField,
+            @NotNull final Class<T> entityClass
     ) {
-        // Extract model info from entity class
-        T tempEntity = createTempEntity(entityClass);
-        String modelName = tempEntity.getModelKey().modelKey().getName();
-        Integer modelVersion = tempEntity.getModelKey().modelKey().getVersion();
-
         SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$." + businessIdField, "EQUALS", businessId));
 
         Optional<EntityWithMetadata<T>> result = getFirstItemByCondition(
-                entityClass, modelName, modelVersion, condition, true);
+                entityClass, modelSpec, condition, true);
 
         return result.orElse(null);
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(@NotNull final Class<T> entityClass) {
-        // Extract model info from entity class
-        T tempEntity = createTempEntity(entityClass);
-        String modelName = tempEntity.getModelKey().modelKey().getName();
-        Integer modelVersion = tempEntity.getModelKey().modelKey().getVersion();
-
-        return getItems(entityClass, modelName, modelVersion, null, null, null);
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final Class<T> entityClass
+    ) {
+        return getItems(entityClass, modelSpec, null, null, null);
     }
 
-    private static <T extends CyodaEntity> @NotNull T createTempEntity(Class<T> entityClass) {
-        try {
-            return entityClass.getDeclaredConstructor().newInstance();
-        } catch (Exception e) {
-            throw new RuntimeException("entityClass "+ entityClass.getName() + " must have a no-arg constructor");
-        }
-    }
+
 
     @Override
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
-            @NotNull final Class<T> entityClass,
-            @NotNull final SearchConditionRequest condition
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final SearchConditionRequest condition,
+            @NotNull final Class<T> entityClass
     ) {
-        // Extract model info from entity class
-        T tempEntity = createTempEntity(entityClass);
-        String modelName = tempEntity.getModelKey().modelKey().getName();
-        Integer modelVersion = tempEntity.getModelKey().modelKey().getVersion();
-
-        return getItemsByCondition(entityClass, modelName, modelVersion, condition, true);
+        return getItemsByCondition(entityClass, modelSpec, condition, true);
     }
 
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItems(
             @NotNull final Class<T> entityClass,
-            @NotNull final String modelName,
-            @NotNull final Integer modelVersion,
+            @NotNull final ModelSpec modelSpec,
             @Nullable final Integer pageSize,
             @Nullable final Integer pageNumber,
             @Nullable final Date pointTime
     ) {
         List<DataPayload> payloads = repository.findAll(
-                modelName,
-                modelVersion,
+                modelSpec,
                 pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
                 pageNumber != null ? pageNumber : FIRST_PAGE,
                 pointTime
@@ -126,14 +110,12 @@ public class EntityServiceImpl implements EntityService {
 
     public <T extends CyodaEntity> Optional<EntityWithMetadata<T>> getFirstItemByCondition(
             @NotNull final Class<T> entityClass,
-            @NotNull final String modelName,
-            @NotNull final Integer modelVersion,
+            @NotNull final ModelSpec modelSpec,
             @NotNull final SearchConditionRequest condition,
             final boolean inMemory
     ) {
         List<DataPayload> payloads = repository.findAllByCriteria(
-                modelName,
-                modelVersion,
+                modelSpec,
                 objectMapper.convertValue(condition, GroupCondition.class),
                 1,
                 1,
@@ -147,14 +129,12 @@ public class EntityServiceImpl implements EntityService {
 
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItemsByCondition(
             @NotNull final Class<T> entityClass,
-            @NotNull final String modelName,
-            @NotNull final Integer modelVersion,
+            @NotNull final ModelSpec modelSpec,
             @NotNull final SearchConditionRequest condition,
             final boolean inMemory
     ) {
         List<DataPayload> payloads = repository.findAllByCriteria(
-                modelName,
-                modelVersion,
+                modelSpec,
                 objectMapper.convertValue(condition, GroupCondition.class),
                 DEFAULT_PAGE_SIZE,
                 FIRST_PAGE,
@@ -173,10 +153,9 @@ public class EntityServiceImpl implements EntityService {
 
     @Override
     public <T extends CyodaEntity> EntityWithMetadata<T> create(@NotNull final T entity) {
-        String modelName = entity.getModelKey().modelKey().getName();
-        Integer modelVersion = entity.getModelKey().modelKey().getVersion();
+        ModelSpec modelSpec = entity.getModelKey().modelKey();
 
-        EntityTransactionResponse response = repository.save(modelName, modelVersion, objectMapper.valueToTree(entity)).join();
+        EntityTransactionResponse response = repository.save(modelSpec, objectMapper.valueToTree(entity)).join();
         return EntityWithMetadata.fromTransactionResponse(response, entity, objectMapper);
     }
 
@@ -192,7 +171,10 @@ public class EntityServiceImpl implements EntityService {
         // Get business ID value from entity using reflection-like approach
         String businessIdValue = getBusinessIdValue(entity, businessIdField);
 
-        EntityWithMetadata<? extends CyodaEntity> existingEntity = findByBusinessId(entityClass, businessIdValue, businessIdField);
+        // Extract model info from entity
+        ModelSpec modelSpec = entity.getModelKey().modelKey();
+
+        EntityWithMetadata<? extends CyodaEntity> existingEntity = findByBusinessId(modelSpec, businessIdValue, businessIdField, entityClass);
         if (existingEntity == null) {
             throw new RuntimeException("Entity not found with business ID: " + businessIdValue);
         }
@@ -218,12 +200,13 @@ public class EntityServiceImpl implements EntityService {
 
     @Override
     public <T extends CyodaEntity> boolean deleteByBusinessId(
-            @NotNull final Class<T> entityClass,
+            @NotNull final ModelSpec modelSpec,
             @NotNull final String businessId,
-            @NotNull final String businessIdField
+            @NotNull final String businessIdField,
+            @NotNull final Class<T> entityClass
     ) {
         // First find the entity to get its technical ID
-        EntityWithMetadata<T> entityResponse = findByBusinessId(entityClass, businessId, businessIdField);
+        EntityWithMetadata<T> entityResponse = findByBusinessId(modelSpec, businessId, businessIdField, entityClass);
         if (entityResponse == null) {
             return false;
         }
@@ -234,23 +217,17 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> Integer deleteAll(@NotNull final Class<T> entityClass) {
-        // Extract model info from entity class
-        T tempEntity = createTempEntity(entityClass);
-        String modelName = tempEntity.getModelKey().modelKey().getName();
-        Integer modelVersion = tempEntity.getModelKey().modelKey().getVersion();
-
-        List<EntityDeleteAllResponse> results = repository.deleteAll(modelName, modelVersion).join();
+    public <T extends CyodaEntity> Integer deleteAll(@NotNull final ModelSpec modelSpec) {
+        List<EntityDeleteAllResponse> results = repository.deleteAll(modelSpec).join();
         return results.stream()
                 .map(EntityDeleteAllResponse::getNumDeleted)
                 .reduce(0, Integer::sum);
     }
 
     public <T extends CyodaEntity> ObjectNode saveAndReturnTransactionInfo(@NotNull final T entity) {
-        String modelName = entity.getModelKey().modelKey().getName();
-        Integer modelVersion = entity.getModelKey().modelKey().getVersion();
+        ModelSpec modelSpec = entity.getModelKey().modelKey();
 
-        EntityTransactionResponse response = repository.save(modelName, modelVersion, objectMapper.valueToTree(entity)).join();
+        EntityTransactionResponse response = repository.save(modelSpec, objectMapper.valueToTree(entity)).join();
         return objectMapper.valueToTree(response.getTransactionInfo());
     }
 
@@ -261,10 +238,9 @@ public class EntityServiceImpl implements EntityService {
         }
 
         T firstEntity = entities.iterator().next();
-        String modelName = firstEntity.getModelKey().modelKey().getName();
-        Integer modelVersion = firstEntity.getModelKey().modelKey().getVersion();
+        ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
 
-        EntityTransactionResponse response = repository.saveAll(modelName, modelVersion, entities).join();
+        EntityTransactionResponse response = repository.saveAll(modelSpec, entities).join();
         return EntityWithMetadata.fromTransactionResponseList(response, entities, objectMapper);
     }
 
@@ -274,8 +250,7 @@ public class EntityServiceImpl implements EntityService {
         }
 
         T firstEntity = entities.iterator().next();
-        String modelName = firstEntity.getModelKey().modelKey().getName();
-        Integer modelVersion = firstEntity.getModelKey().modelKey().getVersion();
+        ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
 
         Collection<JsonNode> entity = entities.stream().map(it -> {
             JsonNode jsonNode = objectMapper.valueToTree(it);
@@ -283,8 +258,7 @@ public class EntityServiceImpl implements EntityService {
         }).toList();
 
         EntityTransactionResponse response = repository.saveAll(
-                modelName,
-                modelVersion,
+                modelSpec,
                 entity
         ).join();
 
@@ -314,10 +288,5 @@ public class EntityServiceImpl implements EntityService {
         return EntityWithMetadata.fromTransactionResponseList(responses, entities, objectMapper);
     }
 
-    public Integer deleteAll(@NotNull final String modelName, @NotNull final Integer modelVersion) {
-        List<EntityDeleteAllResponse> results = repository.deleteAll(modelName, modelVersion).join();
-        return results.stream()
-                .map(EntityDeleteAllResponse::getNumDeleted)
-                .reduce(0, Integer::sum);
-    }
+
 }
