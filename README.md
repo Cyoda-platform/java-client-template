@@ -679,7 +679,10 @@ public class IsValidPet implements CyodaCriterion {
             .complete();
     }
 
-    private EvaluationOutcome validatePet(Pet pet) {
+    private EvaluationOutcome validatePet(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
+        Pet pet = context.entityWithMetadata().entity();
+        // Access metadata if needed: UUID id = context.entityWithMetadata().getId();
+
         // Chain all validation checks with AND logic - first failure stops the chain
         return validatePetExists(pet)
             .and(validatePetBasicValidity(pet))
@@ -750,7 +753,8 @@ The application uses a serializer architecture with fluent APIs:
 - **Key Methods**:
   - `withRequest(request)` - Start fluent evaluation chain
   - `evaluate(Function<JsonNode, EvaluationOutcome>)` - Evaluate JSON with outcomes
-  - `evaluateEntity(Class<T>, Function<T, EvaluationOutcome>)` - Evaluate entities with outcomes
+  - `evaluateEntity(Class<T>, Function<CriterionEntityEvaluationContext<T>, EvaluationOutcome>)` - Evaluate entities with metadata
+  - `extractEntityWithMetadata(request, Class<T>)` - Extract typed entities wrapped in EntityWithMetadata<T>
   - `withReasonAttachment(ReasonAttachmentStrategy)` - Configure reason attachment
   - `withErrorHandler(BiFunction<Throwable, JsonNode, ErrorInfo>)` - Configure error handling
 

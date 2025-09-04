@@ -132,7 +132,10 @@ public class ExampleCriterion implements CyodaCriterion {
             .complete();
     }
 
-    private EvaluationOutcome validateEntity(EntityName entity) {
+    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<EntityName> context) {
+        EntityName entity = context.entityWithMetadata().entity();
+        // Access metadata if needed: UUID id = context.entityWithMetadata().getId();
+
         return EvaluationOutcome.and(
             EvaluationOutcome.of(entity.getId() != null, "Entity ID must not be null"),
             EvaluationOutcome.of(entity.isValid(), "Entity must be valid")

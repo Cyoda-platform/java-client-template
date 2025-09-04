@@ -42,7 +42,7 @@ public interface CyodaCriterion {
      * Used by OperationFactory to match criteria to workflow operations based on operation name.
      * Implementations typically check if opsSpec.operationName() matches the criterion's expected operation name.
      * Some implementations may also need to check opsSpec.modelKey().getName() and opsSpec.modelKey().getVersion()
-     * when using CriterionSerializer.extractEntity() approach to ensure compatibility with specific entity types and versions.
+     * when using CriterionSerializer.extractEntityWithMetadata() approach to ensure compatibility with specific entity types and versions.
      *
      * @param opsSpec the operation specification containing the operation name from workflow configuration
      *                and model specification with entity name and version

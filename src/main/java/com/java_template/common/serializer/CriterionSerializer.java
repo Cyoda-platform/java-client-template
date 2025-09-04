@@ -1,6 +1,7 @@
 package com.java_template.common.serializer;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.workflow.CyodaEntity;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
@@ -21,15 +22,16 @@ public interface CriterionSerializer {
     record CriterionEvaluationContext(EntityCriteriaCalculationRequest request, JsonNode payload) {}
 
     /**
-     * Context record containing the original request and extracted entity for criterion evaluation.
-     * Provides access to both request metadata (entityId, transactionId) and entity data.
+     * Context record containing the original request and extracted entity with metadata for criterion evaluation.
+     * Provides access to both request metadata (entityId, transactionId) and entity data with technical metadata.
      */
-    record CriterionEntityEvaluationContext<T extends CyodaEntity>(EntityCriteriaCalculationRequest request, T entity) {}
+    record CriterionEntityEvaluationContext<T extends CyodaEntity>(EntityCriteriaCalculationRequest request, EntityWithMetadata<T> entityWithMetadata) {}
 
     /**
-     * Extracts a typed entity from the request payload.
+     * Extracts a typed entity from the request payload and wraps it in EntityWithMetadata.
+     * Provides access to both entity data and technical metadata (id, state, etc.).
      */
-    <T extends CyodaEntity> T extractEntity(EntityCriteriaCalculationRequest request, Class<T> clazz);
+    <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityCriteriaCalculationRequest request, Class<T> clazz);
 
     /**
      * Extracts raw JSON payload from the request.
@@ -152,8 +154,8 @@ public interface CriterionSerializer {
         public <T extends CyodaEntity> EvaluationChain evaluateEntity(Class<T> clazz, Function<CriterionEntityEvaluationContext<T>, EvaluationOutcome> evaluator) {
             if (error == null && matches == null) {
                 try {
-                    T entity = serializer.extractEntity(request, clazz);
-                    CriterionEntityEvaluationContext<T> context = new CriterionEntityEvaluationContext<>(request, entity);
+                    EntityWithMetadata<T> entityWithMetadata = serializer.extractEntityWithMetadata(request, clazz);
+                    CriterionEntityEvaluationContext<T> context = new CriterionEntityEvaluationContext<>(request, entityWithMetadata);
                     EvaluationOutcome outcome = evaluator.apply(context);
                     if (outcome instanceof EvaluationOutcome.Success) {
                         matches = true;

@@ -2,6 +2,7 @@ package com.java_template.common.serializer.jackson;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.SerializerEnum;
 import com.java_template.common.serializer.ResponseBuilder;
 import com.java_template.common.serializer.CriterionSerializer;
@@ -23,8 +24,8 @@ public class JacksonCriterionSerializer extends BaseJacksonSerializer<EntityCrit
     }
 
     @Override
-    public <T extends CyodaEntity> T extractEntity(EntityCriteriaCalculationRequest request, Class<T> clazz) {
-        return super.extractEntity(request, clazz, req -> req.getPayload().getData());
+    public <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityCriteriaCalculationRequest request, Class<T> clazz) {
+        return EntityWithMetadata.fromDataPayload(request.getPayload(), clazz, objectMapper);
     }
 
     @Override
