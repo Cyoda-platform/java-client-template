@@ -16,7 +16,6 @@ import jakarta.validation.constraints.NotNull;
  * ABOUTME: Core entity service interface providing CRUD operations and search capabilities
  * for Cyoda entities with performance-optimized method selection guidance.
  *
-
  * METHOD SELECTION GUIDE:
 
  * FOR RETRIEVAL:
@@ -149,7 +148,7 @@ public interface EntityService {
     <T extends CyodaEntity> UUID deleteById(@NotNull UUID entityId);
 
     /**
-     * Delete entity by business identifier
+     * Delete entity by business identifier (MEDIUM SPEED)
      *
      * @param modelSpec Model specification containing name and version
      * @param businessId Business identifier value

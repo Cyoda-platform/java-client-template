@@ -7,12 +7,13 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
  * ABOUTME: Interface for Cyoda workflow processors that handle entity transformation
  * and business logic processing within the workflow execution framework.
  * Each workflow method should be implemented as a separate processor class.
- * Processors handle ObjectNode payload and decide internally how to process it,
+ * Processors can work with ObjectNode payload or EntityWithMetadata patterns,
  * allowing flexibility in entity handling and conversion strategies.
 
  * CyodaProcessor components handle EntityProcessorCalculationRequest events
  * from the CyodaCalculationMemberClient and are responsible for entity transformation
- * and business logic processing.
+ * and business logic processing. Use ProcessorSerializer.toEntityWithMetadata() for
+ * type-safe entity processing with unified controller/processor interfaces.
  */
 public interface CyodaProcessor {
 

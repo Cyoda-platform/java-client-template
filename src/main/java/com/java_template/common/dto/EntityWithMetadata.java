@@ -32,51 +32,102 @@ public record EntityWithMetadata<T extends CyodaEntity>(@JsonProperty("entity") 
     }
 
     // Convenience methods for commonly accessed metadata fields
+
+    /**
+     * Gets the technical UUID of the entity.
+     * @return the technical UUID, or null if metadata is not available
+     */
     public UUID getId() {
         return metadata != null ? metadata.getId() : null;
     }
 
+    /**
+     * Gets the model specification containing entity name and version.
+     * @return the ModelSpec, or null if metadata is not available
+     */
     public ModelSpec getModelKey() {
         return metadata != null ? metadata.getModelKey() : null;
     }
 
+    /**
+     * Gets the current workflow state of the entity.
+     * @return the workflow state, or null if metadata is not available
+     */
     public String getState() {
         return metadata != null ? metadata.getState() : null;
     }
 
+    /**
+     * Gets the creation date of the entity.
+     * @return the creation date, or null if metadata is not available
+     */
     public Date getCreationDate() {
         return metadata != null ? metadata.getCreationDate() : null;
     }
 
+    /**
+     * Gets the transition name used for the latest save operation.
+     * @return the transition name, or null if metadata is not available
+     */
     public String getTransitionForLatestSave() {
         return metadata != null ? metadata.getTransitionForLatestSave() : null;
     }
 
-    // Builder pattern for easy construction
+    /**
+     * Creates a new builder for constructing EntityWithMetadata instances.
+     * @param <T> the entity type
+     * @return a new Builder instance
+     */
     public static <T extends CyodaEntity> Builder<T> builder() {
         return new Builder<>();
     }
 
+    /**
+     * Builder class for constructing EntityWithMetadata instances using the builder pattern.
+     * @param <T> the entity type
+     */
     public static class Builder<T extends CyodaEntity> {
         private T entity;
         private EntityMetadata metadata;
 
+        /**
+         * Sets the entity for this builder.
+         * @param entity the business entity
+         * @return this builder for chaining
+         */
         public Builder<T> entity(T entity) {
             this.entity = entity;
             return this;
         }
 
+        /**
+         * Sets the metadata for this builder.
+         * @param metadata the entity metadata
+         * @return this builder for chaining
+         */
         public Builder<T> metadata(EntityMetadata metadata) {
             this.metadata = metadata;
             return this;
         }
 
+        /**
+         * Builds the EntityWithMetadata instance.
+         * @return a new EntityWithMetadata instance
+         */
         public EntityWithMetadata<T> build() {
             return new EntityWithMetadata<>(entity, metadata);
         }
     }
 
-    // Factory method for creating from DataPayload
+    /**
+     * Factory method for creating EntityWithMetadata from a DataPayload.
+     * Used internally by serializers to convert request payloads to typed entities.
+     * @param <T> the entity type
+     * @param payload the DataPayload containing entity data and metadata
+     * @param entityClass the entity class for deserialization
+     * @param objectMapper the ObjectMapper for JSON conversion
+     * @return a new EntityWithMetadata instance
+     */
     public static <T extends CyodaEntity> EntityWithMetadata<T> fromDataPayload(
             DataPayload payload,
             Class<T> entityClass,
@@ -90,7 +141,15 @@ public record EntityWithMetadata<T extends CyodaEntity>(@JsonProperty("entity") 
         return new EntityWithMetadata<>(entity, metadata);
     }
 
-    // Factory method for creating from EntityTransactionResponse (for save/update operations)
+    /**
+     * Factory method for creating EntityWithMetadata from an EntityTransactionResponse.
+     * Used for save/update operations to wrap the entity with transaction metadata.
+     * @param <T> the entity type
+     * @param response the EntityTransactionResponse from save/update operations
+     * @param entity the entity that was saved/updated
+     * @param objectMapper the ObjectMapper for JSON conversion
+     * @return a new EntityWithMetadata instance with transaction metadata
+     */
     public static <T extends CyodaEntity> EntityWithMetadata<T> fromTransactionResponse(
             EntityTransactionResponse response,
             T entity,
@@ -105,7 +164,15 @@ public record EntityWithMetadata<T extends CyodaEntity>(@JsonProperty("entity") 
         return new EntityWithMetadata<>(entity, metadata);
     }
 
-    // Factory method for creating list from EntityTransactionResponse (for saveAll operations)
+    /**
+     * Factory method for creating a list of EntityWithMetadata from a single EntityTransactionResponse.
+     * Used for batch save operations to wrap multiple entities with their transaction metadata.
+     * @param <T> the entity type
+     * @param response the EntityTransactionResponse from batch save operations
+     * @param entities the collection of entities that were saved
+     * @param objectMapper the ObjectMapper for JSON conversion
+     * @return a list of EntityWithMetadata instances with transaction metadata
+     */
     public static <T extends CyodaEntity> List<EntityWithMetadata<T>> fromTransactionResponseList(
             EntityTransactionResponse response,
             Collection<T> entities,
@@ -117,7 +184,15 @@ public record EntityWithMetadata<T extends CyodaEntity>(@JsonProperty("entity") 
         return assembleEntitiesWithMetadata(entities, entityIds);
     }
 
-    // Factory method for creating list from multiple EntityTransactionResponse (for updateAll operations)
+    /**
+     * Factory method for creating a list of EntityWithMetadata from multiple EntityTransactionResponses.
+     * Used for batch update operations to wrap multiple entities with their transaction metadata.
+     * @param <T> the entity type
+     * @param responses the list of EntityTransactionResponse from batch update operations
+     * @param entities the collection of entities that were updated
+     * @param objectMapper the ObjectMapper for JSON conversion
+     * @return a list of EntityWithMetadata instances with transaction metadata
+     */
     public static <T extends CyodaEntity> List<EntityWithMetadata<T>> fromTransactionResponseList(
             List<EntityTransactionResponse> responses,
             Collection<T> entities,

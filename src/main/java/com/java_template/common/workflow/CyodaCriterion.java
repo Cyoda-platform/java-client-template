@@ -24,7 +24,7 @@ public interface CyodaCriterion {
     /**
      * Evaluates criteria against the given EntityCriteriaCalculationRequest.
      * The criteria checker can decide internally how to handle the request:
-     * - Use serializers/marshallers to convert to ObjectNode or entity types
+     * - Use serializers/marshallers to convert to ObjectNode or EntityWithMetadata types
      * - Work directly with the request object
      * - Use adapters for data conversion
 
@@ -32,6 +32,7 @@ public interface CyodaCriterion {
      * that only reads from the request and returns the evaluation result.
 
      * This gives criteria checkers complete control over data marshalling and evaluation approach.
+     * Use CriterionSerializer.extractEntityWithMetadata() for type-safe entity evaluation.
      *
      * @param request the EntityCriteriaCalculationRequest to evaluate (MUST NOT be modified)
      * @return the EntityCriteriaCalculationResponse with evaluation result
