@@ -22,6 +22,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+/**
+ * ABOUTME: Implementation of EntityService providing concrete CRUD operations
+ * and search functionality backed by CrudRepository and Cyoda platform integration.
+ */
 @Service
 public class EntityServiceImpl implements EntityService {
 

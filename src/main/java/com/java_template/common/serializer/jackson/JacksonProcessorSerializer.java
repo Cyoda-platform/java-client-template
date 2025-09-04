@@ -12,8 +12,8 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 /**
- * Jackson-based implementation of ProcessorSerializer.
- * Provides sealed interface integration with Jackson serialization.
+ * ABOUTME: Jackson-based implementation of ProcessorSerializer providing JSON serialization
+ * and deserialization for workflow processor request and response handling.
  */
 @Component
 public class JacksonProcessorSerializer extends BaseJacksonSerializer<EntityProcessorCalculationRequest>

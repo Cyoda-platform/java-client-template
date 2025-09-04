@@ -12,8 +12,8 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 /**
- * Jackson-based implementation of CriterionSerializer.
- * Provides sealed interface integration with Jackson serialization for criteria evaluation.
+ * ABOUTME: Jackson-based implementation of CriterionSerializer providing JSON serialization
+ * and deserialization for workflow criterion request and response handling.
  */
 @Component
 public class JacksonCriterionSerializer extends BaseJacksonSerializer<EntityCriteriaCalculationRequest>

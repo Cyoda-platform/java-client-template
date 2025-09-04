@@ -25,8 +25,10 @@ import java.util.stream.Stream;
 
 import static com.java_template.common.config.Config.*;
 
+
 /**
- * Utility class for initializing Cyoda with entity models and workflow configurations.
+ * ABOUTME: Initialization tool for setting up Cyoda platform configuration
+ * including workflow definitions, entity models, and system bootstrapping.
  */
 public class CyodaInit {
     private static final Logger logger = LoggerFactory.getLogger(CyodaInit.class);

@@ -53,6 +53,11 @@ import java.util.concurrent.TimeoutException;
 
 import static com.java_template.common.config.Config.GRPC_COMMUNICATION_DATA_FORMAT;
 
+
+/**
+ * ABOUTME: Concrete implementation of CrudRepository providing entity CRUD operations
+ * through gRPC communication with the Cyoda platform backend services.
+ */
 @Repository
 public class CyodaRepository implements CrudRepository {
     private static final int SNAPSHOT_CREATION_AWAIT_LIMIT_MS = 10_000;

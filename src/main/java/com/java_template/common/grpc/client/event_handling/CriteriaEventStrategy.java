@@ -10,6 +10,11 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
+
+/**
+ * ABOUTME: Event handling strategy for processing criteria calculation events
+ * with workflow criterion execution and response generation.
+ */
 @Component
 public class CriteriaEventStrategy extends AbstractEventStrategy<
         EntityCriteriaCalculationRequest,

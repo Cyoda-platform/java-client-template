@@ -17,6 +17,11 @@ import org.springframework.stereotype.Component;
 
 import static com.java_template.common.config.Config.GRPC_PROCESSOR_TAG;
 
+
+/**
+ * ABOUTME: Main gRPC client for Cyoda calculation member communication providing
+ * event handling, connection management, and bidirectional streaming capabilities.
+ */
 @Component
 class CyodaCalculationMemberClient implements EventHandler {
     private final Logger log = LoggerFactory.getLogger(this.getClass());

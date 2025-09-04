@@ -25,6 +25,11 @@ import org.springframework.stereotype.Component;
 
 import static com.java_template.common.config.Config.HANDSHAKE_TIMEOUT_MS;
 
+
+/**
+ * ABOUTME: Central connection manager for gRPC streams handling connection lifecycle,
+ * event routing, monitoring, and automatic reconnection with state tracking.
+ */
 @Component
 class ConnectionManager implements EventSender {
     private final Logger log = LoggerFactory.getLogger(this.getClass());

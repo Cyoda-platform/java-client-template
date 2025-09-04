@@ -7,6 +7,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+/**
+ * ABOUTME: Factory component for discovering and providing CyodaProcessor and CyodaCriterion
+ * implementations based on operation specifications and model keys.
+ */
 @Component
 public class OperationFactory {
 

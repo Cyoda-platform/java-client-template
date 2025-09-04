@@ -15,9 +15,8 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * A CyodaCriterion that always returns false (non-matching).
- * Updated to use the new Jackson serializer architecture with sealed interfaces.
- * Demonstrates simple criteria implementation with modern serializer patterns.
+ * ABOUTME: Test criterion implementation that always returns false evaluation result
+ * for testing and debugging workflow execution paths.
  */
 @Order(Ordered.LOWEST_PRECEDENCE)
 @Component

@@ -13,7 +13,9 @@ import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 
 /**
- * Simplified EntityService interface with clear method selection guidance.
+ * ABOUTME: Core entity service interface providing CRUD operations and search capabilities
+ * for Cyoda entities with performance-optimized method selection guidance.
+ *
 
  * METHOD SELECTION GUIDE:
 

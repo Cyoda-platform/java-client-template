@@ -12,9 +12,8 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 
 /**
- * Generic wrapper that encapsulates both business entity and Cyoda metadata.
- * Uses the Envelope/Wrapper pattern to provide a clean API for accessing both
- * entity data and technical metadata.
+ * ABOUTME: Generic wrapper that encapsulates both business entity and Cyoda metadata
+ * using the Envelope/Wrapper pattern for clean API access to entity data and technical metadata.
  * JSON Structure:
  * {
  *   "entity": { ... business entity data ... },

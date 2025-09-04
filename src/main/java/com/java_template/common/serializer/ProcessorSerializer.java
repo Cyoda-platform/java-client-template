@@ -11,8 +11,8 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * Processor serializer interface that integrates with sealed response builders.
- * Provides type-safe response building with sealed interface hierarchy.
+ * ABOUTME: Processor serializer interface providing type-safe response building
+ * with sealed interface hierarchy for workflow entity processing.
  */
 public interface ProcessorSerializer {
 

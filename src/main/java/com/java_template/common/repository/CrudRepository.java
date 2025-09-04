@@ -16,6 +16,11 @@ import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
 
+
+/**
+ * ABOUTME: Repository interface defining CRUD operations for entity management
+ * with asynchronous CompletableFuture-based API and Cyoda platform integration.
+ */
 public interface CrudRepository {
 
     CompletableFuture<EntityDeleteResponse> deleteById(@NotNull UUID id);

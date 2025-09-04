@@ -7,6 +7,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.oauth2.client.ClientAuthorizationException;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 
+/**
+ * ABOUTME: gRPC client interceptor that adds OAuth2 authorization headers
+ * to outgoing requests for secure communication with Cyoda services.
+ */
 public class ClientAuthorizationInterceptor implements ClientInterceptor {
     private static final Logger LOG = LoggerFactory.getLogger(ClientAuthorizationInterceptor.class);
 

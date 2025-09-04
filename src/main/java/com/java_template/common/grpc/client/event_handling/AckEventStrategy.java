@@ -10,6 +10,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+
+/**
+ * ABOUTME: Event handling strategy for processing acknowledgment events
+ * with event tracking and completion notification capabilities.
+ */
 @Component
 public class AckEventStrategy implements EventHandlingStrategy<BaseEvent> {
 

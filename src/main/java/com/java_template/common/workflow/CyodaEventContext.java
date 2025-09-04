@@ -4,8 +4,8 @@ import io.cloudevents.v1.proto.CloudEvent;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 
 /**
- * The Context to pass to CyodaProcessor and CyodaCriterion for workflow processing or criteria checking.
- * @param <T>
+ * ABOUTME: Context interface for passing CloudEvent and BaseEvent data to
+ * CyodaProcessor and CyodaCriterion components during workflow execution.
  */
 public interface CyodaEventContext<T extends BaseEvent>  {
     CloudEvent getCloudEvent();

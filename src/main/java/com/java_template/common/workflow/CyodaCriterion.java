@@ -5,7 +5,8 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 
 /**
- * Interface for criteria checking components.
+ * ABOUTME: Interface for criteria checking components that evaluate conditions
+ * as pure functions without side effects in the workflow execution framework.
 
  * IMPORTANT: CyodaCriterion implementations should be PURE FUNCTIONS:
  * - They should NOT modify the input payload
