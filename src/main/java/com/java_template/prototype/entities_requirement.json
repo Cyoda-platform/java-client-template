@@ -1,0 +1,45 @@
+{
+    "entities": [
+        {
+            "Booking": {
+                "entity_data_example": {
+                    "additionalneeds": "Breakfast",
+                    "bookingId": 123,
+                    "checkin": "2024-01-15",
+                    "checkout": "2024-01-20",
+                    "depositpaid": true,
+                    "firstname": "John",
+                    "lastname": "Doe",
+                    "retrievedAt": "2024-01-01T10:00:00",
+                    "totalprice": 150
+                }
+            }
+        },
+        {
+            "Report": {
+                "entity_data_example": {
+                    "averagePrice": 150.0,
+                    "dateRange": "2024-01-01 to 2024-01-31",
+                    "depositPaidCount": 20,
+                    "depositUnpaidCount": 5,
+                    "filterCriteria": "{\"depositpaid\":true,\"minPrice\":100}",
+                    "generatedAt": "2024-01-01T15:30:00",
+                    "generatedBy": "system",
+                    "reportId": "RPT-2024-001",
+                    "reportName": "Monthly Booking Summary",
+                    "reportType": "SUMMARY",
+                    "totalBookings": 25,
+                    "totalRevenue": 3750.0
+                }
+            }
+        },
+        {
+            "BookingDates": {
+                "entity_data_example": {
+                    "checkin": "2024-01-15",
+                    "checkout": "2024-01-20"
+                }
+            }
+        }
+    ]
+}
