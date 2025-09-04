@@ -741,7 +741,7 @@ The application uses a serializer architecture with fluent APIs:
 - **Purpose**: Handles entity extraction and response building for processors
 - **Key Methods**:
   - `withRequest(request)` - Start fluent processing chain
-  - `extractEntity(request, Class<T>)` - Extract typed entities
+  - `extractEntityWithMetadata(request, Class<T>)` - Extract typed entities
   - `extractPayload(request)` - Extract raw JSON payload
   - `responseBuilder(request)` - Create response builders
 

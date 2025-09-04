@@ -757,7 +757,7 @@ class ProcessingChainTest {
         // Given - Create a serializer that extracts null entity
         JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
             @Override
-            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityProcessorCalculationRequest request, Class<T> clazz) {
                 return null; // Return null entity wrapper
             }
         };
@@ -781,7 +781,7 @@ class ProcessingChainTest {
         // Given - Create a serializer that extracts null entity
         JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
             @Override
-            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityProcessorCalculationRequest request, Class<T> clazz) {
                 return null; // Return null entity wrapper
             }
         };
@@ -833,7 +833,7 @@ class ProcessingChainTest {
         // Given - Create a serializer that extracts null entity
         JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
             @Override
-            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityProcessorCalculationRequest request, Class<T> clazz) {
                 return null; // Return null entity wrapper
             }
         };
@@ -862,7 +862,7 @@ class ProcessingChainTest {
         // Given - Create a serializer that extracts null entity
         JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
             @Override
-            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityProcessorCalculationRequest request, Class<T> clazz) {
                 return null; // Return null entity wrapper
             }
         };
@@ -934,7 +934,7 @@ class ProcessingChainTest {
         // Given - Create a serializer that extracts null entity
         JacksonProcessorSerializer nullEntitySerializer = new JacksonProcessorSerializer(objectMapper) {
             @Override
-            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityProcessorCalculationRequest request, Class<T> clazz) {
                 return null; // Return null entity wrapper
             }
         };
@@ -1042,7 +1042,7 @@ class ProcessingChainTest {
         requestWithMeta.setPayload(payload);
 
         // When
-        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntity(requestWithMeta, TestEntity.class);
+        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntityWithMetadata(requestWithMeta, TestEntity.class);
 
         // Then
         assertNotNull(entityWithMetadata);
@@ -1066,7 +1066,7 @@ class ProcessingChainTest {
     void testExtractEntityWithoutMetadata() {
         // Given - Create request without metadata (current test setup)
         // When
-        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntity(request, TestEntity.class);
+        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntityWithMetadata(request, TestEntity.class);
 
         // Then
         assertNotNull(entityWithMetadata);
@@ -1090,7 +1090,7 @@ class ProcessingChainTest {
         // Given - Create an initial error in entity extraction
         JacksonProcessorSerializer faultySerializer = new JacksonProcessorSerializer(objectMapper) {
             @Override
-            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+            public <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityProcessorCalculationRequest request, Class<T> clazz) {
                 throw new RuntimeException("Entity extraction failed");
             }
         };

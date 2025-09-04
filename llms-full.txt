@@ -728,7 +728,7 @@ public boolean supports(OperationSpecification opSpec) {
 }
 ```
 
-#### **For Entity-based Processing** (using `toEntityWithMetadata()` or `extractEntity()`):
+#### **For Entity-based Processing** (using `toEntityWithMetadata()` or `extractEntityWithMetadata()`):
 ```java
 @Override
 public boolean supports(OperationSpecification opSpec) {
@@ -739,7 +739,7 @@ public boolean supports(OperationSpecification opSpec) {
 }
 ```
 
-> ✅ **Rule**: If your component uses `toEntityWithMetadata(Class)` or `extractEntity(Class)`, you MUST check model name and version compatibility in `supports()`. If you only process JSON payloads, checking operation name is sufficient.
+> ✅ **Rule**: If your component uses `toEntityWithMetadata(Class)` or `extractEntityWithMetadata(Class)`, you MUST check model name and version compatibility in `supports()`. If you only process JSON payloads, checking operation name is sufficient.
 
 ---
 
@@ -751,7 +751,7 @@ The application uses a serializer architecture with fluent APIs:
 - **Purpose**: Handles entity extraction and response building for processors
 - **Key Methods**:
   - `withRequest(request)` - Start fluent processing chain
-  - `extractEntity(request, Class<T>)` - Extract typed entities
+  - `extractEntityWithMetadata(request, Class<T>)` - Extract typed entities
   - `extractPayload(request)` - Extract raw JSON payload
   - `responseBuilder(request)` - Create response builders
 

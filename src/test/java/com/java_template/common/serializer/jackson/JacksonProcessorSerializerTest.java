@@ -31,12 +31,12 @@ class JacksonProcessorSerializerTest {
 
     @Test
     @DisplayName("extractEntity should properly extract entity and metadata from payload")
-    void testExtractEntityWithMetadata() {
+    void testExtractEntityWithMetadataWithMetadata() {
         // Given - Create request with metadata in payload
         EntityProcessorCalculationRequest request = createRequestWithMetadata();
 
         // When
-        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntity(request, TestEntity.class);
+        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntityWithMetadata(request, TestEntity.class);
 
         // Then
         assertNotNull(entityWithMetadata);
@@ -57,12 +57,12 @@ class JacksonProcessorSerializerTest {
 
     @Test
     @DisplayName("extractEntity should handle payload without metadata gracefully")
-    void testExtractEntityWithoutMetadata() {
+    void testExtractEntityWithMetadataWithoutMetadata() {
         // Given - Create request without metadata
         EntityProcessorCalculationRequest request = createRequestWithoutMetadata();
 
         // When
-        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntity(request, TestEntity.class);
+        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntityWithMetadata(request, TestEntity.class);
 
         // Then
         assertNotNull(entityWithMetadata);
@@ -82,7 +82,7 @@ class JacksonProcessorSerializerTest {
 
     @Test
     @DisplayName("extractEntity should propagate JsonProcessingException for invalid entity data")
-    void testExtractEntityWithInvalidData() {
+    void testExtractEntityWithMetadataWithInvalidData() {
         // Given - Create request with invalid entity data
         EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
         request.setEntityId("test-entity-id");
@@ -98,13 +98,13 @@ class JacksonProcessorSerializerTest {
 
         // When & Then - Should propagate the exception instead of catching it
         assertThrows(RuntimeException.class, () -> {
-            serializer.extractEntity(request, TestEntity.class);
+            serializer.extractEntityWithMetadata(request, TestEntity.class);
         });
     }
 
     @Test
     @DisplayName("extractEntity should handle null payload gracefully")
-    void testExtractEntityWithNullPayload() {
+    void testExtractEntityWithMetadataWithNullPayload() {
         // Given - Create request with null payload
         EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
         request.setEntityId("test-entity-id");
@@ -112,7 +112,7 @@ class JacksonProcessorSerializerTest {
 
         // When & Then - Should throw exception for null payload
         assertThrows(Exception.class, () -> {
-            serializer.extractEntity(request, TestEntity.class);
+            serializer.extractEntityWithMetadata(request, TestEntity.class);
         });
     }
 

@@ -24,7 +24,7 @@ public class JacksonProcessorSerializer extends BaseJacksonSerializer<EntityProc
     }
 
     @Override
-    public <T extends CyodaEntity> EntityWithMetadata<T> extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz) {
+    public <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityProcessorCalculationRequest request, Class<T> clazz) {
         return EntityWithMetadata.fromDataPayload(request.getPayload(), clazz, objectMapper);
     }
 

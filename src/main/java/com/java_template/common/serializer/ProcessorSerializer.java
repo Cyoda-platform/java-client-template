@@ -37,7 +37,7 @@ public interface ProcessorSerializer {
     /**
      * Extracts a typed entity from the request payload and wraps it in EntityWithMetadata.
      */
-    <T extends CyodaEntity> EntityWithMetadata<T> extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz);
+    <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityProcessorCalculationRequest request, Class<T> clazz);
 
     /**
      * Extracts raw JSON payload from the request.
@@ -46,7 +46,6 @@ public interface ProcessorSerializer {
 
     /**
      * Converts a CyodaEntity to JsonNode.
-     * This method allows processors to convert entities for use with withEntity method.
      */
     <T extends CyodaEntity> JsonNode entityToJsonNode(T entity);
 
@@ -228,7 +227,7 @@ public interface ProcessorSerializer {
         public <T extends CyodaEntity> EntityProcessingChain<T> toEntityWithMetadata(Class<T> clazz) {
             if (error == null) {
                 try {
-                    EntityWithMetadata<T> entityResponse = serializer.extractEntity(request, clazz);
+                    EntityWithMetadata<T> entityResponse = serializer.extractEntityWithMetadata(request, clazz);
                     return new EntityProcessingChainImpl<>(serializer, request, entityResponse);
                 } catch (Exception e) {
                     return new EntityProcessingChainImpl<>(serializer, request, e);
