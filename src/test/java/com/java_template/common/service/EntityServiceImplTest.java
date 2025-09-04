@@ -141,6 +141,7 @@ class EntityServiceImplTest {
         private String name;
         private String status;
 
+        @SuppressWarnings("unused") // Used by Jackson
         public TestEntity() {}
 
         public TestEntity(Long id, String name, String status) {
@@ -297,30 +298,34 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("update should use default UPDATE transition when transition is null")
     void testUpdateWithNullTransition() {
-        EntityTransactionResponse response = new EntityTransactionResponse();
+        EntityTransactionResponse response = createTransactionResponse(testEntityId);
         when(repository.update(eq(testEntityId), any(), eq(TRANSITION_UPDATE)))
                 .thenReturn(CompletableFuture.completedFuture(response));
 
-        try {
-            entityService.update(testEntityId, testEntity, null);
-        } catch (Exception e) {
-            // Expected due to EntityWithMetadata.fromTransactionResponse
-        }
+        EntityWithMetadata<TestEntity> result = entityService.update(testEntityId, testEntity, null);
+
+        assertNotNull(result);
+        assertNotNull(result.entity());
+        assertNotNull(result.metadata());
+        assertEntityMatches(result.entity(), testEntity);
+        assertEquals(testEntityId, result.metadata().getId());
         verify(repository).update(eq(testEntityId), any(), eq(TRANSITION_UPDATE));
     }
 
     @Test
     @DisplayName("update should use provided transition when not null")
     void testUpdateWithCustomTransition() {
-        EntityTransactionResponse response = new EntityTransactionResponse();
+        EntityTransactionResponse response = createTransactionResponse(testEntityId);
         when(repository.update(eq(testEntityId), any(), eq(TRANSITION_ACTIVATE)))
                 .thenReturn(CompletableFuture.completedFuture(response));
 
-        try {
-            entityService.update(testEntityId, testEntity, TRANSITION_ACTIVATE);
-        } catch (Exception e) {
-            // Expected due to EntityWithMetadata.fromTransactionResponse
-        }
+        EntityWithMetadata<TestEntity> result = entityService.update(testEntityId, testEntity, TRANSITION_ACTIVATE);
+
+        assertNotNull(result);
+        assertNotNull(result.entity());
+        assertNotNull(result.metadata());
+        assertEntityMatches(result.entity(), testEntity);
+        assertEquals(testEntityId, result.metadata().getId());
         verify(repository).update(eq(testEntityId), any(), eq(TRANSITION_ACTIVATE));
     }
 
@@ -367,15 +372,19 @@ class EntityServiceImplTest {
     @DisplayName("updateAll should use default UPDATE transition when transition is null")
     void testUpdateAllWithNullTransition() {
         Collection<TestEntity> entities = List.of(testEntity);
-        List<EntityTransactionResponse> responses = List.of(new EntityTransactionResponse());
+        List<EntityTransactionResponse> responses = List.of(createTransactionResponse(testEntityId));
         when(repository.updateAll(any(), eq(TRANSITION_UPDATE)))
                 .thenReturn(CompletableFuture.completedFuture(responses));
 
-        try {
-            entityService.updateAll(entities, null);
-        } catch (Exception e) {
-            // Expected due to EntityWithMetadata.fromTransactionResponseList
-        }
+        List<EntityWithMetadata<TestEntity>> result = entityService.updateAll(entities, null);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
+        assertNotNull(entityWithMetadata.entity());
+        assertNotNull(entityWithMetadata.metadata());
+        assertEntityMatches(entityWithMetadata.entity(), testEntity);
+        assertEquals(testEntityId, entityWithMetadata.metadata().getId());
         verify(repository).updateAll(any(), eq(TRANSITION_UPDATE));
     }
 
@@ -386,28 +395,34 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("getItems should call repository.findAll with correct parameters")
     void testGetItemsRepositoryCall() {
+        List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
         when(repository.findAll(MODEL_NAME, MODEL_VERSION, 50, 2, null))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
+                .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        try {
-            entityService.getItems(TestEntity.class, MODEL_NAME, MODEL_VERSION, 50, 2, null);
-        } catch (Exception e) {
-            // Expected due to EntityWithMetadata.fromDataPayload
-        }
+        List<EntityWithMetadata<TestEntity>> result = entityService.getItems(TestEntity.class, MODEL_NAME, MODEL_VERSION, 50, 2, null);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
+        assertEntityMatches(entityWithMetadata.entity(), testEntity);
+        assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
         verify(repository).findAll(MODEL_NAME, MODEL_VERSION, 50, 2, null);
     }
 
     @Test
     @DisplayName("getItems should use default pagination when parameters are null")
     void testGetItemsWithDefaultPagination() {
+        List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
         when(repository.findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
+                .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        try {
-            entityService.getItems(TestEntity.class, MODEL_NAME, MODEL_VERSION, null, null, null);
-        } catch (Exception e) {
-            // Expected due to EntityWithMetadata.fromDataPayload
-        }
+        List<EntityWithMetadata<TestEntity>> result = entityService.getItems(TestEntity.class, MODEL_NAME, MODEL_VERSION, null, null, null);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
+        assertEntityMatches(entityWithMetadata.entity(), testEntity);
+        assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
         verify(repository).findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null);
     }
 
@@ -418,14 +433,18 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("findByBusinessId should call repository.findAllByCriteria with correct search condition")
     void testFindByBusinessIdRepositoryCall() {
+        TestEntity entityWithBusinessId = new TestEntity(123L, "TEST-123", "ACTIVE");
+        List<DataPayload> payloads = List.of(createTestDataPayload(entityWithBusinessId, testEntityId));
         when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
+                .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        try {
-            entityService.findByBusinessId(TestEntity.class, "TEST-123", BUSINESS_ID_FIELD);
-        } catch (Exception e) {
-            // Expected due to entity instantiation or EntityWithMetadata.fromDataPayload
-        }
+        EntityWithMetadata<TestEntity> result = entityService.findByBusinessId(TestEntity.class, "TEST-123", BUSINESS_ID_FIELD);
+
+        assertNotNull(result);
+        assertNotNull(result.entity());
+        assertNotNull(result.metadata());
+        assertEntityMatches(result.entity(), entityWithBusinessId);
+        assertMetadata(result, testEntityId, entityWithBusinessId.getStatus());
         verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
     }
 
@@ -443,14 +462,17 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("findAll should call repository.findAll with correct model parameters")
     void testFindAllRepositoryCall() {
+        List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
         when(repository.findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
+                .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        try {
-            entityService.findAll(TestEntity.class);
-        } catch (Exception e) {
-            // Expected due to entity instantiation or EntityWithMetadata.fromDataPayload
-        }
+        List<EntityWithMetadata<TestEntity>> result = entityService.findAll(TestEntity.class);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
+        assertEntityMatches(entityWithMetadata.entity(), testEntity);
+        assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
         verify(repository).findAll(MODEL_NAME, MODEL_VERSION, 100, 1, null);
     }
 
@@ -468,14 +490,17 @@ class EntityServiceImplTest {
     @DisplayName("search should call repository.findAllByCriteria with search condition")
     void testSearchRepositoryCall() {
         SearchConditionRequest condition = createActiveStatusCondition();
+        List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
         when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true)))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
+                .thenReturn(CompletableFuture.completedFuture(payloads));
 
-        try {
-            entityService.search(TestEntity.class, condition);
-        } catch (Exception e) {
-            // Expected due to entity instantiation or EntityWithMetadata.fromDataPayload
-        }
+        List<EntityWithMetadata<TestEntity>> result = entityService.search(TestEntity.class, condition);
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
+        assertEntityMatches(entityWithMetadata.entity(), testEntity);
+        assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
         verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true));
     }
 
@@ -497,15 +522,17 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("saveAndReturnTransactionInfo should call repository.save and return transaction info")
     void testCreateAndReturnTransactionInfo() {
+        EntityTransactionInfo transactionInfo = new EntityTransactionInfo();
+        transactionInfo.setEntityIds(List.of(testEntityId));
         EntityTransactionResponse response = new EntityTransactionResponse();
+        response.setTransactionInfo(transactionInfo);
         when(repository.save(eq(MODEL_NAME), eq(MODEL_VERSION), any()))
                 .thenReturn(CompletableFuture.completedFuture(response));
 
-        try {
-            ObjectNode objectNode = entityService.saveAndReturnTransactionInfo(testEntity);
-        } catch (Exception e) {
-            // Expected due to ObjectMapper.valueToTree on transaction info
-        }
+        ObjectNode result = entityService.saveAndReturnTransactionInfo(testEntity);
+
+        assertNotNull(result);
+        assertTrue(result.has("entityIds"));
         verify(repository).save(eq(MODEL_NAME), eq(MODEL_VERSION), any());
     }
 
@@ -520,17 +547,16 @@ class EntityServiceImplTest {
     }
 
     @Test
-    @DisplayName("getFirstItemByCondition should call repository.findAllByCriteria with correct parameters")
-    void testGetFirstItemByCondition() {
+    @DisplayName("getFirstItemByCondition should return empty optional when no entities found")
+    void testGetFirstItemByConditionEmpty() {
         SearchConditionRequest condition = createActiveStatusCondition();
         when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
 
-        try {
-            entityService.getFirstItemByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
-        } catch (Exception e) {
-            // Expected due to EntityWithMetadata.fromDataPayload
-        }
+        var result = entityService.getFirstItemByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
         verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(1), eq(1), eq(true));
     }
 
@@ -558,25 +584,24 @@ class EntityServiceImplTest {
     }
 
     @Test
-    @DisplayName("getItemsByCondition should call repository.findAllByCriteria with correct parameters")
-    void testGetItemsByCondition() {
+    @DisplayName("getItemsByCondition should return empty list when no entities found")
+    void testGetItemsByConditionEmpty() {
         SearchConditionRequest condition = createActiveStatusCondition();
         when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
 
-        try {
-            entityService.getItemsByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
-        } catch (Exception e) {
-            // Expected due to EntityWithMetadata.fromDataPayload
-        }
+        List<EntityWithMetadata<TestEntity>> result = entityService.getItemsByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
         verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true));
     }
 
     @Test
-    @DisplayName("getItemsByCondition should filter null payloads")
+    @DisplayName("getItemsByCondition should filter null payloads and return valid entities")
     void testGetItemsByConditionWithNullPayloads() {
         SearchConditionRequest condition = createActiveStatusCondition();
-        DataPayload validPayload = new DataPayload();
+        DataPayload validPayload = createTestDataPayload(testEntity, testEntityId);
         List<DataPayload> payloadsWithNull = new java.util.ArrayList<>();
         payloadsWithNull.add(null);
         payloadsWithNull.add(validPayload);
@@ -584,11 +609,13 @@ class EntityServiceImplTest {
         when(repository.findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(payloadsWithNull));
 
-        try {
-            entityService.getItemsByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
-        } catch (Exception e) {
-            // Expected due to EntityWithMetadata.fromDataPayload
-        }
+        List<EntityWithMetadata<TestEntity>> result = entityService.getItemsByCondition(TestEntity.class, MODEL_NAME, MODEL_VERSION, condition, true);
+
+        assertNotNull(result);
+        assertEquals(1, result.size()); // Only the valid payload should be processed
+        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
+        assertEntityMatches(entityWithMetadata.entity(), testEntity);
+        assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
         verify(repository).findAllByCriteria(eq(MODEL_NAME), eq(MODEL_VERSION), any(GroupCondition.class), eq(100), eq(1), eq(true));
     }
 
@@ -727,15 +754,22 @@ class EntityServiceImplTest {
     @DisplayName("saveAll should call repository.saveAll with non-empty collection")
     void testCreateAllWithEntitiesRepositoryCall() {
         Collection<TestEntity> entities = List.of(testEntity, testEntity2);
+        EntityTransactionInfo transactionInfo = new EntityTransactionInfo();
+        transactionInfo.setEntityIds(List.of(testEntityId, testEntityId2));
         EntityTransactionResponse transactionResponse = new EntityTransactionResponse();
+        transactionResponse.setTransactionInfo(transactionInfo);
         when(repository.saveAll(MODEL_NAME, MODEL_VERSION, entities))
                 .thenReturn(CompletableFuture.completedFuture(transactionResponse));
 
-        try {
-            entityService.save(entities);
-        } catch (Exception e) {
-            // Expected due to EntityWithMetadata.fromTransactionResponseList
-        }
+        List<EntityWithMetadata<TestEntity>> result = entityService.save(entities);
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        // Verify that entities are properly mapped
+        assertEntityMatches(result.get(0).entity(), testEntity);
+        assertEntityMatches(result.get(1).entity(), testEntity2);
+        assertEquals(testEntityId, result.get(0).metadata().getId());
+        assertEquals(testEntityId2, result.get(1).metadata().getId());
         verify(repository).saveAll(MODEL_NAME, MODEL_VERSION, entities);
     }
 
@@ -765,6 +799,6 @@ class EntityServiceImplTest {
 
         assertNotNull(result);
         assertEquals(mockTransactionInfo, result);
-        verify(repository).saveAll(eq(MODEL_NAME), eq(MODEL_VERSION), any(Collection.class));
+        verify(repository).saveAll(eq(MODEL_NAME), eq(MODEL_VERSION), any());
     }
 }
