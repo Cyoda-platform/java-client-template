@@ -3,11 +3,11 @@ package com.java_template.common.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.repository.CrudRepository;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.util.Condition;
 import com.java_template.common.util.SearchConditionRequest;
-import com.java_template.common.dto.EntityResponse;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import java.util.Collection;
@@ -15,13 +15,11 @@ import java.util.Date;
 
 import java.util.Objects;
 import org.cyoda.cloud.api.event.common.DataPayload;
-import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
-import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -51,20 +49,20 @@ public class EntityServiceImpl implements EntityService {
     // ========================================
 
     @Override
-    public <T extends CyodaEntity> EntityResponse<T> getById(
+    public <T extends CyodaEntity> EntityWithMetadata<T> getById(
             @NotNull final UUID entityId,
             @NotNull final Class<T> entityClass
     ) {
         try {
             DataPayload payload = repository.findById(entityId).join();
-            return EntityResponse.fromDataPayload(payload, entityClass, objectMapper);
+            return EntityWithMetadata.fromDataPayload(payload, entityClass, objectMapper);
         } catch (Exception e) {
             throw new RuntimeException("Failed to get entity by ID: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public <T extends CyodaEntity> EntityResponse<T> findByBusinessId(
+    public <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessId(
             @NotNull final Class<T> entityClass,
             @NotNull final String businessId,
             @NotNull final String businessIdField
@@ -78,7 +76,7 @@ public class EntityServiceImpl implements EntityService {
             SearchConditionRequest condition = SearchConditionRequest.group("AND",
                 Condition.of("$." + businessIdField, "EQUALS", businessId));
 
-            Optional<EntityResponse<T>> result = getFirstItemByCondition(
+            Optional<EntityWithMetadata<T>> result = getFirstItemByCondition(
                 entityClass, modelName, modelVersion, condition, true);
 
             return result.orElse(null);
@@ -88,7 +86,7 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull final Class<T> entityClass) {
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(@NotNull final Class<T> entityClass) {
         try {
             // Extract model info from entity class
             T tempEntity = entityClass.getDeclaredConstructor().newInstance();
@@ -102,7 +100,7 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityResponse<T>> search(
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
             @NotNull final Class<T> entityClass,
             @NotNull final SearchConditionRequest condition
     ) {
@@ -118,7 +116,7 @@ public class EntityServiceImpl implements EntityService {
         }
     }
 
-    public <T extends CyodaEntity> List<EntityResponse<T>> getItems(
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItems(
             @NotNull final Class<T> entityClass,
             @NotNull final String modelName,
             @NotNull final Integer modelVersion,
@@ -136,14 +134,14 @@ public class EntityServiceImpl implements EntityService {
             ).join();
 
             return payloads.stream()
-                    .map(payload -> EntityResponse.fromDataPayload(payload, entityClass, objectMapper))
+                    .map(payload -> EntityWithMetadata.fromDataPayload(payload, entityClass, objectMapper))
                     .toList();
         } catch (Exception e) {
             throw new RuntimeException("Failed to get items: " + e.getMessage(), e);
         }
     }
 
-    public <T extends CyodaEntity> Optional<EntityResponse<T>> getFirstItemByCondition(
+    public <T extends CyodaEntity> Optional<EntityWithMetadata<T>> getFirstItemByCondition(
             @NotNull final Class<T> entityClass,
             @NotNull final String modelName,
             @NotNull final Integer modelVersion,
@@ -162,13 +160,13 @@ public class EntityServiceImpl implements EntityService {
 
             return payloads.isEmpty()
                     ? Optional.empty()
-                    : Optional.of(EntityResponse.fromDataPayload(payloads.getFirst(), entityClass, objectMapper));
+                    : Optional.of(EntityWithMetadata.fromDataPayload(payloads.getFirst(), entityClass, objectMapper));
         } catch (Exception e) {
             throw new RuntimeException("Failed to get first item by condition: " + e.getMessage(), e);
         }
     }
 
-    public <T extends CyodaEntity> List<EntityResponse<T>> getItemsByCondition(
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItemsByCondition(
             @NotNull final Class<T> entityClass,
             @NotNull final String modelName,
             @NotNull final Integer modelVersion,
@@ -187,7 +185,7 @@ public class EntityServiceImpl implements EntityService {
 
             return payloads.stream()
                     .filter(Objects::nonNull)
-                    .map(payload -> EntityResponse.fromDataPayload(payload, entityClass, objectMapper))
+                    .map(payload -> EntityWithMetadata.fromDataPayload(payload, entityClass, objectMapper))
                     .toList();
         } catch (Exception e) {
             throw new RuntimeException("Failed to get items by condition: " + e.getMessage(), e);
@@ -199,20 +197,20 @@ public class EntityServiceImpl implements EntityService {
     // ========================================
 
     @Override
-    public <T extends CyodaEntity> EntityResponse<T> save(@NotNull final T entity) {
+    public <T extends CyodaEntity> EntityWithMetadata<T> save(@NotNull final T entity) {
         try {
             String modelName = entity.getModelKey().modelKey().getName();
             Integer modelVersion = entity.getModelKey().modelKey().getVersion();
 
             EntityTransactionResponse response = repository.save(modelName, modelVersion, objectMapper.valueToTree(entity)).join();
-            return EntityResponse.fromTransactionResponse(response, entity, objectMapper);
+            return EntityWithMetadata.fromTransactionResponse(response, entity, objectMapper);
         } catch (Exception e) {
             throw new RuntimeException("Failed to save entity: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(
+    public <T extends CyodaEntity> EntityWithMetadata<T> updateByBusinessId(
             @NotNull final T entity,
             @NotNull final String businessIdField,
             @Nullable final String transition
@@ -224,12 +222,12 @@ public class EntityServiceImpl implements EntityService {
             // Get business ID value from entity using reflection-like approach
             String businessIdValue = getBusinessIdValue(entity, businessIdField);
 
-            EntityResponse<T> existingEntity = findByBusinessId(entityClass, businessIdValue, businessIdField);
+            EntityWithMetadata<T> existingEntity = findByBusinessId(entityClass, businessIdValue, businessIdField);
             if (existingEntity == null) {
                 throw new RuntimeException("Entity not found with business ID: " + businessIdValue);
             }
 
-            UUID technicalId = existingEntity.getMetadata().getId();
+            UUID technicalId = existingEntity.metadata().getId();
 
             // Now update using technical ID
             return update(technicalId, entity, transition);
@@ -267,12 +265,12 @@ public class EntityServiceImpl implements EntityService {
     ) {
         try {
             // First find the entity to get its technical ID
-            EntityResponse<T> entityResponse = findByBusinessId(entityClass, businessId, businessIdField);
+            EntityWithMetadata<T> entityResponse = findByBusinessId(entityClass, businessId, businessIdField);
             if (entityResponse == null) {
                 return false;
             }
 
-            UUID entityId = entityResponse.getMetadata().getId();
+            UUID entityId = entityResponse.metadata().getId();
             deleteById(entityId);
             return true;
         } catch (Exception e) {
@@ -310,7 +308,7 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityResponse<T>> saveAll(@NotNull final Collection<T> entities) {
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> saveAll(@NotNull final Collection<T> entities) {
         if (entities.isEmpty()) {
             return List.of();
         }
@@ -321,7 +319,7 @@ public class EntityServiceImpl implements EntityService {
             Integer modelVersion = firstEntity.getModelKey().modelKey().getVersion();
 
             EntityTransactionResponse response = repository.saveAll(modelName, modelVersion, entities).join();
-            return EntityResponse.fromTransactionResponseList(response, entities, objectMapper);
+            return EntityWithMetadata.fromTransactionResponseList(response, entities, objectMapper);
         } catch (Exception e) {
             throw new RuntimeException("Failed to save entities: " + e.getMessage(), e);
         }
@@ -350,7 +348,7 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> EntityResponse<T> update(
+    public <T extends CyodaEntity> EntityWithMetadata<T> update(
             @NotNull final UUID entityId,
             @NotNull final T entity,
             @Nullable final String transition
@@ -358,13 +356,13 @@ public class EntityServiceImpl implements EntityService {
         try {
             String transitionToUse = transition != null ? transition : UPDATE_TRANSITION;
             EntityTransactionResponse response = repository.update(entityId, objectMapper.valueToTree(entity), transitionToUse).join();
-            return EntityResponse.fromTransactionResponse(response, entity, objectMapper);
+            return EntityWithMetadata.fromTransactionResponse(response, entity, objectMapper);
         } catch (Exception e) {
             throw new RuntimeException("Failed to update entity: " + e.getMessage(), e);
         }
     }
 
-    public <T extends CyodaEntity> List<EntityResponse<T>> updateAll(@NotNull final Collection<T> entities, @Nullable final String transition) {
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> updateAll(@NotNull final Collection<T> entities, @Nullable final String transition) {
         if (entities.isEmpty()) {
             return List.of();
         }
@@ -373,7 +371,7 @@ public class EntityServiceImpl implements EntityService {
             String transitionToUse = transition != null ? transition : UPDATE_TRANSITION;
 
             List<EntityTransactionResponse> responses = repository.updateAll(objectMapper.convertValue(entities, new TypeReference<>() {}), transitionToUse).join();
-            return EntityResponse.fromTransactionResponseList(responses, entities, objectMapper);
+            return EntityWithMetadata.fromTransactionResponseList(responses, entities, objectMapper);
         } catch (Exception e) {
             throw new RuntimeException("Failed to update entities: " + e.getMessage(), e);
         }

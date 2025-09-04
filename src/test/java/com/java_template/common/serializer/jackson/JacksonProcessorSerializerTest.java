@@ -1,0 +1,196 @@
+package com.java_template.common.serializer.jackson;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.workflow.CyodaEntity;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Tests for JacksonProcessorSerializer, focusing on entity extraction
+ * and metadata handling functionality.
+ */
+class JacksonProcessorSerializerTest {
+
+    private ObjectMapper objectMapper;
+    private JacksonProcessorSerializer serializer;
+
+    @BeforeEach
+    void setUp() {
+        objectMapper = new ObjectMapper();
+        serializer = new JacksonProcessorSerializer(objectMapper);
+    }
+
+    @Test
+    @DisplayName("extractEntity should properly extract entity and metadata from payload")
+    void testExtractEntityWithMetadata() {
+        // Given - Create request with metadata in payload
+        EntityProcessorCalculationRequest request = createRequestWithMetadata();
+
+        // When
+        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntity(request, TestEntity.class);
+
+        // Then
+        assertNotNull(entityWithMetadata);
+        assertNotNull(entityWithMetadata.entity());
+        assertNotNull(entityWithMetadata.metadata());
+
+        // Verify entity data
+        TestEntity entity = entityWithMetadata.entity();
+        assertEquals(123L, entity.getId());
+        assertEquals("Fluffy", entity.getName());
+        assertEquals("available", entity.getStatus());
+
+        // Verify metadata
+        assertEquals("550e8400-e29b-41d4-a716-446655440000", entityWithMetadata.metadata().getId().toString());
+        assertEquals("ACTIVE", entityWithMetadata.metadata().getState());
+        assertNotNull(entityWithMetadata.metadata().getCreationDate());
+    }
+
+    @Test
+    @DisplayName("extractEntity should handle payload without metadata gracefully")
+    void testExtractEntityWithoutMetadata() {
+        // Given - Create request without metadata
+        EntityProcessorCalculationRequest request = createRequestWithoutMetadata();
+
+        // When
+        EntityWithMetadata<TestEntity> entityWithMetadata = serializer.extractEntity(request, TestEntity.class);
+
+        // Then
+        assertNotNull(entityWithMetadata);
+        assertNotNull(entityWithMetadata.entity());
+        assertNotNull(entityWithMetadata.metadata()); // Should still have metadata object, but empty
+
+        // Verify entity data
+        TestEntity entity = entityWithMetadata.entity();
+        assertEquals(123L, entity.getId());
+        assertEquals("Fluffy", entity.getName());
+        assertEquals("available", entity.getStatus());
+
+        // Metadata should be empty since no meta was provided
+        assertNull(entityWithMetadata.metadata().getId());
+        assertNull(entityWithMetadata.metadata().getState());
+    }
+
+    @Test
+    @DisplayName("extractEntity should propagate JsonProcessingException for invalid entity data")
+    void testExtractEntityWithInvalidData() {
+        // Given - Create request with invalid entity data
+        EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
+        request.setEntityId("test-entity-id");
+
+        // Create invalid payload that cannot be converted to TestEntity
+        ObjectNode invalidData = objectMapper.createObjectNode();
+        invalidData.put("invalidField", "invalidValue");
+        invalidData.put("anotherInvalidField", 999);
+
+        DataPayload payload = new DataPayload();
+        payload.setData(invalidData);
+        request.setPayload(payload);
+
+        // When & Then - Should propagate the exception instead of catching it
+        assertThrows(RuntimeException.class, () -> {
+            serializer.extractEntity(request, TestEntity.class);
+        });
+    }
+
+    @Test
+    @DisplayName("extractEntity should handle null payload gracefully")
+    void testExtractEntityWithNullPayload() {
+        // Given - Create request with null payload
+        EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
+        request.setEntityId("test-entity-id");
+        request.setPayload(null);
+
+        // When & Then - Should throw exception for null payload
+        assertThrows(Exception.class, () -> {
+            serializer.extractEntity(request, TestEntity.class);
+        });
+    }
+
+    private EntityProcessorCalculationRequest createRequestWithMetadata() {
+        EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
+        request.setId("test-request-123");
+        request.setEntityId("550e8400-e29b-41d4-a716-446655440000");
+
+        // Create test payload with both data and metadata
+        ObjectNode testData = objectMapper.createObjectNode();
+        testData.put("id", 123L);
+        testData.put("name", "Fluffy");
+        testData.put("status", "available");
+
+        ObjectNode testMeta = objectMapper.createObjectNode();
+        testMeta.put("id", "550e8400-e29b-41d4-a716-446655440000");
+        testMeta.put("state", "ACTIVE");
+        testMeta.put("creationDate", "2023-01-01T00:00:00Z");
+
+        DataPayload payload = new DataPayload();
+        payload.setData(testData);
+        payload.setMeta(testMeta);
+        request.setPayload(payload);
+
+        return request;
+    }
+
+    private EntityProcessorCalculationRequest createRequestWithoutMetadata() {
+        EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
+        request.setId("test-request-123");
+        request.setEntityId("entity-789");
+
+        // Create test payload with only data, no metadata
+        ObjectNode testData = objectMapper.createObjectNode();
+        testData.put("id", 123L);
+        testData.put("name", "Fluffy");
+        testData.put("status", "available");
+
+        DataPayload payload = new DataPayload();
+        payload.setData(testData);
+        // Note: not setting payload.setMeta() - it will be null
+        request.setPayload(payload);
+
+        return request;
+    }
+
+    // Test entity class
+    static class TestEntity implements CyodaEntity {
+        private Long id;
+        private String name;
+        private String status;
+
+        public TestEntity() {}
+
+        public TestEntity(Long id, String name, String status) {
+            this.id = id;
+            this.name = name;
+            this.status = status;
+        }
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+
+        @Override
+        public boolean isValid() { return true; }
+
+        @Override
+        public OperationSpecification getModelKey() {
+            ModelSpec modelSpec = new ModelSpec();
+            modelSpec.setName("test-entity");
+            modelSpec.setVersion(1);
+            return new OperationSpecification.Entity(modelSpec, "test-entity");
+        }
+    }
+}

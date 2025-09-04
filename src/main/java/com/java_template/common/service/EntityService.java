@@ -1,18 +1,15 @@
 package com.java_template.common.service;
 
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
-import com.java_template.common.dto.EntityResponse;
+import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.util.SearchConditionRequest;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
-import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 
 /**
  * Simplified EntityService interface with clear method selection guidance.
@@ -45,11 +42,11 @@ public interface EntityService {
     /**
      * Get entity by technical UUID (FASTEST - use when you have the UUID)
      *
-     * @param entityId Technical UUID from EntityResponse.getMetadata().getId()
+     * @param entityId Technical UUID from EntityWithMetadata.getMetadata().getId()
      * @param entityClass Entity class type
-     * @return EntityResponse with entity and metadata
+     * @return EntityWithMetadata with entity and metadata
      */
-    <T extends CyodaEntity> EntityResponse<T> getById(
+    <T extends CyodaEntity> EntityWithMetadata<T> getById(
             @NotNull UUID entityId,
             @NotNull Class<T> entityClass
     );
@@ -61,9 +58,9 @@ public interface EntityService {
      * @param entityClass Entity class type
      * @param businessId Business identifier value (e.g., "CART-123")
      * @param businessIdField Field name containing the business ID (e.g., "cartId")
-     * @return EntityResponse with entity and metadata, or null if not found
+     * @return EntityWithMetadata with entity and metadata, or null if not found
      */
-    <T extends CyodaEntity> EntityResponse<T> findByBusinessId(
+    <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessId(
             @NotNull Class<T> entityClass,
             @NotNull String businessId,
             @NotNull String businessIdField
@@ -73,9 +70,9 @@ public interface EntityService {
      * Get all entities of a type (SLOW - use sparingly)
      *
      * @param entityClass Entity class type
-     * @return List of EntityResponse with entities and metadata
+     * @return List of EntityWithMetadata with entities and metadata
      */
-    <T extends CyodaEntity> List<EntityResponse<T>> findAll(@NotNull Class<T> entityClass);
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(@NotNull Class<T> entityClass);
 
     /**
      * Search entities with complex conditions (SLOWEST - most flexible)
@@ -83,9 +80,9 @@ public interface EntityService {
      *
      * @param entityClass Entity class type
      * @param condition Search condition (use SearchConditionRequest.builder())
-     * @return List of EntityResponse with entities and metadata
+     * @return List of EntityWithMetadata with entities and metadata
      */
-    <T extends CyodaEntity> List<EntityResponse<T>> search(
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
             @NotNull Class<T> entityClass,
             @NotNull SearchConditionRequest condition
     );
@@ -98,19 +95,19 @@ public interface EntityService {
      * Save a new entity (CREATE operation)
      *
      * @param entity New entity to save
-     * @return EntityResponse with saved entity and metadata (including technical UUID)
+     * @return EntityWithMetadata with saved entity and metadata (including technical UUID)
      */
-    <T extends CyodaEntity> EntityResponse<T> save(@NotNull T entity);
+    <T extends CyodaEntity> EntityWithMetadata<T> save(@NotNull T entity);
 
     /**
      * Update existing entity by technical UUID (FASTEST - use when you have UUID)
      *
-     * @param entityId Technical UUID from EntityResponse.getMetadata().getId()
+     * @param entityId Technical UUID from EntityWithMetadata.getMetadata().getId()
      * @param entity Updated entity data
      * @param transition Optional workflow transition name (null to stay in same state)
-     * @return EntityResponse with updated entity and metadata
+     * @return EntityWithMetadata with updated entity and metadata
      */
-    <T extends CyodaEntity> EntityResponse<T> update(
+    <T extends CyodaEntity> EntityWithMetadata<T> update(
             @NotNull UUID entityId,
             @NotNull T entity,
             @Nullable String transition
@@ -122,9 +119,9 @@ public interface EntityService {
      * @param entity Updated entity data (must contain business ID)
      * @param businessIdField Field name containing the business ID (e.g., "cartId")
      * @param transition Optional workflow transition name (null to stay in same state)
-     * @return EntityResponse with updated entity and metadata
+     * @return EntityWithMetadata with updated entity and metadata
      */
-    <T extends CyodaEntity> EntityResponse<T> updateByBusinessId(
+    <T extends CyodaEntity> EntityWithMetadata<T> updateByBusinessId(
             @NotNull T entity,
             @NotNull String businessIdField,
             @Nullable String transition
@@ -160,9 +157,9 @@ public interface EntityService {
      * Save multiple entities in batch
      *
      * @param entities Collection of entities to save
-     * @return List of EntityResponse with saved entities and metadata
+     * @return List of EntityWithMetadata with saved entities and metadata
      */
-    <T extends CyodaEntity> List<EntityResponse<T>> saveAll(@NotNull Collection<T> entities);
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> saveAll(@NotNull Collection<T> entities);
 
     /**
      * Delete all entities of a type (DANGEROUS - use with caution)
@@ -180,7 +177,7 @@ public interface EntityService {
      * @deprecated Use getById() instead for better clarity
      */
     @Deprecated
-    default <T extends CyodaEntity> EntityResponse<T> getItem(
+    default <T extends CyodaEntity> EntityWithMetadata<T> getItem(
             @NotNull UUID entityId,
             @NotNull Class<T> entityClass
     ) {
@@ -191,7 +188,7 @@ public interface EntityService {
      * @deprecated Use search() instead for better clarity
      */
     @Deprecated
-    default <T extends CyodaEntity> List<EntityResponse<T>> findByCondition(
+    default <T extends CyodaEntity> List<EntityWithMetadata<T>> findByCondition(
             @NotNull Class<T> entityClass,
             @NotNull String modelName,
             @NotNull Integer modelVersion,
@@ -205,7 +202,7 @@ public interface EntityService {
      * @deprecated Use search() with single field condition instead
      */
     @Deprecated
-    default <T extends CyodaEntity> List<EntityResponse<T>> findByField(
+    default <T extends CyodaEntity> List<EntityWithMetadata<T>> findByField(
             @NotNull Class<T> entityClass,
             @NotNull String modelName,
             @NotNull Integer modelVersion,

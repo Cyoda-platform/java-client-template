@@ -74,21 +74,12 @@ public class ExampleProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
 
-        // Option 1: Traditional entity processing
-        return serializer.withRequest(request)
-            .toEntity(EntityName.class)
-            .validate(this::isValidEntity, "Invalid entity")
-            .map(this::processEntityLogic)
-            .complete();
-
-        // Option 2: NEW - Unified EntityResponse processing (recommended)
-        /*
+        // Unified EntityResponse processing - work directly with EntityResponse
         return serializer.withRequest(request)
             .toEntityResponse(EntityName.class)  // Unified with controllers
             .validate(this::isValidEntityResponse, "Invalid entity response")
             .map(this::processEntityResponseLogic)
             .complete();
-        */
     }
 
     @Override
@@ -177,8 +168,7 @@ public ExampleCriterion(SerializerFactory serializerFactory) {
 
 // Processor fluent API patterns
 return serializer.withRequest(request)
-    .toEntity(EntityName.class)                    // Traditional
-    .toEntityResponse(EntityName.class)            // NEW - Unified interface
+    .toEntityResponse(EntityName.class)            // Unified interface
     .validate(validator, "Error message")
     .map(this::processLogic)
     .complete();
@@ -349,7 +339,7 @@ EntityResponse<OtherEntity> updated = entityService.update(otherEntityId, otherE
 - Use `@Valid` annotation for request body validation in controllers
 - Implement `isValid()` method in entity classes for business validation
 - Use `EvaluationOutcome` chaining for complex validation logic
-- Prefer `validate()` method in EntityProcessingChain for processor validation
+- Prefer `validate()` method in EntityResponseProcessingChain for processor validation
 - Use `ReasonAttachmentStrategy` to attach validation reasons to responses
 - Validate requests in serializer implementations before processing
 - Use `Condition` and `SearchConditionRequest` for query validation

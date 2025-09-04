@@ -2,24 +2,24 @@
 
 A structured template for building scalable web clients using **Spring Boot**, designed for seamless integration with **Cyoda** over **gRPC** and **REST**.
 
-## 🚀 **Latest Improvements - EntityService Redesigned**
+## 🚀 **Core Features**
 
-The EntityService has been completely redesigned with **performance-optimized methods** and **AI-friendly patterns** to eliminate confusion and improve developer experience:
+This template provides a production-ready foundation with **performance-optimized EntityService** and **type-safe processing chains** for building scalable applications:
 
-### **Key Improvements:**
-- ✅ **Clear Performance Guidance**: Methods labeled FASTEST, MEDIUM, SLOW, SLOWEST
-- ✅ **Simplified API**: Removed confusing method overloads and redundant parameters
-- ✅ **Consistent Naming**: EntityResponse uses `getEntity()` with Lombok @Data
+### **Key Features:**
+- ✅ **Performance-Optimized EntityService**: Methods labeled FASTEST, MEDIUM, SLOW, SLOWEST for clear guidance
+- ✅ **Type-Safe Processing**: EntityWithMetadata-based fluent API with compile-time safety
+- ✅ **Unified Interface**: Consistent patterns between processors and controllers
 - ✅ **Clean JSON Structure**: `{"entity": {...}, "metadata": {...}}`
-- ✅ **Anti-Pattern Prevention**: Explicit guidance on what NOT to do
+- ✅ **Exception Propagation**: Proper error handling without swallowing exceptions
 
 ### **Quick Start:**
 ```java
 // ✅ FASTEST - Use when you have technical UUID
-EntityResponse<Cart> cart = entityService.getById(uuid, Cart.class);
+EntityWithMetadata<Cart> cart = entityService.getById(uuid, Cart.class);
 
 // ✅ MEDIUM - Use for user-facing identifiers
-EntityResponse<Cart> cart = entityService.findByBusinessId(Cart.class, "CART-123", "cartId");
+EntityWithMetadata<Cart> cart = entityService.findByBusinessId(Cart.class, "CART-123", "cartId");
 
 // Access entity and metadata
 Cart cartEntity = cart.getEntity();  // Lombok-generated getter
@@ -179,27 +179,35 @@ The EntityService has been redesigned with **clear performance guidance** and **
 ### 🎯 **Method Selection Guide**
 
 ```java
-// ✅ FASTEST - Use when you have the technical UUID (from previous EntityResponse)
-EntityResponse<Cart> cart = entityService.getById(technicalId, Cart.class);
+// ✅ FASTEST - Use when you have the technical UUID (from previous EntityWithMetadata)
+EntityWithMetadata<Cart> cart = entityService.getById(technicalId, Cart.class);
 
-// ✅ MEDIUM SPEED - Use for user-facing identifiers (cartId, paymentId, orderId, etc.)
-EntityResponse<Cart> cart = entityService.findByBusinessId(Cart.class, "CART-123", "cartId");
+// ✅ FAST - Use for user-facing identifiers (cartId, paymentId, orderId, etc.)
+EntityWithMetadata<Cart> cart = entityService.findByBusinessId(Cart.class, "CART-123", "cartId");
 
-// ⚠️ SLOW - Use sparingly for small datasets
-List<EntityResponse<Product>> allProducts = entityService.findAll(Product.class);
+// ✅ FAST - Indexed searches on range fields (dates, numbers, time-uuids)
+// Fast even with complex GroupConditions if all sub-clauses are on indexable fields
+SearchConditionRequest rangeCondition = SearchConditionRequest.group("AND",
+        Condition.of("$.price", "GREATER_THAN", 100),
+        Condition.of("$.createdDate", "GREATER_THAN", "2023-01-01"));
+List<EntityWithMetadata<Product>> expensiveProducts = entityService.search(Product.class, rangeCondition);
 
-// ⚠️ SLOWEST - Use for complex filtering/search
-SearchConditionRequest condition = SearchConditionRequest.group("AND",
-    Condition.of("$.price", "GREATER_THAN", 100));
-List<EntityResponse<Product>> expensiveProducts = entityService.search(Product.class, condition);
+// ⚠️ SLOW - Full-table scans on non-indexed fields (requires scanning all records)
+SearchConditionRequest fullScanCondition = SearchConditionRequest.group("AND",
+    Condition.of("$.description", "CONTAINS", "premium"));
+List<EntityWithMetadata<Product>> premiumProducts = entityService.search(Product.class, fullScanCondition);
+
+// ⚠️ SLOWEST - Use sparingly for small datasets
+List<EntityWithMetadata<Product>> allProducts = entityService.findAll(Product.class);
+
 ```
 
-### 🔑 EntityResponse<T> Structure
+### 🔑 EntityWithMetadata<T> Structure
 
-All EntityService methods return `EntityResponse<T>` which contains both the entity and metadata:
+All EntityService methods return `EntityWithMetadata<T>` which contains both the entity and metadata:
 
 ```java
-EntityResponse<Cart> response = entityService.getById(cartId, Cart.class);
+EntityWithMetadata<Cart> response = entityService.getById(cartId, Cart.class);
 
 // Access the entity (Lombok @Data generates getEntity() automatically)
 Cart cart = response.getEntity();
@@ -235,33 +243,26 @@ LocalDateTime updated = response.getMetadata().getUpdatedAt();
 
 ### 🔄 **Unified Processor Interface**
 
-Processors support both traditional entity processing and the new unified EntityResponse interface:
+Processors use the unified EntityWithMetadata interface for consistent entity processing:
 
 ```java
-// Traditional entity processing
+// Unified EntityWithMetadata processing - work directly with EntityWithMetadata
 return serializer.withRequest(request)
-    .toEntity(EntityName.class)
-    .validate(this::isValidEntity, "Invalid entity")
-    .map(this::processEntityLogic)
+    .toEntityWithMetadata(EntityName.class)  // Unified interface with controllers
+    .validate(this::isValidEntityWithMetadata, "Invalid entity wrapper")
+    .map(this::processEntityWithMetadataLogic)
     .complete();
 
-// NEW: Unified EntityResponse processing (recommended for consistency)
-return serializer.withRequest(request)
-    .toEntityResponse(EntityName.class)  // Same interface as controllers
-    .validate(this::isValidEntityResponse, "Invalid entity response")
-    .map(this::processEntityResponseLogic)
-    .complete();
-
-private EntityResponse<EntityName> processEntityResponseLogic(ProcessorEntityResponseExecutionContext<EntityName> context) {
-    EntityResponse<EntityName> entityResponse = context.entityResponse();
-    EntityName entity = entityResponse.getEntity();
+private EntityWithMetadata<EntityName> processEntityWithMetadataLogic(ProcessorEntityResponseExecutionContext<EntityName> context) {
+    EntityWithMetadata<EntityName> entityWithMetadata = context.entityResponse();
+    EntityName entity = entityWithMetadata.getEntity();
 
     // Direct access to metadata (unified with controllers)
-    UUID currentEntityId = entityResponse.getMetadata().getId();
-    String currentState = entityResponse.getMetadata().getState();
+    UUID currentEntityId = entityWithMetadata.getMetadata().getId();
+    String currentState = entityWithMetadata.getMetadata().getState();
 
     // Process business logic
-    return entityResponse; // Cannot modify current entity state
+    return entityWithMetadata; // Cannot modify current entity state
 }
 ```
 
@@ -518,8 +519,8 @@ public class AddLastModifiedTimestamp implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
 
         return serializer.withRequest(request)
-            .toEntity(Pet.class)
-            .validate(pet -> pet.getId() != null && pet.getName() != null)
+            .toEntityWithMetadata(Pet.class)
+            .validate(petWrapper -> petWrapper.getEntity().getId() != null && petWrapper.getEntity().getName() != null)
             .map(this::processBusinessLogic)
             .complete();
     }
@@ -531,8 +532,8 @@ public class AddLastModifiedTimestamp implements CyodaProcessor {
         // Never extract from request payload - use entity getters directly
 
         // If you need to interact with other entities, use EntityService:
-        // EntityResponse<Owner> ownerResponse = entityService.getById(pet.getOwnerId(), Owner.class);
-        // Owner owner = ownerResponse.getEntity();
+        // EntityWithMetadata<Owner> ownerWrapper = entityService.getById(pet.getOwnerId(), Owner.class);
+        // Owner owner = ownerWrapper.getEntity();
 
         pet.addLastModifiedTimestamp();
         return pet;
@@ -559,23 +560,23 @@ Pet pet = new Pet();
 pet.setName((String) payloadMap.get("name"));
 
 // ❌ DON'T: Try to update current entity in processor
-EntityResponse<Pet> updated = entityService.update(currentEntityId, pet, "TRANSITION");
+EntityWithMetadata<Pet> updated = entityService.update(currentEntityId, pet, "TRANSITION");
 
 // ✅ DO: Use entity directly
 Pet pet = context.entity();
 String name = pet.getName();
 
 // ✅ DO: Use EntityService for OTHER entities only
-EntityResponse<Owner> ownerResponse = entityService.getById(ownerId, Owner.class);
-Owner owner = ownerResponse.getEntity();
-EntityResponse<Owner> updated = entityService.update(ownerId, owner, "TRANSITION");
+EntityWithMetadata<Owner> ownerWrapper = entityService.getById(ownerId, Owner.class);
+Owner owner = ownerWrapper.getEntity();
+EntityWithMetadata<Owner> updated = entityService.update(ownerId, owner, "TRANSITION");
 ```
 
 ### 🚨 **Critical Processor Limitations**
 
 **IMPORTANT**: Processors have specific limitations on what they can and cannot do:
 
-- ✅ **CAN**: Read current entity data using `context.entity()` or `entityResponse.getEntity()`
+- ✅ **CAN**: Read current entity data using `context.entity()` or `entityWithMetadata.getEntity()`
 - ✅ **CAN**: Access current entity metadata: `context.getEvent().getEntityId()` and state
 - ✅ **CAN**: Get, update, delete OTHER entities using EntityService
 - ❌ **CANNOT**: Update the current entity being processed
@@ -648,15 +649,15 @@ Processors in workflow transitions support various execution modes and configura
 
 ### EntityProcessingChain API
 
-The **EntityProcessingChain** provides a clean, type-safe API for entity processing:
+The **EntityProcessingChain** provides a unified, type-safe API for entity processing:
 
-- `toEntity(Class<T>)` - Extract entity and initiate entity flow
-- `map(Function<T, T>)` - Transform entity instances
-- `validate(Function<T, Boolean>)` - Validate entities with default error message
-- `validate(Function<T, Boolean>, String)` - Validate entities with custom error message
-- `toJsonFlow(Function<T, JsonNode>)` - Switch to JSON processing
+- `toEntityWithMetadata(Class<T>)` - Extract entity and wrap in EntityWithMetadata for unified processing
+- `map(Function<ProcessorEntityResponseExecutionContext<T>, EntityWithMetadata<T>>)` - Transform EntityWithMetadata instances with context
+- `validate(Function<EntityWithMetadata<T>, Boolean>)` - Validate EntityWithMetadata with default error message
+- `validate(Function<EntityWithMetadata<T>, Boolean>, String)` - Validate EntityWithMetadata with custom error message
+- `toJsonFlow(Function<EntityWithMetadata<T>, JsonNode>)` - Switch to JSON processing
 - `complete()` - Complete processing with automatic entity-to-JSON conversion
-- `complete(Function<T, JsonNode>)` - Complete with custom entity converter
+- `complete(Function<EntityWithMetadata<T>, JsonNode>)` - Complete with custom EntityWithMetadata converter
 
 ### Criteria Implementation
 
@@ -755,9 +756,9 @@ The application uses a serializer architecture with fluent APIs:
 
 ### ProcessingChain vs EntityProcessingChain
 - **ProcessingChain**: JSON-based processing with `map(Function<JsonNode, JsonNode>)`
-- **EntityProcessingChain**: Type-safe entity processing with `map(Function<T, T>)`
-- **Transition**: Use `toEntity(Class<T>)` to switch from JSON to entity flow
-- **Transition**: Use `toJsonFlow(Function<T, JsonNode>)` to switch from entity to JSON flow
+- **EntityProcessingChain**: Type-safe entity processing with unified EntityWithMetadata interface
+- **Transition**: Use `toEntityWithMetadata(Class<T>)` to switch from JSON to entity flow
+- **Transition**: Use `toJsonFlow(Function<EntityWithMetadata<T>, JsonNode>)` to switch from entity to JSON flow
 
 ### SerializerFactory
 - **Purpose**: Provides access to different serializer implementations
@@ -843,12 +844,14 @@ if (result.isFailure()) { /* handle failure */ }
 
 ### Basic Entity Processing
 ```java
-// Simple entity transformation
+// Simple entity transformation - work directly with EntityWithMetadata
 return serializer.withRequest(request)
-    .toEntity(Pet.class)
-    .map(pet -> {
+    .toEntityWithMetadata(Pet.class)
+    .map(context -> {
+        EntityWithMetadata<Pet> entityWithMetadata = context.entityResponse();
+        Pet pet = entityWithMetadata.getEntity();
         pet.setName(pet.getName().toUpperCase());
-        return pet;
+        return new EntityWithMetadata<>(pet, entityWithMetadata.getMetadata());
     })
     .complete();
 ```
@@ -857,11 +860,19 @@ return serializer.withRequest(request)
 ```java
 // Entity processing with validation steps
 return serializer.withRequest(request)
-    .toEntity(Pet.class)
-    .validate(pet -> pet.getId() != null, "Pet ID cannot be null")
-    .map(pet -> pet.normalizeStatus())
-    .validate(pet -> pet.hasStatus(), "Pet must have a valid status")
-    .map(pet -> pet.addLastModifiedTimestamp())
+    .toEntityWithMetadata(Pet.class)
+    .validate(entityWithMetadata -> entityWithMetadata.getEntity().getId() != null, "Pet ID cannot be null")
+    .map(context -> {
+        EntityWithMetadata<Pet> entityWithMetadata = context.entityResponse();
+        Pet pet = entityWithMetadata.getEntity().normalizeStatus();
+        return new EntityWithMetadata<>(pet, entityWithMetadata.getMetadata());
+    })
+    .validate(entityWithMetadata -> entityWithMetadata.getEntity().hasStatus(), "Pet must have a valid status")
+    .map(context -> {
+        EntityWithMetadata<Pet> entityWithMetadata = context.entityResponse();
+        Pet pet = entityWithMetadata.getEntity().addLastModifiedTimestamp();
+        return new EntityWithMetadata<>(pet, entityWithMetadata.getMetadata());
+    })
     .complete();
 ```
 
@@ -869,10 +880,32 @@ return serializer.withRequest(request)
 ```java
 // Start with entity processing, then switch to JSON
 return serializer.withRequest(request)
-    .toEntity(Pet.class)
-    .map(pet -> pet.processBusinessLogic())
-    .toJsonFlow(pet -> createEnhancedJson(pet))
+    .toEntityWithMetadata(Pet.class)
+    .map(context -> {
+        EntityWithMetadata<Pet> entityWithMetadata = context.entityResponse();
+        Pet pet = entityWithMetadata.getEntity().processBusinessLogic();
+        return new EntityWithMetadata<>(pet, entityWithMetadata.getMetadata());
+    })
+    .toJsonFlow(entityWithMetadata -> createEnhancedJson(entityWithMetadata.getEntity(), entityWithMetadata.getMetadata()))
     .map(json -> addMetadata(json))
+    .complete();
+```
+
+### Working with EntityWithMetadata Metadata
+```java
+// Access both entity and metadata
+return serializer.withRequest(request)
+    .toEntityWithMetadata(Pet.class)
+    .map(context -> {
+        EntityWithMetadata<Pet> entityWithMetadata = context.entityResponse();
+        Pet pet = entityWithMetadata.getEntity();
+        UUID technicalId = entityWithMetadata.getMetadata().getId();
+        String state = entityWithMetadata.getMetadata().getState();
+
+        // Process with access to both entity and metadata
+        Pet processedPet = pet.processWithMetadata(technicalId, state);
+        return new EntityWithMetadata<>(processedPet, entityWithMetadata.getMetadata());
+    })
     .complete();
 ```
 
@@ -880,12 +913,16 @@ return serializer.withRequest(request)
 ```java
 // Entity processing with custom error handling
 return serializer.withRequest(request)
-    .toEntity(Pet.class)
-    .withErrorHandler((error, pet) -> new ErrorInfo(
+    .toEntityWithMetadata(Pet.class)
+    .withErrorHandler((error, entityWithMetadata) -> new ErrorInfo(
         "PET_PROCESSING_ERROR",
-                "Failed to process pet " + (pet != null ? pet.getId() : "unknown")
-        ))
-    .map(pet -> pet.validateAndProcess())
+        "Failed to process pet " + (entityWithMetadata != null ? entityWithMetadata.getMetadata().getId() : "unknown")
+    ))
+    .map(context -> {
+        EntityWithMetadata<Pet> entityWithMetadata = context.entityResponse();
+        Pet pet = entityWithMetadata.getEntity().validateAndProcess();
+        return new EntityWithMetadata<>(pet, entityWithMetadata.getMetadata());
+    })
     .complete();
 ```
 
@@ -895,7 +932,7 @@ return serializer.withRequest(request)
 
 - Entity `id` type varies by entity (e.g., Pet entity uses `Long`).
 - Use `CyodaProcessor` and `CyodaCriterion` interfaces for workflow components.
-- Leverage the **EntityProcessingChain** API for type-safe entity processing.
+- Leverage the **EntityProcessingChain** API for unified, type-safe entity processing.
 - Component operation names are matched via the `supports()` method against workflow configuration.
 - Use serializers in `common/serializer/` for development.
 - Avoid cyclic FSM states.

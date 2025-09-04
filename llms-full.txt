@@ -258,7 +258,7 @@ Processors can now use the unified `.toEntityResponse()` method for consistency 
 ```java
 // Traditional entity processing
 return serializer.withRequest(request)
-    .toEntity(EntityName.class)
+    .toEntityWithMetadata(EntityName.class)
     .validate(this::isValidEntity, "Invalid entity")
     .map(this::processEntityLogic)
     .complete();
@@ -569,7 +569,7 @@ public class AddLastModifiedTimestamp implements CyodaProcessor {
 
         // Fluent entity processing with validation
         return serializer.withRequest(request)
-            .toEntity(Pet.class)
+            .toEntityWithMetadata(Pet.class)
             .validate(pet -> pet.getId() != null && pet.getName() != null)
             .map(pet -> {
                 pet.addLastModifiedTimestamp();
@@ -637,7 +637,7 @@ Processors in workflow transitions support various execution modes and configura
 
 The **EntityProcessingChain** provides a clean, type-safe API for entity processing:
 
-- `toEntity(Class<T>)` - Extract entity and initiate entity flow
+- `toEntityWithMetadata(Class<T>)` - Extract entity and initiate entity flow
 - `map(Function<T, T>)` - Transform entity instances
 - `validate(Function<T, Boolean>)` - Validate entities with default error message
 - `validate(Function<T, Boolean>, String)` - Validate entities with custom error message
@@ -728,7 +728,7 @@ public boolean supports(OperationSpecification opSpec) {
 }
 ```
 
-#### **For Entity-based Processing** (using `toEntity()` or `extractEntity()`):
+#### **For Entity-based Processing** (using `toEntityWithMetadata()` or `extractEntity()`):
 ```java
 @Override
 public boolean supports(OperationSpecification opSpec) {
@@ -739,7 +739,7 @@ public boolean supports(OperationSpecification opSpec) {
 }
 ```
 
-> ✅ **Rule**: If your component uses `toEntity(Class)` or `extractEntity(Class)`, you MUST check model name and version compatibility in `supports()`. If you only process JSON payloads, checking operation name is sufficient.
+> ✅ **Rule**: If your component uses `toEntityWithMetadata(Class)` or `extractEntity(Class)`, you MUST check model name and version compatibility in `supports()`. If you only process JSON payloads, checking operation name is sufficient.
 
 ---
 
@@ -767,7 +767,7 @@ The application uses a serializer architecture with fluent APIs:
 ### ProcessingChain vs EntityProcessingChain
 - **ProcessingChain**: JSON-based processing with `map(Function<JsonNode, JsonNode>)`
 - **EntityProcessingChain**: Type-safe entity processing with `map(Function<T, T>)`
-- **Transition**: Use `toEntity(Class<T>)` to switch from JSON to entity flow
+- **Transition**: Use `toEntityWithMetadata(Class<T>)` to switch from JSON to entity flow
 - **Transition**: Use `toJsonFlow(Function<T, JsonNode>)` to switch from entity to JSON flow
 
 ### SerializerFactory
@@ -816,7 +816,7 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 - Implement `CyodaProcessor` interface for workflow processing components
 - Use `@Component` annotation for automatic Spring discovery
 - Inject `SerializerFactory` in constructor and get specific serializer immediately
-- Use `ProcessorSerializer.withRequest(request).toEntity(Class).map().complete()` pattern
+- Use `ProcessorSerializer.withRequest(request).toEntityWithMetadata(Class).map().complete()` pattern
 - Implement `supports(OperationSpecification)` method for processor selection
 - Processor names are matched via `supports()` method against workflow configuration
 - Use fluent EntityProcessingChain API for type-safe entity processing
@@ -842,7 +842,7 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 
 - Use `SerializerFactory` to get appropriate serializer instances
 - Prefer `ProcessorSerializer` for processors and `CriterionSerializer` for criteria
-- Use fluent APIs: `withRequest().toEntity().map().complete()` for processors
+- Use fluent APIs: `withRequest().toEntityWithMetadata().map().complete()` for processors
 - Use fluent APIs: `withRequest().evaluateEntity().complete()` for criteria
 - Jackson serializers are the default implementation (`SerializerEnum.JACKSON`)
 - Always validate requests before processing in serializer implementations

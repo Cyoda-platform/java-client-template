@@ -18,12 +18,12 @@ Always use appropriate package managers for dependency management instead of man
 ### ✅ CORRECT EntityService Patterns
 ```java
 // Use performance-optimized methods with clear guidance
-EntityResponse<Cart> myEntity = entityService.getById(uuid, Cart.class);
-EntityResponse<Cart> myEntity = entityService.findByBusinessId(Cart.class, "CART-123", "myEntityId");
-List<EntityResponse<MyOtherEntity>> myOtherEntitys = entityService.findAll(MyOtherEntity.class);
-List<EntityResponse<MyOtherEntity>> results = entityService.search(MyOtherEntity.class, condition);
+EntityWithMetadata<Cart> myEntity = entityService.getById(uuid, Cart.class);
+EntityWithMetadata<Cart> myEntity = entityService.findByBusinessId(Cart.class, "CART-123", "myEntityId");
+List<EntityWithMetadata<MyOtherEntity>> myOtherEntitys = entityService.findAll(MyOtherEntity.class);
+List<EntityWithMetadata<MyOtherEntity>> results = entityService.search(MyOtherEntity.class, condition);
 
-// Always work with EntityResponse<T> (uses Lombok @Data)
+// Always work with EntityWithMetadata<T> (uses Lombok @Data)
 Cart myEntityEntity = response.getEntity();  // Lombok generates this getter
 UUID technicalId = response.getMetadata().getId();
 String state = response.getMetadata().getState();
@@ -37,18 +37,11 @@ String state = response.getMetadata().getState();
 
 ### ✅ CORRECT Unified Processor Interface
 ```java
-// Option 1: Traditional entity processing
+// Unified EntityWithMetadata processing - work directly with EntityWithMetadata
 return serializer.withRequest(request)
-    .toEntity(EntityName.class)
-    .validate(this::isValidEntity, "Invalid entity")
-    .map(this::processEntityLogic)
-    .complete();
-
-// Option 2: NEW - Unified EntityResponse processing (recommended)
-return serializer.withRequest(request)
-    .toEntityResponse(EntityName.class)  // Unified with controllers
-    .validate(this::isValidEntityResponse, "Invalid entity response")
-    .map(this::processEntityResponseLogic)
+    .toEntityWithMetadata(EntityName.class)  // Unified with controllers
+    .validate(this::isValidEntityWithMetadata, "Invalid entity wrapper")
+    .map(this::processEntityWithMetadataLogic)
     .complete();
 ```
 
@@ -73,25 +66,26 @@ public class ProcessorName implements CyodaProcessor {
         this.entityService = entityService;
     }
 
-    private EntityName processEntityLogic(ProcessorSerializer.ProcessorEntityExecutionContext<EntityName> context) {
-        EntityName entity = context.entity(); // ✅ CORRECT - entity contains all data
+    private EntityWithMetadata<EntityName> processEntityWithMetadataLogic(ProcessorSerializer.ProcessorEntityResponseExecutionContext<EntityName> context) {
+        EntityWithMetadata<EntityName> entityWithMetadata = context.entityResponse(); // ✅ CORRECT - contains entity and metadata
+        EntityName entity = entityWithMetadata.getEntity();
 
         // Get current entity metadata (CRITICAL: Cannot update current entity)
-        UUID currentEntityId = context.getEvent().getEntityId(); // Technical ID of current entity
-        String currentState = (String) context.getEvent().getPayload().getMeta().get("state"); // Current state
+        UUID currentEntityId = context.request().getEntityId(); // Technical ID of current entity
+        String currentState = (String) context.request().getPayload().getMeta().get("state"); // Current state
 
         // Use entity getters directly
         String value = entity.getSomeField();
 
         // If interacting with OTHER entities, use EntityService (✅ ALLOWED)
-        EntityResponse<OtherEntity> otherResponse = entityService.getById(someId, OtherEntity.class); // FASTEST
+        EntityWithMetadata<OtherEntity> otherResponse = entityService.getById(someId, OtherEntity.class); // FASTEST
         OtherEntity other = otherResponse.getEntity();
         UUID otherEntityId = otherResponse.getMetadata().getId(); // For updates
 
         // Update OTHER entity with transition (✅ ALLOWED)
-        EntityResponse<OtherEntity> updated = entityService.update(otherEntityId, other, "TRANSITION_NAME");
+        EntityWithMetadata<OtherEntity> updated = entityService.update(otherEntityId, other, "TRANSITION_NAME");
 
-        return entity; // CRITICAL: Cannot update current entity state
+        return entityWithMetadata; // CRITICAL: Cannot update current entity state
     }
 }
 ```
@@ -109,21 +103,21 @@ EntityName entity = new EntityName();
 entity.setField((String) payloadMap.get("field")); // ❌ FORBIDDEN
 
 // NEVER try to update current entity state in processor
-EntityResponse<EntityName> updated = entityService.update(currentEntityId, entity, "TRANSITION"); // ❌ FORBIDDEN
+EntityWithMetadata<EntityName> updated = entityService.update(currentEntityId, entity, "TRANSITION"); // ❌ FORBIDDEN
 ```
 
 ### 🚨 CRITICAL Processor Limitations
 ```java
 // ✅ ALLOWED: Get current entity metadata
-UUID currentEntityId = context.getEvent().getEntityId();
-String currentState = (String) context.getEvent().getPayload().getMeta().get("state");
+UUID currentEntityId = context.request().getEntityId();
+String currentState = (String) context.request().getPayload().getMeta().get("state");
 
 // ❌ FORBIDDEN: Update current entity (the one being processed)
 // Processors can only READ current entity, not update it
 
 // ✅ ALLOWED: Update OTHER entities
-EntityResponse<OtherEntity> otherResponse = entityService.getById(otherId, OtherEntity.class);
-EntityResponse<OtherEntity> updated = entityService.update(otherId, otherEntity, "TRANSITION");
+EntityWithMetadata<OtherEntity> otherResponse = entityService.getById(otherId, OtherEntity.class);
+EntityWithMetadata<OtherEntity> updated = entityService.update(otherId, otherEntity, "TRANSITION");
 
 // ✅ PERFORMANCE: Use technical UUIDs for EntityService calls
 entityService.getById(technicalUuid, Class); // FASTEST
@@ -148,20 +142,20 @@ public class EntityNameController {
     }
 
     @PostMapping
-    public ResponseEntity<EntityResponse<EntityName>> create(@RequestBody EntityName entity) {
-        EntityResponse<EntityName> response = entityService.save(entity); // ✅ CORRECT
+    public ResponseEntity<EntityWithMetadata<EntityName>> create(@RequestBody EntityName entity) {
+        EntityWithMetadata<EntityName> response = entityService.save(entity); // ✅ CORRECT
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<EntityResponse<EntityName>> getById(@PathVariable UUID id) {
-        EntityResponse<EntityName> response = entityService.getById(id, EntityName.class);
+    public ResponseEntity<EntityWithMetadata<EntityName>> getById(@PathVariable UUID id) {
+        EntityWithMetadata<EntityName> response = entityService.getById(id, EntityName.class);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/business/{businessId}")
-    public ResponseEntity<EntityResponse<EntityName>> getByBusinessId(@PathVariable String businessId) {
-        EntityResponse<EntityName> response = entityService.findByBusinessId(
+    public ResponseEntity<EntityWithMetadata<EntityName>> getByBusinessId(@PathVariable String businessId) {
+        EntityWithMetadata<EntityName> response = entityService.findByBusinessId(
             EntityName.class, businessId, "businessIdField");
         return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
     }
