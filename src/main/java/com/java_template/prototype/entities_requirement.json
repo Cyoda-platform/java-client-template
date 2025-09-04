@@ -1,0 +1,55 @@
+{
+    "entities": [
+        {
+            "Book": {
+                "entity_data_example": {
+                    "analysisScore": 4.5,
+                    "bookId": 123,
+                    "description": "A novel written by American author F. Scott Fitzgerald.",
+                    "excerpt": "In my younger and more vulnerable years my father gave me some advice that I\u2019ve been turning over in my mind ever since.",
+                    "pageCount": 180,
+                    "publishDate": "2023-10-01T14:30:00",
+                    "reportId": "550e8400-e29b-41d4-a716-446655440000",
+                    "retrievedAt": "2023-10-01T14:30:00",
+                    "title": "The Great Gatsby"
+                }
+            }
+        },
+        {
+            "Report": {
+                "entity_data_example": {
+                    "analyticsJobId": "550e8400-e29b-41d4-a716-446655440001",
+                    "averagePageCount": 150.0,
+                    "emailRecipients": "example@example.com",
+                    "emailSentAt": null,
+                    "generatedAt": "2023-10-01T14:30:00",
+                    "popularTitles": "[\"The Great Gatsby\", \"Moby Dick\"]",
+                    "publicationDateInsights": "{\"2023-09-01\": 3, \"2023-10-01\": 7}",
+                    "reportId": "REPORT-2024-W36",
+                    "reportPeriodEnd": "2023-10-01T00:00:00",
+                    "reportPeriodStart": "2023-09-25T00:00:00",
+                    "reportSummary": "This report summarizes the analytics for the week of September 25, 2023.",
+                    "reportType": "WEEKLY_ANALYTICS",
+                    "totalBooksAnalyzed": 10,
+                    "totalPageCount": 1500
+                }
+            }
+        },
+        {
+            "AnalyticsJob": {
+                "entity_data_example": {
+                    "booksProcessed": 0,
+                    "completedAt": null,
+                    "configurationData": "{\"source\": \"API\", \"schedule\": \"weekly\"}",
+                    "errorMessage": null,
+                    "jobId": "JOB-2024-W36-WED",
+                    "jobType": "WEEKLY_DATA_EXTRACTION",
+                    "nextJobId": null,
+                    "reportsGenerated": 0,
+                    "scheduledFor": "2023-10-01T09:00:00",
+                    "startedAt": null
+                }
+            }
+        }
+    ]
+}
