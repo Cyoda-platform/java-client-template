@@ -1,0 +1,115 @@
+{
+    "version": "1.0",
+    "name": "Booking Workflow",
+    "desc": "Description of the workflow for Booking",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "fetch_booking",
+                    "next": "fetching",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "BookingFetchProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "fetching": {
+            "transitions": [
+                {
+                    "name": "booking_fetched",
+                    "next": "fetched",
+                    "manual": false
+                },
+                {
+                    "name": "fetch_failed",
+                    "next": "error",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "BookingFetchFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "fetched": {
+            "transitions": [
+                {
+                    "name": "validate_booking",
+                    "next": "validating",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "BookingValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "validating": {
+            "transitions": [
+                {
+                    "name": "validation_passed",
+                    "next": "validated",
+                    "manual": false
+                },
+                {
+                    "name": "validation_failed",
+                    "next": "error",
+                    "manual": false
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "mark_processed",
+                    "next": "processed",
+                    "manual": true
+                }
+            ]
+        },
+        "error": {
+            "transitions": [
+                {
+                    "name": "retry_fetch",
+                    "next": "fetching",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "BookingFetchProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "processed": {
+            "transitions": [
+                {
+                    "name": "complete",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,144 @@
+{
+    "version": "1.0",
+    "name": "Report Workflow",
+    "desc": "The Report workflow manages the lifecycle of report generation from initial request through data collection, processing, and completion.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_collection",
+                    "next": "collecting",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportDataCollectionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "collecting": {
+            "transitions": [
+                {
+                    "name": "data_collected",
+                    "next": "filtering",
+                    "manual": false
+                },
+                {
+                    "name": "collection_failed",
+                    "next": "failed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ReportDataAvailabilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "filtering": {
+            "transitions": [
+                {
+                    "name": "apply_filters",
+                    "next": "calculating",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportFilterProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "no_filters",
+                    "next": "calculating",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ReportNoFiltersCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "calculating": {
+            "transitions": [
+                {
+                    "name": "calculate_metrics",
+                    "next": "generating",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportCalculationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "calculation_failed",
+                    "next": "failed",
+                    "manual": false
+                }
+            ]
+        },
+        "generating": {
+            "transitions": [
+                {
+                    "name": "report_generated",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportGenerationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "generation_failed",
+                    "next": "failed",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry_generation",
+                    "next": "collecting",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ReportDataCollectionProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        }
+    }
+}
