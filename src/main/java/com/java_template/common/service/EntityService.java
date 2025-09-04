@@ -23,7 +23,7 @@ import jakarta.validation.constraints.NotNull;
  * - Use search() for complex queries with multiple conditions
 
  * FOR MUTATIONS:
- * - Use save() for new entities
+ * - Use create() for new entities
  * - Use update() for existing entities with technical UUID
  * - Use updateByBusinessId() for existing entities with business identifier
 
@@ -97,7 +97,7 @@ public interface EntityService {
      * @param entity New entity to save
      * @return EntityWithMetadata with saved entity and metadata (including technical UUID)
      */
-    <T extends CyodaEntity> EntityWithMetadata<T> save(@NotNull T entity);
+    <T extends CyodaEntity> EntityWithMetadata<T> create(@NotNull T entity);
 
     /**
      * Update existing entity by technical UUID (FASTEST - use when you have UUID)
@@ -159,7 +159,7 @@ public interface EntityService {
      * @param entities Collection of entities to save
      * @return List of EntityWithMetadata with saved entities and metadata
      */
-    <T extends CyodaEntity> List<EntityWithMetadata<T>> saveAll(@NotNull Collection<T> entities);
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> save(@NotNull Collection<T> entities);
 
     /**
      * Delete all entities of a type (DANGEROUS - use with caution)
