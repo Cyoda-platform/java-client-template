@@ -31,14 +31,6 @@ EntityResponse<MyEntity> saved = entityService.save(newMyEntity);
 EntityResponse<MyEntity> updated = entityService.update(uuid, myEntity, "CHECKOUT");
 ```
 
-### ❌ **Forbidden EntityService Patterns**
-```java
-// NEVER use old method patterns
-entityService.getItem(uuid, Class); // Use getById() instead
-entityService.findByCondition(...); // Use search() instead
-entityService.findByField(...); // Use search() instead
-```
-
 ## 🏗️ **Entities**
 
 - Always implement `CyodaEntity` interface for domain entities

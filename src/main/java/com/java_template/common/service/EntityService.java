@@ -169,47 +169,4 @@ public interface EntityService {
      */
     <T extends CyodaEntity> Integer deleteAll(@NotNull Class<T> entityClass);
 
-    // ========================================
-    // LEGACY COMPATIBILITY METHODS
-    // ========================================
-
-    /**
-     * @deprecated Use getById() instead for better clarity
-     */
-    @Deprecated
-    default <T extends CyodaEntity> EntityWithMetadata<T> getItem(
-            @NotNull UUID entityId,
-            @NotNull Class<T> entityClass
-    ) {
-        return getById(entityId, entityClass);
-    }
-
-    /**
-     * @deprecated Use search() instead for better clarity
-     */
-    @Deprecated
-    default <T extends CyodaEntity> List<EntityWithMetadata<T>> findByCondition(
-            @NotNull Class<T> entityClass,
-            @NotNull String modelName,
-            @NotNull Integer modelVersion,
-            @NotNull SearchConditionRequest condition,
-            boolean inMemory
-    ) {
-        return search(entityClass, condition);
-    }
-
-    /**
-     * @deprecated Use search() with single field condition instead
-     */
-    @Deprecated
-    default <T extends CyodaEntity> List<EntityWithMetadata<T>> findByField(
-            @NotNull Class<T> entityClass,
-            @NotNull String modelName,
-            @NotNull Integer modelVersion,
-            @NotNull String fieldName,
-            @NotNull String value
-    ) {
-        // Implementation would create a single field condition and call search()
-        throw new UnsupportedOperationException("Use search() with SearchConditionRequest instead");
-    }
 }

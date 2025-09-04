@@ -377,10 +377,6 @@ public class EntityServiceImpl implements EntityService {
         }
     }
 
-
-
-
-
     public Integer deleteAll(@NotNull final String modelName, @NotNull final Integer modelVersion) {
         try {
             List<EntityDeleteAllResponse> results = repository.deleteAll(modelName, modelVersion).join();
