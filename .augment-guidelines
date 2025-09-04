@@ -3,8 +3,11 @@
 ## Project Structure
 This is a **Gradle project** using **Spring Boot** with **Cyoda integration**.
 
-## Exception Handling
-When catching exceptions, you either log and handle the exception or throw it without logging. Never do both.
+## Rules
+You must follow the rules given in the @.augment/rules folder.
+Some are applied at all times, others are applicable only under certain circumstances.
+The file @.augment/rules/README.md will tell you what the scope for each rules .md file is.
+Make sure you follow all the rules that are applicable to your current task.
 
 ## Package Management
 Always use appropriate package managers for dependency management instead of manually editing package configuration files.
