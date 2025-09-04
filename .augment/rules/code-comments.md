@@ -17,9 +17,11 @@
 - **ABOUTME Format**: The comment must start with the string "ABOUTME: " to make it easy to grep for
 - **Concise Description**: Keep file descriptions brief but informative about the file's primary purpose and responsibility
 - **Example Format**:
-  ```typescript
-  // ABOUTME: This file contains the main workflow canvas component that handles
-  // state machine visualization and user interactions with React Flow.
+  ```java
+  /**
+   * ABOUTME: This file contains the main workflow component that handles
+   * state machine lifecycle and orchestrates processor execution.
+   */
   ```
 
 ## Debug and Trace Logging as Comments
