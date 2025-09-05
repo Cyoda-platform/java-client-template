@@ -272,7 +272,7 @@ String lastTransition = response.getMetadata().getTransitionForLatestSave();
 ## 🔄 **Workflow Configuration**
 
 ### ✅ **Workflow Best Practices**
-- Place `Workflow.json` files alongside entity classes in `application/entity/` directory
+- Place workflow JSON files in `src/main/resources/workflow/$entity_name/version_$version/` directory
 - Use finite-state machine (FSM) model for workflow definitions
 - Avoid cyclic FSM states in workflow configuration
 - Component operation names must match `supports()` method implementations

@@ -73,7 +73,7 @@ You can sync usage rules via project-specific tooling and maintain consistency a
 ### 1. Clone the Project
 
 ```bash
-git clone <your-repository-URL>
+git clone https://github.com/Cyoda-platform/java-client-template.git
 cd java-client-template
 ```
 
@@ -153,7 +153,7 @@ When creating entities, organize them as follows:
 
 - `application/entity/$entity_name/` – Directory for each entity type
 - `application/entity/$entity_name/EntityName.java` – Entity class implementing `CyodaEntity`
-- `application/entity/$entity_name/Workflow.json` – Workflow configuration for the entity
+- `src/main/resources/workflow/$entity_name/version_$version/$entity_name.json` – Workflow configuration for the entity
 
 ---
 

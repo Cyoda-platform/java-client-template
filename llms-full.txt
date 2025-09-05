@@ -89,7 +89,7 @@ A structured template for building scalable web clients using **Spring Boot**, d
 ### 1. Clone the Project
 
 ```bash
-git clone <your-repository-URL>
+git clone https://github.com/Cyoda-platform/java-client-template.git
 cd java-client-template
 ```
 
@@ -166,7 +166,7 @@ Application-specific logic and components:
 ### `entity/`
 Domain logic structure. Contains entity structures.
 
-- `$entity_name/Workflow.json` – Workflow configuration files should be placed alongside entities in `application/entity/`.
+- Workflow configuration files should be placed in `src/main/resources/workflow/$entity_name/version_$version/$entity_name.json`.
 
 ---
 
@@ -348,7 +348,7 @@ Located at:
 src/main/resources/workflow/$entity_name/version_$version/$entity_name.json
 ```
 
-> **Note**: Workflow configuration files should be placed alongside their corresponding entity classes in the `application/entity/` directory structure.
+> **Note**: The WorkflowImportTool scans `src/main/resources/workflow/` directory and expects version directories (e.g., `version_1`) to determine entity versions.
 
 This file defines the workflow configuration using a **finite-state machine (FSM)**
 model, which specifies states and transitions between them.
@@ -899,7 +899,7 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 <!-- SYNC_COMMENT: synchronize via project tooling for workflow -->
 ## Workflow Configuration
 
-- Place `Workflow.json` files alongside entity classes in `application/entity/` directory
+- Place workflow JSON files in `src/main/resources/workflow/$entity_name/version_$version/` directory
 - Use finite-state machine (FSM) model for workflow definitions
 - Avoid cyclic FSM states in workflow configuration
 - Component operation names must match `supports()` method implementations
