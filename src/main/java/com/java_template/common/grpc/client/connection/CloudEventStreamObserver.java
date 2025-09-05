@@ -4,6 +4,10 @@ import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.stub.StreamObserver;
 import java.util.function.Consumer;
 
+/**
+ * ABOUTME: Record-based StreamObserver implementation for CloudEvent handling
+ * with functional callback support for next, error, and complete events.
+ */
 record CloudEventStreamObserver(
         Consumer<CloudEvent> onNext,
         Consumer<Throwable> onError,

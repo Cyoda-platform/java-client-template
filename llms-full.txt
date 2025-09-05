@@ -2,6 +2,49 @@
 
 > A structured template for building scalable web clients using Spring Boot, designed for seamless integration with Cyoda over gRPC and REST. Features workflow-driven backend interactions with fluent serialization APIs for type-safe processing.
 
+## 🚀 **CRITICAL: EntityService Performance-Optimized API**
+
+The EntityService has been completely redesigned with **clear performance guidance** to eliminate AI confusion:
+
+### **Method Selection Guide (CRITICAL)**
+```java
+ModelSpec modelSpec = new ModelSpec().withName("MyEntity").withVersion(1);
+EntityWithMetadata<MyEntity> myEntity = entityService.getById(technicalId, modelSpec, MyEntity.class);
+EntityWithMetadata<MyEntity> myEntity = entityService.findByBusinessId(modelSpec, "CART-123", "myEntityId", MyEntity.class);
+List<EntityWithMetadata<MyOtherEntity>> myOtherEntitys = entityService.findAll(modelSpec, MyOtherEntity.class);
+List<EntityWithMetadata<MyOtherEntity>> results = entityService.search(modelSpec, condition, MyOtherEntity.class);
+```
+
+### **EntityWithMetadata Structure (CRITICAL)**
+```java
+ModelSpec modelSpec = new ModelSpec().withName("MyEntity").withVersion(1);
+EntityWithMetadata<MyEntity> response = entityService.getById(myEntityId, modelSpec, MyEntity.class);
+
+// Access entity (Lombok @Data generates getEntity() automatically)
+MyEntity myEntity = response.getEntity();
+
+// Access metadata (includes technical UUID and workflow state)
+UUID technicalId = response.getMetadata().getId();      // Store for future operations
+String workflowState = response.getMetadata().getState(); // Current workflow state
+```
+
+### **🚫 FORBIDDEN PATTERNS - NEVER USE THESE**
+```java
+// ❌ FORBIDDEN Processor patterns
+public ProcessorName(SerializerFactory factory, ObjectMapper objectMapper) { ... } // Never inject ObjectMapper
+Map<String, Object> payloadMap = objectMapper.convertValue(request.getPayload().getData(), Map.class); // Never extract manually
+
+// ❌ FORBIDDEN Controller patterns
+@PostMapping
+public ResponseEntity<Object> create(@RequestBody Map<String, Object> request) { ... } // Never use Map<String, Object>
+
+// ❌ FORBIDDEN EntityService patterns
+// These methods don't exist - use correct methods instead:
+// Use getById(uuid, modelSpec, Class) for entity retrieval
+// Use search(modelSpec, condition, Class) for complex queries
+// Use findByBusinessId(modelSpec, businessId, fieldName, Class) for business ID lookups
+```
+
 ## Documentation
 
 default branch: main
@@ -46,7 +89,7 @@ A structured template for building scalable web clients using **Spring Boot**, d
 ### 1. Clone the Project
 
 ```bash
-git clone <your-repository-URL>
+git clone https://github.com/Cyoda-platform/java-client-template.git
 cd java-client-template
 ```
 
@@ -123,115 +166,174 @@ Application-specific logic and components:
 ### `entity/`
 Domain logic structure. Contains entity structures.
 
-- `$entity_name/Workflow.json` – Workflow configuration files should be placed alongside entities in `application/entity/`.
+- Workflow configuration files should be placed in `src/main/resources/workflow/$entity_name/version_$version/$entity_name.json`.
 
 ---
 
-## ⚙️ API Reference – `EntityService` (JPA-Style)
+## ⚙️ EntityService API - Performance-Optimized & Simplified
 
-The EntityService now follows **Spring Boot JPA Repository** patterns with **type-safe, synchronous operations** and **rich metadata support**.
+The EntityService has been completely redesigned with **clear performance guidance** and **simplified method signatures** to eliminate AI confusion and improve developer experience.
 
-### 🔄 Core CRUD Operations (JPA-Style)
+### 🚀 **Primary Methods (Use These)**
 
-| Method                                                                                  | Return type                     | Description                           |
-|-----------------------------------------------------------------------------------------|---------------------------------|---------------------------------------|
-| `save(T entity)`                                                                        | `EntityResponse<T>`             | Save entity (JPA-style)              |
-| `saveAll(Collection<T> entities)`                                                       | `List<EntityResponse<T>>`       | Save multiple entities (JPA-style)   |
-| `update(UUID id, T entity, String transition)`                                          | `EntityResponse<T>`             | Update entity with optional transition|
-| `updateAll(Collection<T> entities, String transition)`                                  | `List<EntityResponse<T>>`       | Update multiple entities              |
-| `deleteById(UUID id)`                                                                   | `UUID`                          | Delete by technical ID (JPA-style)   |
-| `deleteAll(Class<T> entityClass)`                                                       | `Integer`                       | Delete all entities (JPA-style)      |
+| Method | Performance | Use Case | Example |
+|--------|-------------|----------|---------|
+| `getById(UUID id, ModelSpec modelSpec, Class<T> clazz)` | **FASTEST** | When you have technical UUID | `entityService.getById(uuid, modelSpec, MyEntity.class)` |
+| `findByBusinessId(ModelSpec modelSpec, String businessId, String fieldName, Class<T> clazz)` | **MEDIUM** | User-facing identifiers | `entityService.findByBusinessId(modelSpec, "CART-123", "myEntityId", MyEntity.class)` |
+| `findAll(ModelSpec modelSpec, Class<T> clazz)` | **SLOW** | Get all entities (use sparingly) | `entityService.findAll(modelSpec, MyOtherEntity.class)` |
+| `search(ModelSpec modelSpec, SearchConditionRequest condition, Class<T> clazz)` | **SLOWEST** | Complex queries | `entityService.search(modelSpec, condition, MyOtherEntity.class)` |
+
+### 💾 **Mutation Methods**
+
+| Method | Description | Example |
+|--------|-------------|---------|
+| `create(T entity)` | Create new entity | `entityService.create(newMyEntity)` |
+| `update(UUID id, T entity, String transition)` | Update by technical ID | `entityService.update(uuid, myEntity, "CHECKOUT")` |
+| `updateByBusinessId(T entity, String fieldName, String transition)` | Update by business ID | `entityService.updateByBusinessId(myEntity, "myEntityId", null)` |
+| `deleteById(UUID id)` | Delete by technical ID | `entityService.deleteById(uuid)` |
+| `deleteByBusinessId(ModelSpec modelSpec, String businessId, String fieldName, Class<T> clazz)` | Delete by business ID | `entityService.deleteByBusinessId(modelSpec, "CART-123", "myEntityId", MyEntity.class)` |
 
 ### 🔍 Query Operations (Type-Safe)
 
 | Method                                                                                  | Return type                     | Description                           |
 |-----------------------------------------------------------------------------------------|---------------------------------|---------------------------------------|
-| `getItem(UUID id, Class<T> entityClass)`                                               | `EntityResponse<T>`             | Get by technical ID                   |
-| `getItems(Class<T> entityClass, Integer pageSize, Integer pageNumber, Date pointTime)` | `List<EntityResponse<T>>`       | Get all with pagination               |
-| `getItemsByCondition(Class<T> entityClass, SearchConditionRequest condition, boolean inMemory)` | `List<EntityResponse<T>>` | Advanced search with conditions |
-| `getFirstItemByCondition(Class<T> entityClass, SearchConditionRequest condition, boolean inMemory)` | `Optional<EntityResponse<T>>` | Get first match |
+| `getById(UUID id, ModelSpec modelSpec, Class<T> entityClass)`                          | `EntityWithMetadata<T>`         | Get by technical ID                   |
+| `findAll(ModelSpec modelSpec, Class<T> entityClass)`                                   | `List<EntityWithMetadata<T>>`   | Get all entities                      |
+| `search(ModelSpec modelSpec, SearchConditionRequest condition, Class<T> entityClass)` | `List<EntityWithMetadata<T>>`   | Advanced search with conditions       |
 
 ### 🏪 Business ID Operations (Convenience)
 
 | Method                                                                                  | Return type                     | Description                           |
 |-----------------------------------------------------------------------------------------|---------------------------------|---------------------------------------|
-| `findByBusinessId(Class<T> entityClass, String businessId)`                            | `EntityResponse<T>`             | Find by business ID (SKU, orderId, etc.) |
-| `findAll(Class<T> entityClass)`                                                         | `List<EntityResponse<T>>`       | Find all entities                     |
-| `findByField(Class<T> entityClass, String fieldName, String value)`                    | `List<EntityResponse<T>>`       | Find by field value (convenience)     |
-| `findByCondition(Class<T> entityClass, SearchConditionRequest condition, boolean inMemory)` | `List<EntityResponse<T>>` | Advanced search (convenience) |
-| `updateByBusinessId(T entity, String transition)`                                       | `EntityResponse<T>`             | Update by business ID                 |
-| `deleteByBusinessId(Class<T> entityClass, String businessId)`                          | `boolean`                       | Delete by business ID                 |
+| `findByBusinessId(ModelSpec modelSpec, String businessId, String businessIdField, Class<T> entityClass)` | `EntityWithMetadata<T>` | Find by business ID (SKU, orderId, etc.) |
+| `create(T entity)`                                                                      | `EntityWithMetadata<T>`         | Create new entity                     |
+| `update(UUID entityId, T entity, String transition)`                                   | `EntityWithMetadata<T>`         | Update by technical ID                |
+| `updateByBusinessId(T entity, String businessIdField, String transition)`              | `EntityWithMetadata<T>`         | Update by business ID                 |
+| `deleteById(UUID entityId)`                                                            | `UUID`                          | Delete by technical ID                |
+| `deleteByBusinessId(ModelSpec modelSpec, String businessId, String businessIdField, Class<T> entityClass)` | `boolean`                       | Delete by business ID                 |
 
 ### ✨ Key Improvements
 
-- **🔄 JPA-Style Naming**: `save()`, `findAll()`, `deleteById()` - familiar to Spring Boot developers
+- **🔄 Performance-Optimized**: Methods labeled FASTEST, MEDIUM, SLOW, SLOWEST for clear guidance
 - **🛡️ Type Safety**: All methods use proper generics with `<T extends CyodaEntity>`
-- **📊 Rich Metadata**: Every response includes `EntityResponse<T>` with technical ID, timestamps, etc.
+- **📊 Rich Metadata**: Every response includes `EntityWithMetadata<T>` with technical ID, timestamps, etc.
 - **⚡ Synchronous**: No more `CompletableFuture` - clean, simple method calls
 - **🎯 Transition Support**: Update operations support optional workflow transitions
-- **🧠 Consistent API**: `List<EntityResponse<T>>` everywhere for multiple entities
+- **🧠 Consistent API**: `List<EntityWithMetadata<T>>` everywhere for multiple entities
 
-### 🔑 EntityResponse<T> - Rich Metadata Support
+### 🔑 EntityWithMetadata<T> - Rich Metadata Support
 
-All EntityService methods now return `EntityResponse<T>` or `List<EntityResponse<T>>`, which includes:
-
-- **`getData()`** - The business entity (Product, Order, etc.)
-- **`getId()`** - Technical UUID for update/delete operations
-- **`getCreatedAt()`** - Creation timestamp
-- **`getUpdatedAt()`** - Last modification timestamp
-- **`getVersion()`** - Entity version for optimistic locking
+All EntityService methods return `EntityWithMetadata<T>` which contains both the entity and metadata:
 
 ```java
-EntityResponse<Product> response = entityService.save(product);
-Product savedProduct = response.getData();
-UUID technicalId = response.getId();  // Use for updates/deletes
+ModelSpec modelSpec = new ModelSpec().withName("MyEntity").withVersion(1);
+EntityWithMetadata<MyEntity> response = entityService.getById(myEntityId, modelSpec, MyEntity.class);
+
+// Access the entity (Lombok @Data generates getEntity() automatically)
+MyEntity myEntity = response.getEntity();
+
+// Access metadata (includes technical UUID and workflow state)
+UUID technicalId = response.getMetadata().getId();      // Use for subsequent operations
+String workflowState = response.getMetadata().getState(); // Current workflow state
+Date created = response.getMetadata().getCreationDate();
+String lastTransition = response.getMetadata().getTransitionForLatestSave();
+```
+
+**JSON Structure:**
+```json
+{
+  "entity": {
+    "myEntityId": "CART-123",
+    "items": [...],
+    "total": 99.99
+  },
+  "metadata": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "state": "ACTIVE"
+  }
+}
+```
+
+### 🔄 **Unified Processor Interface**
+
+Processors use the unified `.toEntityWithMetadata()` method for consistency with controllers:
+
+```java
+// Unified EntityWithMetadata processing - work directly with EntityWithMetadata
+return serializer.withRequest(request)
+    .toEntityWithMetadata(EntityName.class)  // Unified with controllers
+    .validate(this::isValidEntityWithMetadata, "Invalid entity wrapper")
+    .map(this::processEntityWithMetadataLogic)
+    .complete();
+
+private EntityWithMetadata<EntityName> processEntityWithMetadataLogic(ProcessorEntityResponseExecutionContext<EntityName> context) {
+    EntityWithMetadata<EntityName> entityWithMetadata = context.entityResponse(); // ✅ CORRECT - contains entity and metadata
+    EntityName entity = entityWithMetadata.getEntity();
+
+    // Get current entity metadata (CRITICAL: Cannot update current entity)
+    UUID currentEntityId = context.request().getEntityId(); // Technical ID of current entity
+    String currentState = (String) context.request().getPayload().getMeta().get("state"); // Current state
+
+    // Use entity getters directly
+    String value = entity.getSomeField();
+
+    // If interacting with OTHER entities, use EntityService (✅ ALLOWED)
+    ModelSpec otherModelSpec = new ModelSpec().withName("OtherEntity").withVersion(1);
+    EntityWithMetadata<OtherEntity> otherResponse = entityService.getById(someId, otherModelSpec, OtherEntity.class); // FASTEST
+    OtherEntity other = otherResponse.getEntity();
+    UUID otherEntityId = otherResponse.getMetadata().getId(); // For updates
+
+    // Update OTHER entity with transition (✅ ALLOWED)
+    EntityWithMetadata<OtherEntity> updated = entityService.update(otherEntityId, other, "TRANSITION_NAME");
+
+    return entityWithMetadata; // CRITICAL: Cannot update current entity state
+}
 ```
 
 ### 📦 Usage Examples
 
-#### Simple Operations
+#### Performance-Optimized Operations
 ```java
-// Save entity (JPA-style)
-EntityResponse<Product> response = entityService.save(product);
-Product savedProduct = response.getData();
+ModelSpec modelSpec = new ModelSpec().withName("MyOtherEntity").withVersion(1);
+EntityWithMetadata<MyOtherEntity> response = entityService.getById(technicalId, modelSpec, MyOtherEntity.class);
+MyOtherEntity myOtherEntity = response.getEntity();
 
-// Find by business ID (SKU, orderId, etc.)
-EntityResponse<Product> productResponse = entityService.findByBusinessId(Product.class, "SKU123");
-Product product = productResponse.getData();
+EntityWithMetadata<MyOtherEntity> myOtherEntityResponse = entityService.findByBusinessId(modelSpec, "SKU123", "sku", MyOtherEntity.class);
+MyOtherEntity myOtherEntity = myOtherEntityResponse.getEntity();
 
-// Find all entities
-List<EntityResponse<Product>> responses = entityService.findAll(Product.class);
-List<Product> products = responses.stream().map(EntityResponse::getData).toList();
+List<EntityWithMetadata<MyOtherEntity>> responses = entityService.findAll(modelSpec, MyOtherEntity.class);
+List<MyOtherEntity> myOtherEntitys = responses.stream().map(EntityWithMetadata::getEntity).toList();
 
 // Update with transition
-EntityResponse<Product> updated = entityService.updateByBusinessId(product, "approve");
+EntityWithMetadata<MyOtherEntity> updated = entityService.updateByBusinessId(myOtherEntity, "sku", "approve");
 
 // Delete by business ID
-boolean deleted = entityService.deleteByBusinessId(Product.class, "SKU123");
+boolean deleted = entityService.deleteByBusinessId(modelSpec, "SKU123", "sku", MyOtherEntity.class);
 ```
 
 #### Advanced Search with Type-Safe Conditions
 ```java
-// Simple field search (convenience)
-List<EntityResponse<Product>> products = entityService.findByField(Product.class, "category", "electronics");
-
-// Complex search conditions (type-safe)
 SearchConditionRequest condition = SearchConditionRequest.group("AND",
     Condition.of("$.category", "EQUALS", "electronics"),
     Condition.of("$.price", "GREATER_THAN", 100),
     Condition.of("$.inStock", "EQUALS", true)
 );
 
-List<EntityResponse<Product>> results = entityService.findByCondition(Product.class, condition, false);
+ModelSpec modelSpec = new ModelSpec().withName("MyOtherEntity").withVersion(1);
+List<EntityWithMetadata<MyOtherEntity>> results = entityService.search(modelSpec, condition, MyOtherEntity.class);
+List<MyOtherEntity> myOtherEntitys = results.stream().map(EntityWithMetadata::getEntity).toList();
 ```
+
+
 
 #### Working with Technical IDs
 ```java
 // Get entity by technical ID
-EntityResponse<Product> response = entityService.getItem(technicalId, Product.class);
+ModelSpec modelSpec = new ModelSpec().withName("MyOtherEntity").withVersion(1);
+EntityWithMetadata<MyOtherEntity> response = entityService.getById(technicalId, modelSpec, MyOtherEntity.class);
 
 // Update using technical ID with transition
-EntityResponse<Product> updated = entityService.update(technicalId, product, "transition_name");
+EntityWithMetadata<MyOtherEntity> updated = entityService.update(technicalId, myOtherEntity, "transition_name");
 
 // Delete by technical ID
 UUID deletedId = entityService.deleteById(technicalId);
@@ -243,10 +345,10 @@ UUID deletedId = entityService.deleteById(technicalId);
 
 Located at:
 ```
-application/entity/$entity_name/Workflow.json
+src/main/resources/workflow/$entity_name/version_$version/$entity_name.json
 ```
 
-> **Note**: Workflow configuration files should be placed alongside their corresponding entity classes in the `application/entity/` directory structure.
+> **Note**: The WorkflowImportTool scans `src/main/resources/workflow/` directory and expects version directories (e.g., `version_1`) to determine entity versions.
 
 This file defines the workflow configuration using a **finite-state machine (FSM)**
 model, which specifies states and transitions between them.
@@ -477,11 +579,13 @@ public class AddLastModifiedTimestamp implements CyodaProcessor {
 
         // Fluent entity processing with validation
         return serializer.withRequest(request)
-            .toEntity(Pet.class)
-            .validate(pet -> pet.getId() != null && pet.getName() != null)
-            .map(pet -> {
+            .toEntityWithMetadata(Pet.class)
+            .validate(petWrapper -> petWrapper.getEntity().getId() != null && petWrapper.getEntity().getName() != null)
+            .map(context -> {
+                EntityWithMetadata<Pet> petWrapper = context.entityResponse();
+                Pet pet = petWrapper.getEntity();
                 pet.addLastModifiedTimestamp();
-                return pet;
+                return new EntityWithMetadata<>(pet, petWrapper.getMetadata());
             })
             .complete();
     }
@@ -545,13 +649,13 @@ Processors in workflow transitions support various execution modes and configura
 
 The **EntityProcessingChain** provides a clean, type-safe API for entity processing:
 
-- `toEntity(Class<T>)` - Extract entity and initiate entity flow
-- `map(Function<T, T>)` - Transform entity instances
-- `validate(Function<T, Boolean>)` - Validate entities with default error message
-- `validate(Function<T, Boolean>, String)` - Validate entities with custom error message
-- `toJsonFlow(Function<T, JsonNode>)` - Switch to JSON processing
+- `toEntityWithMetadata(Class<T>)` - Extract entity and initiate entity flow
+- `map(Function<ProcessorEntityResponseExecutionContext<T>, EntityWithMetadata<T>>)` - Transform EntityWithMetadata instances with context
+- `validate(Function<EntityWithMetadata<T>, Boolean>)` - Validate EntityWithMetadata with default error message
+- `validate(Function<EntityWithMetadata<T>, Boolean>, String)` - Validate EntityWithMetadata with custom error message
+- `toJsonFlow(Function<EntityWithMetadata<T>, JsonNode>)` - Switch to JSON processing
 - `complete()` - Complete processing with automatic entity-to-JSON conversion
-- `complete(Function<T, JsonNode>)` - Complete with custom entity converter
+- `complete(Function<EntityWithMetadata<T>, JsonNode>)` - Complete with custom EntityWithMetadata converter
 
 ### Criteria Implementation
 
@@ -573,7 +677,10 @@ public class IsValidPet implements CyodaCriterion {
             .complete();
     }
 
-    private EvaluationOutcome validatePet(Pet pet) {
+    private EvaluationOutcome validatePet(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
+        Pet pet = context.entityWithMetadata().entity();
+        // Access metadata if needed: UUID id = context.entityWithMetadata().getId();
+
         // Chain all validation checks with AND logic - first failure stops the chain
         return validatePetExists(pet)
             .and(validatePetBasicValidity(pet))
@@ -636,7 +743,7 @@ public boolean supports(OperationSpecification opSpec) {
 }
 ```
 
-#### **For Entity-based Processing** (using `toEntity()` or `extractEntity()`):
+#### **For Entity-based Processing** (using `toEntityWithMetadata()` or `extractEntityWithMetadata()`):
 ```java
 @Override
 public boolean supports(OperationSpecification opSpec) {
@@ -647,7 +754,7 @@ public boolean supports(OperationSpecification opSpec) {
 }
 ```
 
-> ✅ **Rule**: If your component uses `toEntity(Class)` or `extractEntity(Class)`, you MUST check model name and version compatibility in `supports()`. If you only process JSON payloads, checking operation name is sufficient.
+> ✅ **Rule**: If your component uses `toEntityWithMetadata(Class)` or `extractEntityWithMetadata(Class)`, you MUST check model name and version compatibility in `supports()`. If you only process JSON payloads, checking operation name is sufficient.
 
 ---
 
@@ -659,7 +766,7 @@ The application uses a serializer architecture with fluent APIs:
 - **Purpose**: Handles entity extraction and response building for processors
 - **Key Methods**:
   - `withRequest(request)` - Start fluent processing chain
-  - `extractEntity(request, Class<T>)` - Extract typed entities
+  - `extractEntityWithMetadata(request, Class<T>)` - Extract typed entities
   - `extractPayload(request)` - Extract raw JSON payload
   - `responseBuilder(request)` - Create response builders
 
@@ -668,14 +775,14 @@ The application uses a serializer architecture with fluent APIs:
 - **Key Methods**:
   - `withRequest(request)` - Start fluent evaluation chain
   - `evaluate(Function<JsonNode, EvaluationOutcome>)` - Evaluate JSON with outcomes
-  - `evaluateEntity(Class<T>, Function<T, EvaluationOutcome>)` - Evaluate entities with outcomes
+  - `evaluateEntity(Class<T>, Function<CriterionEntityEvaluationContext<T>, EvaluationOutcome>)` - Evaluate entities with metadata
   - `withReasonAttachment(ReasonAttachmentStrategy)` - Configure reason attachment
   - `withErrorHandler(BiFunction<Throwable, JsonNode, ErrorInfo>)` - Configure error handling
 
 ### ProcessingChain vs EntityProcessingChain
 - **ProcessingChain**: JSON-based processing with `map(Function<JsonNode, JsonNode>)`
 - **EntityProcessingChain**: Type-safe entity processing with `map(Function<T, T>)`
-- **Transition**: Use `toEntity(Class<T>)` to switch from JSON to entity flow
+- **Transition**: Use `toEntityWithMetadata(Class<T>)` to switch from JSON to entity flow
 - **Transition**: Use `toJsonFlow(Function<T, JsonNode>)` to switch from entity to JSON flow
 
 ### SerializerFactory
@@ -724,7 +831,7 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 - Implement `CyodaProcessor` interface for workflow processing components
 - Use `@Component` annotation for automatic Spring discovery
 - Inject `SerializerFactory` in constructor and get specific serializer immediately
-- Use `ProcessorSerializer.withRequest(request).toEntity(Class).map().complete()` pattern
+- Use `ProcessorSerializer.withRequest(request).toEntityWithMetadata(Class).map().complete()` pattern
 - Implement `supports(OperationSpecification)` method for processor selection
 - Processor names are matched via `supports()` method against workflow configuration
 - Use fluent EntityProcessingChain API for type-safe entity processing
@@ -750,7 +857,7 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 
 - Use `SerializerFactory` to get appropriate serializer instances
 - Prefer `ProcessorSerializer` for processors and `CriterionSerializer` for criteria
-- Use fluent APIs: `withRequest().toEntity().map().complete()` for processors
+- Use fluent APIs: `withRequest().toEntityWithMetadata().map().complete()` for processors
 - Use fluent APIs: `withRequest().evaluateEntity().complete()` for criteria
 - Jackson serializers are the default implementation (`SerializerEnum.JACKSON`)
 - Always validate requests before processing in serializer implementations
@@ -763,13 +870,13 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 
 - Always interact with `EntityService` interface, not repository directly
 - Use **synchronous** methods - no more `CompletableFuture` complexity
-- Use **JPA-style** naming: `save()`, `findAll()`, `deleteById()`, etc.
-- Work with **type-safe** `EntityResponse<T>` and `List<EntityResponse<T>>`
+- Use **clear method naming**: `create()`, `findAll()`, `deleteById()`, etc.
+- Work with **type-safe** `EntityWithMetadata<T>` and `List<EntityWithMetadata<T>>`
 - Use **business ID methods** for convenience: `findByBusinessId()`, `updateByBusinessId()`
 - Use **SearchConditionRequest** for type-safe search conditions (not Object)
 - Include **transition parameter** in update operations when needed
-- Extract business data with `response.getData()` from EntityResponse
-- Use technical ID from `response.getId()` for update/delete operations
+- Extract business data with `response.getEntity()` from EntityWithMetadata
+- Use technical ID from `response.getMetadata().getId()` for update/delete operations
 <!-- services-end -->
 
 <!-- controllers-start -->
@@ -782,17 +889,17 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 - Return appropriate HTTP status codes (400 for validation, 404 for not found, 500 for errors)
 - Log errors with context information (entity ID, operation type)
 - Use `ResponseEntity<T>` for proper HTTP response handling
-- Extract business data from `EntityResponse<T>` using `response.getData()`
-- Use `entityService.save()` instead of `create()` for JPA consistency
+- Extract business data from `EntityWithMetadata<T>` using `response.getEntity()`
+- Use `entityService.create()` for creating new entities
 - Use `entityService.findByBusinessId()` for business ID lookups
-- Handle `List<EntityResponse<T>>` by mapping to business entities when needed
+- Handle `List<EntityWithMetadata<T>>` by mapping to business entities when needed
 <!-- controllers-end -->
 
 <!-- workflow-start -->
 <!-- SYNC_COMMENT: synchronize via project tooling for workflow -->
 ## Workflow Configuration
 
-- Place `Workflow.json` files alongside entity classes in `application/entity/` directory
+- Place workflow JSON files in `src/main/resources/workflow/$entity_name/version_$version/` directory
 - Use finite-state machine (FSM) model for workflow definitions
 - Avoid cyclic FSM states in workflow configuration
 - Component operation names must match `supports()` method implementations
@@ -820,7 +927,7 @@ This file helps both developers and AI agents follow conventions in the Java Cli
 - Enable prototype mode via `-Dprototype.enabled=true` system property
 - Test serializers using fluent API patterns
 - Mock `EntityService` and `SerializerFactory` in unit tests
-- Mock `EntityResponse<T>` objects in tests with proper data and metadata
+- Mock `EntityWithMetadata<T>` objects in tests with proper data and metadata
 - Test with `SearchConditionRequest` objects for type-safe condition testing
 - Use synchronous EntityService methods (no CompletableFuture handling needed)
 - Test both success and error scenarios for processors and criteria

@@ -5,6 +5,10 @@ import java.util.Arrays;
 import java.util.List;
 import org.cyoda.cloud.api.event.common.DataFormat;
 
+/**
+ * ABOUTME: Central configuration class providing environment-based settings
+ * for Cyoda platform connection, gRPC communication, and application parameters.
+ */
 public class Config {
     private static final Dotenv dotenv = Dotenv.load();
 

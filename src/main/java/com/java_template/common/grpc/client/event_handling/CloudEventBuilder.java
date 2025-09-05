@@ -13,6 +13,11 @@ import org.springframework.stereotype.Component;
 
 import static com.java_template.common.config.Config.EVENT_SOURCE_URI;
 
+/**
+ * ABOUTME: Component for building CloudEvent instances from BaseEvent objects
+ * with proper serialization, metadata, and protocol buffer formatting.
+ */
+
 @Component
 public class CloudEventBuilder {
 

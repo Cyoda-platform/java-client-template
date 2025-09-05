@@ -5,6 +5,10 @@ import lombok.Setter;
 
 import java.util.List;
 
+/**
+ * ABOUTME: Request wrapper for search conditions supporting grouped logical operations
+ * with AND/OR operators for complex entity search queries.
+ */
 @Getter
 @Setter
 public class SearchConditionRequest {

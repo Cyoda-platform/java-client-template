@@ -10,6 +10,11 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
+
+/**
+ * ABOUTME: Event handling strategy for processing entity processor calculation events
+ * with workflow processor execution and response generation.
+ */
 @Component
 public class ProcessorEventStrategy extends AbstractEventStrategy<
         EntityProcessorCalculationRequest,

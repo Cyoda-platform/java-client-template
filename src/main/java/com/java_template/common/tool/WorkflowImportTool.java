@@ -6,6 +6,10 @@ import com.java_template.common.util.HttpUtils;
 import com.java_template.common.util.JsonUtils;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
+/**
+ * ABOUTME: Command-line tool for importing workflow definitions into Cyoda platform
+ * with Spring context initialization and dependency injection.
+ */
 public class WorkflowImportTool {
     public static void main(String[] args) {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();

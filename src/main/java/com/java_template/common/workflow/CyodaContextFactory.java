@@ -7,6 +7,10 @@ import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
+/**
+ * ABOUTME: Factory component for creating CyodaEventContext instances from CloudEvent
+ * and BaseEvent data for workflow processing and criteria evaluation.
+ */
 @Component
 public class CyodaContextFactory {
 

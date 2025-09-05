@@ -23,6 +23,11 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.java_template.common.config.Config.*;
 
+
+/**
+ * ABOUTME: OAuth2 authentication component providing client credentials flow
+ * for secure communication with Cyoda platform services.
+ */
 @Service
 public class Authentication {
 

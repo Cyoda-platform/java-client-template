@@ -6,6 +6,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+/**
+ * ABOUTME: Utility component providing JSON manipulation and conversion operations
+ * using Jackson ObjectMapper for entity and payload processing.
+ */
 @Component
 public class JsonUtils {
     private final ObjectMapper objectMapper;

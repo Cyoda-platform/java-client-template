@@ -9,24 +9,28 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
 
+
+/**
+ * ABOUTME: Repository interface defining CRUD operations for entity management
+ * with asynchronous CompletableFuture-based API and Cyoda platform integration.
+ */
 public interface CrudRepository {
 
     CompletableFuture<EntityDeleteResponse> deleteById(@NotNull UUID id);
 
     CompletableFuture<List<EntityDeleteAllResponse>> deleteAll(
-            @NotNull String modelName,
-            int modelVersion
+            @NotNull ModelSpec modelSpec
     );
 
     CompletableFuture<List<DataPayload>> findAll(
-            @NotNull String modelName,
-            int modelVersion,
+            @NotNull ModelSpec modelSpec,
             int pageSize,
             int pageNumber,
             @Nullable Date pointInTime
@@ -35,8 +39,7 @@ public interface CrudRepository {
     CompletableFuture<DataPayload> findById(@NotNull UUID id);
 
     CompletableFuture<List<DataPayload>> findAllByCriteria(
-            @NotNull String modelName,
-            int modelVersion,
+            @NotNull ModelSpec modelSpec,
             @NotNull GroupCondition criteria,
             int pageSize,
             int pageNumber,
@@ -44,14 +47,12 @@ public interface CrudRepository {
     );
 
     <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> save(
-            @NotNull String modelName,
-            int modelVersion,
+            @NotNull ModelSpec modelSpec,
             @NotNull ENTITY_TYPE entity
     );
 
     <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
-            @NotNull String modelName,
-            int modelVersion,
+            @NotNull ModelSpec modelSpec,
             @NotNull Collection<ENTITY_TYPE> entity
     );
 

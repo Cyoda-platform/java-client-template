@@ -7,6 +7,10 @@ import org.cyoda.cloud.api.event.processing.EventAckResponse;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
+/**
+ * ABOUTME: Event handling strategy for processing keep-alive events
+ * to maintain gRPC connection health and monitoring.
+ */
 @Component
 public class KeepAliveEventHandlingStrategy implements EventHandlingStrategy<EventAckResponse> {
 

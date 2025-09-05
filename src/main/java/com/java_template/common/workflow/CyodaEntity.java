@@ -3,8 +3,8 @@ package com.java_template.common.workflow;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
- * Base interface for all Cyoda entities.
- * Provides common functionality for entity identification and validation.
+ * ABOUTME: Base interface for all Cyoda entities providing common functionality
+ * for entity identification, validation, and model specification.
  */
 public interface CyodaEntity {
 

@@ -5,6 +5,10 @@ import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilde
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * ABOUTME: Jackson configuration providing ObjectMapper customization
+ * with Java 8 time module support for JSON serialization.
+ */
 @Configuration
 public class JacksonConfig {
 

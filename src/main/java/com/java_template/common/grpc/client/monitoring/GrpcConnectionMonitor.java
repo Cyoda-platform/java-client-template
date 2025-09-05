@@ -28,6 +28,11 @@ import static com.java_template.common.config.Config.MONITORING_SCHEDULER_DELAY_
 import static com.java_template.common.config.Config.MONITORING_SCHEDULER_INITIAL_DELAY_SECONDS;
 import static com.java_template.common.config.Config.SENT_EVENTS_CACHE_MAX_SIZE;
 
+
+/**
+ * ABOUTME: Central monitoring component for gRPC connection health, event tracking,
+ * and performance metrics with caching and listener notification capabilities.
+ */
 @Component
 class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, GrpcConnectionStateProvider {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
