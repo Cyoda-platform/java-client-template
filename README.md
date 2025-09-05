@@ -116,6 +116,7 @@ Integration logic with Cyoda.
 
 - `auth/` – Manages login and refresh token logic (modifications not typically required).
 - `config/` – Contains constants, environment variables from .env, and enums.
+- `dto/` – Data transfer objects including EntityWithMetadata wrapper.
 - `grpc/` – Handles integration with the Cyoda gRPC server (modifications usually unnecessary).
 - `repository/` – Facilitates integration with the Cyoda REST API (modifications usually unnecessary).
 - `service/` – Service layer for your application.
@@ -140,17 +141,19 @@ To add new integrations with Cyoda, extend the following files:
 ---
 
 ### `application/`
-Application-specific logic and components:
+Application-specific logic and components (currently empty - create subdirectories as needed):
 
-- `controller/` – HTTP endpoints and REST API controllers.
-- `entity/` – Domain entities (e.g., `pet/Pet.java`) that implement `CyodaEntity`.
-- `processor/` – Workflow processors that implement `CyodaProcessor` interface.
-- `criterion/` – Workflow criteria that implement `CyodaCriterion` interface.
+- `controller/` – HTTP endpoints and REST API controllers (create when needed).
+- `entity/` – Domain entities that implement `CyodaEntity` (create when needed).
+- `processor/` – Workflow processors that implement `CyodaProcessor` interface (create when needed).
+- `criterion/` – Workflow criteria that implement `CyodaCriterion` interface (create when needed).
 
-### `entity/`
-Domain logic structure. Contains entity structures.
+### Entity Structure
+When creating entities, organize them as follows:
 
-- `$entity_name/Workflow.json` – Workflow configuration files should be placed alongside entities in `application/entity/`.
+- `application/entity/$entity_name/` – Directory for each entity type
+- `application/entity/$entity_name/EntityName.java` – Entity class implementing `CyodaEntity`
+- `application/entity/$entity_name/Workflow.json` – Workflow configuration for the entity
 
 ---
 
@@ -162,10 +165,10 @@ The EntityService has been redesigned with **clear performance guidance** and **
 
 | Method | Performance | Use Case | Example |
 |--------|-------------|----------|---------|
-| `getById(UUID id, Class<T> clazz)` | **FASTEST** | When you have technical UUID | `entityService.getById(uuid, Cart.class)` |
-| `findByBusinessId(Class<T> clazz, String businessId, String fieldName)` | **MEDIUM** | User-facing identifiers | `entityService.findByBusinessId(Cart.class, "CART-123", "cartId")` |
-| `findAll(Class<T> clazz)` | **SLOW** | Get all entities (use sparingly) | `entityService.findAll(Product.class)` |
-| `search(Class<T> clazz, SearchConditionRequest condition)` | **SLOWEST** | Complex queries | `entityService.search(Product.class, condition)` |
+| `getById(UUID id, ModelSpec modelSpec, Class<T> clazz)` | **FASTEST** | When you have technical UUID | `entityService.getById(uuid, modelSpec, Cart.class)` |
+| `findByBusinessId(ModelSpec modelSpec, String businessId, String fieldName, Class<T> clazz)` | **MEDIUM** | User-facing identifiers | `entityService.findByBusinessId(modelSpec, "CART-123", "cartId", Cart.class)` |
+| `findAll(ModelSpec modelSpec, Class<T> clazz)` | **SLOW** | Get all entities (use sparingly) | `entityService.findAll(modelSpec, Product.class)` |
+| `search(ModelSpec modelSpec, SearchConditionRequest condition, Class<T> clazz)` | **SLOWEST** | Complex queries | `entityService.search(modelSpec, condition, Product.class)` |
 
 ### 💾 **Mutation Methods**
 
@@ -181,25 +184,27 @@ The EntityService has been redesigned with **clear performance guidance** and **
 
 ```java
 // ✅ FASTEST - Use when you have the technical UUID (from previous EntityWithMetadata)
-EntityWithMetadata<Cart> cart = entityService.getById(technicalId, Cart.class);
+ModelSpec modelSpec = new ModelSpec().withName("Cart").withVersion(1);
+EntityWithMetadata<Cart> cart = entityService.getById(technicalId, modelSpec, Cart.class);
 
 // ✅ FAST - Use for user-facing identifiers (cartId, paymentId, orderId, etc.)
-EntityWithMetadata<Cart> cart = entityService.findByBusinessId(Cart.class, "CART-123", "cartId");
+EntityWithMetadata<Cart> cart = entityService.findByBusinessId(modelSpec, "CART-123", "cartId", Cart.class);
 
 // ✅ FAST - Indexed searches on range fields (dates, numbers, time-uuids)
 // Fast even with complex GroupConditions if all sub-clauses are on indexable fields
 SearchConditionRequest rangeCondition = SearchConditionRequest.group("AND",
         Condition.of("$.price", "GREATER_THAN", 100),
         Condition.of("$.createdDate", "GREATER_THAN", "2023-01-01"));
-List<EntityWithMetadata<Product>> expensiveProducts = entityService.search(Product.class, rangeCondition);
+ModelSpec productModelSpec = new ModelSpec().withName("Product").withVersion(1);
+List<EntityWithMetadata<Product>> expensiveProducts = entityService.search(productModelSpec, rangeCondition, Product.class);
 
 // ⚠️ SLOW - Full-table scans on non-indexed fields (requires scanning all records)
 SearchConditionRequest fullScanCondition = SearchConditionRequest.group("AND",
     Condition.of("$.description", "CONTAINS", "premium"));
-List<EntityWithMetadata<Product>> premiumProducts = entityService.search(Product.class, fullScanCondition);
+List<EntityWithMetadata<Product>> premiumProducts = entityService.search(productModelSpec, fullScanCondition, Product.class);
 
 // ⚠️ SLOWEST - Use sparingly for small datasets
-List<EntityWithMetadata<Product>> allProducts = entityService.findAll(Product.class);
+List<EntityWithMetadata<Product>> allProducts = entityService.findAll(productModelSpec, Product.class);
 
 ```
 
@@ -240,7 +245,9 @@ LocalDateTime updated = response.getMetadata().getUpdatedAt();
 - **Store Technical UUIDs**: Save `response.getMetadata().getId()` for future operations
 - **Use Business IDs for APIs**: Expose user-friendly IDs (cartId, orderId) in REST endpoints
 - **Cache Frequently Used Data**: Consider caching results from `findAll()` operations
-- **Batch Operations**: Use `saveAll()` for multiple entities when possible
+- **Batch Operations**: Use `save(Collection<T>)` for multiple entities when possible
+- **Prefer Technical IDs**: Use `getById()` over `findByBusinessId()` when you have the UUID
+- **Limit Search Scope**: Use specific search conditions rather than `findAll()` when possible
 
 ### 🔄 **Unified Processor Interface**
 
@@ -273,12 +280,25 @@ private EntityWithMetadata<EntityName> processEntityWithMetadataLogic(ProcessorE
 
 ## 🔄 Workflow Configuration
 
-Located at:
+### Workflow File Location
+
+For the WorkflowImportTool to find and import workflows, place them in:
 ```
-application/entity/$entity_name/Workflow.json
+src/main/resources/workflow/$entity_name/version_$version/$entity_name.json
 ```
 
-> **Note**: Workflow configuration files should be placed alongside their corresponding entity classes in the `application/entity/` directory structure.
+Example structure:
+```
+src/main/resources/workflow/
+├── Pet/
+│   └── version_1/
+│       └── Pet.json
+└── Order/
+    └── version_1/
+        └── Order.json
+```
+
+> **Note**: The WorkflowImportTool scans `src/main/resources/workflow/` directory and expects version directories (e.g., `version_1`) to determine entity versions.
 
 This file defines the workflow configuration using a **finite-state machine (FSM)**
 model, which specifies states and transitions between them.

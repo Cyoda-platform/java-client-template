@@ -5,7 +5,7 @@ This file provides comprehensive guidelines for developers and AI agents working
 ## 🚀 **Core Principles**
 
 - **Performance-Optimized**: Use EntityService methods with clear performance guidance
-- **Type-Safe**: Work with EntityResponse<T> throughout the application
+- **Type-Safe**: Work with EntityWithMetadata<T> throughout the application
 - **Unified Interface**: Consistent patterns between processors and controllers
 - **Clean Architecture**: Minimal dependencies, clear separation of concerns
 - **No Deprecated Patterns**: Only current, recommended approaches
@@ -18,20 +18,20 @@ This file provides comprehensive guidelines for developers and AI agents working
 ModelSpec modelSpec = new ModelSpec().withName("MyEntity").withVersion(1);
 
 // FASTEST - Use when you have technical UUID
-EntityResponse<MyEntity> myEntity = entityService.getById(uuid, modelSpec, MyEntity.class);
+EntityWithMetadata<MyEntity> myEntity = entityService.getById(uuid, modelSpec, MyEntity.class);
 
 // MEDIUM SPEED - Use for user-facing identifiers
-EntityResponse<MyEntity> myEntity = entityService.findByBusinessId(modelSpec, "CART-123", "myEntityId", MyEntity.class);
+EntityWithMetadata<MyEntity> myEntity = entityService.findByBusinessId(modelSpec, "CART-123", "myEntityId", MyEntity.class);
 
 // SLOW - Use sparingly for small datasets
-List<EntityResponse<MyOtherEntity>> myOtherEntitys = entityService.findAll(modelSpec, MyOtherEntity.class);
+List<EntityWithMetadata<MyOtherEntity>> myOtherEntitys = entityService.findAll(modelSpec, MyOtherEntity.class);
 
 // SLOWEST - Use for complex queries
-List<EntityResponse<MyOtherEntity>> results = entityService.search(modelSpec, condition, MyOtherEntity.class);
+List<EntityWithMetadata<MyOtherEntity>> results = entityService.search(modelSpec, condition, MyOtherEntity.class);
 
 // Mutations
-EntityResponse<MyEntity> saved = entityService.save(newMyEntity);
-EntityResponse<MyEntity> updated = entityService.update(uuid, myEntity, "CHECKOUT");
+EntityWithMetadata<MyEntity> saved = entityService.create(newMyEntity);
+EntityWithMetadata<MyEntity> updated = entityService.update(uuid, myEntity, "CHECKOUT");
 ```
 
 ## 🏗️ **Entities**
@@ -42,7 +42,7 @@ EntityResponse<MyEntity> updated = entityService.update(uuid, myEntity, "CHECKOU
 - Implement `getModelKey()` to return `OperationSpecification.Entity` with proper ModelSpec
 - Override `isValid()` method to provide entity-specific validation logic
 - Use static `ENTITY_NAME` constant for consistent entity naming
-- Work with EntityResponse<T> wrapper that includes entity + metadata
+- Work with EntityWithMetadata<T> wrapper that includes entity + metadata
 
 ## ⚙️ **Processors (CyodaProcessor)**
 
@@ -69,11 +69,11 @@ public class ExampleProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
 
-        // Unified EntityResponse processing - work directly with EntityResponse
+        // Unified EntityWithMetadata processing - work directly with EntityWithMetadata
         return serializer.withRequest(request)
-            .toEntityResponse(EntityName.class)  // Unified with controllers
-            .validate(this::isValidEntityResponse, "Invalid entity response")
-            .map(this::processEntityResponseLogic)
+            .toEntityWithMetadata(EntityName.class)  // Unified with controllers
+            .validate(this::isValidEntityWithMetadata, "Invalid entity wrapper")
+            .map(this::processEntityWithMetadataLogic)
             .complete();
     }
 
@@ -85,7 +85,7 @@ public class ExampleProcessor implements CyodaProcessor {
 ```
 
 ### 🚨 **Critical Processor Limitations**
-- ✅ **CAN**: Read current entity data using `context.entity()` or `entityResponse.getEntity()`
+- ✅ **CAN**: Read current entity data using `context.entityResponse()` or `entityWithMetadata.getEntity()`
 - ✅ **CAN**: Access current entity metadata: `context.getEvent().getEntityId()` and state
 - ✅ **CAN**: Get, update, delete OTHER entities using EntityService
 - ❌ **CANNOT**: Update the current entity being processed
@@ -102,7 +102,7 @@ public ProcessorName(SerializerFactory factory, ObjectMapper objectMapper) { ...
 Map<String, Object> payloadMap = objectMapper.convertValue(request.getPayload().getData(), Map.class);
 
 // NEVER try to update current entity in processor
-EntityResponse<EntityName> updated = entityService.update(currentEntityId, entity, "TRANSITION");
+EntityWithMetadata<EntityName> updated = entityService.update(currentEntityId, entity, "TRANSITION");
 ```
 
 ## 🔍 **Criteria (CyodaCriterion)**
@@ -166,7 +166,7 @@ public ExampleCriterion(SerializerFactory serializerFactory) {
 
 // Processor fluent API patterns
 return serializer.withRequest(request)
-    .toEntityResponse(EntityName.class)            // Unified interface
+    .toEntityWithMetadata(EntityName.class)            // Unified interface
     .validate(validator, "Error message")
     .map(this::processLogic)
     .complete();
@@ -199,21 +199,23 @@ public class EntityNameController {
     }
 
     @PostMapping
-    public ResponseEntity<EntityResponse<EntityName>> create(@RequestBody EntityName entity) {
-        EntityResponse<EntityName> response = entityService.save(entity);
+    public ResponseEntity<EntityWithMetadata<EntityName>> create(@RequestBody EntityName entity) {
+        EntityWithMetadata<EntityName> response = entityService.create(entity);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<EntityResponse<EntityName>> getById(@PathVariable UUID id) {
-        EntityResponse<EntityName> response = entityService.getById(id, EntityName.class);
+    public ResponseEntity<EntityWithMetadata<EntityName>> getById(@PathVariable UUID id) {
+        ModelSpec modelSpec = new ModelSpec().withName("EntityName").withVersion(1);
+        EntityWithMetadata<EntityName> response = entityService.getById(id, modelSpec, EntityName.class);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/business/{businessId}")
-    public ResponseEntity<EntityResponse<EntityName>> getByBusinessId(@PathVariable String businessId) {
-        EntityResponse<EntityName> response = entityService.findByBusinessId(
-            EntityName.class, businessId, "businessIdField");
+    public ResponseEntity<EntityWithMetadata<EntityName>> getByBusinessId(@PathVariable String businessId) {
+        ModelSpec modelSpec = new ModelSpec().withName("EntityName").withVersion(1);
+        EntityWithMetadata<EntityName> response = entityService.findByBusinessId(
+            modelSpec, businessId, "businessIdField", EntityName.class);
         return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
     }
 }
@@ -230,16 +232,17 @@ public ResponseEntity<Object> someMethod() { ... }
 ```
 
 ### 🎯 **Controller Guidelines**
-- Always return `ResponseEntity<EntityResponse<T>>` for single entities
-- Always return `ResponseEntity<List<EntityResponse<T>>>` for multiple entities
+- Always return `ResponseEntity<EntityWithMetadata<T>>` for single entities
+- Always return `ResponseEntity<List<EntityWithMetadata<T>>>` for multiple entities
 - Use appropriate EntityService methods based on performance needs
 - Handle errors with proper HTTP status codes (400, 404, 500)
 
-## 📋 **EntityResponse<T> Structure**
+## 📋 **EntityWithMetadata<T> Structure**
 
-### ✅ **Working with EntityResponse**
+### ✅ **Working with EntityWithMetadata**
 ```java
-EntityResponse<MyEntity> response = entityService.getById(myEntityId, MyEntity.class);
+ModelSpec modelSpec = new ModelSpec().withName("MyEntity").withVersion(1);
+EntityWithMetadata<MyEntity> response = entityService.getById(myEntityId, modelSpec, MyEntity.class);
 
 // Access the entity (Lombok @Data generates getEntity() automatically)
 MyEntity myEntity = response.getEntity();
@@ -247,8 +250,8 @@ MyEntity myEntity = response.getEntity();
 // Access metadata (includes technical UUID and workflow state)
 UUID technicalId = response.getMetadata().getId();      // Use for subsequent operations
 String workflowState = response.getMetadata().getState(); // Current workflow state
-LocalDateTime created = response.getMetadata().getCreatedAt();
-LocalDateTime updated = response.getMetadata().getUpdatedAt();
+Date created = response.getMetadata().getCreationDate();
+String lastTransition = response.getMetadata().getTransitionForLatestSave();
 ```
 
 ### 📄 **JSON Structure**
@@ -280,10 +283,10 @@ LocalDateTime updated = response.getMetadata().getUpdatedAt();
 ### 🎯 **Workflow Transitions**
 ```java
 // In processors: Update OTHER entities with transitions
-EntityResponse<OtherEntity> updated = entityService.update(otherEntityId, otherEntity, "TRANSITION_NAME");
+EntityWithMetadata<OtherEntity> updated = entityService.update(otherEntityId, otherEntity, "TRANSITION_NAME");
 
 // Without transition: Entity loops back to same state
-EntityResponse<OtherEntity> updated = entityService.update(otherEntityId, otherEntity, null);
+EntityWithMetadata<OtherEntity> updated = entityService.update(otherEntityId, otherEntity, null);
 ```
 
 ## ⚙️ **Configuration**
@@ -312,7 +315,7 @@ EntityResponse<OtherEntity> updated = entityService.update(otherEntityId, otherE
 - Use sealed classes for type-safe operation specifications
 - Prefer composition over inheritance in workflow components
 - Use factory patterns for component selection and instantiation
-- Work with EntityResponse<T> for unified interface consistency
+- Work with EntityWithMetadata<T> for unified interface consistency
 
 ## 🌐 **gRPC Integration**
 
@@ -325,6 +328,30 @@ EntityResponse<OtherEntity> updated = entityService.update(otherEntityId, otherE
 
 ## ⚠️ **Error Handling**
 
+### ✅ **Correct Error Handling Patterns**
+```java
+// Use ErrorInfo with StandardErrorCodes
+return serializer.responseBuilder(request)
+    .withError(StandardErrorCodes.PROCESSING_ERROR.getCode(), "Processing failed")
+    .build();
+
+// Use ErrorInfo static methods for common errors
+ErrorInfo error = ErrorInfo.processingError("Entity validation failed");
+ErrorInfo error = ErrorInfo.validationError("Required field missing");
+ErrorInfo error = ErrorInfo.evaluationError("Criteria evaluation failed");
+
+// Use ErrorInfo.fromException for exception handling
+try {
+    // processing logic
+} catch (Exception e) {
+    ErrorInfo error = ErrorInfo.fromException(StandardErrorCodes.PROCESSING_ERROR.getCode(), e);
+    return serializer.responseBuilder(request)
+        .withError(error.code(), error.message())
+        .build();
+}
+```
+
+### 🎯 **Error Handling Guidelines**
 - Use `ErrorInfo` class for structured error information
 - Prefer `StandardErrorCodes` enum over hardcoded error strings
 - Use `EvaluationOutcome.Fail` for criteria validation failures
@@ -349,4 +376,4 @@ EntityResponse<OtherEntity> updated = entityService.update(otherEntityId, otherE
 - **CANNOT** update current entity in processors - only OTHER entities
 - **MUST** run compilation checks frequently
 - **MUST** use performance-optimized EntityService methods
-- **MUST** work with EntityResponse<T> for consistency
+- **MUST** work with EntityWithMetadata<T> for consistency
