@@ -1,0 +1,131 @@
+package com.java_template.application.processor;
+
+import com.java_template.application.entity.example.version_1.ExampleEntity;
+import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.CyodaProcessor;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Iterator;
+
+/**
+ * Golden Example Processor - Template for creating new processors
+ * 
+ * This is a generified example processor that demonstrates:
+ * - Proper CyodaProcessor implementation
+ * - EntityWithMetadata processing pattern
+ * - Validation and business logic
+ * - Interaction with other entities (when needed)
+ * - Error handling and logging
+ * - Performance considerations
+ * 
+ * To create a new processor:
+ * 1. Copy this file to your processor package
+ * 2. Rename class from ExampleEntityProcessor to YourProcessorName
+ * 3. Update entity type from ExampleEntity to your entity
+ * 4. Implement your specific business logic in processEntityWithMetadataLogic()
+ * 5. Update validation logic in isValidEntityWithMetadata()
+ * 6. Add EntityService injection only if you need to interact with OTHER entities
+ * 7. Update supports() method to match your processor name
+ */
+@Component
+public class ExampleEntityProcessor implements CyodaProcessor {
+
+    private static final Logger logger = LoggerFactory.getLogger(ExampleEntityProcessor.class);
+    private final String className = this.getClass().getSimpleName();
+    private final ProcessorSerializer serializer;
+    
+    // Optional: Only inject EntityService if you need to interact with OTHER entities
+    private final EntityService entityService;
+
+    // Constructor WITHOUT EntityService (for simple processors that don't interact with other entities)
+    public ExampleEntityProcessor(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = null;
+    }
+
+    // Constructor WITH EntityService (only if you need to interact with OTHER entities)
+    // Uncomment this constructor and comment the one above if you need EntityService
+    /*
+    public ExampleEntityProcessor(SerializerFactory serializerFactory, EntityService entityService) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.entityService = entityService;
+    }
+    */
+
+    @Override
+    public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
+        EntityProcessorCalculationRequest request = context.getEvent();
+        logger.info("Processing ExampleEntity for request: {}", request.getId());
+
+        // ✅ CORRECT: Unified EntityWithMetadata processing (RECOMMENDED)
+        return serializer.withRequest(request)
+            .toEntityWithMetadata(ExampleEntity.class)  // Unified interface with controllers
+            .validate(this::isValidEntityWithMetadata, "Invalid entity wrapper")
+            .map(this::processEntityWithMetadataLogic)
+            .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return className.equalsIgnoreCase(modelSpec.operationName());
+    }
+
+    /**
+     * Validates the EntityWithMetadata wrapper
+     * This method checks both the entity and metadata are valid
+     */
+    private boolean isValidEntityWithMetadata(com.java_template.common.dto.EntityWithMetadata<ExampleEntity> entityWithMetadata) {
+        ExampleEntity entity = entityWithMetadata.entity();
+        java.util.UUID technicalId = entityWithMetadata.metadata().getId();
+        return entity != null && entity.isValid() && technicalId != null;
+    }
+
+    /**
+     * Main business logic processing method
+     * This is where you implement your specific business logic
+     * 
+     * CRITICAL LIMITATIONS:
+     * - ✅ ALLOWED: Read current entity data
+     * - ✅ ALLOWED: Update OTHER entities via EntityService
+     * - ❌ FORBIDDEN: Update current entity state/transitions
+     * - ❌ FORBIDDEN: Use ObjectMapper or manual JSON manipulation
+     */
+    private com.java_template.common.dto.EntityWithMetadata<ExampleEntity> processEntityWithMetadataLogic(
+            ProcessorSerializer.ProcessorEntityResponseExecutionContext<ExampleEntity> context) {
+        
+        com.java_template.common.dto.EntityWithMetadata<ExampleEntity> entityWithMetadata = context.entityResponse();
+        ExampleEntity entity = entityWithMetadata.entity();
+
+        // Get current entity metadata (CRITICAL: Cannot update current entity)
+        UUID currentEntityId = entityWithMetadata.metadata().getId(); // Technical ID of current entity (UUID)
+        String currentState = entityWithMetadata.metadata().getState(); // Current state from metadata
+
+        logger.debug("Processing entity: {} in state: {}", entity.getExampleId(), currentState);
+
+        // Example business logic: Calculate totals and validate items
+        processItems(entity);
+        
+        // Example: Update timestamps
+        entity.setUpdatedAt(LocalDateTime.now());
+        
+        // Example: Interact with OTHER entities (only if EntityService is injected)
+        if (entityService != null) {
+            processRelatedEntities(entity);
+        }
+
+        logger.info("ExampleEntity {} processed successfully", entity.getExampleId());
+
+        // CRITICAL: Return EntityWithMetadata (cannot change current entity state)
+        return entityWithMetadata;
+    }
+}

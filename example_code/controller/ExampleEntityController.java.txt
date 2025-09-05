@@ -1,0 +1,292 @@
+package com.java_template.application.controller;
+
+import com.java_template.application.entity.example.version_1.ExampleEntity;
+import com.java_template.common.service.EntityService;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.util.SearchConditionRequest;
+import com.java_template.common.util.Condition;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Golden Example Controller - Template for creating new controllers
+ * 
+ * This is a generified example controller that demonstrates:
+ * - Proper REST controller implementation
+ * - EntityService integration patterns
+ * - CRUD operations with EntityWithMetadata
+ * - Performance-optimized EntityService methods
+ * - Error handling and logging
+ * - Request/Response DTOs
+ * 
+ * To create a new controller:
+ * 1. Copy this file to your controller package
+ * 2. Rename class from ExampleEntityController to YourEntityController
+ * 3. Update entity type from ExampleEntity to your entity
+ * 4. Update @RequestMapping path from "/ui/example" to your path
+ * 5. Update ModelSpec entity name from "ExampleEntity" to your entity name
+ * 6. Update business ID field name in findByBusinessId calls
+ * 7. Add custom endpoints as needed
+ * 8. Update request/response DTOs for your specific use cases
+ */
+@RestController
+@RequestMapping("/ui/example")
+@CrossOrigin(origins = "*")
+public class ExampleEntityController {
+
+    private static final Logger logger = LoggerFactory.getLogger(ExampleEntityController.class);
+    private final EntityService entityService;
+
+    public ExampleEntityController(EntityService entityService) {
+        this.entityService = entityService;
+    }
+
+    /**
+     * Create a new entity
+     * POST /ui/example
+     */
+    @PostMapping
+    public ResponseEntity<EntityWithMetadata<ExampleEntity>> createEntity(@RequestBody ExampleEntity entity) {
+        try {
+            // Set creation timestamp
+            entity.setCreatedAt(LocalDateTime.now());
+            entity.setUpdatedAt(LocalDateTime.now());
+            
+            // CRITICAL: Pass entity directly - it IS the payload
+            EntityWithMetadata<ExampleEntity> response = entityService.create(entity);
+            logger.info("ExampleEntity created with ID: {}", response.metadata().getId());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error creating ExampleEntity", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Get entity by technical UUID (FASTEST method)
+     * GET /ui/example/{id}
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<EntityWithMetadata<ExampleEntity>> getEntityById(@PathVariable UUID id) {
+        try {
+            // Use getById() for technical UUID (FASTEST)
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            EntityWithMetadata<ExampleEntity> response = entityService.getById(id, modelSpec, ExampleEntity.class);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting ExampleEntity by ID: {}", id, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * Get entity by business identifier (MEDIUM SPEED)
+     * GET /ui/example/business/{exampleId}
+     */
+    @GetMapping("/business/{exampleId}")
+    public ResponseEntity<EntityWithMetadata<ExampleEntity>> getEntityByBusinessId(@PathVariable String exampleId) {
+        try {
+            // Use findByBusinessId() for business identifiers (MEDIUM SPEED)
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            EntityWithMetadata<ExampleEntity> response = entityService.findByBusinessId(
+                modelSpec, exampleId, "exampleId", ExampleEntity.class);
+
+            if (response == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting ExampleEntity by business ID: {}", exampleId, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Update entity with optional workflow transition
+     * PUT /ui/example/{id}?transition=TRANSITION_NAME
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<EntityWithMetadata<ExampleEntity>> updateEntity(
+            @PathVariable UUID id,
+            @RequestBody ExampleEntity entity,
+            @RequestParam(required = false) String transition) {
+        try {
+            // Set update timestamp
+            entity.setUpdatedAt(LocalDateTime.now());
+            
+            // CRITICAL: Pass entity directly - no payload manipulation needed
+            EntityWithMetadata<ExampleEntity> response = entityService.update(id, entity, transition);
+            logger.info("ExampleEntity updated with ID: {}", id);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error updating ExampleEntity", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Delete entity by technical UUID
+     * DELETE /ui/example/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEntity(@PathVariable UUID id) {
+        try {
+            entityService.deleteById(id);
+            logger.info("ExampleEntity deleted with ID: {}", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            logger.error("Error deleting ExampleEntity", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Get all entities (USE SPARINGLY - can be slow for large datasets)
+     * GET /ui/example
+     */
+    @GetMapping
+    public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> getAllEntities() {
+        try {
+            // Use findAll() sparingly - can be slow for large datasets
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            List<EntityWithMetadata<ExampleEntity>> entities = entityService.findAll(modelSpec, ExampleEntity.class);
+            return ResponseEntity.ok(entities);
+        } catch (Exception e) {
+            logger.error("Error getting all ExampleEntities", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Search entities by description (example of search functionality)
+     * GET /ui/example/search?description=text
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> searchEntitiesByDescription(
+            @RequestParam String description) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            
+            // Create search condition
+            Condition condition = Condition.simple("$.description", "EQUALS", description);
+            
+            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class);
+            return ResponseEntity.ok(entities);
+        } catch (Exception e) {
+            logger.error("Error searching ExampleEntities by status: {}", status, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Get entities by name pattern (example of complex search)
+     * POST /ui/example/search/advanced
+     */
+    @PostMapping("/search/advanced")
+    public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> advancedSearch(
+            @RequestBody SearchRequest searchRequest) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            
+            // Build complex search condition
+            Condition.Builder conditionBuilder = Condition.group("AND");
+            
+            if (searchRequest.getName() != null && !searchRequest.getName().trim().isEmpty()) {
+                conditionBuilder.add(Condition.simple("$.name", "CONTAINS", searchRequest.getName()));
+            }
+            
+            if (searchRequest.getMinAmount() != null) {
+                conditionBuilder.add(Condition.simple("$.amount", "GREATER_THAN_OR_EQUAL", searchRequest.getMinAmount()));
+            }
+            
+            if (searchRequest.getMaxAmount() != null) {
+                conditionBuilder.add(Condition.simple("$.amount", "LESS_THAN_OR_EQUAL", searchRequest.getMaxAmount()));
+            }
+            
+            Condition condition = conditionBuilder.build();
+            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class);
+            return ResponseEntity.ok(entities);
+        } catch (Exception e) {
+            logger.error("Error performing advanced search", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // Request DTOs for specific operations
+
+    /**
+     * DTO for advanced search requests
+     */
+    public static class SearchRequest {
+        private String name;
+        private String status;
+        private Double minAmount;
+        private Double maxAmount;
+
+        // Getters and setters
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        
+        public Double getMinAmount() { return minAmount; }
+        public void setMinAmount(Double minAmount) { this.minAmount = minAmount; }
+        
+        public Double getMaxAmount() { return maxAmount; }
+        public void setMaxAmount(Double maxAmount) { this.maxAmount = maxAmount; }
+    }
+
+    /**
+     * DTO for adding items to entity
+     */
+    public static class AddItemRequest {
+        private String itemId;
+        private String itemName;
+        private Double price;
+        private Integer qty;
+        private String category;
+
+        // Getters and setters
+        public String getItemId() { return itemId; }
+        public void setItemId(String itemId) { this.itemId = itemId; }
+        
+        public String getItemName() { return itemName; }
+        public void setItemName(String itemName) { this.itemName = itemName; }
+        
+        public Double getPrice() { return price; }
+        public void setPrice(Double price) { this.price = price; }
+        
+        public Integer getQty() { return qty; }
+        public void setQty(Integer qty) { this.qty = qty; }
+        
+        public String getCategory() { return category; }
+        public void setCategory(String category) { this.category = category; }
+    }
+
+    /**
+     * DTO for updating contact information
+     */
+    public static class UpdateContactRequest {
+        private String name;
+        private String email;
+        private String phone;
+
+        // Getters and setters
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        
+        public String getPhone() { return phone; }
+        public void setPhone(String phone) { this.phone = phone; }
+    }
+}
