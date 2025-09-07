@@ -1,0 +1,136 @@
+{
+    "version": "1.0",
+    "name": "PetCareOrder Workflow",
+    "desc": "Manages the lifecycle of a pet care service order from creation to completion.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_order",
+                    "next": "PENDING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderCreationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "confirm_order",
+                    "next": "CONFIRMED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderConfirmationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "OrderValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "cancel_order",
+                    "next": "CANCELLED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "CONFIRMED": {
+            "transitions": [
+                {
+                    "name": "start_service",
+                    "next": "IN_PROGRESS",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ServiceStartProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "cancel_order",
+                    "next": "CANCELLED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "IN_PROGRESS": {
+            "transitions": [
+                {
+                    "name": "complete_service",
+                    "next": "COMPLETED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ServiceCompletionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": [
+                {
+                    "name": "end_workflow",
+                    "next": "*",
+                    "manual": false
+                }
+            ]
+        },
+        "CANCELLED": {
+            "transitions": [
+                {
+                    "name": "end_workflow",
+                    "next": "*",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

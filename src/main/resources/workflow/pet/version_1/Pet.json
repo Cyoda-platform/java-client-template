@@ -1,0 +1,118 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Manages the lifecycle of a pet from registration to archival.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "register_pet",
+                    "next": "REGISTERED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PetRegistrationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "REGISTERED": {
+            "transitions": [
+                {
+                    "name": "activate_pet",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetActivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "deactivate_pet",
+                    "next": "INACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetDeactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_pet",
+                    "next": "ARCHIVED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetArchivalProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INACTIVE": {
+            "transitions": [
+                {
+                    "name": "reactivate_pet",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "archive_pet",
+                    "next": "ARCHIVED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetArchivalProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ARCHIVED": {
+            "transitions": [
+                {
+                    "name": "archive_complete",
+                    "next": "ARCHIVED",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

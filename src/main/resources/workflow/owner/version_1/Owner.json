@@ -1,0 +1,118 @@
+{
+    "version": "1.0",
+    "name": "Owner Workflow",
+    "desc": "Manages the lifecycle of a pet owner from registration to account closure.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "register_owner",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "verify_owner",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OwnerVerificationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "OwnerVerificationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "suspend_owner",
+                    "next": "SUSPENDED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OwnerSuspensionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "close_owner_account",
+                    "next": "CLOSED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OwnerClosureProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SUSPENDED": {
+            "transitions": [
+                {
+                    "name": "reactivate_owner",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OwnerReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "close_owner_account",
+                    "next": "CLOSED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OwnerClosureProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "CLOSED": {
+                "transitions": [
+                    {
+                        "name": "close_owner_account",
+                        "next": "CLOSED",
+                        "manual": false
+                    }
+                ]
+            }
+        }
+    }
+}
