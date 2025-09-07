@@ -1,0 +1,61 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 3,
+                    "breed": "Golden Retriever",
+                    "color": "Golden",
+                    "healthNotes": "No known health issues",
+                    "lastCheckupDate": "2023-08-01T10:00:00",
+                    "name": "Fluffy",
+                    "ownerId": "OWNER-001",
+                    "petId": "PET-001",
+                    "photoUrl": "http://example.com/photos/fluffy.jpg",
+                    "registrationDate": "2023-01-01T10:00:00",
+                    "species": "Dog",
+                    "weight": 30.5
+                }
+            }
+        },
+        {
+            "Owner": {
+                "entity_data_example": {
+                    "address": "123 Main St",
+                    "city": "Anytown",
+                    "email": "john.doe@example.com",
+                    "emergencyContact": "Jane Doe",
+                    "firstName": "John",
+                    "lastName": "Doe",
+                    "ownerId": "OWNER-001",
+                    "phoneNumber": "123-456-7890",
+                    "preferredVet": "Vet Clinic A",
+                    "registrationDate": "2022-12-01T10:00:00",
+                    "totalPets": 1,
+                    "zipCode": "12345"
+                }
+            }
+        },
+        {
+            "PetCareOrder": {
+                "entity_data_example": {
+                    "completionDate": "2023-09-01T12:00:00",
+                    "cost": 50.0,
+                    "customerRating": 5,
+                    "duration": 2,
+                    "notes": "Great service!",
+                    "orderDate": "2023-08-01T10:00:00",
+                    "orderId": "ORDER-001",
+                    "ownerId": "OWNER-001",
+                    "paymentMethod": "Credit Card",
+                    "petId": "PET-001",
+                    "scheduledDate": "2023-09-01T10:00:00",
+                    "serviceDescription": "Full grooming service",
+                    "serviceType": "GROOMING",
+                    "specialInstructions": "Handle with care",
+                    "veterinarianName": "Dr. Smith"
+                }
+            }
+        }
+    ]
+}
