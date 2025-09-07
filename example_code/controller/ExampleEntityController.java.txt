@@ -1,23 +1,29 @@
 package com.java_template.application.controller;
 
-import com.java_template.application.entity.example.version_1.ExampleEntity;
+import com.java_template.application.entity.example_entity.version_1.ExampleEntity;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.dto.EntityWithMetadata;
-import com.java_template.common.util.SearchConditionRequest;
-import com.java_template.common.util.Condition;
+import lombok.Getter;
+import lombok.Setter;
 import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
  * Golden Example Controller - Template for creating new controllers
- * 
+ * <p>
  * This is a generified example controller that demonstrates:
  * - Proper REST controller implementation
  * - EntityService integration patterns
@@ -25,7 +31,7 @@ import java.util.UUID;
  * - Performance-optimized EntityService methods
  * - Error handling and logging
  * - Request/Response DTOs
- * 
+ * <p>
  * To create a new controller:
  * 1. Copy this file to your controller package
  * 2. Rename class from ExampleEntityController to YourEntityController
@@ -43,9 +49,11 @@ public class ExampleEntityController {
 
     private static final Logger logger = LoggerFactory.getLogger(ExampleEntityController.class);
     private final EntityService entityService;
+    private final ObjectMapper objectMapper;
 
-    public ExampleEntityController(EntityService entityService) {
+    public ExampleEntityController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -58,7 +66,7 @@ public class ExampleEntityController {
             // Set creation timestamp
             entity.setCreatedAt(LocalDateTime.now());
             entity.setUpdatedAt(LocalDateTime.now());
-            
+
             // CRITICAL: Pass entity directly - it IS the payload
             EntityWithMetadata<ExampleEntity> response = entityService.create(entity);
             logger.info("ExampleEntity created with ID: {}", response.metadata().getId());
@@ -96,7 +104,7 @@ public class ExampleEntityController {
             // Use findByBusinessId() for business identifiers (MEDIUM SPEED)
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
             EntityWithMetadata<ExampleEntity> response = entityService.findByBusinessId(
-                modelSpec, exampleId, "exampleId", ExampleEntity.class);
+                    modelSpec, exampleId, "exampleId", ExampleEntity.class);
 
             if (response == null) {
                 return ResponseEntity.notFound().build();
@@ -120,7 +128,7 @@ public class ExampleEntityController {
         try {
             // Set update timestamp
             entity.setUpdatedAt(LocalDateTime.now());
-            
+
             // CRITICAL: Pass entity directly - no payload manipulation needed
             EntityWithMetadata<ExampleEntity> response = entityService.update(id, entity, transition);
             logger.info("ExampleEntity updated with ID: {}", id);
@@ -173,14 +181,21 @@ public class ExampleEntityController {
             @RequestParam String description) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
-            
-            // Create search condition
-            Condition condition = Condition.simple("$.description", "EQUALS", description);
-            
+
+            // Create search condition using generated classes directly
+            SimpleCondition simpleCondition = new SimpleCondition()
+                    .withJsonPath("$.description")
+                    .withOperation(Operation.EQUALS)
+                    .withValue(objectMapper.valueToTree(description));
+
+            GroupCondition condition = new GroupCondition()
+                    .withOperator(GroupCondition.Operator.AND)
+                    .withConditions(List.of(simpleCondition));
+
             List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class);
             return ResponseEntity.ok(entities);
         } catch (Exception e) {
-            logger.error("Error searching ExampleEntities by status: {}", status, e);
+            logger.error("Error searching ExampleEntities by description: {}", description, e);
             return ResponseEntity.badRequest().build();
         }
     }
@@ -194,23 +209,35 @@ public class ExampleEntityController {
             @RequestBody SearchRequest searchRequest) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
-            
-            // Build complex search condition
-            Condition.Builder conditionBuilder = Condition.group("AND");
-            
+
+            // Build complex search condition using generated classes directly
+            List<SimpleCondition> conditions = new ArrayList<>();
+
             if (searchRequest.getName() != null && !searchRequest.getName().trim().isEmpty()) {
-                conditionBuilder.add(Condition.simple("$.name", "CONTAINS", searchRequest.getName()));
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.name")
+                        .withOperation(Operation.CONTAINS)
+                        .withValue(objectMapper.valueToTree(searchRequest.getName())));
             }
-            
+
             if (searchRequest.getMinAmount() != null) {
-                conditionBuilder.add(Condition.simple("$.amount", "GREATER_THAN_OR_EQUAL", searchRequest.getMinAmount()));
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.amount")
+                        .withOperation(Operation.GREATER_OR_EQUAL)
+                        .withValue(objectMapper.valueToTree(searchRequest.getMinAmount())));
             }
-            
+
             if (searchRequest.getMaxAmount() != null) {
-                conditionBuilder.add(Condition.simple("$.amount", "LESS_THAN_OR_EQUAL", searchRequest.getMaxAmount()));
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.amount")
+                        .withOperation(Operation.LESS_OR_EQUAL)
+                        .withValue(objectMapper.valueToTree(searchRequest.getMaxAmount())));
             }
-            
-            Condition condition = conditionBuilder.build();
+
+            // Create GroupCondition with all conditions
+            GroupCondition condition = new GroupCondition()
+                    .withOperator(GroupCondition.Operator.AND)
+                    .withConditions(new ArrayList<>(conditions));
             List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class);
             return ResponseEntity.ok(entities);
         } catch (Exception e) {
@@ -224,69 +251,11 @@ public class ExampleEntityController {
     /**
      * DTO for advanced search requests
      */
+    @Getter
+    @Setter
     public static class SearchRequest {
         private String name;
-        private String status;
         private Double minAmount;
         private Double maxAmount;
-
-        // Getters and setters
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        
-        public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
-        
-        public Double getMinAmount() { return minAmount; }
-        public void setMinAmount(Double minAmount) { this.minAmount = minAmount; }
-        
-        public Double getMaxAmount() { return maxAmount; }
-        public void setMaxAmount(Double maxAmount) { this.maxAmount = maxAmount; }
-    }
-
-    /**
-     * DTO for adding items to entity
-     */
-    public static class AddItemRequest {
-        private String itemId;
-        private String itemName;
-        private Double price;
-        private Integer qty;
-        private String category;
-
-        // Getters and setters
-        public String getItemId() { return itemId; }
-        public void setItemId(String itemId) { this.itemId = itemId; }
-        
-        public String getItemName() { return itemName; }
-        public void setItemName(String itemName) { this.itemName = itemName; }
-        
-        public Double getPrice() { return price; }
-        public void setPrice(Double price) { this.price = price; }
-        
-        public Integer getQty() { return qty; }
-        public void setQty(Integer qty) { this.qty = qty; }
-        
-        public String getCategory() { return category; }
-        public void setCategory(String category) { this.category = category; }
-    }
-
-    /**
-     * DTO for updating contact information
-     */
-    public static class UpdateContactRequest {
-        private String name;
-        private String email;
-        private String phone;
-
-        // Getters and setters
-        public String getName() { return name; }
-        public void setName(String name) { this.name = name; }
-        
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
-        
-        public String getPhone() { return phone; }
-        public void setPhone(String phone) { this.phone = phone; }
     }
 }

@@ -6,14 +6,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.repository.CrudRepository;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
+
 import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
@@ -65,8 +66,14 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final String businessIdField,
             @NotNull final Class<T> entityClass
     ) {
-        SearchConditionRequest condition = SearchConditionRequest.group("AND",
-                Condition.of("$." + businessIdField, "EQUALS", businessId));
+        SimpleCondition simpleCondition = new SimpleCondition()
+            .withJsonPath("$." + businessIdField)
+            .withOperation(Operation.EQUALS)
+            .withValue(objectMapper.valueToTree(businessId));
+
+        GroupCondition condition = new GroupCondition()
+            .withOperator(GroupCondition.Operator.AND)
+            .withConditions(List.of(simpleCondition));
 
         Optional<EntityWithMetadata<T>> result = getFirstItemByCondition(
                 entityClass, modelSpec, condition, true);
@@ -87,7 +94,7 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
             @NotNull final ModelSpec modelSpec,
-            @NotNull final SearchConditionRequest condition,
+            @NotNull final GroupCondition condition,
             @NotNull final Class<T> entityClass
     ) {
         return getItemsByCondition(entityClass, modelSpec, condition, true);
@@ -115,12 +122,12 @@ public class EntityServiceImpl implements EntityService {
     public <T extends CyodaEntity> Optional<EntityWithMetadata<T>> getFirstItemByCondition(
             @NotNull final Class<T> entityClass,
             @NotNull final ModelSpec modelSpec,
-            @NotNull final SearchConditionRequest condition,
+            @NotNull final GroupCondition condition,
             final boolean inMemory
     ) {
         List<DataPayload> payloads = repository.findAllByCriteria(
                 modelSpec,
-                objectMapper.convertValue(condition, GroupCondition.class),
+                condition,
                 1,
                 1,
                 inMemory
@@ -134,12 +141,12 @@ public class EntityServiceImpl implements EntityService {
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItemsByCondition(
             @NotNull final Class<T> entityClass,
             @NotNull final ModelSpec modelSpec,
-            @NotNull final SearchConditionRequest condition,
+            @NotNull final GroupCondition condition,
             final boolean inMemory
     ) {
         List<DataPayload> payloads = repository.findAllByCriteria(
                 modelSpec,
-                objectMapper.convertValue(condition, GroupCondition.class),
+                condition,
                 DEFAULT_PAGE_SIZE,
                 FIRST_PAGE,
                 inMemory

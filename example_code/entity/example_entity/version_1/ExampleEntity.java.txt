@@ -1,4 +1,4 @@
-package com.java_template.application.entity.example.version_1;
+package com.java_template.application.entity.example_entity.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
@@ -10,14 +10,14 @@ import java.util.List;
 
 /**
  * Golden Example Entity - Template for creating new entities
- * 
+
  * This is a generified example entity that demonstrates:
  * - Proper CyodaEntity implementation
  * - Required and optional fields structure
  * - Nested data classes for complex types
  * - Validation logic
  * - Lombok @Data usage
- * 
+
  * To create a new entity:
  * 1. Copy this file to your entity package (e.g., com.java_template.application.entity.yourname.version_1)
  * 2. Rename class from ExampleEntity to YourEntityName

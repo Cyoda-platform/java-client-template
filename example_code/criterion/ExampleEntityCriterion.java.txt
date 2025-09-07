@@ -1,6 +1,6 @@
 package com.java_template.application.criterion;
 
-import com.java_template.application.entity.example.version_1.ExampleEntity;
+import com.java_template.application.entity.example_entity.version_1.ExampleEntity;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Golden Example Criterion - Template for creating new criteria
- * 
+
  * This is a generified example criterion that demonstrates:
  * - Proper CyodaCriterion implementation
  * - Entity validation and business rule checking
@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  * - Appropriate reason categories for failures
  * - Error handling and logging
  * - Performance considerations
- * 
+
  * To create a new criterion:
  * 1. Copy this file to your criterion package
  * 2. Rename class from ExampleEntityCriterion to YourCriterionName
@@ -65,7 +65,7 @@ public class ExampleEntityCriterion implements CyodaCriterion {
     /**
      * Main validation logic for the entity
      * This method contains all business rule validations
-     * 
+
      * Available StandardEvalReasonCategories:
      * - STRUCTURAL_FAILURE: For null entities, missing required fields
      * - BUSINESS_RULE_FAILURE: For business logic violations
@@ -75,155 +75,18 @@ public class ExampleEntityCriterion implements CyodaCriterion {
      */
     private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<ExampleEntity> context) {
         ExampleEntity entity = context.entityWithMetadata().entity();
-        
+
         // Check if entity is null (structural validation)
         if (entity == null) {
             logger.warn("ExampleEntity is null");
             return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        // Validate required fields (structural validation)
-        if (entity.getExampleId() == null || entity.getExampleId().trim().isEmpty()) {
-            logger.warn("ExampleEntity has no ID");
-            return EvaluationOutcome.fail("Entity ID is required", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
-        }
-
-        if (entity.getName() == null || entity.getName().trim().isEmpty()) {
-            logger.warn("ExampleEntity {} has no name", entity.getExampleId());
-            return EvaluationOutcome.fail("Entity name is required", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
-        }
-
-        // Validate business rules
-        if (entity.getStatus() == null || entity.getStatus().trim().isEmpty()) {
-            logger.warn("ExampleEntity {} has no status", entity.getExampleId());
-            return EvaluationOutcome.fail("Entity status is required", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-
-        // Validate status is in allowed values
-        if (!isValidStatus(entity.getStatus())) {
-            logger.warn("ExampleEntity {} has invalid status: {}", entity.getExampleId(), entity.getStatus());
-            return EvaluationOutcome.fail("Entity status must be ACTIVE, INACTIVE, or PENDING", 
-                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-
-        // Validate numeric fields
-        if (entity.getAmount() == null || entity.getAmount() < 0) {
-            logger.warn("ExampleEntity {} has invalid amount: {}", entity.getExampleId(), entity.getAmount());
-            return EvaluationOutcome.fail("Entity amount must be non-negative", 
-                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-
-        if (entity.getQuantity() == null || entity.getQuantity() < 0) {
-            logger.warn("ExampleEntity {} has invalid quantity: {}", entity.getExampleId(), entity.getQuantity());
-            return EvaluationOutcome.fail("Entity quantity must be non-negative", 
-                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-
-        // Validate items if present
-        if (entity.getItems() != null && !entity.getItems().isEmpty()) {
-            EvaluationOutcome itemsValidation = validateItems(entity);
-            if (!itemsValidation.isSuccess()) {
-                return itemsValidation;
-            }
-        }
-
-        // Validate contact information if present
-        if (entity.getContact() != null) {
-            EvaluationOutcome contactValidation = validateContact(entity);
-            if (!contactValidation.isSuccess()) {
-                return contactValidation;
-            }
-        }
-
-        // Data consistency checks
-        if (entity.getItems() != null && !entity.getItems().isEmpty()) {
-            int calculatedQuantity = entity.getItems().stream()
-                .mapToInt(item -> item.getQty() != null ? item.getQty() : 0)
-                .sum();
-            
-            if (!entity.getQuantity().equals(calculatedQuantity)) {
-                logger.warn("ExampleEntity {} quantity mismatch: entity={}, calculated={}", 
-                           entity.getExampleId(), entity.getQuantity(), calculatedQuantity);
-                return EvaluationOutcome.fail("Entity quantity does not match sum of item quantities", 
-                                            StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-            }
-        }
-
-        logger.debug("ExampleEntity {} passed all validation criteria", entity.getExampleId());
-        return EvaluationOutcome.success();
-    }
-
-    /**
-     * Validate status field against allowed values
-     */
-    private boolean isValidStatus(String status) {
-        return "ACTIVE".equals(status) || "INACTIVE".equals(status) || "PENDING".equals(status);
-    }
-
-    /**
-     * Validate items collection
-     */
-    private EvaluationOutcome validateItems(ExampleEntity entity) {
-        for (ExampleEntity.ExampleItem item : entity.getItems()) {
-            if (item.getItemId() == null || item.getItemId().trim().isEmpty()) {
-                logger.warn("ExampleEntity {} has item without ID", entity.getExampleId());
-                return EvaluationOutcome.fail("All items must have an ID", 
-                                            StandardEvalReasonCategories.STRUCTURAL_FAILURE);
-            }
-
-            if (item.getQty() == null || item.getQty() <= 0) {
-                logger.warn("ExampleEntity {} has item {} with invalid quantity", 
-                           entity.getExampleId(), item.getItemId());
-                return EvaluationOutcome.fail("All items must have positive quantity", 
-                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-            }
-
-            if (item.getPrice() == null || item.getPrice() < 0) {
-                logger.warn("ExampleEntity {} has item {} with invalid price", 
-                           entity.getExampleId(), item.getItemId());
-                return EvaluationOutcome.fail("All items must have non-negative price", 
-                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-            }
-        }
-        return EvaluationOutcome.success();
-    }
-
-    /**
-     * Validate contact information
-     */
-    private EvaluationOutcome validateContact(ExampleEntity entity) {
-        ExampleEntity.ExampleContact contact = entity.getContact();
-        
-        if (contact.getEmail() != null && !contact.getEmail().trim().isEmpty()) {
-            if (!isValidEmail(contact.getEmail())) {
-                logger.warn("ExampleEntity {} has invalid email format", entity.getExampleId());
-                return EvaluationOutcome.fail("Contact email format is invalid", 
-                                            StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-            }
-        }
-
-        if (contact.getPhone() != null && !contact.getPhone().trim().isEmpty()) {
-            if (!isValidPhone(contact.getPhone())) {
-                logger.warn("ExampleEntity {} has invalid phone format", entity.getExampleId());
-                return EvaluationOutcome.fail("Contact phone format is invalid", 
-                                            StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
-            }
+        if (!entity.isValid()) {
+            logger.warn("ExampleEntity is not valid");
+            return EvaluationOutcome.fail("Entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         return EvaluationOutcome.success();
-    }
-
-    /**
-     * Simple email validation
-     */
-    private boolean isValidEmail(String email) {
-        return email.contains("@") && email.contains(".");
-    }
-
-    /**
-     * Simple phone validation
-     */
-    private boolean isValidPhone(String phone) {
-        return phone.matches("^[+]?[0-9\\s\\-\\(\\)]{10,}$");
     }
 }
