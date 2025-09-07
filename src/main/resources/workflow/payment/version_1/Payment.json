@@ -1,0 +1,85 @@
+{
+    "version": "1.0",
+    "name": "Payment Workflow",
+    "desc": "Manages dummy payment processing with auto-approval after 3 seconds.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_dummy_payment",
+                    "next": "initiated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentCreateDummyPaymentProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "initiated": {
+            "transitions": [
+                {
+                    "name": "auto_mark_paid",
+                    "next": "paid",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentAutoMarkPaidAfter3sProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "failed",
+                    "manual": true
+                },
+                {
+                    "name": "cancel_payment",
+                    "next": "canceled",
+                    "manual": true
+                }
+            ]
+        },
+        "paid": {
+            "transitions": [
+                {
+                    "name": "complete_payment",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "complete_failure",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "canceled": {
+            "transitions": [
+                {
+                    "name": "complete_cancellation",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}

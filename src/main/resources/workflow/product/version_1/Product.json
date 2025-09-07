@@ -1,0 +1,36 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Simple workflow for product lifecycle management.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "activate_product",
+                    "next": "ACTIVE",
+                    "manual": false
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "deactivate_product",
+                    "next": "INACTIVE",
+                    "manual": true
+                }
+            ]
+        },
+        "INACTIVE": {
+            "transitions": [
+                {
+                    "name": "reactivate_product",
+                    "next": "ACTIVE",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}

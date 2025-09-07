@@ -1,0 +1,81 @@
+{
+    "version": "1.0",
+    "name": "Shipment Workflow",
+    "desc": "Manages shipment lifecycle synchronized with order states.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "CREATE_SHIPMENT",
+                    "next": "PICKING",
+                    "manual": false
+                }
+            ]
+        },
+        "PICKING": {
+            "transitions": [
+                {
+                    "name": "READY_TO_SEND",
+                    "next": "WAITING_TO_SEND",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ShipmentReadyToSendProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "WAITING_TO_SEND": {
+            "transitions": [
+                {
+                    "name": "MARK_SENT",
+                    "next": "SENT",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ShipmentMarkSentProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": [
+                {
+                    "name": "MARK_DELIVERED",
+                    "next": "DELIVERED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ShipmentMarkDeliveredProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DELIVERED": {
+            "transitions": [
+                {
+                    "name": "end",
+                    "next": "[*]",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,110 @@
+{
+    "version": "1.0",
+    "name": "Cart Workflow",
+    "desc": "Manages cart lifecycle from creation through conversion to order.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_NEW",
+                    "next": "NEW",
+                    "manual": false
+                }
+            ]
+        },
+        "NEW": {
+            "transitions": [
+                {
+                    "name": "CREATE_ON_FIRST_ADD",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CartRecalculateTotalsProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "ADD_ITEM",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartRecalculateTotalsProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "UPDATE_ITEM",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartRecalculateTotalsProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "REMOVE_ITEM",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartRecalculateTotalsProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "OPEN_CHECKOUT",
+                    "next": "CHECKING_OUT",
+                    "manual": true,
+                    "processors": []
+                }
+            ]
+        },
+        "CHECKING_OUT": {
+            "transitions": [
+                {
+                    "name": "CHECKOUT",
+                    "next": "CONVERTED",
+                    "manual": true,
+                    "processors": []
+                }
+            ]
+        },
+        "CONVERTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}
