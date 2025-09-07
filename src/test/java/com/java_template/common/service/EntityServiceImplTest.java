@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.repository.CrudRepository;
-import com.java_template.common.util.Condition;
-import com.java_template.common.util.SearchConditionRequest;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Getter;
@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Collection;
 import java.util.Date;
@@ -111,8 +112,16 @@ class EntityServiceImplTest {
         return response;
     }
 
-    private SearchConditionRequest createActiveStatusCondition() {
-        return SearchConditionRequest.group("AND", Condition.of("$.status", "EQUALS", "ACTIVE"));
+    private GroupCondition createActiveStatusCondition() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        SimpleCondition simpleCondition = new SimpleCondition()
+            .withJsonPath("$.status")
+            .withOperation(Operation.EQUALS)
+            .withValue(objectMapper.valueToTree("ACTIVE"));
+
+        return new GroupCondition()
+            .withOperator(GroupCondition.Operator.AND)
+            .withConditions(List.of(simpleCondition));
     }
 
     private ModelSpec createTestModelSpec() {
@@ -494,7 +503,7 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("search should call repository.findAllByCriteria with search condition")
     void testSearchRepositoryCall() {
-        SearchConditionRequest condition = createActiveStatusCondition();
+        GroupCondition condition = createActiveStatusCondition();
         List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
         when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(payloads));
@@ -512,7 +521,7 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("search should handle repository failure")
     void testSearchRepositoryFailure() {
-        SearchConditionRequest condition = createActiveStatusCondition();
+        GroupCondition condition = createActiveStatusCondition();
         when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Search failed")));
 
@@ -554,7 +563,7 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("getFirstItemByCondition should return empty optional when no entities found")
     void testGetFirstItemByConditionEmpty() {
-        SearchConditionRequest condition = createActiveStatusCondition();
+        GroupCondition condition = createActiveStatusCondition();
         when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
 
@@ -568,7 +577,7 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("getFirstItemByCondition should return first entity when non-empty payloads are returned")
     void testGetFirstItemByConditionWithNonEmptyPayloads() {
-        SearchConditionRequest condition = createActiveStatusCondition();
+        GroupCondition condition = createActiveStatusCondition();
 
         TestEntity firstEntity = new TestEntity(123L, "First Entity", "ACTIVE");
         TestEntity secondEntity = new TestEntity(456L, "Second Entity", "ACTIVE");
@@ -591,7 +600,7 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("getItemsByCondition should return empty list when no entities found")
     void testGetItemsByConditionEmpty() {
-        SearchConditionRequest condition = createActiveStatusCondition();
+        GroupCondition condition = createActiveStatusCondition();
         when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true)))
                 .thenReturn(CompletableFuture.completedFuture(List.of()));
 
@@ -605,7 +614,7 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("getItemsByCondition should filter null payloads and return valid entities")
     void testGetItemsByConditionWithNullPayloads() {
-        SearchConditionRequest condition = createActiveStatusCondition();
+        GroupCondition condition = createActiveStatusCondition();
         DataPayload validPayload = createTestDataPayload(testEntity, testEntityId);
         List<DataPayload> payloadsWithNull = new java.util.ArrayList<>();
         payloadsWithNull.add(null);

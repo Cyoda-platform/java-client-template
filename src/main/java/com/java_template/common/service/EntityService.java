@@ -6,8 +6,8 @@ import java.util.UUID;
 
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.workflow.CyodaEntity;
-import com.java_template.common.util.SearchConditionRequest;
 import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -89,13 +89,13 @@ public interface EntityService {
      * Use for advanced queries with multiple conditions, filtering, etc.
      *
      * @param modelSpec Model specification containing name and version
-     * @param condition Search condition (use SearchConditionRequest.builder())
+     * @param condition Search condition (use SearchConditionBuilder.group())
      * @param entityClass Entity class type for deserialization
      * @return List of EntityWithMetadata with entities and metadata
      */
     <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
             @NotNull ModelSpec modelSpec,
-            @NotNull SearchConditionRequest condition,
+            @NotNull GroupCondition condition,
             @NotNull Class<T> entityClass
     );
 

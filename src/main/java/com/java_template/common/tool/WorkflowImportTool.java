@@ -19,9 +19,10 @@ public class WorkflowImportTool {
 
         Authentication auth = context.getBean(Authentication.class);
         HttpUtils httpUtils = context.getBean(HttpUtils.class);
+        ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
 
-        CyodaInit init = new CyodaInit(httpUtils, auth);
-        init.initCyoda().join();
+        CyodaInit init = new CyodaInit(httpUtils, auth, objectMapper);
+        init.initCyoda();
 
         context.close();
     }
