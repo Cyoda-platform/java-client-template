@@ -1,0 +1,132 @@
+{
+    "version": "1.0",
+    "name": "Subscriber Workflow",
+    "desc": "Manages the lifecycle of subscriber subscriptions from initial signup to unsubscription.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "PENDING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SubscriberRegistrationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberActivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_unsubscribed",
+                    "next": "UNSUBSCRIBED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberUnsubscribeProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "transition_to_inactive",
+                    "next": "INACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberDeactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_unsubscribed",
+                    "next": "UNSUBSCRIBED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberUnsubscribeProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INACTIVE": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_unsubscribed",
+                    "next": "UNSUBSCRIBED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberUnsubscribeProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "UNSUBSCRIBED": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
