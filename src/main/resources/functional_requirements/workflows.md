@@ -69,33 +69,28 @@ stateDiagram-v2
 
 ### States
 - `INITIAL` - System initial state (not user-facing)
-- `SCHEDULED` - Campaign scheduled for sending
-- `SENDING` - Campaign is currently being sent
-- `SENT` - Campaign successfully sent
-- `FAILED` - Campaign failed to send
-- `CANCELLED` - Campaign was cancelled
+- `PENDING` - Delivery queued for sending
+- `SENT` - Email sent to email service
+- `DELIVERED` - Email delivered to recipient's inbox
+- `FAILED` - Email delivery failed
 
 ### Transitions
 
 | From | To | Type | Processor | Criterion | Description |
 |------|----|----|-----------|-----------|-------------|
-| INITIAL | SCHEDULED | Automatic | EmailCampaignScheduleProcessor | - | Campaign created and scheduled |
-| SCHEDULED | SENDING | Automatic | EmailCampaignSendProcessor | EmailCampaignReadyCriterion | Campaign starts sending |
-| SCHEDULED | CANCELLED | Manual | EmailCampaignCancelProcessor | - | Campaign cancelled before sending |
-| SENDING | SENT | Automatic | EmailCampaignCompleteProcessor | EmailCampaignSuccessCriterion | Campaign successfully sent |
-| SENDING | FAILED | Automatic | EmailCampaignFailProcessor | EmailCampaignFailureCriterion | Campaign failed during sending |
-| FAILED | SCHEDULED | Manual | EmailCampaignRetryProcessor | EmailCampaignRetryCriterion | Retry failed campaign |
+| INITIAL | PENDING | Automatic | EmailCampaignScheduleProcessor | - | Campaign created and queued for sending |
+| PENDING | SENT | Automatic | EmailCampaignSendProcessor | EmailCampaignReadyCriterion | Email sent to the email service |
+| SENT | DELIVERED| Automatic | EmailCampaignDeliveryProcessor | EmailDeliverySuccessCriterion | Email delivered to recipient's inbox |
+| SENT | FAILED   | Automatic | EmailCampaignFailProcessor | EmailDeliveryFailureCriterion | Email delivery failed |
 
 ### Mermaid State Diagram
 ```mermaid
 stateDiagram-v2
     [*] --> INITIAL
-    INITIAL --> SCHEDULED : EmailCampaignScheduleProcessor
-    SCHEDULED --> SENDING : EmailCampaignSendProcessor / EmailCampaignReadyCriterion
-    SCHEDULED --> CANCELLED : EmailCampaignCancelProcessor
-    SENDING --> SENT : EmailCampaignCompleteProcessor / EmailCampaignSuccessCriterion
-    SENDING --> FAILED : EmailCampaignFailProcessor / EmailCampaignFailureCriterion
-    FAILED --> SCHEDULED : EmailCampaignRetryProcessor / EmailCampaignRetryCriterion
+    INITIAL --> PENDING : EmailCampaignScheduleProcessor
+    PENDING --> SENT : EmailCampaignSendProcessor / EmailCampaignReadyCriterion
+    SENT --> DELIVERED : EmailCampaignDeliveryProcessor / EmailDeliverySuccessCriterion
+    SENT --> FAILED : EmailCampaignFailProcessor / EmailDeliveryFailureCriterion
 ```
 
 ## Workflow Integration Points
