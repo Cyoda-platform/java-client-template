@@ -201,7 +201,7 @@ process(catFact):
 **Entity**: EmailCampaign
 **Input**: Campaign scheduling data (catFactId, scheduledDate)
 **Purpose**: Create and schedule new email campaign
-**Output**: EmailCampaign entity in SCHEDULED state
+**Output**: EmailCampaign entity in PENDING state
 
 **Pseudocode**:
 ```
@@ -214,20 +214,20 @@ process(campaignData):
     set all delivery counters to 0
     create email subject and template
     create EmailCampaign entity
-    return campaign entity (state will transition to SCHEDULED)
+    return campaign entity (state will transition to PENDING)
 ```
 
 ### 13. EmailCampaignSendProcessor
 **Entity**: EmailCampaign
-**Input**: EmailCampaign entity in SCHEDULED state
+**Input**: EmailCampaign entity in PENDING state
 **Purpose**: Execute email campaign sending
-**Output**: EmailCampaign entity in SENDING state
+**Output**: EmailCampaign entity in SENT state
 **Other Entity Updates**: Updates Subscriber entities (null transition)
 
 **Pseudocode**:
 ```
 process(campaign):
-    verify campaign is in SCHEDULED state
+    verify campaign is in PENDING state
     retrieve cat fact using catFactId
     get all active subscribers
     set actualSentDate to current timestamp
@@ -241,38 +241,38 @@ process(campaign):
         else:
             increment failedDeliveries
             trigger SubscriberBounceProcessor if needed
-    return campaign entity (state will transition to SENDING)
+    return campaign entity (state will transition to SENT)
 ```
 
 ### 14. EmailCampaignCompleteProcessor
 **Entity**: EmailCampaign
-**Input**: EmailCampaign entity in SENDING state
+**Input**: EmailCampaign entity in SENT state
 **Purpose**: Complete successful email campaign
-**Output**: EmailCampaign entity in SENT state
+**Output**: EmailCampaign entity in DELIVERED state
 **Other Entity Updates**: Updates CatFact entity (CatFactUsageProcessor transition)
 
 **Pseudocode**:
 ```
 process(campaign):
-    verify campaign is in SENDING state
+    verify campaign is in SENT state
     finalize delivery statistics
     calculate success rate
     log campaign completion
     trigger CatFactUsageProcessor for used cat fact
     generate campaign report
-    return campaign entity (state will transition to SENT)
+    return campaign entity (state will transition to DELIVERED)
 ```
 
 ### 15. EmailCampaignFailProcessor
 **Entity**: EmailCampaign
-**Input**: EmailCampaign entity in SENDING state
+**Input**: EmailCampaign entity in SENT state
 **Purpose**: Handle failed email campaign
 **Output**: EmailCampaign entity in FAILED state
 
 **Pseudocode**:
 ```
 process(campaign):
-    verify campaign is in SENDING state
+    verify campaign is in SENT state
     log failure reason and timestamp
     calculate partial delivery statistics
     notify administrators of failure
@@ -282,14 +282,14 @@ process(campaign):
 
 ### 16. EmailCampaignCancelProcessor
 **Entity**: EmailCampaign
-**Input**: EmailCampaign entity in SCHEDULED state
+**Input**: EmailCampaign entity in PENDING state
 **Purpose**: Cancel scheduled email campaign
 **Output**: EmailCampaign entity in CANCELLED state
 
 **Pseudocode**:
 ```
 process(campaign):
-    verify campaign is in SCHEDULED state
+    verify campaign is in PENDING state
     log cancellation reason and timestamp
     notify administrators of cancellation
     return campaign entity (state will transition to CANCELLED)
@@ -299,7 +299,7 @@ process(campaign):
 **Entity**: EmailCampaign
 **Input**: EmailCampaign entity in FAILED state
 **Purpose**: Retry failed email campaign
-**Output**: EmailCampaign entity in SCHEDULED state
+**Output**: EmailCampaign entity in PENDING state
 
 **Pseudocode**:
 ```
@@ -308,7 +308,7 @@ process(campaign):
     reset delivery counters
     update scheduledDate to new retry time
     log retry attempt
-    return campaign entity (state will transition to SCHEDULED)
+    return campaign entity (state will transition to PENDING)
 ```
 
 ## Cross-Entity Processor Interactions
