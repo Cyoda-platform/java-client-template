@@ -1,0 +1,140 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Description of the workflow for Product",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_01",
+                    "next": "state_01",
+                    "manual": false
+                }
+            ]
+        },
+        "state_01": {
+            "transitions": [
+                {
+                    "name": "transition_to_02",
+                    "next": "state_02",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductCreateProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_02": {
+            "transitions": [
+                {
+                    "name": "transition_to_03",
+                    "next": "state_03",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductActivateProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_03": {
+            "transitions": [
+                {
+                    "name": "transition_to_04",
+                    "next": "state_04",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductUpdateProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_05",
+                    "next": "state_05",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductRemoveProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_04": {
+            "transitions": [
+                {
+                    "name": "transition_to_06",
+                    "next": "state_06",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ProductCheckoutProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "state_05": {
+            "transitions": [
+                {
+                    "name": "transition_to_07",
+                    "next": "state_07",
+                    "manual": false
+                }
+            ]
+        },
+        "state_06": {
+            "transitions": [
+                {
+                    "name": "transition_to_08",
+                    "next": "state_08",
+                    "manual": false
+                }
+            ]
+        },
+        "state_07": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "state_08": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,82 @@
+{
+    "version": "1.0",
+    "name": "Payment Workflow",
+    "desc": "Description of the workflow for Payment",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "START_DUMMY_PAYMENT",
+                    "next": "INITIATED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentCreateDummyProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INITIATED": {
+            "transitions": [
+                {
+                    "name": "AUTO_MARK_PAID",
+                    "next": "PAID",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentAutoMarkPaidProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "MARK_FAILED",
+                    "next": "FAILED",
+                    "manual": true
+                },
+                {
+                    "name": "CANCEL_PAYMENT",
+                    "next": "CANCELED",
+                    "manual": true
+                }
+            ]
+        },
+        "PAID": {
+            "transitions": [
+                {
+                    "name": "finalize_payment",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "FAILED": {
+            "transitions": [
+                {
+                    "name": "finalize_failed_payment",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "CANCELED": {
+            "transitions": [
+                {
+                    "name": "finalize_canceled_payment",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
