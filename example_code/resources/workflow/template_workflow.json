@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "name": "template_workflow",
+  "desc": "Template FSM with structured states, transitions, processors, and criterions",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "transition_to_01",
+          "next": "state_01"
+        }
+      ]
+    },
+    "state_01": {
+      "transitions": [
+        {
+          "name": "transition_to_02",
+          "next": "state_02",
+          "manual": true,
+          "processors": [
+            {
+              "name": "example_function_name",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "state_02": {
+      "transitions": [
+        {
+          "name": "transition_with_criterion_simple",
+          "next": "state_criterion_check_01",
+          "processors": [
+            {
+              "name": "example_function_name",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "example_function_name_returns_bool",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "state_criterion_check_01": {
+      "transitions": [
+        {
+          "name": "transition_with_criterion_group",
+          "next": "state_terminal",
+          "criterion": {
+            "type": "group",
+            "operator": "AND",
+            "conditions": [
+              {
+                "type": "simple",
+                "jsonPath": "$.sampleFieldA",
+                "operation": "EQUALS",
+                "value": "template_value_01"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "state_terminal": {
+      "transitions": []
+    }
+  }
+}

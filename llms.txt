@@ -8,15 +8,20 @@ default branch: main
 
 - [README](https://github.com/Cyoda-platform/java-client-template/${branch}/README.md): Complete project documentation including setup, architecture, and workflow configuration
 - [Usage Rules](https://github.com/Cyoda-platform/java-client-template/${branch}/usage-rules.md): Developer and AI agent guidelines for following project conventions
+- [Augment Guidelines](https://github.com/Cyoda-platform/java-client-template/${branch}/.augment-guidelines): Project overview and development workflow guidelines
 
+## Code Examples
 
+- [Example Code Directory](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/): Complete code examples and templates for all components
+  - [Controllers](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/controller/): REST controller patterns
+  - [Entities](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/entity/): Entity class implementations
+  - [Processors](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/processor/): Workflow processor examples
+  - [Criteria](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/criterion/): Workflow criteria examples
 
 ## Configuration
 
 - [Build Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/build.gradle): Gradle build configuration with dependencies and plugins
 - [Environment Template](https://github.com/Cyoda-platform/java-client-template/${branch}/.env.template): Environment variables template for Cyoda integration
-
-
 
 ## API Documentation
 

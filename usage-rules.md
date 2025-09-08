@@ -2,6 +2,17 @@
 
 This file provides comprehensive guidelines for developers and AI agents working with the Java Client Template project. All patterns shown are current best practices.
 
+## 📚 **Code Examples Reference**
+
+**All code examples and implementation patterns are located in the `example_code/` directory:**
+- `example_code/controller/` - REST controller patterns and best practices
+- `example_code/entity/` - Entity class implementations with CyodaEntity interface
+- `example_code/processor/` - Workflow processor examples with serialization patterns
+- `example_code/criterion/` - Workflow criteria examples with evaluation logic
+- `example_code/resources/` - Configuration file templates and examples
+
+**Always reference these examples** when implementing new components to ensure consistency with established patterns.
+
 ## 🚀 **Core Principles**
 
 - **Performance-Optimized**: Use EntityService methods with clear performance guidance
@@ -12,27 +23,14 @@ This file provides comprehensive guidelines for developers and AI agents working
 
 ## 📦 **EntityService - Performance-Optimized API**
 
-### ✅ **Correct EntityService Usage**
-```java
-// Create ModelSpec for entity operations
-ModelSpec modelSpec = new ModelSpec().withName("MyEntity").withVersion(1);
+### ✅ **EntityService Performance Guidelines**
+- **FASTEST**: `getById(uuid, modelSpec, Class)` - Use when you have technical UUID
+- **MEDIUM SPEED**: `findByBusinessId(modelSpec, businessId, fieldName, Class)` - Use for user-facing identifiers
+- **SLOW**: `findAll(modelSpec, Class)` - Use sparingly for small datasets
+- **SLOWEST**: `search(modelSpec, condition, Class)` - Use for complex queries
 
-// FASTEST - Use when you have technical UUID
-EntityWithMetadata<MyEntity> myEntity = entityService.getById(uuid, modelSpec, MyEntity.class);
-
-// MEDIUM SPEED - Use for user-facing identifiers
-EntityWithMetadata<MyEntity> myEntity = entityService.findByBusinessId(modelSpec, "CART-123", "myEntityId", MyEntity.class);
-
-// SLOW - Use sparingly for small datasets
-List<EntityWithMetadata<MyOtherEntity>> myOtherEntitys = entityService.findAll(modelSpec, MyOtherEntity.class);
-
-// SLOWEST - Use for complex queries
-List<EntityWithMetadata<MyOtherEntity>> results = entityService.search(modelSpec, condition, MyOtherEntity.class);
-
-// Mutations
-EntityWithMetadata<MyEntity> saved = entityService.create(newMyEntity);
-EntityWithMetadata<MyEntity> updated = entityService.update(uuid, myEntity, "CHECKOUT");
-```
+### ✅ **EntityService Method Patterns**
+See `example_code/controller/` for complete EntityService usage examples in REST controllers.
 
 ## 🏗️ **Entities**
 
@@ -46,43 +44,13 @@ EntityWithMetadata<MyEntity> updated = entityService.update(uuid, myEntity, "CHE
 
 ## ⚙️ **Processors (CyodaProcessor)**
 
-### ✅ **Correct Processor Patterns**
-```java
-@Component
-public class ExampleProcessor implements CyodaProcessor {
-    private final ProcessorSerializer serializer;
-    // Optional: Only inject EntityService if you need to interact with other entities
-    private final EntityService entityService;
-
-    // Constructor WITHOUT EntityService (for simple processors)
-    public ExampleProcessor(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultProcessorSerializer();
-    }
-
-    // Constructor WITH EntityService (only if needed)
-    public ExampleProcessor(SerializerFactory serializerFactory, EntityService entityService) {
-        this.serializer = serializerFactory.getDefaultProcessorSerializer();
-        this.entityService = entityService;
-    }
-
-    @Override
-    public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
-        EntityProcessorCalculationRequest request = context.getEvent();
-
-        // Unified EntityWithMetadata processing - work directly with EntityWithMetadata
-        return serializer.withRequest(request)
-            .toEntityWithMetadata(EntityName.class)  // Unified with controllers
-            .validate(this::isValidEntityWithMetadata, "Invalid entity wrapper")
-            .map(this::processEntityWithMetadataLogic)
-            .complete();
-    }
-
-    @Override
-    public boolean supports(OperationSpecification modelKey) {
-        return "ExampleProcessor".equals(modelKey.operationName());
-    }
-}
-```
+### ✅ **Processor Implementation Patterns**
+See `example_code/processor/` for complete processor implementation examples including:
+- Constructor patterns with SerializerFactory injection
+- EntityService integration for interacting with other entities
+- Fluent API usage with ProcessorSerializer
+- EntityWithMetadata processing patterns
+- Error handling and validation approaches
 
 ### 🚨 **Critical Processor Limitations**
 - ✅ **CAN**: Read current entity data using `context.entityResponse()` or `entityWithMetadata.getEntity()`
@@ -94,55 +62,22 @@ public class ExampleProcessor implements CyodaProcessor {
 - ❌ **CANNOT**: Modify code in `src/main/java/com/java_template/common` directory
 
 ### ❌ **Forbidden Processor Patterns**
-```java
-// NEVER inject ObjectMapper in processors
-public ProcessorName(SerializerFactory factory, ObjectMapper objectMapper) { ... }
+- **NEVER** inject ObjectMapper directly in processors
+- **NEVER** extract from payload manually using ObjectMapper
+- **NEVER** try to update current entity in processor
+- **NEVER** use Java reflection - only entity getters/setters
 
-// NEVER extract from payload manually
-Map<String, Object> payloadMap = objectMapper.convertValue(request.getPayload().getData(), Map.class);
-
-// NEVER try to update current entity in processor
-EntityWithMetadata<EntityName> updated = entityService.update(currentEntityId, entity, "TRANSITION");
-```
+See `example_code/processor/` for correct patterns and anti-patterns documentation.
 
 ## 🔍 **Criteria (CyodaCriterion)**
 
-### ✅ **Correct Criteria Patterns**
-```java
-@Component
-public class ExampleCriterion implements CyodaCriterion {
-    private final CriterionSerializer serializer;
-
-    public ExampleCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
-    }
-
-    @Override
-    public EntityCriterionCalculationResponse evaluate(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
-
-        return serializer.withRequest(request)
-            .evaluateEntity(EntityName.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-            .complete();
-    }
-
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<EntityName> context) {
-        EntityName entity = context.entityWithMetadata().entity();
-        // Access metadata if needed: UUID id = context.entityWithMetadata().getId();
-
-        return EvaluationOutcome.and(
-            EvaluationOutcome.of(entity.getId() != null, "Entity ID must not be null"),
-            EvaluationOutcome.of(entity.isValid(), "Entity must be valid")
-        );
-    }
-
-    @Override
-    public boolean supports(OperationSpecification modelKey) {
-        return "ExampleCriterion".equals(modelKey.operationName());
-    }
-}
-```
+### ✅ **Criteria Implementation Patterns**
+See `example_code/criterion/` for complete criteria implementation examples including:
+- Constructor patterns with SerializerFactory injection
+- CriterionSerializer fluent API usage
+- EvaluationOutcome chaining for validation logic
+- ReasonAttachmentStrategy for validation feedback
+- EntityWithMetadata access patterns
 
 ### 🎯 **Criteria Guidelines**
 - Criteria MUST be pure functions - no side effects or payload modifications
@@ -152,31 +87,13 @@ public class ExampleCriterion implements CyodaCriterion {
 
 ## 🔄 **Serializers**
 
-### ✅ **Correct Serializer Usage**
-```java
-// In processor constructor
-public ExampleProcessor(SerializerFactory serializerFactory) {
-    this.serializer = serializerFactory.getDefaultProcessorSerializer();
-}
-
-// In criterion constructor
-public ExampleCriterion(SerializerFactory serializerFactory) {
-    this.serializer = serializerFactory.getDefaultCriterionSerializer();
-}
-
-// Processor fluent API patterns
-return serializer.withRequest(request)
-    .toEntityWithMetadata(EntityName.class)            // Unified interface
-    .validate(validator, "Error message")
-    .map(this::processLogic)
-    .complete();
-
-// Criterion fluent API pattern
-return serializer.withRequest(request)
-    .evaluateEntity(EntityName.class, this::validateEntity)
-    .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
-    .complete();
-```
+### ✅ **Serializer Usage Patterns**
+See `example_code/processor/` and `example_code/criterion/` for complete serializer usage examples including:
+- SerializerFactory injection patterns
+- ProcessorSerializer fluent API usage
+- CriterionSerializer fluent API usage
+- Validation and error handling patterns
+- EntityWithMetadata processing chains
 
 ### 🎯 **Serializer Guidelines**
 - Use `SerializerFactory` to get appropriate serializer instances
@@ -186,50 +103,20 @@ return serializer.withRequest(request)
 
 ## 🎯 **Controllers**
 
-### ✅ **Correct Controller Patterns**
-```java
-@RestController
-@RequestMapping("/ui/entityname")
-@CrossOrigin(origins = "*")
-public class EntityNameController {
-    private final EntityService entityService;
-
-    public EntityNameController(EntityService entityService) {
-        this.entityService = entityService;
-    }
-
-    @PostMapping
-    public ResponseEntity<EntityWithMetadata<EntityName>> create(@RequestBody EntityName entity) {
-        EntityWithMetadata<EntityName> response = entityService.create(entity);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<EntityName>> getById(@PathVariable UUID id) {
-        ModelSpec modelSpec = new ModelSpec().withName("EntityName").withVersion(1);
-        EntityWithMetadata<EntityName> response = entityService.getById(id, modelSpec, EntityName.class);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/business/{businessId}")
-    public ResponseEntity<EntityWithMetadata<EntityName>> getByBusinessId(@PathVariable String businessId) {
-        ModelSpec modelSpec = new ModelSpec().withName("EntityName").withVersion(1);
-        EntityWithMetadata<EntityName> response = entityService.findByBusinessId(
-            modelSpec, businessId, "businessIdField", EntityName.class);
-        return response != null ? ResponseEntity.ok(response) : ResponseEntity.notFound().build();
-    }
-}
-```
+### ✅ **Controller Implementation Patterns**
+See `example_code/controller/` for complete controller implementation examples including:
+- REST endpoint patterns with proper annotations
+- EntityService integration and method selection
+- EntityWithMetadata response patterns
+- Error handling and HTTP status codes
+- ModelSpec creation and usage
 
 ### ❌ **Forbidden Controller Patterns**
-```java
-// NEVER accept Map<String, Object> as request body
-@PostMapping
-public ResponseEntity<Object> create(@RequestBody Map<String, Object> request) { ... }
+- **NEVER** accept `Map<String, Object>` as request body
+- **NEVER** return generic `Object` responses
+- **NEVER** bypass EntityService for direct repository access
 
-// NEVER return generic Object responses
-public ResponseEntity<Object> someMethod() { ... }
-```
+See `example_code/controller/` for correct patterns and anti-patterns documentation.
 
 ### 🎯 **Controller Guidelines**
 - Always return `ResponseEntity<EntityWithMetadata<T>>` for single entities
@@ -240,34 +127,23 @@ public ResponseEntity<Object> someMethod() { ... }
 ## 📋 **EntityWithMetadata<T> Structure**
 
 ### ✅ **Working with EntityWithMetadata**
-```java
-ModelSpec modelSpec = new ModelSpec().withName("MyEntity").withVersion(1);
-EntityWithMetadata<MyEntity> response = entityService.getById(myEntityId, modelSpec, MyEntity.class);
-
-// Access the entity (Lombok @Data generates getEntity() automatically)
-MyEntity myEntity = response.getEntity();
-
-// Access metadata (includes technical UUID and workflow state)
-UUID technicalId = response.getMetadata().getId();      // Use for subsequent operations
-String workflowState = response.getMetadata().getState(); // Current workflow state
-Date created = response.getMetadata().getCreationDate();
-String lastTransition = response.getMetadata().getTransitionForLatestSave();
-```
+EntityWithMetadata<T> is the unified wrapper for all entity operations providing:
+- **Entity Access**: `getEntity()` method for business data
+- **Metadata Access**: `getMetadata()` method for technical information
+- **Technical UUID**: Use `getMetadata().getId()` for subsequent operations
+- **Workflow State**: Access current state via `getMetadata().getState()`
+- **Audit Information**: Creation date, last update, transition history
 
 ### 📄 **JSON Structure**
-```json
+EntityWithMetadata follows a clean JSON structure:
+```
 {
-  "entity": {
-    "myEntityId": "CART-123",
-    "items": [...],
-    "total": 99.99
-  },
-  "metadata": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "state": "ACTIVE"
-  }
+  "entity": { /* business data */ },
+  "metadata": { /* technical metadata */ }
 }
 ```
+
+See `example_code/controller/` and `example_code/processor/` for complete EntityWithMetadata usage patterns.
 
 ## 🔄 **Workflow Configuration**
 
@@ -281,13 +157,11 @@ String lastTransition = response.getMetadata().getTransitionForLatestSave();
 - Check workflow documentation for valid transitions when updating entities
 
 ### 🎯 **Workflow Transitions**
-```java
-// In processors: Update OTHER entities with transitions
-EntityWithMetadata<OtherEntity> updated = entityService.update(otherEntityId, otherEntity, "TRANSITION_NAME");
+- **With Transition**: Use `entityService.update(entityId, entity, "TRANSITION_NAME")` to trigger workflow transitions
+- **Without Transition**: Use `entityService.update(entityId, entity, null)` to update without state change
+- **Processor Limitation**: Processors can only update OTHER entities, not the current entity being processed
 
-// Without transition: Entity loops back to same state
-EntityWithMetadata<OtherEntity> updated = entityService.update(otherEntityId, otherEntity, null);
-```
+See `example_code/processor/` for workflow transition examples and patterns.
 
 ## ⚙️ **Configuration**
 
@@ -328,28 +202,14 @@ EntityWithMetadata<OtherEntity> updated = entityService.update(otherEntityId, ot
 
 ## ⚠️ **Error Handling**
 
-### ✅ **Correct Error Handling Patterns**
-```java
-// Use ErrorInfo with StandardErrorCodes
-return serializer.responseBuilder(request)
-    .withError(StandardErrorCodes.PROCESSING_ERROR.getCode(), "Processing failed")
-    .build();
+### ✅ **Error Handling Patterns**
+- Use `ErrorInfo` class for structured error information
+- Prefer `StandardErrorCodes` enum over hardcoded error strings
+- Use `ErrorInfo.fromException()` for exception handling
+- Use `ResponseBuilder` for consistent error response formatting
+- Use `EvaluationOutcome.Fail` for criteria validation failures
 
-// Use ErrorInfo static methods for common errors
-ErrorInfo error = ErrorInfo.processingError("Entity validation failed");
-ErrorInfo error = ErrorInfo.validationError("Required field missing");
-ErrorInfo error = ErrorInfo.evaluationError("Criteria evaluation failed");
-
-// Use ErrorInfo.fromException for exception handling
-try {
-    // processing logic
-} catch (Exception e) {
-    ErrorInfo error = ErrorInfo.fromException(StandardErrorCodes.PROCESSING_ERROR.getCode(), e);
-    return serializer.responseBuilder(request)
-        .withError(error.code(), error.message())
-        .build();
-}
-```
+See `example_code/processor/` and `example_code/criterion/` for complete error handling examples.
 
 ### 🎯 **Error Handling Guidelines**
 - Use `ErrorInfo` class for structured error information

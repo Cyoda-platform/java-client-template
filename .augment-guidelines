@@ -1,22 +1,34 @@
 # Augment Guidelines - Java Client Template
 
-## Project Structure
-This is a **Gradle project** using **Spring Boot** with **Cyoda integration**.
+## Project Overview
+This is a **Gradle project** using **Spring Boot** with **Cyoda integration** for building scalable web clients with workflow-driven backend interactions.
 
-## Rules
-You must follow the rules given in the @.augment/rules folder.
-Some are applied at all times, others are applicable only under certain circumstances.
-The file @.augment/rules/README.md will tell you what the scope for each rules .md file is.
-Make sure you follow all the rules that are applicable to your current task.
+## Architecture Rules
+You must follow the rules given in the `.augment/rules/` folder:
+- Some rules apply at all times, others are context-specific
+- Check `.augment/rules/README.md` for rule scope and applicability
+- Ensure all applicable rules are followed for your current task
+
+## Code Examples and Best Practices
+**All code examples and configuration templates are located in the `example_code/` directory:**
+- `example_code/controller/` - REST controller patterns
+- `example_code/entity/` - Entity class implementations
+- `example_code/processor/` - Workflow processor examples
+- `example_code/criterion/` - Workflow criteria examples
+- `example_code/resources/` - Configuration file templates
+
+**Always reference these examples** when creating new components to ensure consistency with established patterns.
 
 ## Package Management
-Always use appropriate package managers for dependency management instead of manually editing package configuration files.
+Always use appropriate package managers for dependency management:
 
-1. **Always use package managers** for installing, updating, or removing dependencies rather than directly editing files like package.json, requirements.txt, Cargo.toml, go.mod, etc.
+1. **Use package managers** for all dependency operations instead of manually editing configuration files
+2. **Exception**: Only edit package files directly for complex configurations that cannot be accomplished through package manager commands
+3. **Generated Classes**: Ensure `build/generated-sources/js2p/org/cyoda/cloud/api/event` classes are available via `./gradlew build`
+4. **Communication**: Use generated classes for all Cyoda integration
 
-2. **Exception**: Only edit package files directly when performing complex configuration changes that cannot be accomplished through package manager commands.
-
-3. Make sure build/generated-sources/js2p/org/cyoda/cloud/api/event generated classes are available. Use `./gradlew build` to generate them if necessary.
-Use these classes for communication with Cyoda.
-
-4. Check example code in `example_code` folder to understand best practices for generating controllers, entities, processors, etc.
+## Development Workflow
+1. Review `example_code/` directory for patterns before implementing new features
+2. Follow established architectural patterns for processors, criteria, and serializers
+3. Use `usage-rules.md` for detailed implementation guidelines
+4. Run `./gradlew build` to generate required classes before development

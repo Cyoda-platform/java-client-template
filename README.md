@@ -192,173 +192,33 @@ The workflow JSON consists of:
 - If there are **multiple transitions** from one state,
   a **criterion** is required for each transition to decide which one to use.
 
-FSM example:
+### 📄 **Workflow Configuration Examples**
 
-```json
-{
-  "version": "1.0",
-  "name": "template_workflow",
-  "desc": "Template FSM with structured states, transitions, processors, and criterions",
-  "initialState": "none",
-  "active": true,
-  "states": {
-    "none": {
-      "transitions": [
-        {
-          "name": "transition_to_01",
-          "next": "state_01"
-        }
-      ]
-    },
-    "state_01": {
-      "transitions": [
-        {
-          "name": "transition_to_02",
-          "next": "state_02",
-          "manual": true,
-          "processors": [
-            {
-              "name": "example_function_name",
-              "executionMode": "ASYNC_NEW_TX",
-              "config": {
-                "attachEntity": true,
-                "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
-                "retryPolicy": "FIXED"
-              }
-            }
-          ]
-        }
-      ]
-    },
-    "state_02": {
-      "transitions": [
-        {
-          "name": "transition_with_criterion_simple",
-          "next": "state_criterion_check_01",
-          "processors": [
-            {
-              "name": "example_function_name",
-              "executionMode": "ASYNC_NEW_TX",
-              "config": {
-                "attachEntity": true,
-                "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
-                "retryPolicy": "FIXED"
-              }
-            }
-          ],
-          "criterion": {
-            "type": "function",
-            "function": {
-              "name": "example_function_name_returns_bool",
-              "config": {
-                "attachEntity": true,
-                "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 5000,
-                "retryPolicy": "FIXED"
-              }
-            }
-          }
-        }
-      ]
-    },
-    "state_criterion_check_01": {
-      "transitions": [
-        {
-          "name": "transition_with_criterion_group",
-          "next": "state_terminal",
-          "criterion": {
-            "type": "group",
-            "operator": "AND",
-            "conditions": [
-              {
-                "type": "simple",
-                "jsonPath": "$.sampleFieldA",
-                "operation": "EQUALS",
-                "value": "template_value_01"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "state_terminal": {
-      "transitions": []
-    }
-  }
-}
-```
+Complete workflow configuration examples are available in `example_code/resources/workflow/` including:
+- Basic FSM structure with states and transitions
+- Processor configuration with execution modes
+- Criterion configuration (simple, group, function types)
+- Complex workflow patterns with multiple transitions
+
+See `example_code/resources/workflow/` for complete workflow JSON examples and templates.
 
 ### ✅ Criterion Types
 
 There are **three types of criteria** used to control transitions:
 
-1. **Simple criterion** — Direct field comparison
-   Evaluates a single field against a value using an operation.
+1. **Simple criterion** — Direct field comparison using jsonPath and operations
+2. **Group criterion** — Logical combination of conditions with AND/OR/NOT operators (supports nesting)
+3. **Function criterion** — Custom client-side evaluation via CyodaCriterion components
 
-   ```json
-   "criterion": {
-     "type": "simple",
-     "jsonPath": "$.customerType",
-     "operation": "EQUALS",
-     "value": "premium"
-   }
-   ```
+### 📄 **Criterion Configuration Examples**
 
-2. **Group criterion** — Logical combination of conditions
-   Combines multiple simple or group conditions using logical operators.
+Complete criterion configuration examples are available in `example_code/resources/workflow/` including:
+- Simple criterion with jsonPath field references
+- Group criterion with nested conditions and logical operators
+- Function criterion with custom CyodaCriterion component integration
+- Complex criterion patterns with multiple evaluation levels
 
-   > ✅ **Note:** `Group` criteria support **nesting**.
-   > You can include both `simple` and `group` conditions inside the `conditions` array.
-
-   ```json
-   "criterion": {
-     "type": "group",
-     "operator": "AND",
-     "conditions": [
-       {
-         "type": "simple",
-         "jsonPath": "$.creditScore",
-         "operation": "GREATER_OR_EQUAL",
-         "value": 700
-       },
-       {
-         "type": "simple",
-         "jsonPath": "$.annualRevenue",
-         "operation": "GREATER_THAN",
-         "value": 1000000
-       }
-     ]
-   }
-   ```
-
-3. **Function criterion** — Custom client-side evaluation
-   Executes a custom function with optional nested criterion.
-
-   > ⚠️ The function must be implemented as a `CyodaCriterion` component.
-   > Its name **must be unique and match** `function.name`.
-
-   ```json
-   "criterion": {
-     "type": "function",
-     "function": {
-       "name": "example_function_name_returns_bool",
-       "config": {
-         "attachEntity": true,
-         "calculationNodesTags": "validation,criteria",
-         "responseTimeoutMs": 5000,
-         "retryPolicy": "FIXED"
-       },
-       "criterion": {
-         "type": "simple",
-         "jsonPath": "$.sampleFieldB",
-         "operation": "GREATER_THAN",
-         "value": 100
-       }
-     }
-   }
-   ```
+See `example_code/resources/workflow/` for complete criterion JSON examples and templates.
 
    > **jsonPath field reference:**
    > - Use the **`$.` prefix** for custom (business) fields of the entity.
@@ -410,21 +270,6 @@ Processors implement the `CyodaProcessor` interface with **minimal dependencies*
 
 Processors in workflow transitions support various execution modes and configuration options:
 
-```json
-"processors": [
-  {
-    "name": "example_function_name",
-    "executionMode": "SYNC",
-    "config": {
-      "attachEntity": true,
-      "calculationNodesTags": "test_tag_01",
-      "responseTimeoutMs": 3000,
-      "retryPolicy": "FIXED"
-    }
-  }
-]
-```
-
 **Execution Modes:**
 - `SYNC` - Synchronous execution (default)
 - `ASYNC_SAME_TX` - Asynchronous execution in the same transaction
@@ -436,20 +281,15 @@ Processors in workflow transitions support various execution modes and configura
 - `responseTimeoutMs` - Response timeout in milliseconds
 - `retryPolicy` - Retry policy for failed executions
 
-### Execution Mode Reference
+### 📄 **Processor Configuration Examples**
 
-```json
-"executionMode": {
-  "type": "string",
-  "description": "Execution mode of the processor",
-  "enum": [
-    "SYNC",
-    "ASYNC_SAME_TX",
-    "ASYNC_NEW_TX"
-  ],
-  "default": "SYNC"
-}
-```
+Complete processor configuration examples are available in `example_code/resources/workflow/` including:
+- Execution mode configurations (SYNC, ASYNC_SAME_TX, ASYNC_NEW_TX)
+- Configuration options for entity attachment and timeouts
+- Retry policy and calculation node tag examples
+- Complex processor chains and error handling patterns
+
+See `example_code/resources/workflow/` for complete processor JSON examples and templates.
 ### Criteria Implementation
 
 Criteria implement the `CyodaCriterion` interface for condition checking using **EvaluationOutcome** sealed classes with **logical chaining**:
