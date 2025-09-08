@@ -1,0 +1,49 @@
+{
+    "entities": [
+        {
+            "CommentAnalysisJob": {
+                "entity_data_example": {
+                    "completedAt": null,
+                    "errorMessage": null,
+                    "postId": 1,
+                    "recipientEmail": "example@example.com",
+                    "requestedAt": "2023-10-01T10:00:00",
+                    "totalComments": 100
+                }
+            }
+        },
+        {
+            "Comment": {
+                "entity_data_example": {
+                    "body": "This is a sample comment.",
+                    "commentId": 1,
+                    "email": "john@example.com",
+                    "ingestedAt": "2023-10-01T10:00:00",
+                    "jobId": "job123",
+                    "name": "John Doe",
+                    "postId": 1,
+                    "sentimentScore": 0.8,
+                    "wordCount": 5
+                }
+            }
+        },
+        {
+            "CommentAnalysisReport": {
+                "entity_data_example": {
+                    "averageSentimentScore": 0.6,
+                    "averageWordCount": 10.5,
+                    "commonKeywords": "{\"keywords\":[\"sample\",\"comment\"]}",
+                    "generatedAt": "2023-10-01T12:00:00",
+                    "jobId": "job123",
+                    "negativeCommentsCount": 20,
+                    "neutralCommentsCount": 20,
+                    "positiveCommentsCount": 60,
+                    "postId": 1,
+                    "sentAt": null,
+                    "topCommenters": "{\"topCommenters\":[\"john@example.com\", \"jane@example.com\"]}",
+                    "totalComments": 100
+                }
+            }
+        }
+    ]
+}
