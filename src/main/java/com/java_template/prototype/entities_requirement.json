@@ -1,0 +1,62 @@
+{
+    "entities": [
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "email": "subscriber@example.com",
+                    "firstName": "John",
+                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "isActive": true,
+                    "lastName": "Doe",
+                    "preferences": {
+                        "deliveryTime": "10:00 AM"
+                    },
+                    "subscriptionDate": "2023-10-01T12:00:00"
+                }
+            }
+        },
+        {
+            "CatFact": {
+                "entity_data_example": {
+                    "fact": "Cats have five toes on their front paws, but only four toes on their back paws.",
+                    "id": "123e4567-e89b-12d3-a456-426614174001",
+                    "isUsed": false,
+                    "length": 73,
+                    "retrievedDate": "2023-10-01T12:00:00",
+                    "scheduledDate": "2023-10-08T12:00:00",
+                    "source": "catfact.ninja"
+                }
+            }
+        },
+        {
+            "EmailCampaign": {
+                "entity_data_example": {
+                    "campaignName": "Weekly Cat Facts - Week 1",
+                    "campaignType": "WEEKLY",
+                    "catFactId": "123e4567-e89b-12d3-a456-426614174001",
+                    "executedDate": null,
+                    "failedDeliveries": 0,
+                    "id": "123e4567-e89b-12d3-a456-426614174002",
+                    "scheduledDate": "2023-10-08T12:00:00",
+                    "successfulDeliveries": 0,
+                    "totalSubscribers": 100
+                }
+            }
+        },
+        {
+            "EmailDelivery": {
+                "entity_data_example": {
+                    "campaignId": "123e4567-e89b-12d3-a456-426614174002",
+                    "clickedDate": null,
+                    "deliveryStatus": "PENDING",
+                    "emailAddress": "subscriber@example.com",
+                    "errorMessage": null,
+                    "id": "123e4567-e89b-12d3-a456-426614174003",
+                    "openedDate": null,
+                    "sentDate": null,
+                    "subscriberId": "123e4567-e89b-12d3-a456-426614174000"
+                }
+            }
+        }
+    ]
+}
