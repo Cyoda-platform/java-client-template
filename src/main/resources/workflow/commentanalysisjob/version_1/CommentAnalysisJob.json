@@ -1,0 +1,200 @@
+{
+    "version": "1.0",
+    "name": "CommentAnalysisJob Workflow",
+    "desc": "Workflow for managing CommentAnalysisJob lifecycle through various states",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "PENDING",
+                    "manual": false
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "transition_to_ingesting",
+                    "next": "INGESTING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisJobStartIngestionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INGESTING": {
+            "transitions": [
+                {
+                    "name": "transition_to_analyzing",
+                    "next": "ANALYZING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisJobCompleteIngestionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_ingestion_failed",
+                    "next": "INGESTION_FAILED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisJobIngestionFailureProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ANALYZING": {
+            "transitions": [
+                {
+                    "name": "transition_to_generating_report",
+                    "next": "GENERATING_REPORT",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisJobCompleteAnalysisProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_analysis_failed",
+                    "next": "ANALYSIS_FAILED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisJobAnalysisFailureProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "GENERATING_REPORT": {
+            "transitions": [
+                {
+                    "name": "transition_to_sending_report",
+                    "next": "SENDING_REPORT",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisJobGenerateReportProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_report_failed",
+                    "next": "REPORT_FAILED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisJobReportFailureProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SENDING_REPORT": {
+            "transitions": [
+                {
+                    "name": "transition_to_completed",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisJobSendReportProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_email_failed",
+                    "next": "EMAIL_FAILED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisJobEmailFailureProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INGESTION_FAILED": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "PENDING",
+                    "manual": true
+                }
+            ]
+        },
+        "ANALYSIS_FAILED": {
+            "transitions": [
+                {
+                    "name": "transition_to_analyzing",
+                    "next": "ANALYZING",
+                    "manual": true
+                }
+            ]
+        },
+        "REPORT_FAILED": {
+            "transitions": [
+                {
+                    "name": "transition_to_generating_report",
+                    "next": "GENERATING_REPORT",
+                    "manual": true
+                }
+            ]
+        },
+        "EMAIL_FAILED": {
+            "transitions": [
+                {
+                    "name": "transition_to_sending_report",
+                    "next": "SENDING_REPORT",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}

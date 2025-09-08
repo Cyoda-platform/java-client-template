@@ -1,0 +1,36 @@
+{
+    "version": "1.0",
+    "name": "CommentAnalysisReport Workflow",
+    "desc": "Workflow for managing the lifecycle of CommentAnalysisReport",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_generated",
+                    "next": "GENERATED",
+                    "manual": false
+                }
+            ]
+        },
+        "GENERATED": {
+            "transitions": [
+                {
+                    "name": "transition_to_sent",
+                    "next": "SENT",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisReportSendProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

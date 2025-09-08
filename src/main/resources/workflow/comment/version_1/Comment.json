@@ -1,0 +1,36 @@
+{
+    "version": "1.0",
+    "name": "Comment Workflow",
+    "desc": "Workflow for analyzing comments",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initial_transition",
+                    "next": "INGESTED",
+                    "manual": false
+                }
+            ]
+        },
+        "INGESTED": {
+            "transitions": [
+                {
+                    "name": "transition_to_ANALYZED",
+                    "next": "ANALYZED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalyzeProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
