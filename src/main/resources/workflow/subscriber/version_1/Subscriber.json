@@ -1,0 +1,131 @@
+{
+    "version": "1.0",
+    "name": "Subscriber Workflow",
+    "desc": "Description of the workflow for Subscriber",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "pending",
+                    "manual": false
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberActivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SubscriberValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "transition_to_unsubscribed",
+                    "next": "unsubscribed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberUnsubscribeProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_bounced",
+                    "next": "bounced",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SubscriberBounceProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "bounced": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SubscriberValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "unsubscribed": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberResubscribeProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SubscriberValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

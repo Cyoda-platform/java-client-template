@@ -1,0 +1,74 @@
+{
+    "version": "1.0",
+    "name": "EmailCampaign Workflow",
+    "desc": "Workflow for managing the lifecycle of EmailCampaigns",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending",
+                    "next": "pending",
+                    "manual": false
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "transition_to_sent",
+                    "next": "sent",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignScheduleProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "transition_to_delivered",
+                    "next": "delivered",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignDeliveryProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_failed",
+                    "next": "failed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignFailProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "delivered": {
+            "transitions": []
+        },
+        "failed": {
+            "transitions": []
+        }
+    }
+}

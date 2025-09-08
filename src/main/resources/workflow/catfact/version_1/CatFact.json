@@ -1,0 +1,116 @@
+{
+    "version": "1.0",
+    "name": "CatFact Workflow",
+    "desc": "Workflow for managing Cat Facts lifecycle",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_retrieved",
+                    "next": "retrieved",
+                    "manual": false
+                }
+            ]
+        },
+        "retrieved": {
+            "transitions": [
+                {
+                    "name": "transition_to_ready",
+                    "next": "ready",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CatFactValidationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CatFactValidityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ready": {
+            "transitions": [
+                {
+                    "name": "transition_to_used",
+                    "next": "used",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CatFactUsageProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "used": {
+            "transitions": [
+                {
+                    "name": "transition_to_used_reuse",
+                    "next": "used",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CatFactReuseProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CatFactReuseCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "transition_to_archived",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CatFactArchiveProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CatFactArchiveCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "archived": {
+            "transitions": []
+        }
+    }
+}
