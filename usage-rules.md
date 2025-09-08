@@ -4,12 +4,14 @@ This file provides comprehensive guidelines for developers and AI agents working
 
 ## 📚 **Code Examples Reference**
 
-**All code examples and implementation patterns are located in the `example_code/` directory:**
-- `example_code/controller/` - REST controller patterns and best practices
-- `example_code/entity/` - Entity class implementations with CyodaEntity interface
-- `example_code/processor/` - Workflow processor examples with serialization patterns
-- `example_code/criterion/` - Workflow criteria examples with evaluation logic
-- `example_code/resources/` - Configuration file templates and examples
+**All code examples and implementation patterns are located in the `llm_example/code/` directory:**
+- `llm_example/code/application/controller/` - REST controller patterns and best practices
+- `llm_example/code/application/entity/` - Entity class implementations with CyodaEntity interface
+- `llm_example/code/application/processor/` - Workflow processor examples with serialization patterns
+  - `llm_example/code/application/criterion/` - Workflow criteria examples with evaluation logic
+
+**Configuration examples are in the `llm_example/config/` directory:**
+- `llm_example/config/workflow/` - Workflow JSON configuration templates and examples
 
 **Always reference these examples** when implementing new components to ensure consistency with established patterns.
 
@@ -23,19 +25,12 @@ This file provides comprehensive guidelines for developers and AI agents working
 
 ## 📦 **EntityService - Performance-Optimized API**
 
-### ✅ **EntityService Performance Guidelines**
-- **FASTEST**: `getById(uuid, modelSpec, Class)` - Use when you have technical UUID
-- **MEDIUM SPEED**: `findByBusinessId(modelSpec, businessId, fieldName, Class)` - Use for user-facing identifiers
-- **SLOW**: `findAll(modelSpec, Class)` - Use sparingly for small datasets
-- **SLOWEST**: `search(modelSpec, condition, Class)` - Use for complex queries
-
 ### ✅ **EntityService Method Patterns**
-See `example_code/controller/` for complete EntityService usage examples in REST controllers.
+See `llm_example/code/application/controller/` for complete EntityService usage examples in REST controllers.
 
 ## 🏗️ **Entities**
 
 - Always implement `CyodaEntity` interface for domain entities
-- Use `Config.ENTITY_VERSION` constant instead of hardcoded version strings
 - Place entity classes in `application/entity/` directory for automatic discovery
 - Implement `getModelKey()` to return `OperationSpecification.Entity` with proper ModelSpec
 - Override `isValid()` method to provide entity-specific validation logic
@@ -45,7 +40,7 @@ See `example_code/controller/` for complete EntityService usage examples in REST
 ## ⚙️ **Processors (CyodaProcessor)**
 
 ### ✅ **Processor Implementation Patterns**
-See `example_code/processor/` for complete processor implementation examples including:
+See `llm_example/code/application/processor/` for complete processor implementation examples including:
 - Constructor patterns with SerializerFactory injection
 - EntityService integration for interacting with other entities
 - Fluent API usage with ProcessorSerializer
@@ -53,26 +48,22 @@ See `example_code/processor/` for complete processor implementation examples inc
 - Error handling and validation approaches
 
 ### 🚨 **Critical Processor Limitations**
-- ✅ **CAN**: Read current entity data using `context.entityResponse()` or `entityWithMetadata.getEntity()`
-- ✅ **CAN**: Access current entity metadata: `context.getEvent().getEntityId()` and state
+- ✅ **CAN**: Read current entity data using `entityWithMetadata.entity()`
+- ✅ **CAN**: Access current entity metadata: `entityWithMetadata.metadata().getId()` and `entityWithMetadata.metadata().getState() ` to read technical ID and current state
 - ✅ **CAN**: Get, update, delete OTHER entities using EntityService
-- ❌ **CANNOT**: Update the current entity being processed
+- ❌ **CANNOT**: Use entityService to update the current entity being processed
 - ❌ **CANNOT**: Change the current entity's workflow state
-- ❌ **CANNOT**: Use Java reflection - only entity getters/setters
+- ❌ **CANNOT**: Use Java reflection
 - ❌ **CANNOT**: Modify code in `src/main/java/com/java_template/common` directory
 
 ### ❌ **Forbidden Processor Patterns**
-- **NEVER** inject ObjectMapper directly in processors
 - **NEVER** extract from payload manually using ObjectMapper
-- **NEVER** try to update current entity in processor
-- **NEVER** use Java reflection - only entity getters/setters
-
-See `example_code/processor/` for correct patterns and anti-patterns documentation.
-
+- **NEVER** try use entityService to update the current entity in processor
+- **NEVER** use Java reflection
 ## 🔍 **Criteria (CyodaCriterion)**
 
 ### ✅ **Criteria Implementation Patterns**
-See `example_code/criterion/` for complete criteria implementation examples including:
+See `llm_example/code/application/criterion/` for complete criteria implementation examples including:
 - Constructor patterns with SerializerFactory injection
 - CriterionSerializer fluent API usage
 - EvaluationOutcome chaining for validation logic
@@ -88,7 +79,7 @@ See `example_code/criterion/` for complete criteria implementation examples incl
 ## 🔄 **Serializers**
 
 ### ✅ **Serializer Usage Patterns**
-See `example_code/processor/` and `example_code/criterion/` for complete serializer usage examples including:
+See `llm_example/code/application/processor/` and `llm_example/code/application/criterion/` for complete serializer usage examples including:
 - SerializerFactory injection patterns
 - ProcessorSerializer fluent API usage
 - CriterionSerializer fluent API usage
@@ -104,7 +95,7 @@ See `example_code/processor/` and `example_code/criterion/` for complete seriali
 ## 🎯 **Controllers**
 
 ### ✅ **Controller Implementation Patterns**
-See `example_code/controller/` for complete controller implementation examples including:
+See `llm_example/code/application/controller/` for complete controller implementation examples including:
 - REST endpoint patterns with proper annotations
 - EntityService integration and method selection
 - EntityWithMetadata response patterns
@@ -119,8 +110,8 @@ See `example_code/controller/` for complete controller implementation examples i
 See `example_code/controller/` for correct patterns and anti-patterns documentation.
 
 ### 🎯 **Controller Guidelines**
-- Always return `ResponseEntity<EntityWithMetadata<T>>` for single entities
-- Always return `ResponseEntity<List<EntityWithMetadata<T>>>` for multiple entities
+- CAN return `ResponseEntity<EntityWithMetadata<T>>` for single entities
+- CAN return `ResponseEntity<List<EntityWithMetadata<T>>>` for multiple entities
 - Use appropriate EntityService methods based on performance needs
 - Handle errors with proper HTTP status codes (400, 404, 500)
 
@@ -128,10 +119,10 @@ See `example_code/controller/` for correct patterns and anti-patterns documentat
 
 ### ✅ **Working with EntityWithMetadata**
 EntityWithMetadata<T> is the unified wrapper for all entity operations providing:
-- **Entity Access**: `getEntity()` method for business data
-- **Metadata Access**: `getMetadata()` method for technical information
-- **Technical UUID**: Use `getMetadata().getId()` for subsequent operations
-- **Workflow State**: Access current state via `getMetadata().getState()`
+- **Entity Access**: `entityWithMetadata.entity()` method for business data
+- **Metadata Access**: `entityWithMetadata.metadata()` method for technical information
+- **Technical UUID**: Use `entityWithMetadata.metadata().getId()` for subsequent operations
+- **Workflow State**: Access current state via `entityWithMetadata.metadata().getState()`
 - **Audit Information**: Creation date, last update, transition history
 
 ### 📄 **JSON Structure**
@@ -143,7 +134,7 @@ EntityWithMetadata follows a clean JSON structure:
 }
 ```
 
-See `example_code/controller/` and `example_code/processor/` for complete EntityWithMetadata usage patterns.
+See `llm_example/code/application/controller/` and `llm_example/code/application/processor/` for complete EntityWithMetadata usage patterns.
 
 ## 🔄 **Workflow Configuration**
 
@@ -161,25 +152,16 @@ See `example_code/controller/` and `example_code/processor/` for complete Entity
 - **Without Transition**: Use `entityService.update(entityId, entity, null)` to update without state change
 - **Processor Limitation**: Processors can only update OTHER entities, not the current entity being processed
 
-See `example_code/processor/` for workflow transition examples and patterns.
+See `llm_example/config/workflow/` for workflow transition examples and patterns.
 
 ## ⚙️ **Configuration**
 
 - Use `Config` class constants instead of hardcoded values
 - Load environment variables via `Dotenv` in Config class
-- Use `Config.ENTITY_VERSION` for entity versioning (default '1000')
+- Entity versioning: Use integer constants like `public static final Integer ENTITY_VERSION = 1;`
 - Configure GRPC settings via environment variables
 - Use `Config.CYODA_HOST` and related constants for Cyoda integration
 - SSL and authentication settings should be configurable via environment
-
-## 🧪 **Testing**
-
-- Use `PrototypeApplicationTest` for test-based prototype development
-- Enable prototype mode via `-Dprototype.enabled=true` system property
-- Test serializers using fluent API patterns
-- Mock `EntityService` and `SerializerFactory` in unit tests
-- Test both success and error scenarios for processors and criteria
-- Add tests to `src/test/java/com/java_template/application` directory
 
 ## 🏗️ **Architecture Guidelines**
 
@@ -231,9 +213,9 @@ See `example_code/processor/` and `example_code/criterion/` for complete error h
 
 ## 🚫 **Critical Restrictions**
 
-- **CANNOT** use Java reflection - only entity getters/setters
+- **CANNOT** use Java reflection
 - **CANNOT** modify code in `src/main/java/com/java_template/common` directory
-- **CANNOT** update current entity in processors - only OTHER entities
+- **CANNOT** update current entity in processors with entityService - only OTHER entities
 - **MUST** run compilation checks frequently
 - **MUST** use performance-optimized EntityService methods
 - **MUST** work with EntityWithMetadata<T> for consistency

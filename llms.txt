@@ -12,11 +12,15 @@ default branch: main
 
 ## Code Examples
 
-- [Example Code Directory](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/): Complete code examples and templates for all components
-  - [Controllers](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/controller/): REST controller patterns
-  - [Entities](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/entity/): Entity class implementations
-  - [Processors](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/processor/): Workflow processor examples
-  - [Criteria](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/criterion/): Workflow criteria examples
+- [LLM Example Directory](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/): Complete examples and templates for all components
+  - [Code Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/): Implementation examples
+    - [Controllers](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/controller/): REST controller patterns
+    - [Entities](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/entity/): Entity class implementations
+    - [Processors](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/processor/): Workflow processor examples
+    - [Criteria](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/criterion/): Workflow criteria examples
+    - [Patterns](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/patterns/): Patterns and anti-patterns guide
+  - [Configuration Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/config/): Configuration templates
+    - [Workflow Configs](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/config/workflow/): Workflow JSON configuration templates
 
 ## Configuration
 

@@ -2,6 +2,7 @@ package com.java_template.application.processor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.example_entity.version_1.ExampleEntity;
+import com.java_template.application.entity.example_entity.version_1.OtherEntity;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -9,6 +10,7 @@ import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
@@ -19,13 +21,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 /**
  * Golden Example Processor - Template for creating new processors
-
+ * <p>
  * This is a generified example processor that demonstrates:
  * - Proper CyodaProcessor implementation
  * - EntityWithMetadata processing pattern
@@ -33,7 +33,7 @@ import java.util.List;
  * - Interaction with other entities (when needed)
  * - Error handling and logging
  * - Performance considerations
-
+ * <p>
  * To create a new processor:
  * 1. Copy this file to your processor package
  * 2. Rename class from ExampleEntityProcessor to YourProcessorName
@@ -49,7 +49,7 @@ public class ExampleEntityProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(ExampleEntityProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
-    
+
     // Optional: Only inject EntityService if you need to interact with OTHER entities
     private final EntityService entityService;
 
@@ -66,10 +66,10 @@ public class ExampleEntityProcessor implements CyodaProcessor {
 
         // ✅ CORRECT: Unified EntityWithMetadata processing (RECOMMENDED)
         return serializer.withRequest(request)
-            .toEntityWithMetadata(ExampleEntity.class)  // Unified interface with controllers
-            .validate(this::isValidEntityWithMetadata, "Invalid entity wrapper")
-            .map(this::processEntityWithMetadataLogic)
-            .complete();
+                .toEntityWithMetadata(ExampleEntity.class)  // Unified interface with controllers
+                .validate(this::isValidEntityWithMetadata, "Invalid entity wrapper")
+                .map(this::processEntityWithMetadataLogic)
+                .complete();
     }
 
     @Override
@@ -90,7 +90,7 @@ public class ExampleEntityProcessor implements CyodaProcessor {
     /**
      * Main business logic processing method
      * This is where you implement your specific business logic
-     *
+     * <p>
      * CRITICAL LIMITATIONS:
      * - ✅ ALLOWED: Read current entity data
      * - ✅ ALLOWED: Update OTHER entities via EntityService
@@ -99,7 +99,7 @@ public class ExampleEntityProcessor implements CyodaProcessor {
      */
     private EntityWithMetadata<ExampleEntity> processEntityWithMetadataLogic(
             ProcessorSerializer.ProcessorEntityResponseExecutionContext<ExampleEntity> context) {
-        
+
         EntityWithMetadata<ExampleEntity> entityWithMetadata = context.entityResponse();
         ExampleEntity entity = entityWithMetadata.entity();
 
@@ -141,13 +141,13 @@ public class ExampleEntityProcessor implements CyodaProcessor {
 
             // Update entity total quantity and amount
             int totalQuantity = entity.getItems().stream()
-                .mapToInt(item -> item.getQty() != null ? item.getQty() : 0)
-                .sum();
+                    .mapToInt(item -> item.getQty() != null ? item.getQty() : 0)
+                    .sum();
             entity.setQuantity(totalQuantity);
 
             Double totalAmount = entity.getItems().stream()
-                .mapToDouble(item -> item.getItemTotal() != null ? item.getItemTotal() : 0.0)
-                .sum();
+                    .mapToDouble(item -> item.getItemTotal() != null ? item.getItemTotal() : 0.0)
+                    .sum();
             entity.setAmount(totalAmount);
         }
     }
@@ -162,23 +162,23 @@ public class ExampleEntityProcessor implements CyodaProcessor {
         logger.debug("Processing related entities for: {}", entity.getExampleId()); //this is business id
 
         // Example: Update related other entities
-        //ModelSpec modelSpec = new ModelSpec().withName(Inventory.ENTITY_NAME).withVersion(Inventory.ENTITY_VERSION);
-        //ObjectMapper objectMapper = new ObjectMapper();
-        //SimpleCondition simpleCondition = new SimpleCondition()
-        //        .withJsonPath("$.someField")
-        //        .withOperation(Operation.EQUALS)
-        //        .withValue(objectMapper.valueToTree(someValue));
+        ModelSpec modelSpec = new ModelSpec().withName(OtherEntity.ENTITY_NAME).withVersion(OtherEntity.ENTITY_VERSION);
+        ObjectMapper objectMapper = new ObjectMapper();
+        SimpleCondition simpleCondition = new SimpleCondition()
+                .withJsonPath("$.someField")
+                .withOperation(Operation.EQUALS)
+                .withValue(objectMapper.valueToTree("someValue"));
 
-        //GroupCondition condition = new GroupCondition()
-        //        .withOperator(GroupCondition.Operator.AND)
-        //        .withConditions(List.of(simpleCondition));
+        GroupCondition condition = new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of(simpleCondition));
 
-        //List<EntityWithMetadata<OtherEntity>> otherEntities = entityService.search(modelSpec, condition, OtherEntity.class);
+        List<EntityWithMetadata<OtherEntity>> otherEntities = entityService.search(modelSpec, condition, OtherEntity.class);
 
-        // for (EntityWithMetadata<OtherEntity> otherEntity : otherEntities) {
-        //     OtherEntity otherEntity = otherEntity.entity();
-        //     otherEntity.setLastUpdated(LocalDateTime.now());
-        //     entityService.update(otherEntity.metadata().getId(), otherEntity, "UPDATE");
-        // }
+         for (EntityWithMetadata<OtherEntity> otherEntityWithMetadata : otherEntities) {
+             OtherEntity otherEntity = otherEntityWithMetadata.entity();
+             otherEntity.setName("new_name");
+             entityService.update(otherEntityWithMetadata.metadata().getId(), otherEntity, "UPDATE");
+         }
     }
 }

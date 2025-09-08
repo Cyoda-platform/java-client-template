@@ -3,21 +3,66 @@
 ## Project Overview
 This is a **Gradle project** using **Spring Boot** with **Cyoda integration** for building scalable web clients with workflow-driven backend interactions.
 
-## Architecture Rules
-You must follow the rules given in the `.augment/rules/` folder:
-- Some rules apply at all times, others are context-specific
-- Check `.augment/rules/README.md` for rule scope and applicability
-- Ensure all applicable rules are followed for your current task
+## Project Structure
+
+### Core Architecture
+```
+src/main/java/com/java_template/
+├── Application.java                    # Main Spring Boot application
+├── common/                            # Framework code - DO NOT MODIFY
+│   ├── auth/                          # Authentication & token management
+│   ├── config/                        # Configuration classes & constants
+│   ├── dto/                           # Data transfer objects (EntityWithMetadata)
+│   ├── grpc/                          # gRPC client integration
+│   ├── repository/                    # Data access layer (Cyoda REST API)
+│   ├── serializer/                    # Serialization framework
+│   ├── service/                       # EntityService interface & implementation
+│   ├── tool/                          # Utility tools (WorkflowImportTool)
+│   ├── util/                          # Utility functions
+│   └── workflow/                      # Core interfaces (CyodaEntity, CyodaProcessor, CyodaCriterion)
+└── application/                       # Your business logic - CREATE AS NEEDED
+    ├── controller/                    # REST endpoints
+    ├── entity/                        # Domain entities implementing CyodaEntity
+    ├── processor/                     # Workflow processors implementing CyodaProcessor
+    └── criterion/                     # Workflow criteria implementing CyodaCriterion
+```
+
+### What You Can/Cannot Modify
+- ✅ **CAN MODIFY**: Everything in `application/` directory
+- ✅ **CAN CREATE**: New entities, processors, criteria, controllers
+- ❌ **CANNOT MODIFY**: Anything in `common/` directory
+- ❌ **CANNOT USE**: Java reflection
 
 ## Code Examples and Best Practices
-**All code examples and configuration templates are located in the `example_code/` directory:**
-- `example_code/controller/` - REST controller patterns
-- `example_code/entity/` - Entity class implementations
-- `example_code/processor/` - Workflow processor examples
-- `example_code/criterion/` - Workflow criteria examples
-- `example_code/resources/` - Configuration file templates
+**All examples and templates are in the `llm_example/` directory:**
+- `llm_example/code/application/controller/` - REST controller patterns
+- `llm_example/code/application/entity/` - Entity class implementations
+- `llm_example/code/application/processor/` - Workflow processor examples
+- `llm_example/code/application/criterion/` - Workflow criteria examples
+- `llm_example/code/application/patterns/` - Patterns and anti-patterns guide
+- `llm_example/config/workflow/` - Workflow JSON configuration templates
 
 **Always reference these examples** when creating new components to ensure consistency with established patterns.
+
+## Core Concepts
+
+### What is a CyodaEntity?
+- Domain objects that represent your business data
+- Must implement `CyodaEntity` interface with `getModelKey()` and `isValid()` methods
+- Placed in `application/entity/` directory for automatic discovery
+- Work with `EntityWithMetadata<T>` wrapper that includes entity + metadata
+
+### What is a CyodaProcessor?
+- Workflow components that handle business logic and entity transformations
+- Implement `CyodaProcessor` interface with `process()` and `supports()` methods
+- **CRITICAL**: Can use entityService to read current entity, update OTHER entities, but cannot update current entity with entityService
+- Use `ProcessorSerializer` for type-safe entity processing
+
+### What is a CyodaCriterion?
+- Pure functions that evaluate conditions without side effects
+- Implement `CyodaCriterion` interface with `check()` and `supports()` methods
+- **MUST NOT** modify entities or have side effects
+- Use `CriterionSerializer` for evaluation logic
 
 ## Package Management
 Always use appropriate package managers for dependency management:
@@ -28,7 +73,7 @@ Always use appropriate package managers for dependency management:
 4. **Communication**: Use generated classes for all Cyoda integration
 
 ## Development Workflow
-1. Review `example_code/` directory for patterns before implementing new features
+1. Review `llm_example/ directory for patterns before implementing new features
 2. Follow established architectural patterns for processors, criteria, and serializers
 3. Use `usage-rules.md` for detailed implementation guidelines
 4. Run `./gradlew build` to generate required classes before development

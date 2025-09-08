@@ -11,12 +11,34 @@ default branch: main
 
 ## Code Examples
 
-- [Example Code Directory](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/): Complete code examples and templates for all components
-  - [Controllers](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/controller/): REST controller patterns
-  - [Entities](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/entity/): Entity class implementations
-  - [Processors](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/processor/): Workflow processor examples
-  - [Criteria](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/criterion/): Workflow criteria examples
-  - [Resources](https://github.com/Cyoda-platform/java-client-template/${branch}/example_code/resources/): Configuration templates
+- [LLM Example Directory](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/): Complete examples and templates for all components
+  - [Code Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/): Implementation examples
+    - [Controllers](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/controller/): REST controller patterns
+    - [Entities](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/entity/): Entity class implementations
+    - [Processors](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/processor/): Workflow processor examples
+    - [Criteria](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/criterion/): Workflow criteria examples
+    - [Patterns](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/patterns/): Patterns and anti-patterns guide
+  - [Configuration Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/config/): Configuration templates
+    - [Workflow Configs](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/config/workflow/): Workflow JSON configuration templates
+
+```
+java-client-template/
+├── src/main/java/com/java_template/
+│   ├── common/                          # Framework code - DO NOT MODIFY
+│   └── application/                     # Your business logic (usually empty in template)
+      ├── controller/                    # REST endpoints (usually empty in template)
+      ├── entity/                        # Domain entities (usually empty in template)
+      ├── processor/                     # Workflow processors (usually empty in template)
+      └── criterion/                     # Workflow criteria (usually empty in template)
+│   └── resources/                      # Configuration files (usually empty in template)
+│       └── workflow/                    # Workflow configurations (usually empty in template)
+├── llm_example/                         # Compilable examples and templates
+│   ├── code/application/                # Example implementations (.java.txt files)
+│   │   ├── controller/                  # REST controller examples
+│   │   ├── entity/                      # Entity implementation examples
+│   │   ├── processor/                   # Processor implementation examples
+│   │   └── criterion/                   # Criterion implementation examples
+│   ├── config/workflow/                 # Workflow configuration examples
 
 ## Requirements & Specifications
 
@@ -94,24 +116,43 @@ java -jar build/libs/java-client-template-1.0-SNAPSHOT.jar
 
 ## 🧩 Project Structure
 
-### `common/`
-Integration logic with Cyoda.
+This template follows a clear separation between **framework code** (that you don't modify) and **application code** (where you implement your business logic).
 
-- `auth/` – Manages login and refresh token logic (modifications not typically required).
-- `config/` – Contains constants, environment variables from .env, and enums.
-- `grpc/` – Handles integration with the Cyoda gRPC server (modifications usually unnecessary).
-- `repository/` – Facilitates integration with the Cyoda REST API (modifications usually unnecessary).
-- `service/` – Service layer for your application.
-- `util/` – Various utility functions.
-- `workflow/` – Core workflow processing architecture with CyodaProcessor and CyodaCriterion interfaces.
-- `serializer/` – Serialization layer with fluent APIs for processing requests and responses.
-- `tool/` – Utility tools like WorkflowImportTool for importing workflow configurations.
+### `src/main/java/com/java_template/common/` - Framework Code (DO NOT MODIFY)
 
-To interact with **Cyoda**, use `common/service/EntityService.java`, which provides all necessary methods.
+**Core Framework Components:**
+- `auth/` – Authentication & token management for Cyoda integration
+- `config/` – Configuration classes, constants, and environment variable handling
+- `dto/` – Data transfer objects including `EntityWithMetadata<T>` wrapper
+- `grpc/` – gRPC client integration with Cyoda platform
+- `repository/` – Data access layer for Cyoda REST API operations
+- `service/` – `EntityService` interface and implementation for all Cyoda operations
+- `serializer/` – Serialization framework with fluent APIs (`ProcessorSerializer`, `CriterionSerializer`)
+- `tool/` – Utility tools like `WorkflowImportTool` for importing workflow configurations
+- `util/` – Various utility functions and helpers
+- `workflow/` – Core interfaces: `CyodaEntity`, `CyodaProcessor`, `CyodaCriterion`
 
-To add new integrations with Cyoda, extend the following files:
+**Key Framework Interfaces:**
+- **`CyodaEntity`** - Base interface for all domain entities
+- **`CyodaProcessor`** - Interface for workflow business logic components
+- **`CyodaCriterion`** - Interface for workflow condition evaluation components
+- **`EntityService`** - Service interface for all Cyoda data operations
 
-- **Interface** — `common/service/EntityService.java`: defines service methods; abstraction layer for Cyoda. Optional to modify.
-- **Implementation** — `common/service/EntityServiceImpl.java`: implements interface methods and business logic. Optional to modify.
-- **Repository Interface** — `common/repository/CrudRepository.java`: defines a generic interface. Modify only if additional operations are needed.
-- **Cyoda Repository** — `common/repository/CyodaRepository.java`: implements repository methods. Modify only if needed.
+> ⚠️ **IMPORTANT**: Never modify anything in the `common/` directory. This is framework code.
+
+### `src/main/java/com/java_template/application/` - Your Business Logic (ADD AS NEEDED)
+
+**Your Implementation Areas:**
+- `controller/` – REST endpoints and HTTP API controllers
+- `entity/` – Domain entities implementing `CyodaEntity` interface
+- `processor/` – Workflow processors implementing `CyodaProcessor` interface
+- `criterion/` – Workflow criteria implementing `CyodaCriterion` interface
+
+## Code Examples and Best Practices
+**All examples and templates are in the `llm_example/` directory:**
+- `llm_example/code/application/controller/` - REST controller patterns
+- `llm_example/code/application/entity/` - Entity class implementations
+- `llm_example/code/application/processor/` - Workflow processor examples
+- `llm_example/code/application/criterion/` - Workflow criteria examples
+- `llm_example/code/application/patterns/` - Patterns and anti-patterns guide
+- `llm_example/config/workflow/` - Workflow JSON configuration templates
