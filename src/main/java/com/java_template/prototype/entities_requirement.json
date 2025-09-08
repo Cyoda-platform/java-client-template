@@ -1,0 +1,55 @@
+{
+    "entities": [
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "email": "subscriber@example.com",
+                    "firstName": "John",
+                    "isActive": true,
+                    "lastEmailSent": "2023-10-08T10:00:00",
+                    "lastName": "Doe",
+                    "preferences": {
+                        "frequency": "weekly"
+                    },
+                    "subscriptionDate": "2023-10-01T10:00:00",
+                    "totalEmailsReceived": 5,
+                    "unsubscribeToken": "unique-token-123"
+                }
+            }
+        },
+        {
+            "CatFact": {
+                "entity_data_example": {
+                    "factId": "fact-001",
+                    "isUsed": false,
+                    "lastUsedDate": null,
+                    "length": 37,
+                    "retrievedDate": "2023-10-01T09:00:00",
+                    "source": "catfact.ninja",
+                    "text": "Cats can make over 100 different sounds.",
+                    "usageCount": 0
+                }
+            }
+        },
+        {
+            "EmailCampaign": {
+                "entity_data_example": {
+                    "actualSentDate": "2023-10-08T10:05:00",
+                    "bounces": 1,
+                    "campaignId": "campaign-001",
+                    "campaignName": "Weekly Cat Facts - Issue 1",
+                    "catFactId": "fact-001",
+                    "clicks": 10,
+                    "emailSubject": "Your Weekly Cat Fact!",
+                    "emailTemplate": "template-001",
+                    "failedDeliveries": 2,
+                    "opens": 50,
+                    "scheduledDate": "2023-10-08T10:00:00",
+                    "successfulDeliveries": 90,
+                    "totalSubscribers": 100,
+                    "unsubscribes": 1
+                }
+            }
+        }
+    ]
+}
