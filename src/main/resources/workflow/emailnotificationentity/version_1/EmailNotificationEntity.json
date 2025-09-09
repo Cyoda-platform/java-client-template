@@ -1,0 +1,118 @@
+{
+    "version": "1.0",
+    "name": "EmailNotificationEntity Workflow",
+    "desc": "Manages email notification delivery lifecycle.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "schedule_notification",
+                    "next": "scheduled",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "NotificationSchedulingProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "scheduled": {
+            "transitions": [
+                {
+                    "name": "send_notification",
+                    "next": "sending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailSendingProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "cancel_notification",
+                    "next": "cancelled",
+                    "manual": true
+                }
+            ]
+        },
+        "sending": {
+            "transitions": [
+                {
+                    "name": "confirm_delivery",
+                    "next": "sent",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryConfirmationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "handle_failure",
+                    "next": "failed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryFailureProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry_sending",
+                    "next": "scheduled",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "RetryProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "end_notification",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        },
+        "cancelled": {
+            "transitions": [
+                {
+                    "name": "end_notification",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

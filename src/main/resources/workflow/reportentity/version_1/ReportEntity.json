@@ -1,0 +1,120 @@
+{
+    "version": "1.0",
+    "name": "ReportEntity Workflow",
+    "desc": "Manages report generation, analysis, and distribution lifecycle.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "schedule_report",
+                    "next": "scheduled",
+                    "manual": false
+                }
+            ]
+        },
+        "scheduled": {
+            "transitions": [
+                {
+                    "name": "start_generation",
+                    "next": "generating",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportSchedulingProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "generating": {
+            "transitions": [
+                {
+                    "name": "complete_generation",
+                    "next": "generated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportGenerationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "ReportCompletionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "generated": {
+            "transitions": [
+                {
+                    "name": "review_report",
+                    "next": "reviewed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ReportReviewProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "regenerate",
+                    "next": "generating",
+                    "manual": true
+                }
+            ]
+        },
+        "reviewed": {
+            "transitions": [
+                {
+                    "name": "distribute_report",
+                    "next": "distributed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ReportDistributionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "distributed": {
+            "transitions": [
+                {
+                    "name": "archive_report",
+                    "next": "archived",
+                    "manual": true
+                }
+            ]
+        },
+        "archived": {
+            "transitions": [
+                {
+                    "name": "end",
+                    "next": "end",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

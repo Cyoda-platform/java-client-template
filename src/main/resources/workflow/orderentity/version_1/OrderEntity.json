@@ -1,0 +1,84 @@
+{
+    "version": "1.0",
+    "name": "OrderEntity Workflow",
+    "desc": "Workflow for managing order processing and sales tracking for performance analysis.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "import_order",
+                    "next": "imported",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderImportProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "imported": {
+            "transitions": [
+                {
+                    "name": "validate_order",
+                    "next": "validated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderValidationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "process_order",
+                    "next": "processed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderProcessingProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "processed": {
+            "transitions": [
+                {
+                    "name": "complete_order",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderCompletionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        }
+    }
+}

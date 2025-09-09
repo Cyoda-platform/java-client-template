@@ -1,0 +1,98 @@
+{
+    "version": "1.0",
+    "name": "PetEntity Workflow",
+    "desc": "Manages the lifecycle of pet products from data extraction to performance analysis.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "extract_pet_data",
+                    "next": "extracted",
+                    "manual": false
+                }
+            ]
+        },
+        "extracted": {
+            "transitions": [
+                {
+                    "name": "validate_pet_data",
+                    "next": "validated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PetDataExtractionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "activate_tracking",
+                    "next": "active",
+                    "manual": true
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "analyze_performance",
+                    "next": "analyzed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PetPerformanceAnalysisProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "analyzed": {
+            "transitions": [
+                {
+                    "name": "reactivate",
+                    "next": "active",
+                    "manual": true
+                },
+                {
+                    "name": "archive_pet",
+                    "next": "archived",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PetArchivalCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "archived": {
+            "transitions": [
+                {
+                    "name": "end_workflow",
+                    "next": "final_state",
+                    "manual": false
+                }
+            ]
+        },
+        "final_state": {
+            "transitions": []
+        }
+    }
+}
