@@ -1,0 +1,108 @@
+{
+    "entities": [
+        {
+            "PetEntity": {
+                "entity_data_example": {
+                    "category": {
+                        "id": 101,
+                        "name": "Dog"
+                    },
+                    "createdAt": "2023-01-01T10:00:00",
+                    "lastSaleDate": "2023-10-01T10:00:00",
+                    "name": "Fluffy",
+                    "petId": 1,
+                    "photoUrls": [
+                        "http://example.com/photo1.jpg",
+                        "http://example.com/photo2.jpg"
+                    ],
+                    "price": 99.99,
+                    "revenue": 4999.5,
+                    "salesVolume": 50,
+                    "stockLevel": 10,
+                    "tags": [
+                        {
+                            "id": 201,
+                            "name": "Cute"
+                        },
+                        {
+                            "id": 202,
+                            "name": "Fluffy"
+                        }
+                    ],
+                    "updatedAt": "2023-10-01T10:00:00"
+                }
+            }
+        },
+        {
+            "OrderEntity": {
+                "entity_data_example": {
+                    "complete": true,
+                    "customerInfo": {
+                        "email": "john.doe@example.com",
+                        "name": "John Doe",
+                        "phone": "123-456-7890"
+                    },
+                    "orderDate": "2023-10-01T09:00:00",
+                    "orderId": 1,
+                    "petId": 1,
+                    "quantity": 2,
+                    "shipDate": "2023-10-02T10:00:00",
+                    "totalAmount": 199.98,
+                    "unitPrice": 99.99
+                }
+            }
+        },
+        {
+            "ReportEntity": {
+                "entity_data_example": {
+                    "fileFormat": "PDF",
+                    "filePath": "/reports/report-2023-10-01.pdf",
+                    "fileSize": 2048,
+                    "generationDate": "2023-10-01T12:00:00",
+                    "insights": [
+                        {
+                            "actionRequired": true,
+                            "category": "Sales",
+                            "description": "Increase marketing for top-selling pets",
+                            "priority": "High"
+                        }
+                    ],
+                    "metrics": {
+                        "inventoryTurnover": 5.0,
+                        "slowMovingPets": [
+                            "Goldfish"
+                        ],
+                        "topSellingPets": [
+                            "Fluffy",
+                            "Buddy"
+                        ],
+                        "totalRevenue": 9999.0,
+                        "totalSales": 1000.0
+                    },
+                    "reportId": "uuid-1234-5678-9012",
+                    "reportPeriod": {
+                        "endDate": "2023-09-30T23:59:59",
+                        "startDate": "2023-09-01T00:00:00"
+                    },
+                    "reportType": "WEEKLY_PERFORMANCE"
+                }
+            }
+        },
+        {
+            "EmailNotificationEntity": {
+                "entity_data_example": {
+                    "attachmentPath": "/reports/report-2023-10-01.pdf",
+                    "body": "Here is the weekly report you requested.",
+                    "deliveryAttempts": 1,
+                    "lastError": "",
+                    "notificationId": "uuid-5678-9012-3456",
+                    "recipientEmail": "recipient@example.com",
+                    "reportId": "uuid-1234-5678-9012",
+                    "scheduledTime": "2023-10-01T15:00:00",
+                    "sentTime": "2023-10-01T15:01:00",
+                    "subject": "Weekly Report"
+                }
+            }
+        }
+    ]
+}
