@@ -1,0 +1,122 @@
+{
+    "version": "1.0",
+    "name": "Pet Workflow",
+    "desc": "Description of the workflow for Pet",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize_pet",
+                    "next": "available",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PetInitializationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "available": {
+            "transitions": [
+                {
+                    "name": "reserve_pet",
+                    "next": "pending",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetReservationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PetAvailabilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "complete_sale",
+                    "next": "sold",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetSaleProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "OrderCompletionCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "cancel_reservation",
+                    "next": "available",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetReservationCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sold": {
+            "transitions": [
+                {
+                    "name": "return_pet",
+                    "next": "available",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "PetReturnProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "PetReturnCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}

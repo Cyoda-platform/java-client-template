@@ -1,0 +1,30 @@
+{
+    "version": "1.0",
+    "name": "Tag Workflow",
+    "desc": "Description of the workflow for Tag",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "activate_tag",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TagActivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": []
+        }
+    }
+}

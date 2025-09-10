@@ -1,0 +1,112 @@
+{
+    "version": "1.0",
+    "name": "Order Workflow",
+    "desc": "Workflow for managing order states in Purrfect Pets system",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "place_order",
+                    "next": "placed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderPlacementProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "placed": {
+            "transitions": [
+                {
+                    "name": "approve_order",
+                    "next": "approved",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderApprovalProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "OrderValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "cancel_order",
+                    "next": "initial_state",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "approved": {
+            "transitions": [
+                {
+                    "name": "deliver_order",
+                    "next": "delivered",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderDeliveryProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "DeliveryReadinessCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "reject_order",
+                    "next": "placed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderRejectionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "delivered": {
+            "transitions": []
+        }
+    }
+}
