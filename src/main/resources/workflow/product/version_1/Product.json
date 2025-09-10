@@ -1,0 +1,27 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Manages product lifecycle from creation to availability",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "CREATE_PRODUCT",
+                    "next": "Available",
+                    "manual": false
+                }
+            ]
+        },
+        "Available": {
+            "transitions": [
+                {
+                    "name": "UPDATE_PRODUCT",
+                    "next": "Available",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}

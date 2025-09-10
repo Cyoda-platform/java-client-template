@@ -1,0 +1,45 @@
+{
+    "version": "1.0",
+    "name": "Shipment Workflow",
+    "desc": "Manages shipment lifecycle synchronized with order",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "CREATE_SHIPMENT",
+                    "next": "Picking",
+                    "manual": false
+                }
+            ]
+        },
+        "Picking": {
+            "transitions": [
+                {
+                    "name": "READY_TO_SEND",
+                    "next": "WaitingToSend",
+                    "manual": true
+                }
+            ]
+        },
+        "WaitingToSend": {
+            "transitions": [
+                {
+                    "name": "MARK_SENT",
+                    "next": "Sent",
+                    "manual": true
+                }
+            ]
+        },
+        "Sent": {
+            "transitions": [
+                {
+                    "name": "MARK_DELIVERED",
+                    "next": "Delivered",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}
