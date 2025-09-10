@@ -2,6 +2,51 @@
 
 A **Gradle project** using **Spring Boot** with **Cyoda integration** for building scalable web clients with workflow-driven backend interactions.
 
+
+## 🛠️ Getting Started
+
+> ☕ **Java 21 Required**
+> Make sure Java 21 is installed and set as the active version.
+
+### 1. Clone the Project
+
+```bash
+git clone https://github.com/Cyoda-platform/java-client-template.git
+cd java-client-template
+```
+
+### 2. 🧰 Run Workflow Import Tool
+
+#### Option 1: Run via Gradle (recommended for local development)
+```bash
+./gradlew runApp -PmainClass=com.java_template.common.tool.WorkflowImportTool
+```
+
+#### Option 2: Build and Run JAR (recommended for CI or scripting)
+```bash
+./gradlew bootJarWorkflowImport
+java -jar build/libs/java-client-template-1.0-SNAPSHOT-workflow-import.jar
+```
+
+### 3. ▶️ Run the Application
+
+#### Option 1: Run via Gradle
+```bash
+./gradlew runApp
+```
+
+#### Option 2: Run Manually After Build
+```bash
+./gradlew build
+java -jar build/libs/java-client-template-1.0-SNAPSHOT.jar
+```
+
+> Access the app: [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
+>
+> **Note**: The default port is 8080 as configured in `src/main/resources/application.yml`. You can change this by setting the `server.port` property.
+
+---
+
 ## 🏗️ Project Structure
 
 This template follows a clear separation between **framework code** (that you don't modify) and **application code** (where you implement your business logic).
