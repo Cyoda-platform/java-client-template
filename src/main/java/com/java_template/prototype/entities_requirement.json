@@ -1,0 +1,83 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 0,
+                    "breed": "string",
+                    "categoryId": "string",
+                    "createdAt": "2023-10-01T00:00:00",
+                    "description": "string",
+                    "name": "string",
+                    "petId": "string",
+                    "photoUrls": [
+                        "string"
+                    ],
+                    "price": 0.0,
+                    "status": "string",
+                    "tags": [
+                        "string"
+                    ],
+                    "updatedAt": "2023-10-01T00:00:00",
+                    "vaccinated": true,
+                    "weight": 0.0
+                }
+            }
+        },
+        {
+            "Category": {
+                "entity_data_example": {
+                    "active": true,
+                    "categoryId": "string",
+                    "createdAt": "2023-10-01T00:00:00",
+                    "description": "string",
+                    "name": "string",
+                    "updatedAt": "2023-10-01T00:00:00"
+                }
+            }
+        },
+        {
+            "Tag": {
+                "entity_data_example": {
+                    "active": true,
+                    "color": "string",
+                    "createdAt": "2023-10-01T00:00:00",
+                    "description": "string",
+                    "name": "string",
+                    "tagId": "string",
+                    "updatedAt": "2023-10-01T00:00:00"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "complete": true,
+                    "createdAt": "2023-10-01T00:00:00",
+                    "customerInfo": {
+                        "email": "string",
+                        "firstName": "string",
+                        "lastName": "string",
+                        "phone": "string"
+                    },
+                    "notes": "string",
+                    "orderDate": "2023-10-01T00:00:00",
+                    "orderId": "string",
+                    "petId": "string",
+                    "quantity": 1,
+                    "shipDate": "2023-10-01T00:00:00",
+                    "shippingAddress": {
+                        "city": "string",
+                        "country": "string",
+                        "state": "string",
+                        "street": "string",
+                        "zipCode": "string"
+                    },
+                    "status": "string",
+                    "totalAmount": 0.0,
+                    "updatedAt": "2023-10-01T00:00:00"
+                }
+            }
+        }
+    ]
+}
