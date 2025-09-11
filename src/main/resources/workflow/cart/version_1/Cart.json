@@ -1,0 +1,77 @@
+{
+    "version": "1.0",
+    "name": "Cart Workflow",
+    "desc": "Manages shopping cart lifecycle from creation through checkout conversion.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "CREATE_CART",
+                    "next": "NEW",
+                    "manual": false
+                }
+            ]
+        },
+        "NEW": {
+            "transitions": [
+                {
+                    "name": "ADD_FIRST_ITEM",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CartRecalculateTotalsProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "OPEN_CHECKOUT",
+                    "next": "CHECKING_OUT",
+                    "manual": true
+                },
+                {
+                    "name": "MODIFY_ITEMS",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CartRecalculateTotalsProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "CHECKING_OUT": {
+            "transitions": [
+                {
+                    "name": "COMPLETE_CHECKOUT",
+                    "next": "CONVERTED",
+                    "manual": false
+                }
+            ]
+        },
+        "CONVERTED": {
+            "transitions": [
+                {
+                    "name": "END",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

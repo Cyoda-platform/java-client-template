@@ -1,0 +1,21 @@
+{
+    "version": "1.0",
+    "name": "Product Workflow",
+    "desc": "Manages product lifecycle from creation to active catalog status.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "ACTIVATE_PRODUCT",
+                    "next": "ACTIVE",
+                    "manual": false
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": []
+        }
+    }
+}

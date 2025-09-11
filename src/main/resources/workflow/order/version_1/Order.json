@@ -1,0 +1,63 @@
+{
+    "version": "1.0",
+    "name": "Order Workflow",
+    "desc": "Manages order lifecycle from creation through delivery.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "CREATE_ORDER",
+                    "next": "WAITING_TO_FULFILL",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderCreateFromPaidProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "WAITING_TO_FULFILL": {
+            "transitions": [
+                {
+                    "name": "START_PICKING",
+                    "next": "PICKING",
+                    "manual": true
+                }
+            ]
+        },
+        "PICKING": {
+            "transitions": [
+                {
+                    "name": "READY_TO_SEND",
+                    "next": "WAITING_TO_SEND",
+                    "manual": true
+                }
+            ]
+        },
+        "WAITING_TO_SEND": {
+            "transitions": [
+                {
+                    "name": "MARK_SENT",
+                    "next": "SENT",
+                    "manual": true
+                }
+            ]
+        },
+        "SENT": {
+            "transitions": [
+                {
+                    "name": "MARK_DELIVERED",
+                    "next": "DELIVERED",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}

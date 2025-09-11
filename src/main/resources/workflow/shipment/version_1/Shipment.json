@@ -1,0 +1,75 @@
+{
+    "version": "1.0",
+    "name": "Shipment Workflow",
+    "desc": "Manages shipment lifecycle synchronized with order status.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_shipment",
+                    "next": "picking",
+                    "manual": false
+                }
+            ]
+        },
+        "picking": {
+            "transitions": [
+                {
+                    "name": "ready_to_send",
+                    "next": "waiting_to_send",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentUpdateOrderStatusProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "waiting_to_send": {
+            "transitions": [
+                {
+                    "name": "mark_sent",
+                    "next": "sent",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentUpdateOrderStatusProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "mark_delivered",
+                    "next": "delivered",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "ShipmentUpdateOrderStatusProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "delivered": {
+            "transitions": []
+        }
+    }
+}

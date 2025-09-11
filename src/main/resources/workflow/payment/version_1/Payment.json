@@ -1,0 +1,82 @@
+{
+    "version": "1.0",
+    "name": "Payment Workflow",
+    "desc": "Manages dummy payment processing with automatic approval after 3 seconds.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_payment",
+                    "next": "initiated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentCreateDummyProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "initiated": {
+            "transitions": [
+                {
+                    "name": "auto_approve",
+                    "next": "paid",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "PaymentAutoMarkPaidProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "mark_failed",
+                    "next": "failed",
+                    "manual": true
+                },
+                {
+                    "name": "cancel_payment",
+                    "next": "canceled",
+                    "manual": true
+                }
+            ]
+        },
+        "paid": {
+            "transitions": [
+                {
+                    "name": "complete_payment",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry_payment",
+                    "next": "initial_state",
+                    "manual": true
+                }
+            ]
+        },
+        "canceled": {
+            "transitions": [
+                {
+                    "name": "refund_payment",
+                    "next": "initial_state",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}
