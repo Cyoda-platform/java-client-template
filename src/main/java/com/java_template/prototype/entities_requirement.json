@@ -1,0 +1,215 @@
+{
+    "entities": [
+        {
+            "Product": {
+                "entity_data_example": {
+                    "attributes": {
+                        "brand": "BrandX",
+                        "model": "ModelY"
+                    },
+                    "bundles": [
+                        {
+                            "components": [
+                                "PROD-123",
+                                "PROD-456"
+                            ],
+                            "sku": "BUNDLE-001"
+                        }
+                    ],
+                    "category": "Electronics",
+                    "compliance": {
+                        "documents": [
+                            "doc1",
+                            "doc2"
+                        ],
+                        "regions": [
+                            "EU",
+                            "US"
+                        ]
+                    },
+                    "createdAt": "2023-10-01T10:00:00",
+                    "description": "This is a sample product description.",
+                    "events": [
+                        {
+                            "eventType": "created",
+                            "timestamp": "2023-10-01T10:00:00"
+                        }
+                    ],
+                    "inventory": {
+                        "quantity": 100,
+                        "warehouseId": "WH-001"
+                    },
+                    "localizations": {
+                        "en": {
+                            "description": "This is a sample product description.",
+                            "name": "Sample Product"
+                        },
+                        "es": {
+                            "description": "Esta es una descripci\u00f3n de producto de muestra.",
+                            "name": "Producto de Muestra"
+                        }
+                    },
+                    "media": [
+                        {
+                            "type": "image/jpeg",
+                            "url": "http://example.com/image.jpg"
+                        }
+                    ],
+                    "name": "Sample Product",
+                    "options": {
+                        "color": [
+                            "red",
+                            "blue"
+                        ],
+                        "size": [
+                            "S",
+                            "M",
+                            "L"
+                        ]
+                    },
+                    "price": 19.99,
+                    "quantityAvailable": 100,
+                    "relationships": {
+                        "relatedProducts": [
+                            "PROD-456"
+                        ],
+                        "suppliers": [
+                            "SUP-001",
+                            "SUP-002"
+                        ]
+                    },
+                    "sku": "PROD-123",
+                    "updatedAt": "2023-10-02T10:00:00",
+                    "variants": [
+                        {
+                            "attributes": {
+                                "color": "red"
+                            },
+                            "sku": "PROD-123-R"
+                        },
+                        {
+                            "attributes": {
+                                "color": "blue"
+                            },
+                            "sku": "PROD-123-B"
+                        }
+                    ],
+                    "warehouseId": "WH-001"
+                }
+            }
+        },
+        {
+            "Cart": {
+                "entity_data_example": {
+                    "cartId": "CART-001",
+                    "createdAt": "2023-10-01T10:00:00",
+                    "grandTotal": 69.97,
+                    "guestContact": {
+                        "address": {
+                            "city": "Sample City",
+                            "line1": "123 Sample St",
+                            "state": "Sample State",
+                            "zip": "12345"
+                        },
+                        "email": "john@example.com",
+                        "name": "John Doe",
+                        "phone": "1234567890"
+                    },
+                    "lines": [
+                        {
+                            "name": "Sample Product",
+                            "price": 19.99,
+                            "qty": 2,
+                            "sku": "PROD-123"
+                        },
+                        {
+                            "name": "Another Product",
+                            "price": 29.99,
+                            "qty": 1,
+                            "sku": "PROD-456"
+                        }
+                    ],
+                    "totalItems": 3,
+                    "updatedAt": "2023-10-02T10:00:00"
+                }
+            }
+        },
+        {
+            "Payment": {
+                "entity_data_example": {
+                    "amount": 69.97,
+                    "cartId": "CART-001",
+                    "createdAt": "2023-10-01T10:00:00",
+                    "paymentId": "PAY-001",
+                    "provider": "DUMMY",
+                    "updatedAt": "2023-10-02T10:00:00"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2023-10-01T10:00:00",
+                    "guestContact": {
+                        "address": {
+                            "city": "Sample City",
+                            "line1": "123 Sample St",
+                            "state": "Sample State",
+                            "zip": "12345"
+                        },
+                        "email": "john@example.com",
+                        "name": "John Doe",
+                        "phone": "1234567890"
+                    },
+                    "lines": [
+                        {
+                            "lineTotal": 39.98,
+                            "name": "Sample Product",
+                            "qty": 2,
+                            "sku": "PROD-123",
+                            "unitPrice": 19.99
+                        },
+                        {
+                            "lineTotal": 29.99,
+                            "name": "Another Product",
+                            "qty": 1,
+                            "sku": "PROD-456",
+                            "unitPrice": 29.99
+                        }
+                    ],
+                    "orderId": "ORDER-001",
+                    "orderNumber": "ORD-0001",
+                    "totals": {
+                        "grand": 69.97,
+                        "items": 3
+                    },
+                    "updatedAt": "2023-10-02T10:00:00"
+                }
+            }
+        },
+        {
+            "Shipment": {
+                "entity_data_example": {
+                    "createdAt": "2023-10-01T10:00:00",
+                    "lines": [
+                        {
+                            "qtyOrdered": 2,
+                            "qtyPicked": 2,
+                            "qtyShipped": 2,
+                            "sku": "PROD-123"
+                        },
+                        {
+                            "qtyOrdered": 1,
+                            "qtyPicked": 1,
+                            "qtyShipped": 1,
+                            "sku": "PROD-456"
+                        }
+                    ],
+                    "orderId": "ORDER-001",
+                    "shipmentId": "SHIP-001",
+                    "updatedAt": "2023-10-02T10:00:00"
+                }
+            }
+        }
+    ]
+}
