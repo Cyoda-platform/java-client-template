@@ -1,0 +1,89 @@
+{
+    "version": "1.0",
+    "name": "Mail Workflow",
+    "desc": "Workflow for managing the lifecycle of email processing, from creation to delivery.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "initialize",
+                    "next": "pending",
+                    "manual": false
+                }
+            ]
+        },
+        "pending": {
+            "transitions": [
+                {
+                    "name": "determine_happy",
+                    "next": "happy_ready",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "MailIsHappyCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "determine_gloomy",
+                    "next": "gloomy_ready",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "MailIsGloomyCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "happy_ready": {
+            "transitions": [
+                {
+                    "name": "send_happy",
+                    "next": "sent",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "MailSendHappyMailProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "gloomy_ready": {
+            "transitions": [
+                {
+                    "name": "send_gloomy",
+                    "next": "sent",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "MailSendGloomyMailProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sent": {
+            "transitions": []
+        }
+    }
+}
