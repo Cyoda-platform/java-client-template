@@ -92,6 +92,9 @@
                 }
             ]
         },
+        "sent": {
+            "transitions": []
+        },
         "failed": {
             "transitions": [
                 {
@@ -100,9 +103,6 @@
                     "manual": true
                 }
             ]
-        },
-        "sent": {
-            "transitions": []
         }
     }
 }
