@@ -1,0 +1,16 @@
+{
+    "entities": [
+        {
+            "Mail": {
+                "entity_data_example": {
+                    "isHappy": true,
+                    "mailList": [
+                        "user1@example.com",
+                        "user2@example.com",
+                        "user3@example.com"
+                    ]
+                }
+            }
+        }
+    ]
+}
