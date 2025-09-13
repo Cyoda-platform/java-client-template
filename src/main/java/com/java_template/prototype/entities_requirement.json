@@ -1,0 +1,45 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 2,
+                    "breed": "Tabby",
+                    "createdAt": "2025-09-13T12:00:00Z",
+                    "externalId": "ps-987",
+                    "id": "pet-123",
+                    "name": "Whiskers",
+                    "ownerId": null,
+                    "source": "petstore",
+                    "species": "Cat",
+                    "status": "Available"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "email": "catfan@example.com",
+                    "fullName": "Cat Fan",
+                    "id": "user-77",
+                    "phone": "+123456789",
+                    "registeredAt": "2025-09-13T12:01:00Z",
+                    "username": "catfan"
+                }
+            }
+        },
+        {
+            "AdoptionRequest": {
+                "entity_data_example": {
+                    "id": "req-500",
+                    "message": "I have a loving home!",
+                    "petId": "pet-123",
+                    "processedBy": null,
+                    "requestedAt": "2025-09-13T12:05:00Z",
+                    "status": "Requested",
+                    "userId": "user-77"
+                }
+            }
+        }
+    ]
+}
