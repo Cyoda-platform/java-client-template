@@ -1,0 +1,95 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Workflow for User entity based on functional requirements: creation, validation, activation or error.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "to_user_created",
+                    "next": "USER_CREATED",
+                    "manual": false
+                }
+            ]
+        },
+        "USER_CREATED": {
+            "transitions": [
+                {
+                    "name": "to_validating",
+                    "next": "VALIDATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATING": {
+            "transitions": [
+                {
+                    "name": "validation_success",
+                    "next": "USER_ACTIVE",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidationSuccessCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "ActivateUserProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        },
+                        {
+                            "name": "WelcomeNotificationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "validation_failure",
+                    "next": "USER_ERROR",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "ValidationFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    },
+                    "processors": [
+                        {
+                            "name": "SetUserErrorProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "USER_ACTIVE": {
+            "transitions": []
+        },
+        "USER_ERROR": {
+            "transitions": []
+        }
+    }
+}

@@ -1,0 +1,135 @@
+{
+    "version": "1.0",
+    "name": "AdoptionRequest Workflow",
+    "desc": "Workflow for AdoptionRequest entity based on the functional requirements (Requested -> Validating -> UnderReview -> Approved/Rejected -> Completed).",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_requested",
+                    "next": "REQUESTED",
+                    "manual": false
+                }
+            ]
+        },
+        "REQUESTED": {
+            "transitions": [
+                {
+                    "name": "requested_to_validating",
+                    "next": "VALIDATING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "RequestValidationProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "VALIDATING": {
+            "transitions": [
+                {
+                    "name": "validating_to_under_review",
+                    "next": "UNDER_REVIEW",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SetUnderReviewProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "simple",
+                        "jsonPath": "$.metadata.validated",
+                        "operation": "EQUALS",
+                        "value": true
+                    }
+                },
+                {
+                    "name": "validating_to_rejected_on_validation_failure",
+                    "next": "REJECTED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "group",
+                        "operator": "OR",
+                        "conditions": [
+                            {
+                                "type": "simple",
+                                "jsonPath": "$.status",
+                                "operation": "EQUALS",
+                                "value": "REJECTED"
+                            },
+                            {
+                                "type": "simple",
+                                "jsonPath": "$.metadata.validated",
+                                "operation": "EQUALS",
+                                "value": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        "UNDER_REVIEW": {
+            "transitions": [
+                {
+                    "name": "under_review_to_approved_auto",
+                    "next": "APPROVED",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EligibilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "under_review_to_rejected_manual",
+                    "next": "REJECTED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RejectRequestProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "APPROVED": {
+            "transitions": [
+                {
+                    "name": "approved_to_completed",
+                    "next": "COMPLETED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "ApprovalProcessor",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "COMPLETED": {
+            "transitions": []
+        },
+        "REJECTED": {
+            "transitions": []
+        }
+    }
+}
