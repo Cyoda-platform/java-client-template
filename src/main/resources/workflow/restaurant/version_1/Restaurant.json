@@ -1,0 +1,122 @@
+{
+    "version": "1.0",
+    "name": "Restaurant Workflow",
+    "desc": "Manages the lifecycle of restaurant entities from registration to operation",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "register_restaurant",
+                    "next": "PENDING_APPROVAL",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "RestaurantRegistrationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PENDING_APPROVAL": {
+            "transitions": [
+                {
+                    "name": "approve_restaurant",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RestaurantApprovalProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "RestaurantApprovalCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "suspend_restaurant",
+                    "next": "SUSPENDED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RestaurantSuspensionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "deactivate_restaurant",
+                    "next": "INACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RestaurantDeactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SUSPENDED": {
+            "transitions": [
+                {
+                    "name": "reactivate_restaurant",
+                    "next": "ACTIVE",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "RestaurantReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "RestaurantReactivationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "INACTIVE": {
+            "transitions": [
+                {
+                    "name": "end_workflow",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

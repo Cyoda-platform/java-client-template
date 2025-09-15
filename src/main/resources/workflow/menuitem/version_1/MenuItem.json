@@ -1,0 +1,98 @@
+{
+    "version": "1.0",
+    "name": "MenuItem Workflow",
+    "desc": "Manages the lifecycle of menu items from creation to discontinuation",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_menu_item",
+                    "next": "DRAFT",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MenuItemCreationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DRAFT": {
+            "transitions": [
+                {
+                    "name": "publish_menu_item",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MenuItemPublishProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "make_unavailable",
+                    "next": "UNAVAILABLE",
+                    "manual": false
+                },
+                {
+                    "name": "discontinue_item",
+                    "next": "DISCONTINUED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MenuItemDiscontinuationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "UNAVAILABLE": {
+            "transitions": [
+                {
+                    "name": "make_available",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "MenuItemAvailabilityProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DISCONTINUED": {
+            "transitions": [
+                {
+                    "name": "end_workflow",
+                    "next": "end",
+                    "manual": false
+                }
+            ]
+        },
+        "end": {
+            "transitions": []
+        }
+    }
+}

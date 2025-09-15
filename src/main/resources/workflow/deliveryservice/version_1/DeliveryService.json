@@ -1,0 +1,107 @@
+{
+    "version": "1.0",
+    "name": "DeliveryService Workflow",
+    "desc": "Manages delivery service integration and operational status",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "register_service",
+                    "next": "PENDING_INTEGRATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryServiceRegistrationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PENDING_INTEGRATION": {
+            "transitions": [
+                {
+                    "name": "activate_service",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryServiceActivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "suspend_service",
+                    "next": "SUSPENDED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryServiceSuspensionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "deactivate_service",
+                    "next": "INACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryServiceDeactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SUSPENDED": {
+            "transitions": [
+                {
+                    "name": "reactivate_service",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryServiceReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "INACTIVE": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "end_state": {
+            "transitions": []
+        }
+    }
+}

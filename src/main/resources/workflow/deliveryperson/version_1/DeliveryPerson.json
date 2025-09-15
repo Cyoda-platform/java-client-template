@@ -1,0 +1,136 @@
+{
+    "version": "1.0",
+    "name": "DeliveryPerson Workflow",
+    "desc": "Manages delivery person status and availability",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "register_delivery_person",
+                    "next": "PENDING_VERIFICATION",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryPersonRegistrationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PENDING_VERIFICATION": {
+            "transitions": [
+                {
+                    "name": "verify_delivery_person",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryPersonVerificationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ACTIVE": {
+            "transitions": [
+                {
+                    "name": "assign_delivery",
+                    "next": "BUSY",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryPersonAssignmentProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "go_offline",
+                    "next": "OFFLINE",
+                    "manual": false
+                },
+                {
+                    "name": "suspend_delivery_person",
+                    "next": "SUSPENDED",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryPersonSuspensionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "BUSY": {
+            "transitions": [
+                {
+                    "name": "complete_delivery",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryPersonCompletionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "OFFLINE": {
+            "transitions": [
+                {
+                    "name": "go_online",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryPersonOnlineProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "SUSPENDED": {
+            "transitions": [
+                {
+                    "name": "reactivate_service",
+                    "next": "ACTIVE",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "DeliveryPersonReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

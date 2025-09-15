@@ -1,0 +1,176 @@
+{
+    "version": "1.0",
+    "name": "Order Workflow",
+    "desc": "Manages the complete order lifecycle from placement to delivery",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "place_order",
+                    "next": "PENDING",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderPlacementProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PENDING": {
+            "transitions": [
+                {
+                    "name": "confirm_order",
+                    "next": "CONFIRMED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderConfirmationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "OrderValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "cancel_order",
+                    "next": "CANCELLED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "OrderCancellationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "CONFIRMED": {
+            "transitions": [
+                {
+                    "name": "start_preparation",
+                    "next": "PREPARING",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderPreparationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "PREPARING": {
+            "transitions": [
+                {
+                    "name": "mark_ready",
+                    "next": "READY_FOR_PICKUP",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderReadyProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "READY_FOR_PICKUP": {
+            "transitions": [
+                {
+                    "name": "assign_delivery",
+                    "next": "OUT_FOR_DELIVERY",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "DeliveryAssignmentProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "DeliveryAvailabilityCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "OUT_FOR_DELIVERY": {
+            "transitions": [
+                {
+                    "name": "complete_delivery",
+                    "next": "DELIVERED",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "DeliveryCompletionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "DELIVERED": {
+            "transitions": [
+                {
+                    "name": "end_order",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        },
+        "CANCELLED": {
+            "transitions": [
+                {
+                    "name": "end_order",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
