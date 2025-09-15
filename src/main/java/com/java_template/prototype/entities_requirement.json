@@ -1,0 +1,243 @@
+{
+    "entities": [
+        {
+            "Restaurant": {
+                "entity_data_example": {
+                    "address": {
+                        "city": "Rome",
+                        "country": "Italy",
+                        "latitude": 41.9028,
+                        "line1": "123 Pasta St.",
+                        "line2": "",
+                        "longitude": 12.4964,
+                        "postcode": "00100",
+                        "state": "Lazio"
+                    },
+                    "averagePreparationTime": 30,
+                    "contact": {
+                        "email": "info@pastahouse.com",
+                        "managerName": "Mario Rossi",
+                        "phone": "123-456-7890"
+                    },
+                    "createdAt": "2023-01-01T10:00:00",
+                    "cuisine": "Italian",
+                    "deliveryFee": 5.0,
+                    "deliveryZones": [
+                        {
+                            "additionalFee": 2.0,
+                            "radius": 5.0,
+                            "zoneName": "Central Rome"
+                        }
+                    ],
+                    "description": "Authentic Italian pasta and more",
+                    "isActive": true,
+                    "minimumOrderAmount": 15.0,
+                    "name": "Pasta House",
+                    "operatingHours": [
+                        {
+                            "closeTime": "22:00",
+                            "dayOfWeek": "Monday",
+                            "isOpen": true,
+                            "openTime": "10:00"
+                        },
+                        {
+                            "closeTime": "22:00",
+                            "dayOfWeek": "Tuesday",
+                            "isOpen": true,
+                            "openTime": "10:00"
+                        }
+                    ],
+                    "rating": 4.5,
+                    "restaurantId": "12345",
+                    "totalOrders": 100,
+                    "updatedAt": "2023-01-10T10:00:00"
+                }
+            }
+        },
+        {
+            "MenuItem": {
+                "entity_data_example": {
+                    "allergens": [
+                        "Eggs",
+                        "Pork"
+                    ],
+                    "category": "Main Course",
+                    "createdAt": "2023-01-05T10:00:00",
+                    "customizations": [
+                        {
+                            "additionalPrice": 1.0,
+                            "customizationId": "c1",
+                            "name": "Extra cheese",
+                            "options": [],
+                            "type": "checkbox"
+                        }
+                    ],
+                    "description": "Classic Italian pasta with eggs, cheese, pancetta, and pepper.",
+                    "imageUrl": "http://example.com/spaghetti.jpg",
+                    "isAvailable": true,
+                    "isGlutenFree": false,
+                    "isVegan": false,
+                    "isVegetarian": false,
+                    "menuItemId": "m1",
+                    "name": "Spaghetti Carbonara",
+                    "nutritionalInfo": {
+                        "calories": 600,
+                        "carbohydrates": 75,
+                        "fat": 20,
+                        "fiber": 2,
+                        "protein": 25
+                    },
+                    "preparationTime": 15,
+                    "price": 12.5,
+                    "restaurantId": "12345",
+                    "updatedAt": "2023-01-06T10:00:00"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "actualDeliveryTime": "",
+                    "assignedDeliveryService": "Wolt",
+                    "createdAt": "2023-01-10T10:00:00",
+                    "currency": "EUR",
+                    "customer": {
+                        "email": "john@example.com",
+                        "name": "John Doe",
+                        "phone": "123-456-7890"
+                    },
+                    "customerId": "c1",
+                    "deliveryAddress": {
+                        "city": "Rome",
+                        "country": "Italy",
+                        "deliveryInstructions": "Leave at the door.",
+                        "latitude": 41.9028,
+                        "line1": "456 Delivery Rd.",
+                        "line2": "",
+                        "longitude": 12.4964,
+                        "postcode": "00100",
+                        "state": "Lazio"
+                    },
+                    "deliveryFee": 5.0,
+                    "deliveryPersonId": "dp1",
+                    "estimatedDeliveryTime": "2023-01-10T12:30:00",
+                    "items": [
+                        {
+                            "customizations": [],
+                            "itemTotal": 25.0,
+                            "menuItemId": "m1",
+                            "name": "Spaghetti Carbonara",
+                            "quantity": 2,
+                            "unitPrice": 12.5
+                        }
+                    ],
+                    "orderId": "o1",
+                    "paymentMethod": "Credit Card",
+                    "paymentStatus": "PAID",
+                    "requestedDeliveryTime": "2023-01-10T12:00:00",
+                    "restaurantId": "12345",
+                    "serviceFee": 2.0,
+                    "specialInstructions": "",
+                    "subtotal": 25.0,
+                    "tax": 3.5,
+                    "tip": 5.0,
+                    "totalAmount": 35.5,
+                    "trackingUrl": "http://example.com/track/o1",
+                    "updatedAt": "2023-01-10T10:30:00"
+                }
+            }
+        },
+        {
+            "DeliveryService": {
+                "entity_data_example": {
+                    "apiEndpoint": "http://api.wolt.com",
+                    "apiKey": "abcdef123456",
+                    "averageDeliveryTime": 30,
+                    "commissionRate": 15.0,
+                    "contact": {
+                        "contactPerson": "Luca Bianchi",
+                        "email": "support@wolt.com",
+                        "phone": "987-654-3210",
+                        "supportUrl": "http://support.wolt.com"
+                    },
+                    "createdAt": "2023-01-01T10:00:00",
+                    "deliveryServiceId": "ds1",
+                    "description": "Fast and reliable food delivery service.",
+                    "integrationConfig": {
+                        "authType": "Bearer",
+                        "retryAttempts": 3,
+                        "timeoutMs": 5000,
+                        "webhookUrl": "http://example.com/webhook"
+                    },
+                    "isActive": true,
+                    "maxDeliveryDistance": 10.0,
+                    "name": "Wolt",
+                    "operatingHours": [
+                        {
+                            "closeTime": "21:00",
+                            "dayOfWeek": "Monday",
+                            "isOperating": true,
+                            "openTime": "09:00"
+                        },
+                        {
+                            "closeTime": "21:00",
+                            "dayOfWeek": "Tuesday",
+                            "isOperating": true,
+                            "openTime": "09:00"
+                        }
+                    ],
+                    "supportedRegions": [
+                        "Rome",
+                        "Milan",
+                        "Florence"
+                    ],
+                    "updatedAt": "2023-01-10T10:00:00"
+                }
+            }
+        },
+        {
+            "DeliveryPerson": {
+                "entity_data_example": {
+                    "createdAt": "2023-01-01T10:00:00",
+                    "currentLocation": {
+                        "address": "456 Delivery Rd.",
+                        "latitude": 41.9028,
+                        "longitude": 12.4964,
+                        "timestamp": "2023-01-10T10:30:00"
+                    },
+                    "deliveryPersonId": "dp1",
+                    "deliveryServiceId": "ds1",
+                    "email": "mario@wolt.com",
+                    "isAvailable": true,
+                    "isOnline": true,
+                    "name": "Mario",
+                    "phone": "333-444-5555",
+                    "rating": 4.8,
+                    "totalDeliveries": 50,
+                    "updatedAt": "2023-01-10T10:00:00",
+                    "vehicleDetails": {
+                        "capacity": 2,
+                        "color": "Red",
+                        "licensePlate": "XYZ123",
+                        "model": "Giant"
+                    },
+                    "vehicleType": "BIKE",
+                    "workingHours": [
+                        {
+                            "dayOfWeek": "Monday",
+                            "endTime": "18:00",
+                            "isWorking": true,
+                            "startTime": "09:00"
+                        },
+                        {
+                            "dayOfWeek": "Tuesday",
+                            "endTime": "18:00",
+                            "isWorking": true,
+                            "startTime": "09:00"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
