@@ -1,0 +1,1 @@
+Let’s build a system that aggregates different delivery services to deliver food from restaurants and/or grocery stores, and provides a single API for integration. For example, this system could connect restaurant management platforms such as eKeeper or Syrve with delivery services like Wolt, Glovo, or other regional providers.
