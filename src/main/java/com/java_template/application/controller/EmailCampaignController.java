@@ -90,11 +90,11 @@ public class EmailCampaignController {
             })
             .exceptionally(ex -> {
                 logger.error("Failed to get campaign {}: {}", id, ex.getMessage());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", Map.of(
-                        "code", "RETRIEVAL_FAILED",
-                        "message", ex.getMessage()
-                    )));
+                Map<String, Object> errorResponse = Map.of("error", Map.of(
+                    "code", "RETRIEVAL_FAILED",
+                    "message", ex.getMessage()
+                ));
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 
@@ -240,8 +240,8 @@ public class EmailCampaignController {
         logger.debug("Getting analytics for campaign: {}", id);
         
         return entityService.getItem(id)
-            .thenApply(entityWithMetadata -> {
-                if (entityWithMetadata == null) {
+            .thenApply(dataPayload -> {
+                if (dataPayload == null) {
                     return ResponseEntity.notFound().build();
                 }
                 
@@ -276,11 +276,11 @@ public class EmailCampaignController {
             })
             .exceptionally(ex -> {
                 logger.error("Failed to get campaign analytics {}: {}", id, ex.getMessage());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", Map.of(
-                        "code", "ANALYTICS_FAILED",
-                        "message", ex.getMessage()
-                    )));
+                Map<String, Object> errorResponse = Map.of("error", Map.of(
+                    "code", "ANALYTICS_FAILED",
+                    "message", ex.getMessage()
+                ));
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 }

@@ -93,11 +93,11 @@ public class CatFactController {
             })
             .exceptionally(ex -> {
                 logger.error("Failed to get cat fact {}: {}", id, ex.getMessage());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", Map.of(
-                        "code", "RETRIEVAL_FAILED",
-                        "message", ex.getMessage()
-                    )));
+                Map<String, Object> errorResponse = Map.of("error", Map.of(
+                    "code", "RETRIEVAL_FAILED",
+                    "message", ex.getMessage()
+                ));
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 

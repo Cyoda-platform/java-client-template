@@ -90,11 +90,11 @@ public class SubscriberController {
             })
             .exceptionally(ex -> {
                 logger.error("Failed to get subscriber {}: {}", id, ex.getMessage());
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", Map.of(
-                        "code", "RETRIEVAL_FAILED",
-                        "message", ex.getMessage()
-                    )));
+                Map<String, Object> errorResponse = Map.of("error", Map.of(
+                    "code", "RETRIEVAL_FAILED",
+                    "message", ex.getMessage()
+                ));
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 
