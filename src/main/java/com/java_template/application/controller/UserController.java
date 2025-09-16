@@ -50,9 +50,12 @@ public class UserController {
                     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
                 }
             })
-            .exceptionally(throwable -> {
-                logger.error("Error creating user", throwable);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            .handle((result, throwable) -> {
+                if (throwable != null) {
+                    logger.error("Error creating user", throwable);
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).<User>build();
+                }
+                return result;
             });
     }
 
