@@ -36,8 +36,8 @@ public class UserDeletionProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(User.class)
-            .map(context -> {
-                User user = context.entity();
+            .map(processingContext -> {
+                User user = processingContext.entity();
                 
                 // Anonymize personal data (keep ID for referential integrity)
                 user.setFirstName("DELETED");

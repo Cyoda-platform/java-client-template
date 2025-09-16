@@ -51,7 +51,7 @@ public class CategoryController {
             })
             .exceptionally(throwable -> {
                 logger.error("Error creating category", throwable);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).<Category>build();
             });
     }
 

@@ -53,7 +53,7 @@ public class PetController {
             })
             .exceptionally(throwable -> {
                 logger.error("Error adding pet", throwable);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).<Pet>build();
             });
     }
 
@@ -86,7 +86,7 @@ public class PetController {
             })
             .exceptionally(throwable -> {
                 logger.error("Error updating pet", throwable);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).<Pet>build();
             });
     }
 
@@ -122,7 +122,7 @@ public class PetController {
             })
             .exceptionally(throwable -> {
                 logger.error("Error finding pets by status", throwable);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).<List<Pet>>build();
             });
     }
 
@@ -162,7 +162,7 @@ public class PetController {
             })
             .exceptionally(throwable -> {
                 logger.error("Error finding pets by tags", throwable);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).<List<Pet>>build();
             });
     }
 
@@ -188,7 +188,7 @@ public class PetController {
             })
             .exceptionally(throwable -> {
                 logger.error("Error getting pet by ID", throwable);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).<Pet>build();
             });
     }
 

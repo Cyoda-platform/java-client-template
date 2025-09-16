@@ -36,8 +36,8 @@ public class UserSuspensionProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(User.class)
-            .map(context -> {
-                User user = context.entity();
+            .map(processingContext -> {
+                User user = processingContext.entity();
                 
                 // Set user status to -1 (suspended)
                 user.setUserStatus(-1);
