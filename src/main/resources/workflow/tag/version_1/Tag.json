@@ -1,0 +1,45 @@
+{
+    "version": "1.0",
+    "name": "Tag Workflow",
+    "desc": "Simple workflow for tag management.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_tag",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TagCreationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "deactivate_tag",
+                    "next": "inactive",
+                    "manual": true
+                }
+            ]
+        },
+        "inactive": {
+            "transitions": [
+                {
+                    "name": "reactivate_tag",
+                    "next": "active",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}

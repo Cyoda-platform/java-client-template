@@ -1,0 +1,112 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Manages user account lifecycle.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "register_user",
+                    "next": "registered",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserRegistrationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "registered": {
+            "transitions": [
+                {
+                    "name": "activate_user",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserActivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "suspend_user",
+                    "next": "suspended",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserSuspensionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "delete_user",
+                    "next": "deleted",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserDeletionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "suspended": {
+            "transitions": [
+                {
+                    "name": "reactivate_user",
+                    "next": "active",
+                    "manual": false
+                },
+                {
+                    "name": "delete_suspended_user",
+                    "next": "deleted",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserDeletionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "deleted": {
+            "transitions": [
+                {
+                    "name": "end_state",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "end_state": {
+            "transitions": []
+        }
+    }
+}
