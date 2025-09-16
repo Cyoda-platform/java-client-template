@@ -45,8 +45,8 @@ public class UserRegistrationProcessor implements CyodaProcessor {
                      "Password is required")
             .validate(user -> isValidEmail(user.getEmail()), 
                      "Email format is invalid")
-            .map(context -> {
-                User user = context.entity();
+            .map(processingContext -> {
+                User user = processingContext.entity();
                 
                 // Generate unique user ID if not provided
                 if (user.getId() == null) {

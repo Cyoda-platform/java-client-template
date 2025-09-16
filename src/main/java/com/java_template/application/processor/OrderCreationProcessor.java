@@ -43,8 +43,8 @@ public class OrderCreationProcessor implements CyodaProcessor {
             .validate(order -> order.getPetId() != null, "Pet ID is required")
             .validate(order -> order.getQuantity() != null && order.getQuantity() > 0, 
                      "Quantity must be positive")
-            .map(context -> {
-                Order order = context.entity();
+            .map(processingContext -> {
+                Order order = processingContext.entity();
                 
                 // Generate unique order ID if not provided
                 if (order.getId() == null) {

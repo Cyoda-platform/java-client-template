@@ -35,8 +35,8 @@ public class OrderShippingProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(Order.class)
-            .map(context -> {
-                Order order = context.entity();
+            .map(processingContext -> {
+                Order order = processingContext.entity();
                 
                 // Set ship date to current timestamp
                 order.setShipDate(LocalDateTime.now());

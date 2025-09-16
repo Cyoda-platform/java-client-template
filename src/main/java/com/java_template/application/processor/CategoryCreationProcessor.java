@@ -37,8 +37,8 @@ public class CategoryCreationProcessor implements CyodaProcessor {
                      "Category name is required")
             .validate(category -> category.getName().length() >= 2 && category.getName().length() <= 50, 
                      "Category name must be between 2 and 50 characters")
-            .map(context -> {
-                Category category = context.entity();
+            .map(processingContext -> {
+                Category category = processingContext.entity();
                 
                 // Generate unique ID if not provided
                 if (category.getId() == null) {

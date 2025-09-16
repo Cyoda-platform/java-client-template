@@ -36,8 +36,8 @@ public class OrderDeliveryProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(Order.class)
-            .map(context -> {
-                Order order = context.entity();
+            .map(processingContext -> {
+                Order order = processingContext.entity();
                 
                 // Set complete flag to true
                 order.setComplete(true);

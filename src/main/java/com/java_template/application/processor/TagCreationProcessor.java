@@ -41,8 +41,8 @@ public class TagCreationProcessor implements CyodaProcessor {
                      "Tag name must be lowercase")
             .validate(tag -> tag.getName().matches("^[a-z0-9-]+$"), 
                      "Tag name can only contain lowercase letters, numbers, and hyphens")
-            .map(context -> {
-                Tag tag = context.entity();
+            .map(processingContext -> {
+                Tag tag = processingContext.entity();
                 
                 // Generate unique ID if not provided
                 if (tag.getId() == null) {

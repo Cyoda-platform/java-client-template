@@ -36,8 +36,8 @@ public class OrderCancellationProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(Order.class)
-            .map(context -> {
-                Order order = context.entity();
+            .map(processingContext -> {
+                Order order = processingContext.entity();
                 
                 logger.info("Cancelled order with ID: {} for pet ID: {}", order.getId(), order.getPetId());
                 
