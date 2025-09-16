@@ -1,0 +1,73 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "categoryId": 2,
+                    "createdDate": "2023-10-01T12:00:00",
+                    "id": 1,
+                    "lastModified": "2023-10-10T12:00:00",
+                    "name": "Buddy",
+                    "photoUrls": [
+                        "http://example.com/photo1.jpg"
+                    ],
+                    "tagIds": [
+                        1,
+                        2
+                    ]
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "complete": false,
+                    "customerId": 1,
+                    "id": 1,
+                    "orderDate": "2023-10-01T12:00:00",
+                    "petId": 1,
+                    "quantity": 1,
+                    "shipDate": "2023-10-15T12:00:00"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "email": "john@example.com",
+                    "firstName": "John",
+                    "id": 1,
+                    "lastLoginDate": "2023-10-10T12:00:00",
+                    "lastName": "Doe",
+                    "password": "encrypted_password",
+                    "phone": "123-456-7890",
+                    "registrationDate": "2023-10-01T12:00:00",
+                    "userStatus": 1,
+                    "username": "john_doe"
+                }
+            }
+        },
+        {
+            "Category": {
+                "entity_data_example": {
+                    "active": true,
+                    "createdDate": "2023-10-01T12:00:00",
+                    "description": "All kinds of dogs",
+                    "id": 1,
+                    "name": "Dogs"
+                }
+            }
+        },
+        {
+            "Tag": {
+                "entity_data_example": {
+                    "active": true,
+                    "color": "#FF5733",
+                    "createdDate": "2023-10-01T12:00:00",
+                    "id": 1,
+                    "name": "friendly"
+                }
+            }
+        }
+    ]
+}
