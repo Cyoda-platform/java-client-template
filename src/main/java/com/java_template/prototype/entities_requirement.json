@@ -1,0 +1,112 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "age": 24,
+                    "breed": "Persian",
+                    "categoryId": "cat",
+                    "color": "white",
+                    "createdAt": "2023-01-01T10:00:00",
+                    "description": "A very fluffy cat",
+                    "name": "Fluffy",
+                    "petId": "1234",
+                    "photoUrls": [
+                        "http://example.com/photo1.jpg",
+                        "http://example.com/photo2.jpg"
+                    ],
+                    "price": 299.99,
+                    "tags": [
+                        {
+                            "id": "1",
+                            "name": "cute"
+                        },
+                        {
+                            "id": "2",
+                            "name": "fluffy"
+                        }
+                    ],
+                    "updatedAt": "2023-01-02T10:00:00",
+                    "vaccinated": true,
+                    "weight": 5.0
+                }
+            }
+        },
+        {
+            "Category": {
+                "entity_data_example": {
+                    "categoryId": "cat",
+                    "createdAt": "2023-01-01T10:00:00",
+                    "description": "Feline pets",
+                    "imageUrl": "http://example.com/cat_image.jpg",
+                    "name": "Cats",
+                    "updatedAt": "2023-01-02T10:00:00"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "createdAt": "2023-01-01T10:00:00",
+                    "items": [
+                        {
+                            "petId": "1234",
+                            "petName": "Fluffy",
+                            "quantity": 1,
+                            "totalPrice": 299.99,
+                            "unitPrice": 299.99
+                        }
+                    ],
+                    "notes": "Please deliver quickly",
+                    "orderDate": "2023-01-01T10:00:00",
+                    "orderId": "order123",
+                    "paymentMethod": "Credit Card",
+                    "shipDate": "2023-01-05T10:00:00",
+                    "shippingAddress": {
+                        "city": "Anytown",
+                        "country": "USA",
+                        "state": "CA",
+                        "street": "123 Main St",
+                        "zipCode": "12345"
+                    },
+                    "totalAmount": 299.99,
+                    "updatedAt": "2023-01-02T10:00:00",
+                    "userId": "user456"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "addresses": [
+                        {
+                            "city": "Anytown",
+                            "country": "USA",
+                            "isDefault": true,
+                            "state": "CA",
+                            "street": "123 Main St",
+                            "zipCode": "12345"
+                        }
+                    ],
+                    "createdAt": "2023-01-01T10:00:00",
+                    "dateOfBirth": "1990-01-01",
+                    "email": "john.doe@example.com",
+                    "firstName": "John",
+                    "lastName": "Doe",
+                    "phone": "123-456-7890",
+                    "preferences": {
+                        "favoriteCategories": [
+                            "Cats",
+                            "Dogs"
+                        ],
+                        "newsletter": true,
+                        "notifications": false
+                    },
+                    "updatedAt": "2023-01-02T10:00:00",
+                    "userId": "user456",
+                    "username": "petlover"
+                }
+            }
+        }
+    ]
+}
