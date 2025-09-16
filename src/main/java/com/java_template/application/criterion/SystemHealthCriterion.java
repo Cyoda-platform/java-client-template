@@ -53,8 +53,7 @@ public class SystemHealthCriterion implements CyodaCriterion {
         logger.debug("Checking system health criteria for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .responseBuilder()
-            .withEvaluationOutcome(this.evaluateSystemHealth())
+            .evaluate(ctx -> this.evaluateSystemHealth())
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
@@ -142,9 +141,8 @@ public class SystemHealthCriterion implements CyodaCriterion {
             }
         }
         
-        // Fallback: use process CPU load
-        double processLoad = osBean.getProcessCpuLoad();
-        return processLoad >= 0 ? processLoad : 0.0;
+        // Fallback: return 0 if system CPU load is not available
+        return 0.0;
     }
 
     /**

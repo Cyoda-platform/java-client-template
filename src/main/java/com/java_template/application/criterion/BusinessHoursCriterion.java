@@ -57,8 +57,7 @@ public class BusinessHoursCriterion implements CyodaCriterion {
         logger.debug("Checking business hours criteria for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .responseBuilder()
-            .withEvaluationOutcome(this.evaluateBusinessHours())
+            .evaluate(ctx -> this.evaluateBusinessHours())
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }

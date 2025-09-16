@@ -51,8 +51,7 @@ public class ApiRateLimitCriterion implements CyodaCriterion {
         logger.debug("Checking API rate limit criteria for request: {}", request.getId());
 
         return serializer.withRequest(request)
-            .responseBuilder()
-            .withEvaluationOutcome(this.evaluateApiRateLimit())
+            .evaluate(ctx -> this.evaluateApiRateLimit())
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
