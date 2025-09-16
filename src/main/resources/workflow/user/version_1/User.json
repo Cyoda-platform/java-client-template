@@ -1,0 +1,59 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Workflow for managing User account states and transitions",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "activate_user",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserActivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "deactivate_user",
+                    "next": "inactive",
+                    "manual": true
+                },
+                {
+                    "name": "suspend_user",
+                    "next": "suspended",
+                    "manual": true
+                }
+            ]
+        },
+        "inactive": {
+            "transitions": [
+                {
+                    "name": "reactivate_user",
+                    "next": "active",
+                    "manual": true
+                }
+            ]
+        },
+        "suspended": {
+            "transitions": [
+                {
+                    "name": "unsuspend_user",
+                    "next": "active",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}

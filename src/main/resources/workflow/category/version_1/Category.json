@@ -1,0 +1,45 @@
+{
+    "version": "1.0",
+    "name": "Category Workflow",
+    "desc": "Workflow for managing the lifecycle of a category in the Purrfect Pets system",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "activate_category",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CategoryActivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "deactivate_category",
+                    "next": "inactive",
+                    "manual": true
+                }
+            ]
+        },
+        "inactive": {
+            "transitions": [
+                {
+                    "name": "reactivate_category",
+                    "next": "active",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}

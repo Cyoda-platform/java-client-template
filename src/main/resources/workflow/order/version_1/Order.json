@@ -1,0 +1,127 @@
+{
+    "version": "1.0",
+    "name": "Order Workflow",
+    "desc": "Description of the workflow for Order",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "place_order",
+                    "next": "placed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderPlacementProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "placed": {
+            "transitions": [
+                {
+                    "name": "approve_order",
+                    "next": "approved",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderApprovalProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "cancel_order",
+                    "next": "cancelled",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "approved": {
+            "transitions": [
+                {
+                    "name": "ship_order",
+                    "next": "shipped",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderShippingProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "cancel_approved_order",
+                    "next": "cancelled",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "OrderCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "shipped": {
+            "transitions": [
+                {
+                    "name": "confirm_delivery",
+                    "next": "delivered",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "OrderDeliveryProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "delivered": {
+            "transitions": [
+                {
+                    "name": "end_process",
+                    "next": "none",
+                    "manual": false
+                }
+            ]
+        },
+        "cancelled": {
+            "transitions": [
+                {
+                    "name": "end_process",
+                    "next": "none",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
