@@ -1,0 +1,71 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "category": {
+                        "id": 1,
+                        "name": "Dogs"
+                    },
+                    "id": 1,
+                    "name": "doggie",
+                    "photoUrls": [
+                        "http://example.com/photo1.jpg",
+                        "http://example.com/photo2.jpg"
+                    ],
+                    "tags": [
+                        {
+                            "id": 1,
+                            "name": "friendly"
+                        },
+                        {
+                            "id": 2,
+                            "name": "small"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "Category": {
+                "entity_data_example": {
+                    "id": 1,
+                    "name": "Dogs"
+                }
+            }
+        },
+        {
+            "Tag": {
+                "entity_data_example": {
+                    "id": 1,
+                    "name": "friendly"
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "complete": true,
+                    "id": 1,
+                    "petId": 1,
+                    "quantity": 2,
+                    "shipDate": "2023-10-01T10:00:00"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "email": "john.doe@example.com",
+                    "firstName": "John",
+                    "id": 1,
+                    "lastName": "Doe",
+                    "password": "encrypted_password",
+                    "phone": "123-456-7890",
+                    "userStatus": 1,
+                    "username": "user1"
+                }
+            }
+        }
+    ]
+}
