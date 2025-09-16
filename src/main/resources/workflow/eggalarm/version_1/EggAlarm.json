@@ -1,0 +1,118 @@
+{
+    "version": "1.0",
+    "name": "EggAlarm Workflow",
+    "desc": "Manages the lifecycle of an egg cooking alarm from creation to completion or cancellation.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_created",
+                    "next": "created",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EggAlarmCreationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "created": {
+            "transitions": [
+                {
+                    "name": "transition_to_active",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "EggAlarmStartProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_cancelled",
+                    "next": "cancelled",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "EggAlarmCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "transition_to_completed",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EggAlarmCompletionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EggAlarmTimerCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "transition_to_cancelled",
+                    "next": "cancelled",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "EggAlarmCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "end",
+                    "manual": false
+                }
+            ]
+        },
+        "cancelled": {
+            "transitions": [
+                {
+                    "name": "transition_to_end",
+                    "next": "end",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
