@@ -1,0 +1,51 @@
+{
+    "entities": [
+        {
+            "Subscriber": {
+                "entity_data_example": {
+                    "email": "subscriber@example.com",
+                    "firstName": "John",
+                    "id": 1,
+                    "isActive": true,
+                    "lastName": "Doe",
+                    "preferences": {
+                        "format": "html",
+                        "frequency": "weekly"
+                    },
+                    "subscriptionDate": "2023-10-01T12:00:00",
+                    "unsubscribeToken": "550e8400-e29b-41d4-a716-446655440000"
+                }
+            }
+        },
+        {
+            "CatFact": {
+                "entity_data_example": {
+                    "category": "general",
+                    "factText": "Cats have five toes on their front paws, but only four toes on their back paws.",
+                    "id": 1,
+                    "isUsed": false,
+                    "length": 77,
+                    "retrievedDate": "2023-10-01T12:00:00",
+                    "source": "catfact.ninja"
+                }
+            }
+        },
+        {
+            "EmailCampaign": {
+                "entity_data_example": {
+                    "campaignName": "Weekly Cat Facts - Week 1",
+                    "catFactId": 1,
+                    "clickCount": 0,
+                    "failedDeliveries": 0,
+                    "id": 1,
+                    "openCount": 0,
+                    "scheduledDate": "2023-10-07T10:00:00",
+                    "sentDate": null,
+                    "successfulDeliveries": 0,
+                    "totalSubscribers": 100,
+                    "unsubscribeCount": 0
+                }
+            }
+        }
+    ]
+}
