@@ -4,9 +4,7 @@ import com.java_template.application.entity.subscriber.version_1.Subscriber;
 import com.java_template.common.service.EntityService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -42,7 +40,7 @@ public class SubscriberController {
     public CompletableFuture<ResponseEntity<Map<String, Object>>> createSubscriber(@RequestBody Subscriber subscriber) {
         logger.debug("Creating new subscriber: {}", subscriber.getEmail());
         
-        return entityService.createEntity(subscriber, "subscribe")
+        return entityService.addItem(Subscriber.ENTITY_NAME, Subscriber.ENTITY_VERSION, subscriber)
             .thenApply(entityWithMetadata -> {
                 Map<String, Object> response = Map.of(
                     "id", entityWithMetadata.metadata().getId(),
