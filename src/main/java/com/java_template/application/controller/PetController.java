@@ -20,13 +20,13 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/pet")
-public class SimplePetController {
+public class PetController {
 
-    private static final Logger logger = LoggerFactory.getLogger(SimplePetController.class);
+    private static final Logger logger = LoggerFactory.getLogger(PetController.class);
     private final EntityService entityService;
     private final ObjectMapper objectMapper;
 
-    public SimplePetController(EntityService entityService, ObjectMapper objectMapper) {
+    public PetController(EntityService entityService, ObjectMapper objectMapper) {
         this.entityService = entityService;
         this.objectMapper = objectMapper;
     }
