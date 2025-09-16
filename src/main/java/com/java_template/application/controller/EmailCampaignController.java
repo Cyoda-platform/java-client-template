@@ -70,7 +70,7 @@ public class EmailCampaignController {
      * Get campaign by ID.
      */
     @GetMapping("/{id}")
-    public CompletableFuture<ResponseEntity<Map<String, Object>>> getCampaign(@PathVariable UUID id) {
+    public CompletableFuture<ResponseEntity<?>> getCampaign(@PathVariable UUID id) {
         logger.debug("Getting campaign by ID: {}", id);
         
         return entityService.getItem(id)
@@ -94,7 +94,7 @@ public class EmailCampaignController {
                     "code", "RETRIEVAL_FAILED",
                     "message", ex.getMessage()
                 ));
-                return (ResponseEntity<Map<String, Object>>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 
@@ -236,7 +236,7 @@ public class EmailCampaignController {
      * Get detailed analytics for a campaign.
      */
     @GetMapping("/{id}/analytics")
-    public CompletableFuture<ResponseEntity<Map<String, Object>>> getCampaignAnalytics(@PathVariable UUID id) {
+    public CompletableFuture<ResponseEntity<?>> getCampaignAnalytics(@PathVariable UUID id) {
         logger.debug("Getting analytics for campaign: {}", id);
         
         return entityService.getItem(id)
@@ -280,7 +280,7 @@ public class EmailCampaignController {
                     "code", "ANALYTICS_FAILED",
                     "message", ex.getMessage()
                 ));
-                return (ResponseEntity<Map<String, Object>>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 }

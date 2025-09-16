@@ -73,7 +73,7 @@ public class CatFactController {
      * Get cat fact by ID.
      */
     @GetMapping("/{id}")
-    public CompletableFuture<ResponseEntity<Map<String, Object>>> getCatFact(@PathVariable UUID id) {
+    public CompletableFuture<ResponseEntity<?>> getCatFact(@PathVariable UUID id) {
         logger.debug("Getting cat fact by ID: {}", id);
         
         return entityService.getItem(id)
@@ -97,7 +97,7 @@ public class CatFactController {
                     "code", "RETRIEVAL_FAILED",
                     "message", ex.getMessage()
                 ));
-                return (ResponseEntity<Map<String, Object>>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 

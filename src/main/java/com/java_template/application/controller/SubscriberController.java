@@ -94,7 +94,7 @@ public class SubscriberController {
                     "code", "RETRIEVAL_FAILED",
                     "message", ex.getMessage()
                 ));
-                return (ResponseEntity<Map<String, Object>>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 
