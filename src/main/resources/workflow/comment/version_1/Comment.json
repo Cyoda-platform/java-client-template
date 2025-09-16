@@ -1,0 +1,57 @@
+{
+    "version": "1.0",
+    "name": "Comment Workflow",
+    "desc": "Manages the lifecycle of individual comments from ingestion to analysis readiness.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "ingest_comment",
+                    "next": "ingested",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentIngestProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "ingested": {
+            "transitions": [
+                {
+                    "name": "analyze_comment",
+                    "next": "analyzed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "analyzed": {
+            "transitions": [
+                {
+                    "name": "complete_comment",
+                    "next": "completed",
+                    "manual": false
+                }
+            ]
+        },
+        "completed": {
+            "transitions": []
+        }
+    }
+}

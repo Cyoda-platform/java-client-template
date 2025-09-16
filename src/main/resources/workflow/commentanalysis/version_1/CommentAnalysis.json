@@ -1,0 +1,90 @@
+{
+    "version": "1.0",
+    "name": "CommentAnalysis Workflow",
+    "desc": "Manages the analysis process for comments grouped by postId.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "start_analysis",
+                    "next": "collecting",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisStartProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "collecting": {
+            "transitions": [
+                {
+                    "name": "begin_processing",
+                    "next": "processing",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisCalculationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CommentAnalysisReadyCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "processing": {
+            "transitions": [
+                {
+                    "name": "complete_analysis",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisCompleteProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": [
+                {
+                    "name": "generate_report",
+                    "next": "reported",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CommentAnalysisReportProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

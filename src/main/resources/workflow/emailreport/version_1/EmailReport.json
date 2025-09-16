@@ -1,0 +1,122 @@
+{
+    "version": "1.0",
+    "name": "EmailReport Workflow",
+    "desc": "Manages email report generation and delivery.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "prepare_email",
+                    "next": "prepared",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailReportPrepareProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "prepared": {
+            "transitions": [
+                {
+                    "name": "send_email",
+                    "next": "sending",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "EmailReportSendProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending": {
+            "transitions": [
+                {
+                    "name": "email_delivered",
+                    "next": "sent",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailReportDeliveredProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "email_failed",
+                    "next": "failed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailReportFailedProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry_email",
+                    "next": "retry",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "EmailReportRetryProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "retry": {
+            "transitions": [
+                {
+                    "name": "resend_email",
+                    "next": "sending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailReportSendProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "complete",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
