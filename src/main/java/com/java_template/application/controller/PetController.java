@@ -12,10 +12,7 @@ import org.cyoda.cloud.api.event.common.condition.Operation;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,11 +48,9 @@ public class PetController {
      * GET /api/pets
      */
     @GetMapping
-    public ResponseEntity<Page<EntityWithMetadata<Pet>>> getAllPets(
+    public ResponseEntity<List<EntityWithMetadata<Pet>>> getAllPets(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String categoryId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(required = false) String categoryId) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Pet.ENTITY_NAME).withVersion(Pet.ENTITY_VERSION);
             List<EntityWithMetadata<Pet>> allPets;
@@ -63,7 +58,7 @@ public class PetController {
             if (status != null || categoryId != null) {
                 // Build search conditions
                 List<SimpleCondition> conditions = new ArrayList<>();
-                
+
                 if (categoryId != null) {
                     conditions.add(new SimpleCondition()
                             .withJsonPath("$.categoryId")
@@ -76,7 +71,7 @@ public class PetController {
                         .withConditions(conditions);
 
                 allPets = entityService.search(modelSpec, condition, Pet.class);
-                
+
                 // Filter by status if provided (status is in metadata)
                 if (status != null) {
                     allPets = allPets.stream()
@@ -87,15 +82,7 @@ public class PetController {
                 allPets = entityService.findAll(modelSpec, Pet.class);
             }
 
-            // Apply pagination
-            Pageable pageable = PageRequest.of(page, size);
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), allPets.size());
-            
-            List<EntityWithMetadata<Pet>> pageContent = allPets.subList(start, end);
-            Page<EntityWithMetadata<Pet>> petPage = new PageImpl<>(pageContent, pageable, allPets.size());
-
-            return ResponseEntity.ok(petPage);
+            return ResponseEntity.ok(allPets);
         } catch (Exception e) {
             logger.error("Error getting pets", e);
             return ResponseEntity.badRequest().build();

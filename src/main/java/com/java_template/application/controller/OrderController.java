@@ -12,10 +12,7 @@ import org.cyoda.cloud.api.event.common.condition.Operation;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,11 +48,9 @@ public class OrderController {
      * GET /api/orders
      */
     @GetMapping
-    public ResponseEntity<Page<EntityWithMetadata<Order>>> getAllOrders(
+    public ResponseEntity<List<EntityWithMetadata<Order>>> getAllOrders(
             @RequestParam(required = false) String userId,
-            @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(required = false) String status) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Order.ENTITY_NAME).withVersion(Order.ENTITY_VERSION);
             List<EntityWithMetadata<Order>> allOrders;
@@ -83,15 +78,7 @@ public class OrderController {
                         .collect(Collectors.toList());
             }
 
-            // Apply pagination
-            Pageable pageable = PageRequest.of(page, size);
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), allOrders.size());
-            
-            List<EntityWithMetadata<Order>> pageContent = allOrders.subList(start, end);
-            Page<EntityWithMetadata<Order>> orderPage = new PageImpl<>(pageContent, pageable, allOrders.size());
-
-            return ResponseEntity.ok(orderPage);
+            return ResponseEntity.ok(allOrders);
         } catch (Exception e) {
             logger.error("Error getting orders", e);
             return ResponseEntity.badRequest().build();
