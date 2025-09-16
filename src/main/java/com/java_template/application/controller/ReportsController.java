@@ -58,23 +58,22 @@ public class ReportsController {
                     Map<String, Integer> factStats = catFactStats.join();
                     Map<String, Integer> campStats = campaignStats.join();
                     
-                    Map<String, Object> dashboard = Map.of(
-                        "totalSubscribers", subStats.getOrDefault("total", 0),
-                        "activeSubscribers", subStats.getOrDefault("active", 0),
-                        "pendingVerification", subStats.getOrDefault("pending", 0),
-                        "suspendedSubscribers", subStats.getOrDefault("suspended", 0),
-                        "unsubscribedSubscribers", subStats.getOrDefault("unsubscribed", 0),
-                        "totalCatFacts", factStats.getOrDefault("total", 0),
-                        "readyCatFacts", factStats.getOrDefault("ready", 0),
-                        "usedCatFacts", factStats.getOrDefault("used", 0),
-                        "totalCampaigns", campStats.getOrDefault("total", 0),
-                        "completedCampaigns", campStats.getOrDefault("completed", 0),
-                        "scheduledCampaigns", campStats.getOrDefault("scheduled", 0),
-                        "failedCampaigns", campStats.getOrDefault("failed", 0),
-                        "averageOpenRate", 62.5,
-                        "averageClickRate", 8.3,
-                        "averageUnsubscribeRate", 0.8
-                    );
+                    Map<String, Object> dashboard = new HashMap<>();
+                    dashboard.put("totalSubscribers", subStats.getOrDefault("total", 0));
+                    dashboard.put("activeSubscribers", subStats.getOrDefault("active", 0));
+                    dashboard.put("pendingVerification", subStats.getOrDefault("pending", 0));
+                    dashboard.put("suspendedSubscribers", subStats.getOrDefault("suspended", 0));
+                    dashboard.put("unsubscribedSubscribers", subStats.getOrDefault("unsubscribed", 0));
+                    dashboard.put("totalCatFacts", factStats.getOrDefault("total", 0));
+                    dashboard.put("readyCatFacts", factStats.getOrDefault("ready", 0));
+                    dashboard.put("usedCatFacts", factStats.getOrDefault("used", 0));
+                    dashboard.put("totalCampaigns", campStats.getOrDefault("total", 0));
+                    dashboard.put("completedCampaigns", campStats.getOrDefault("completed", 0));
+                    dashboard.put("scheduledCampaigns", campStats.getOrDefault("scheduled", 0));
+                    dashboard.put("failedCampaigns", campStats.getOrDefault("failed", 0));
+                    dashboard.put("averageOpenRate", 62.5);
+                    dashboard.put("averageClickRate", 8.3);
+                    dashboard.put("averageUnsubscribeRate", 0.8);
                     
                     return ResponseEntity.ok(dashboard);
                 });

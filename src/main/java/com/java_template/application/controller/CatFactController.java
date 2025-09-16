@@ -47,7 +47,7 @@ public class CatFactController {
         CatFact catFact = new CatFact();
         catFact.setSource(source);
         
-        return entityService.createEntity(catFact, "retrieve")
+        return entityService.addItem(CatFact.ENTITY_NAME, CatFact.ENTITY_VERSION, catFact)
             .thenApply(entityWithMetadata -> {
                 Map<String, Object> response = Map.of(
                     "id", entityWithMetadata.metadata().getId(),
