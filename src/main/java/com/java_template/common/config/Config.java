@@ -41,6 +41,9 @@ public class Config {
 
     public static final boolean INCLUDE_DEFAULT_OPERATIONS = Boolean.parseBoolean(getEnv("INCLUDE_DEFAULT_OPERATIONS", "false"));
 
+    // Entity Configuration
+    public static final Integer ENTITY_VERSION = Integer.parseInt(getEnv("ENTITY_VERSION", "1"));
+
     /**
      * Get list of hosts that should be trusted even with self-signed certificates
      * @return List of trusted hosts
