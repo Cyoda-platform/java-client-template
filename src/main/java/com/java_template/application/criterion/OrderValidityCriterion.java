@@ -42,7 +42,8 @@ public class OrderValidityCriterion implements CyodaCriterion {
             .complete();
     }
 
-    private EvaluationOutcome validateOrder(Order order) {
+    private EvaluationOutcome validateOrder(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
+        Order order = context.entity();
         return validateOrderExists(order)
             .and(validatePetId(order))
             .and(validateQuantity(order))

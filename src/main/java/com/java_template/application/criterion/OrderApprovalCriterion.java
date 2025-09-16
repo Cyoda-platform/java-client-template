@@ -42,7 +42,8 @@ public class OrderApprovalCriterion implements CyodaCriterion {
             .complete();
     }
 
-    private EvaluationOutcome validateOrderForApproval(Order order) {
+    private EvaluationOutcome validateOrderForApproval(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
+        Order order = context.entity();
         return validateOrderExists(order)
             .and(validateOrderState(order))
             .and(validatePetStillReserved(order))

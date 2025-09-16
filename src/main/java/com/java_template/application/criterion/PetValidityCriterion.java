@@ -42,7 +42,8 @@ public class PetValidityCriterion implements CyodaCriterion {
             .complete();
     }
 
-    private EvaluationOutcome validatePet(Pet pet) {
+    private EvaluationOutcome validatePet(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
+        Pet pet = context.entity();
         return validatePetExists(pet)
             .and(validatePetName(pet))
             .and(validatePhotoUrls(pet))
