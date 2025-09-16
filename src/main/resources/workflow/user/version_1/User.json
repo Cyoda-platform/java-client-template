@@ -1,0 +1,117 @@
+{
+    "version": "1.0",
+    "name": "User Workflow",
+    "desc": "Workflow design for User entity in Purrfect Pets API",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "register_user",
+                    "next": "registered",
+                    "manual": false
+                }
+            ]
+        },
+        "registered": {
+            "transitions": [
+                {
+                    "name": "activate_user",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserActivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "reject_registration",
+                    "next": "deactivated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserRejectionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "suspend_user",
+                    "next": "suspended",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserSuspensionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "deactivate_user",
+                    "next": "deactivated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserDeactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "suspended": {
+            "transitions": [
+                {
+                    "name": "reactivate_user",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "permanent_deactivation",
+                    "next": "deactivated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "UserDeactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "deactivated": {
+            "transitions": []
+        }
+    }
+}

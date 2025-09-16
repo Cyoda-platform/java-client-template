@@ -1,0 +1,86 @@
+{
+    "version": "1.0",
+    "name": "Tag Workflow",
+    "desc": "Workflow for managing tags in the Purrfect Pets API",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "create_tag",
+                    "next": "active",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "TagCreationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "deactivate_tag",
+                    "next": "inactive",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "TagDeactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "TagDeactivationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "reactivate_tag",
+                    "next": "inactive",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "TagReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "inactive": {
+            "transitions": [
+                {
+                    "name": "reactivate_tag",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "TagReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
