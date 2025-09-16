@@ -44,7 +44,8 @@ public class TagValidityCriterion implements CyodaCriterion {
             .complete();
     }
 
-    private EvaluationOutcome validateTag(Tag tag) {
+    private EvaluationOutcome validateTag(CriterionSerializer.CriterionEntityEvaluationContext<Tag> context) {
+        Tag tag = context.entity();
         return validateTagExists(tag)
             .and(validateTagName(tag))
             .and(validateTagNameLength(tag))

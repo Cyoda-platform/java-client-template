@@ -51,7 +51,8 @@ public class UserValidityCriterion implements CyodaCriterion {
             .complete();
     }
 
-    private EvaluationOutcome validateUser(User user) {
+    private EvaluationOutcome validateUser(CriterionSerializer.CriterionEntityEvaluationContext<User> context) {
+        User user = context.entity();
         return validateUserExists(user)
             .and(validateUsername(user))
             .and(validateEmail(user))

@@ -33,8 +33,8 @@ public class PetReservationProcessor implements CyodaProcessor {
 
         return serializer.withRequest(request)
             .toEntity(Pet.class)
-            .map(context -> {
-                Pet pet = context.entity();
+            .map(processingContext -> {
+                Pet pet = processingContext.entity();
                 
                 // Log reservation event
                 logger.info("Reserved pet with ID: {} and name: {}", pet.getId(), pet.getName());

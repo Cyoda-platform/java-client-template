@@ -44,7 +44,8 @@ public class CategoryValidityCriterion implements CyodaCriterion {
             .complete();
     }
 
-    private EvaluationOutcome validateCategory(Category category) {
+    private EvaluationOutcome validateCategory(CriterionSerializer.CriterionEntityEvaluationContext<Category> context) {
+        Category category = context.entity();
         return validateCategoryExists(category)
             .and(validateCategoryName(category))
             .and(validateCategoryNameLength(category))

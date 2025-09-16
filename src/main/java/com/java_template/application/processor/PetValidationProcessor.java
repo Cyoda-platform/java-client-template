@@ -44,8 +44,8 @@ public class PetValidationProcessor implements CyodaProcessor {
                      "At least one photo URL must be provided")
             .validate(pet -> validatePhotoUrls(pet), 
                      "All photo URLs must be valid HTTP/HTTPS URLs")
-            .map(context -> {
-                Pet pet = context.entity();
+            .map(processingContext -> {
+                Pet pet = processingContext.entity();
                 
                 // Set last modified timestamp (conceptually)
                 logger.info("Validated pet with ID: {} and name: {}", pet.getId(), pet.getName());

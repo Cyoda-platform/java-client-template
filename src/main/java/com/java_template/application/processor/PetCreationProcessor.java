@@ -40,8 +40,8 @@ public class PetCreationProcessor implements CyodaProcessor {
                      "Pet name is required")
             .validate(pet -> pet.getPhotoUrls() != null && !pet.getPhotoUrls().isEmpty(), 
                      "At least one photo URL is required")
-            .map(context -> {
-                Pet pet = context.entity();
+            .map(processingContext -> {
+                Pet pet = processingContext.entity();
                 
                 // Set default values if not provided
                 if (pet.getId() == null) {
