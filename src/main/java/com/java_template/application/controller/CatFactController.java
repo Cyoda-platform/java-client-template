@@ -48,11 +48,11 @@ public class CatFactController {
         catFact.setSource(source);
         
         return entityService.addItem(CatFact.ENTITY_NAME, CatFact.ENTITY_VERSION, catFact)
-            .thenApply(entityWithMetadata -> {
+            .thenApply(entityId -> {
                 Map<String, Object> response = Map.of(
-                    "id", entityWithMetadata.metadata().getId(),
+                    "id", entityId,
                     "source", source,
-                    "state", entityWithMetadata.metadata().getState(),
+                    "state", "retrieved",
                     "message", "Cat fact retrieval initiated"
                 );
                 
@@ -76,16 +76,16 @@ public class CatFactController {
     public CompletableFuture<ResponseEntity<Map<String, Object>>> getCatFact(@PathVariable UUID id) {
         logger.debug("Getting cat fact by ID: {}", id);
         
-        return entityService.getEntityById(id)
-            .thenApply(entityWithMetadata -> {
-                if (entityWithMetadata == null) {
+        return entityService.getItem(id)
+            .thenApply(dataPayload -> {
+                if (dataPayload == null) {
                     return ResponseEntity.notFound().build();
                 }
-                
+
                 // Extract cat fact data (simplified)
                 Map<String, Object> response = Map.of(
-                    "id", entityWithMetadata.metadata().getId(),
-                    "state", entityWithMetadata.metadata().getState()
+                    "id", id,
+                    "state", "ready" // Simplified
                     // In a real implementation, would extract full cat fact data
                 );
                 

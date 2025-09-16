@@ -42,15 +42,15 @@ public class EmailCampaignController {
     public CompletableFuture<ResponseEntity<Map<String, Object>>> createCampaign(@RequestBody EmailCampaign campaign) {
         logger.debug("Creating new email campaign: {}", campaign.getCampaignName());
         
-        return entityService.createEntity(campaign, "schedule")
-            .thenApply(entityWithMetadata -> {
+        return entityService.addItem(EmailCampaign.ENTITY_NAME, EmailCampaign.ENTITY_VERSION, campaign)
+            .thenApply(entityId -> {
                 Map<String, Object> response = Map.of(
-                    "id", entityWithMetadata.metadata().getId(),
+                    "id", entityId,
                     "campaignName", campaign.getCampaignName(),
                     "catFactId", campaign.getCatFactId(),
                     "scheduledDate", campaign.getScheduledDate(),
                     "totalSubscribers", campaign.getTotalSubscribers(),
-                    "state", entityWithMetadata.metadata().getState()
+                    "state", "scheduled"
                 );
                 
                 logger.info("Email campaign created successfully: {}", campaign.getCampaignName());
@@ -73,16 +73,16 @@ public class EmailCampaignController {
     public CompletableFuture<ResponseEntity<Map<String, Object>>> getCampaign(@PathVariable UUID id) {
         logger.debug("Getting campaign by ID: {}", id);
         
-        return entityService.getEntityById(id)
-            .thenApply(entityWithMetadata -> {
-                if (entityWithMetadata == null) {
+        return entityService.getItem(id)
+            .thenApply(dataPayload -> {
+                if (dataPayload == null) {
                     return ResponseEntity.notFound().build();
                 }
-                
+
                 // Extract campaign data (simplified)
                 Map<String, Object> response = Map.of(
-                    "id", entityWithMetadata.metadata().getId(),
-                    "state", entityWithMetadata.metadata().getState()
+                    "id", id,
+                    "state", "scheduled" // Simplified
                     // In a real implementation, would extract full campaign data
                 );
                 
@@ -239,7 +239,7 @@ public class EmailCampaignController {
     public CompletableFuture<ResponseEntity<Map<String, Object>>> getCampaignAnalytics(@PathVariable UUID id) {
         logger.debug("Getting analytics for campaign: {}", id);
         
-        return entityService.getEntityById(id)
+        return entityService.getItem(id)
             .thenApply(entityWithMetadata -> {
                 if (entityWithMetadata == null) {
                     return ResponseEntity.notFound().build();
