@@ -1,0 +1,166 @@
+{
+    "version": "1.0",
+    "name": "EmailCampaign Workflow",
+    "desc": "Manages the lifecycle of email campaigns from creation to completion.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "schedule",
+                    "next": "scheduled",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignScheduleProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "scheduled": {
+            "transitions": [
+                {
+                    "name": "prepare",
+                    "next": "preparing",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignPreparationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "cancel",
+                    "next": "cancelled",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignCancellationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "preparing": {
+            "transitions": [
+                {
+                    "name": "start_sending",
+                    "next": "sending",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignSendProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "sending": {
+            "transitions": [
+                {
+                    "name": "complete_sending",
+                    "next": "sent",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignCompletionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "fail",
+                    "next": "failed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "EmailCampaignFailureCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "sent": {
+            "transitions": [
+                {
+                    "name": "finalize",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignFinalizationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "retry",
+                    "next": "preparing",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "EmailCampaignRetryProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "cancelled": {
+            "transitions": [
+                {
+                    "name": "end_campaign",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "completed": {
+            "transitions": [
+                {
+                    "name": "end_campaign",
+                    "next": "end_state",
+                    "manual": false
+                }
+            ]
+        },
+        "end_state": {
+            "transitions": []
+        }
+    }
+}

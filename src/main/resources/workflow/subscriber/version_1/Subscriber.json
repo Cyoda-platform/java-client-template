@@ -1,0 +1,127 @@
+{
+    "version": "1.0",
+    "name": "Subscriber Workflow",
+    "desc": "Manages the lifecycle of a subscriber from registration to unsubscription.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "subscribe",
+                    "next": "pending_verification",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SubscriberRegistrationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "pending_verification": {
+            "transitions": [
+                {
+                    "name": "verify_email",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberVerificationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "expire_verification",
+                    "next": "unsubscribed",
+                    "manual": false,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "SubscriberVerificationExpirationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "active": {
+            "transitions": [
+                {
+                    "name": "unsubscribe",
+                    "next": "unsubscribed",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberUnsubscribeProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "suspend",
+                    "next": "suspended",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SubscriberSuspensionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "suspended": {
+            "transitions": [
+                {
+                    "name": "reactivate",
+                    "next": "active",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "SubscriberReactivationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "unsubscribed": {
+            "transitions": [
+                {
+                    "name": "end",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        },
+        "none": {
+            "transitions": [
+                {
+                    "name": "transition_to_pending_verification",
+                    "next": "pending_verification",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}

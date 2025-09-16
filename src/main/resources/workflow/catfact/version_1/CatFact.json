@@ -1,0 +1,131 @@
+{
+    "version": "1.0",
+    "name": "CatFact Workflow",
+    "desc": "Manages the lifecycle of cat facts from retrieval to usage in campaigns.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "retrieve",
+                    "next": "retrieved",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CatFactRetrievalProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "retrieved": {
+            "transitions": [
+                {
+                    "name": "validate",
+                    "next": "validated",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CatFactValidationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ],
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CatFactValidationCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "approve",
+                    "next": "ready",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CatFactApprovalProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "reject",
+                    "next": "archived",
+                    "manual": true,
+                    "criterion": {
+                        "type": "function",
+                        "function": {
+                            "name": "CatFactRejectionCriterion",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "ready": {
+            "transitions": [
+                {
+                    "name": "use",
+                    "next": "used",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "CatFactUsageProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "used": {
+            "transitions": [
+                {
+                    "name": "archive",
+                    "next": "archived",
+                    "manual": true,
+                    "processors": [
+                        {
+                            "name": "CatFactArchiveProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "archived": {
+            "transitions": [
+                {
+                    "name": "end",
+                    "next": "initial_state",
+                    "manual": false
+                }
+            ]
+        }
+    }
+}
