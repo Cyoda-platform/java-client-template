@@ -1,0 +1,65 @@
+{
+    "entities": [
+        {
+            "Comment": {
+                "entity_data_example": {
+                    "body": "This is a sample comment body.",
+                    "characterCount": 40,
+                    "commentId": "12345",
+                    "email": "example@example.com",
+                    "ingestedAt": "2023-10-01T12:00:00",
+                    "name": "Sample Comment Title",
+                    "postId": 1,
+                    "wordCount": 7
+                }
+            }
+        },
+        {
+            "CommentAnalysis": {
+                "entity_data_example": {
+                    "analysisCompletedAt": "2023-10-01T12:30:00",
+                    "analysisId": "123e4567-e89b-12d3-a456-426614174000",
+                    "averageCharacterCount": 50.2,
+                    "averageWordCount": 8.5,
+                    "emailSent": true,
+                    "emailSentAt": "2023-10-01T12:45:00",
+                    "longestComment": {
+                        "bodyPreview": "This is a sample comment body that is quite long.",
+                        "characterCount": 100,
+                        "commentId": "12345",
+                        "email": "example@example.com",
+                        "wordCount": 15
+                    },
+                    "mostActiveCommenter": "user@example.com",
+                    "postId": 1,
+                    "shortestComment": {
+                        "bodyPreview": "Short comment.",
+                        "characterCount": 20,
+                        "commentId": "12346",
+                        "email": "another@example.com",
+                        "wordCount": 3
+                    },
+                    "totalComments": 10,
+                    "uniqueCommenters": 5
+                }
+            }
+        },
+        {
+            "EmailReport": {
+                "entity_data_example": {
+                    "analysisId": "123e4567-e89b-12d3-a456-426614174000",
+                    "deliveryStatus": "SENT",
+                    "errorMessage": null,
+                    "lastRetryAt": null,
+                    "postId": 1,
+                    "recipientEmail": "recipient@example.com",
+                    "reportContent": "Here is the analysis of comments...",
+                    "reportId": "123e4567-e89b-12d3-a456-426614174001",
+                    "retryCount": 0,
+                    "sentAt": "2023-10-01T12:50:00",
+                    "subject": "Comment Analysis Report"
+                }
+            }
+        }
+    ]
+}
