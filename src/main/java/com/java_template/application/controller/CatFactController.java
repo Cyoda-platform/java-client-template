@@ -97,7 +97,7 @@ public class CatFactController {
                     "code", "RETRIEVAL_FAILED",
                     "message", ex.getMessage()
                 ));
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+                return (ResponseEntity<Map<String, Object>>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 

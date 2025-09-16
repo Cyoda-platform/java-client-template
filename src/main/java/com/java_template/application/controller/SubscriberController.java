@@ -70,7 +70,7 @@ public class SubscriberController {
      * Get subscriber by ID.
      */
     @GetMapping("/{id}")
-    public CompletableFuture<ResponseEntity<Map<String, Object>>> getSubscriber(@PathVariable UUID id) {
+    public CompletableFuture<ResponseEntity<?>> getSubscriber(@PathVariable UUID id) {
         logger.debug("Getting subscriber by ID: {}", id);
         
         return entityService.getItem(id)
@@ -94,7 +94,7 @@ public class SubscriberController {
                     "code", "RETRIEVAL_FAILED",
                     "message", ex.getMessage()
                 ));
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+                return (ResponseEntity<Map<String, Object>>) ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
             });
     }
 
