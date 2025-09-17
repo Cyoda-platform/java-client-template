@@ -58,19 +58,19 @@ public class HNItemNeedsEnrichmentCriterion implements CyodaCriterion {
         // Stories with URLs need domain extraction
         if ("story".equals(entity.getType()) && entity.getUrl() != null && !entity.getUrl().trim().isEmpty()) {
             logger.debug("HNItem {} needs enrichment: story with URL", entity.getId());
-            return EvaluationOutcome.success("Story with URL needs enrichment");
+            return EvaluationOutcome.success();
         }
 
         // Items with text need text analysis
         if (entity.getText() != null && !entity.getText().trim().isEmpty()) {
             logger.debug("HNItem {} needs enrichment: has text content", entity.getId());
-            return EvaluationOutcome.success("Item with text needs enrichment");
+            return EvaluationOutcome.success();
         }
 
         // Items with children need child count calculation
         if (entity.getKids() != null && !entity.getKids().isEmpty()) {
             logger.debug("HNItem {} needs enrichment: has children", entity.getId());
-            return EvaluationOutcome.success("Item with children needs enrichment");
+            return EvaluationOutcome.success();
         }
 
         // Otherwise, no enrichment needed

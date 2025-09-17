@@ -75,7 +75,7 @@ public class HNItemNoEnrichmentNeededCriterion implements CyodaCriterion {
 
         if (!needsEnrichment) {
             logger.debug("HNItem {} can skip enrichment", entity.getId());
-            return EvaluationOutcome.success("No enrichment needed, can proceed to indexing");
+            return EvaluationOutcome.success();
         } else {
             logger.debug("HNItem {} needs enrichment", entity.getId());
             return EvaluationOutcome.fail("Enrichment is needed", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
