@@ -1,0 +1,109 @@
+{
+  "version": "1.0",
+  "name": "Pet",
+  "desc": "Pet workflow for adoption management",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initialize_pet",
+          "next": "available",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetInitializationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "available": {
+      "transitions": [
+        {
+          "name": "reserve_pet",
+          "next": "reserved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PetReservationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetAvailabilityCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reserved": {
+      "transitions": [
+        {
+          "name": "complete_adoption",
+          "next": "adopted",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PetAdoptionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_reservation",
+          "next": "available",
+          "manual": true
+        }
+      ]
+    },
+    "adopted": {
+      "transitions": [
+        {
+          "name": "return_pet",
+          "next": "returned",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PetReturnProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "returned": {
+      "transitions": [
+        {
+          "name": "reinitialize_pet",
+          "next": "available",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
