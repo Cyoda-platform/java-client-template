@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -266,7 +267,7 @@ public class HnItemController {
             ModelSpec modelSpec = new ModelSpec().withName(HnItem.ENTITY_NAME).withVersion(HnItem.ENTITY_VERSION);
 
             // Build search conditions
-            List<SimpleCondition> conditions = new ArrayList<>();
+            List<QueryCondition> conditions = new ArrayList<>();
 
             if (text != null && !text.trim().isEmpty()) {
                 // Search in title and text fields
@@ -285,10 +286,7 @@ public class HnItemController {
                         .withOperator(GroupCondition.Operator.OR)
                         .withConditions(List.of(titleCondition, textCondition));
 
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$")
-                        .withOperation(Operation.CUSTOM)
-                        .withValue(objectMapper.valueToTree(textOrCondition)));
+                conditions.add(textOrCondition);
             }
 
             if (type != null && !type.trim().isEmpty()) {
@@ -344,7 +342,7 @@ public class HnItemController {
             ModelSpec modelSpec = new ModelSpec().withName(HnItem.ENTITY_NAME).withVersion(HnItem.ENTITY_VERSION);
 
             // Build complex search conditions
-            List<SimpleCondition> conditions = new ArrayList<>();
+            List<QueryCondition> conditions = new ArrayList<>();
 
             if (searchRequest.getText() != null && !searchRequest.getText().trim().isEmpty()) {
                 conditions.add(new SimpleCondition()
