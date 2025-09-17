@@ -187,7 +187,12 @@ public class AnalyzeHousingDataProcessor implements CyodaProcessor {
         List<Map<String, Object>> topAreas = areaCount.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
                 .limit(5)
-                .map(entry -> Map.of("area", entry.getKey(), "count", entry.getValue()))
+                .map(entry -> {
+                    Map<String, Object> areaMap = new HashMap<>();
+                    areaMap.put("area", entry.getKey());
+                    areaMap.put("count", entry.getValue());
+                    return areaMap;
+                })
                 .collect(Collectors.toList());
         insights.put("topAreas", topAreas);
         
