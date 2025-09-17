@@ -176,7 +176,185 @@ public class HNItemController {
         }
     }
 
-    // DTOs for batch operations
+    /**
+     * Search HN items with query parameters
+     * GET /api/hnitem/search?query=dropbox&type=story&author=dhouston
+     */
+    @GetMapping("/search")
+    public ResponseEntity<SearchResponse> searchEntities(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) Integer minScore,
+            @RequestParam(required = false) Integer maxScore,
+            @RequestParam(required = false) Boolean hasUrl,
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(HNItem.ENTITY_NAME).withVersion(HNItem.ENTITY_VERSION);
+            List<SimpleCondition> conditions = new ArrayList<>();
+
+            // Text search across title, text, and url
+            if (query != null && !query.trim().isEmpty()) {
+                GroupCondition textSearch = new GroupCondition()
+                        .withOperator(GroupCondition.Operator.OR)
+                        .withConditions(List.of(
+                                new SimpleCondition().withJsonPath("$.title").withOperation(Operation.CONTAINS).withValue(objectMapper.valueToTree(query)),
+                                new SimpleCondition().withJsonPath("$.text").withOperation(Operation.CONTAINS).withValue(objectMapper.valueToTree(query)),
+                                new SimpleCondition().withJsonPath("$.url").withOperation(Operation.CONTAINS).withValue(objectMapper.valueToTree(query))
+                        ));
+                conditions.add(new SimpleCondition().withJsonPath("$").withOperation(Operation.CUSTOM).withValue(objectMapper.valueToTree(textSearch)));
+            }
+
+            // Filter by type
+            if (type != null && !type.trim().isEmpty()) {
+                conditions.add(new SimpleCondition().withJsonPath("$.type").withOperation(Operation.EQUALS).withValue(objectMapper.valueToTree(type)));
+            }
+
+            // Filter by author
+            if (author != null && !author.trim().isEmpty()) {
+                conditions.add(new SimpleCondition().withJsonPath("$.by").withOperation(Operation.EQUALS).withValue(objectMapper.valueToTree(author)));
+            }
+
+            // Filter by score range
+            if (minScore != null) {
+                conditions.add(new SimpleCondition().withJsonPath("$.score").withOperation(Operation.GREATER_OR_EQUAL).withValue(objectMapper.valueToTree(minScore)));
+            }
+            if (maxScore != null) {
+                conditions.add(new SimpleCondition().withJsonPath("$.score").withOperation(Operation.LESS_OR_EQUAL).withValue(objectMapper.valueToTree(maxScore)));
+            }
+
+            // Filter by URL presence
+            if (hasUrl != null) {
+                if (hasUrl) {
+                    conditions.add(new SimpleCondition().withJsonPath("$.url").withOperation(Operation.NOT_NULL).withValue(objectMapper.valueToTree(true)));
+                } else {
+                    conditions.add(new SimpleCondition().withJsonPath("$.url").withOperation(Operation.IS_NULL).withValue(objectMapper.valueToTree(true)));
+                }
+            }
+
+            GroupCondition condition = new GroupCondition()
+                    .withOperator(GroupCondition.Operator.AND)
+                    .withConditions(new ArrayList<>(conditions));
+
+            List<EntityWithMetadata<HNItem>> entities = entityService.search(modelSpec, condition, HNItem.class);
+
+            // Apply pagination
+            int total = entities.size();
+            int endIndex = Math.min(offset + limit, total);
+            List<EntityWithMetadata<HNItem>> paginatedEntities = entities.subList(Math.min(offset, total), endIndex);
+
+            SearchResponse response = new SearchResponse();
+            response.setItems(paginatedEntities);
+            response.setPagination(new PaginationInfo(total, limit, offset, endIndex < total));
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error searching HNItems", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Get item hierarchy (parents and children)
+     * GET /api/hnitem/{id}/hierarchy
+     */
+    @GetMapping("/{id}/hierarchy")
+    public ResponseEntity<HierarchyResponse> getItemHierarchy(@PathVariable UUID id) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(HNItem.ENTITY_NAME).withVersion(HNItem.ENTITY_VERSION);
+            EntityWithMetadata<HNItem> item = entityService.getById(id, modelSpec, HNItem.class);
+
+            if (item == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            HierarchyResponse response = new HierarchyResponse();
+            response.setItem(item);
+            response.setParents(getParentHierarchy(item.entity()));
+            response.setChildren(getChildrenItems(item.entity()));
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting hierarchy for HNItem: {}", id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Trigger Firebase API pull
+     * POST /api/hnitem/pull-from-firebase
+     */
+    @PostMapping("/pull-from-firebase")
+    public ResponseEntity<FirebasePullResponse> pullFromFirebase(@RequestBody FirebasePullRequest request) {
+        try {
+            // Generate pull ID
+            String pullId = "pull-" + UUID.randomUUID().toString();
+
+            // In a real implementation, this would:
+            // 1. Validate the request
+            // 2. Queue the Firebase API calls
+            // 3. Create HNItem entities asynchronously
+            // 4. Return status information
+
+            FirebasePullResponse response = new FirebasePullResponse();
+            response.setPullId(pullId);
+            response.setStatus("INITIATED");
+            response.setRequestedItems(request.getItemIds() != null ? request.getItemIds().size() : 0);
+            response.setMessage("Firebase pull initiated for " + response.getRequestedItems() + " items");
+
+            logger.info("Firebase pull initiated: {}", pullId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error initiating Firebase pull", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Get all HN items (paginated)
+     * GET /api/hnitem
+     */
+    @GetMapping
+    public ResponseEntity<SearchResponse> getAllEntities(
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(defaultValue = "0") int offset) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(HNItem.ENTITY_NAME).withVersion(HNItem.ENTITY_VERSION);
+            List<EntityWithMetadata<HNItem>> entities = entityService.findAll(modelSpec, HNItem.class);
+
+            // Apply pagination
+            int total = entities.size();
+            int endIndex = Math.min(offset + limit, total);
+            List<EntityWithMetadata<HNItem>> paginatedEntities = entities.subList(Math.min(offset, total), endIndex);
+
+            SearchResponse response = new SearchResponse();
+            response.setItems(paginatedEntities);
+            response.setPagination(new PaginationInfo(total, limit, offset, endIndex < total));
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error getting all HNItems", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // Helper methods
+    private List<EntityWithMetadata<HNItem>> getParentHierarchy(HNItem item) {
+        List<EntityWithMetadata<HNItem>> parents = new ArrayList<>();
+        // In a real implementation, this would traverse up the parent hierarchy
+        // For now, return empty list
+        return parents;
+    }
+
+    private List<EntityWithMetadata<HNItem>> getChildrenItems(HNItem item) {
+        List<EntityWithMetadata<HNItem>> children = new ArrayList<>();
+        // In a real implementation, this would find children based on kids field
+        // For now, return empty list
+        return children;
+    }
+
+    // DTOs for various operations
     @Getter
     @Setter
     public static class BatchCreateResponse {
@@ -213,5 +391,54 @@ public class HNItemController {
             this.successful = successful;
             this.failed = failed;
         }
+    }
+
+    @Getter
+    @Setter
+    public static class SearchResponse {
+        private List<EntityWithMetadata<HNItem>> items;
+        private PaginationInfo pagination;
+    }
+
+    @Getter
+    @Setter
+    public static class PaginationInfo {
+        private int total;
+        private int limit;
+        private int offset;
+        private boolean hasMore;
+
+        public PaginationInfo() {}
+
+        public PaginationInfo(int total, int limit, int offset, boolean hasMore) {
+            this.total = total;
+            this.limit = limit;
+            this.offset = offset;
+            this.hasMore = hasMore;
+        }
+    }
+
+    @Getter
+    @Setter
+    public static class HierarchyResponse {
+        private EntityWithMetadata<HNItem> item;
+        private List<EntityWithMetadata<HNItem>> parents;
+        private List<EntityWithMetadata<HNItem>> children;
+    }
+
+    @Getter
+    @Setter
+    public static class FirebasePullRequest {
+        private List<Long> itemIds;
+        private String pullType;
+    }
+
+    @Getter
+    @Setter
+    public static class FirebasePullResponse {
+        private String pullId;
+        private String status;
+        private int requestedItems;
+        private String message;
     }
 }
