@@ -1,0 +1,94 @@
+{
+  "version": "1.0",
+  "name": "Owner",
+  "desc": "Owner workflow for registration and verification",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "register_owner",
+          "next": "registered",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerRegistrationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "registered": {
+      "transitions": [
+        {
+          "name": "verify_owner",
+          "next": "verified",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OwnerVerificationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OwnerEligibilityCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "verified": {
+      "transitions": [
+        {
+          "name": "activate_owner",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "deactivate_owner",
+          "next": "inactive",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OwnerDeactivationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "inactive": {
+      "transitions": [
+        {
+          "name": "reactivate_owner",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
