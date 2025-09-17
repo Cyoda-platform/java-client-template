@@ -62,25 +62,25 @@ public class ValidationFailedCriterion implements CyodaCriterion {
         // Check if entity is null (structural validation)
         if (entity == null) {
             logger.warn("HnItem is null");
-            return EvaluationOutcome.success("Entity is null - validation failed");
+            return EvaluationOutcome.success(); // Validation failed - criterion passes
         }
 
         // Check if required fields are missing
         if (entity.getId() == null) {
             logger.warn("HnItem ID is missing");
-            return EvaluationOutcome.success("HN item ID is required - validation failed");
+            return EvaluationOutcome.success(); // Validation failed - criterion passes
         }
 
         if (entity.getType() == null || !isValidType(entity.getType())) {
             logger.warn("HnItem type is invalid or missing: {}", entity.getType());
-            return EvaluationOutcome.success("Invalid or missing HN item type - validation failed");
+            return EvaluationOutcome.success(); // Validation failed - criterion passes
         }
 
         // Check type-specific validation rules
         String validationError = validateTypeSpecificRules(entity);
         if (validationError != null) {
             logger.warn("HnItem type-specific validation failed: {}", validationError);
-            return EvaluationOutcome.success(validationError + " - validation failed");
+            return EvaluationOutcome.success(); // Validation failed - criterion passes
         }
 
         // If we reach here, validation has not failed

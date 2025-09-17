@@ -64,21 +64,21 @@ public class ProcessingFailedCriterion implements CyodaCriterion {
         // Check if entity is null (structural validation)
         if (entity == null) {
             logger.warn("HnItem is null");
-            return EvaluationOutcome.success("Entity is null - processing failed");
+            return EvaluationOutcome.success(); // Processing failed - criterion passes
         }
 
         // Check if processing encountered issues with URL validation for stories
         if ("story".equals(entity.getType()) && entity.getUrl() != null && !entity.getUrl().trim().isEmpty()) {
             if (!isValidUrl(entity.getUrl())) {
                 logger.warn("Invalid URL format for story item {}: {}", entity.getId(), entity.getUrl());
-                return EvaluationOutcome.success("Invalid URL format - processing failed");
+                return EvaluationOutcome.success(); // Processing failed - criterion passes
             }
         }
 
         // Check if required processing fields are missing after processing
         if (entity.getUpdatedAt() == null) {
             logger.warn("UpdatedAt field is missing after processing for item: {}", entity.getId());
-            return EvaluationOutcome.success("UpdatedAt field missing after processing - processing failed");
+            return EvaluationOutcome.success(); // Processing failed - criterion passes
         }
 
         // If we reach here, processing has not failed
