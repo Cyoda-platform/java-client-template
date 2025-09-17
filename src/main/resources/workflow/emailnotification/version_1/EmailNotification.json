@@ -44,6 +44,23 @@
               }
             }
           }
+        },
+        {
+          "name": "validate_emails",
+          "next": "pending_send",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidEmailsCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
         }
       ]
     },
