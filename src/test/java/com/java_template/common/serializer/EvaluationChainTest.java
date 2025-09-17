@@ -204,7 +204,7 @@ class EvaluationChainTest {
     void testEvaluateEntity() {
         // Given
         Function<CriterionSerializer.CriterionEntityEvaluationContext<TestEntity>, EvaluationOutcome> entityEvaluator = context -> {
-            TestEntity entity = context.entity();
+            TestEntity entity = context.entityWithMetadata().entity();
             assertEquals(request, context.request());
             assertEquals(123L, entity.getId());
             assertEquals("Fluffy", entity.getName());
@@ -425,7 +425,7 @@ class EvaluationChainTest {
         Function<CriterionSerializer.CriterionEntityEvaluationContext<TestEntity>, EvaluationOutcome> entityContextEvaluator = context -> {
             // Verify context provides access to request and entity
             assertNotNull(context.request());
-            assertNotNull(context.entity());
+            assertNotNull(context.entityWithMetadata());
             assertEquals(request, context.request());
 
             // Access request metadata
@@ -433,7 +433,7 @@ class EvaluationChainTest {
             assertEquals("TestCriterion", context.request().getCriteriaName());
 
             // Access entity data
-            TestEntity entity = context.entity();
+            TestEntity entity = context.entityWithMetadata().entity();
             assertEquals(123L, entity.getId());
             assertEquals("Fluffy", entity.getName());
             assertEquals("available", entity.getStatus());
@@ -704,7 +704,7 @@ class EvaluationChainTest {
     void testEntityFailOutcomeWithEvaluationReason() {
         // Given - Test entity evaluation that returns Fail outcome
         Function<CriterionSerializer.CriterionEntityEvaluationContext<TestEntity>, EvaluationOutcome> entityFailEvaluator = context -> {
-            TestEntity entity = context.entity();
+            TestEntity entity = context.entityWithMetadata().entity();
             // Return a specific Fail outcome for entity evaluation
             return EvaluationOutcome.Fail.dataQualityFailure("Entity data quality issue: " + entity.getName());
         };

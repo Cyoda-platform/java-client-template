@@ -15,9 +15,8 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
- * A processor that does nothing but pass through the data.
- * Updated to use the new Jackson serializer architecture with sealed interfaces.
- * Demonstrates simple processor implementation with modern serializer patterns.
+ * ABOUTME: Test processor implementation that performs no operations and returns
+ * the input payload unchanged for testing and debugging workflow execution.
  */
 @Order(Ordered.LOWEST_PRECEDENCE)
 @Component

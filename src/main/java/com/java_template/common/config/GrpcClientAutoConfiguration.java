@@ -29,6 +29,11 @@ import org.springframework.context.annotation.Lazy;
 import static com.java_template.common.config.Config.GRPC_ADDRESS;
 import static com.java_template.common.config.Config.GRPC_SERVER_PORT;
 
+
+/**
+ * ABOUTME: Spring Boot auto-configuration for gRPC client components including
+ * channel setup, authentication, SSL configuration, and execution strategies.
+ */
 @Configuration
 public class GrpcClientAutoConfiguration {
 

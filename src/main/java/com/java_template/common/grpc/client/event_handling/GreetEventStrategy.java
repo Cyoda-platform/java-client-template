@@ -13,6 +13,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+
+/**
+ * ABOUTME: Event handling strategy for processing greet events during connection
+ * establishment with promise-based completion tracking.
+ */
 @Component
 public class GreetEventStrategy implements EventHandlingStrategy<BaseEvent>, GreetEventListener {
 

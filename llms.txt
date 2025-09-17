@@ -8,11 +8,19 @@ default branch: main
 
 - [README](https://github.com/Cyoda-platform/java-client-template/${branch}/README.md): Complete project documentation including setup, architecture, and workflow configuration
 - [Usage Rules](https://github.com/Cyoda-platform/java-client-template/${branch}/usage-rules.md): Developer and AI agent guidelines for following project conventions
+- [Augment Guidelines](https://github.com/Cyoda-platform/java-client-template/${branch}/.augment-guidelines): Project overview and development workflow guidelines
 
-## Requirements & Specifications
+## Code Examples
 
-- [Functional Requirements](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/java/com/java_template/prototype/functional_requirement.md): Detailed functional requirements for the user application
-- [User Requirements](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/java/com/java_template/prototype/user_requirement.md): User-focused requirements specification for the user application
+- [LLM Example Directory](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/): Complete examples and templates for all components
+  - [Code Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/): Implementation examples
+    - [Controllers](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/controller/): REST controller patterns
+    - [Entities](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/entity/): Entity class implementations
+    - [Processors](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/processor/): Workflow processor examples
+    - [Criteria](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/criterion/): Workflow criteria examples
+    - [Patterns](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/patterns/): Patterns and anti-patterns guide
+  - [Configuration Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/config/): Configuration templates
+    - [Workflow Configs](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/config/workflow/): Workflow JSON configuration templates
 
 ## Configuration
 

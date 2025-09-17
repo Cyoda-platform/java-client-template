@@ -6,57 +6,56 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.auth.Authentication;
 import com.java_template.common.util.HttpUtils;
+import com.java_template.common.workflow.CyodaEntity;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
-
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.java_template.common.config.Config.*;
 
+
 /**
- * Utility class for initializing Cyoda with entity models and workflow configurations.
+ * ABOUTME: Initialization tool for setting up Cyoda platform configuration
+ * including workflow definitions, entity models, and system bootstrapping.
+ *
+ * This tool dynamically discovers entities and uses their getModelKey() method
+ * to get the correct entity name and version instead of parsing file paths.
  */
+@Component
 public class CyodaInit {
     private static final Logger logger = LoggerFactory.getLogger(CyodaInit.class);
     private static final Path WORKFLOW_DTO_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/resources/workflow");
+    private static final Path ENTITY_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/java/com/java_template/application/entity");
 
     private final HttpUtils httpUtils;
     private final Authentication authentication;
+    private final ObjectMapper objectMapper;
 
-    Set<String> pendingFiles = new HashSet<>();
-
-    public CyodaInit(HttpUtils httpUtils, Authentication authentication) {
+    public CyodaInit(HttpUtils httpUtils, Authentication authentication, ObjectMapper objectMapper) {
         this.httpUtils = httpUtils;
         this.authentication = authentication;
+        this.objectMapper = objectMapper;
     }
 
-    public CompletableFuture<Void> initCyoda() {
+    public void initCyoda() {
         logger.info("🔄 Starting workflow import into Cyoda...");
 
         try {
             String token = authentication.getAccessToken().getTokenValue();
-            return initEntitiesSchema(WORKFLOW_DTO_DIR, token)
-                    .thenRun(() -> logger.info("✅ Workflow import process completed."))
-                    .exceptionally(ex -> {
-                        handleImportError(ex);
-                        return null;
-                    });
+            initEntitiesSchemaFromEntities(token);
+            logger.info("✅ Workflow import process completed.");
         } catch (Exception ex) {
-            logger.error("❌ Failed to obtain access token for workflow import");
+            logger.error("❌ Failed to initialize Cyoda workflows");
             handleImportError(ex);
-            return CompletableFuture.completedFuture(null);
         }
     }
 
@@ -73,232 +72,258 @@ public class CyodaInit {
         }
     }
 
-    public CompletableFuture<Void> initEntitiesSchema(Path entityDir, String token) {
-        if (!Files.exists(entityDir)) {
-            logger.warn("📁 Directory '{}' does not exist. Skipping workflow import.", entityDir.toAbsolutePath());
-            return CompletableFuture.completedFuture(null);
-        }
+    /**
+     * Initialize entities schema from discovered entities using their getModelKey() method
+     */
+    private void initEntitiesSchemaFromEntities(String token) {
+        logger.info("🔍 Discovering entities dynamically...");
 
-        try (ExecutorService executor = Executors.newFixedThreadPool(3);
-             Stream<Path> jsonFilesStream = Files.walk(entityDir)) {
+        List<ModelSpec> modelSpecs = discoverEntities();
+        logger.info("🔍 Discovered {} entities: {}", modelSpecs.size(),
+            modelSpecs.stream().map(spec -> spec.getName() + ":" + spec.getVersion()).toList());
 
-            List<Path> jsonFiles = jsonFilesStream
-                    .filter(path -> path.toString().toLowerCase().endsWith(".json"))
-                    .toList();
-
-            if (jsonFiles.isEmpty()) {
-                logger.warn("⚠️ No workflow JSON files found in directory: {}", entityDir);
-                return CompletableFuture.completedFuture(null);
+        for (ModelSpec modelSpec : modelSpecs) {
+            Path workflowFile = findWorkflowFile(WORKFLOW_DTO_DIR, modelSpec.getName(), modelSpec.getVersion());
+            if (workflowFile != null) {
+                logger.info("✅ Found workflow file for {}: {}", modelSpec.getName(), workflowFile);
+                importWorkflowForEntity(workflowFile, modelSpec.getName(), modelSpec.getVersion(), token);
+            } else {
+                logger.warn("⚠️ No workflow file found for entity: {} (version: {})", modelSpec.getName(), modelSpec.getVersion());
             }
-
-            List<CompletableFuture<Void>> futures = jsonFiles.stream()
-                    .map(jsonFile -> {
-                        // Extract entity name from filename (remove .json extension)
-                        String fileName = jsonFile.getFileName().toString();
-                        String entityName = fileName.substring(0, fileName.lastIndexOf('.'));
-                        String relativePath = WORKFLOW_DTO_DIR.relativize(jsonFile).toString();
-                        String version = extractVersionFromPath(jsonFile);
-                        if (version == null || version.isBlank()) {
-                            logger.error("❌ Could not determine version from path: {}. Expected a parent directory like 'version_1'. Skipping.", relativePath);
-                            return CompletableFuture.<Void>failedFuture(new IllegalArgumentException("Missing version directory for " + relativePath));
-                        }
-                        pendingFiles.add(relativePath);
-                        return CompletableFuture.supplyAsync(() -> null, executor)
-                                .thenCompose(v -> processWorkflowFile(jsonFile, token, entityName, version)
-                                        .whenComplete((res, ex) -> {
-                                            if (ex == null) {
-                                                pendingFiles.remove(relativePath);
-                                            }
-                                        }));
-                    })
-                    .toList();
-
-            return CompletableFuture
-                    .allOf(futures.toArray(new CompletableFuture[0]))
-                    .whenComplete((res, ex) -> {
-                        if (ex != null) {
-                            logger.error("❌ Errors occurred during workflow import: {}", ex.getMessage(), ex);
-                        }
-                        if (!pendingFiles.isEmpty()) {
-                            logger.warn("⚠️ Not all workflows were imported. Remaining files:");
-                            pendingFiles.forEach(name -> logger.warn(" - {}", name));
-                        } else {
-                            logger.info("🎉 All workflow files processed successfully.");
-                        }
-                    });
-        } catch (IOException e) {
-            logger.error("Error reading files at {}: {}", entityDir, e.getMessage(), e);
-            return CompletableFuture.failedFuture(e);
         }
     }
 
-    private CompletableFuture<Void> processWorkflowFile(Path file, String token, String entityName, String version) {
+
+    /**
+     * Discover entities from the entity directory and return their ModelSpec information
+     */
+    private List<ModelSpec> discoverEntities() {
+        List<ModelSpec> modelSpecs = new ArrayList<>();
+
+        if (!Files.exists(ENTITY_DIR)) {
+            logger.warn("📁 Entity directory '{}' does not exist", ENTITY_DIR);
+            return modelSpecs;
+        }
+
+        try (Stream<Path> javaFiles = Files.walk(ENTITY_DIR)) {
+            List<Path> entityFiles = javaFiles
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> !path.getFileName().toString().startsWith("Test"))
+                .toList();
+
+            for (Path javaFile : entityFiles) {
+                ModelSpec modelSpec = extractEntityModelSpec(javaFile);
+                if (modelSpec != null) {
+                    modelSpecs.add(modelSpec);
+                    logger.debug("✅ Discovered entity: {} (version: {})", modelSpec.getName(), modelSpec.getVersion());
+                }
+            }
+        } catch (IOException e) {
+            logger.error("❌ Error scanning entity directory: {}", e.getMessage(), e);
+        }
+
+        return modelSpecs;
+    }
+
+    /**
+     * Extract ModelSpec from entity class by loading it and calling getModelKey()
+     */
+    private ModelSpec extractEntityModelSpec(Path javaFile) {
+        try {
+            // Convert file path to class name
+            String relativePath = ENTITY_DIR.relativize(javaFile).toString();
+            String className = relativePath.replace(File.separator, ".")
+                .replace(".java", "");
+            String fullClassName = "com.java_template.application.entity." + className;
+
+            // Load the class
+            Class<?> clazz = Class.forName(fullClassName);
+
+            // Check if it implements CyodaEntity
+            if (!CyodaEntity.class.isAssignableFrom(clazz)) {
+                return null; // Skip non-entity classes
+            }
+
+            // Create instance and get model information
+            CyodaEntity entity = (CyodaEntity) clazz.getDeclaredConstructor().newInstance();
+            return entity.getModelKey().modelKey();
+
+        } catch (Exception e) {
+            logger.debug("Could not load entity class from {}: {}", javaFile, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Find workflow file for the given entity name and version
+     */
+    private Path findWorkflowFile(Path workflowDir, String entityName, Integer version) {
+        if (!Files.exists(workflowDir)) {
+            return null;
+        }
+
+        try (Stream<Path> workflowFilesStream = Files.walk(workflowDir)) {
+            return workflowFilesStream
+                .filter(path -> path.toString().toLowerCase().endsWith(".json"))
+                .filter(path -> {
+                    String pathStr = path.toString().toLowerCase();
+                    String fileName = path.getFileName().toString().toLowerCase();
+                    String entityNameLower = entityName.toLowerCase();
+
+                    // Match by entity name and version directory
+                    return (fileName.startsWith(entityNameLower) || fileName.contains(entityNameLower)) &&
+                           (pathStr.contains("version_" + version) || pathStr.contains("v" + version));
+                })
+                .findFirst()
+                .orElse(null);
+        } catch (IOException e) {
+            logger.error("❌ Error searching for workflow file: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Import workflow for a specific entity
+     */
+    private void importWorkflowForEntity(Path workflowFile, String entityName, Integer version, String token) {
         try {
             logger.info("📄 Processing workflow file for entity: {}, version: {}", entityName, version);
 
             // First check and create entity model if needed
-            return checkAndCreateEntityModel(token, entityName, version)
-                    .thenCompose(v -> {
-                        try {
-                            String dtoContent = Files.readString(file);
-                            ObjectMapper objectMapper = new ObjectMapper();
-                            JsonNode dtoJson = objectMapper.readTree(dtoContent);
+            checkAndCreateEntityModel(token, entityName, version);
 
-                            // Wrap the workflow content in the required format: {"workflows": [file_content]}
-                            ObjectNode wrappedContent = objectMapper.createObjectNode();
-                            ArrayNode workflowsArray = objectMapper.createArrayNode();
-                            workflowsArray.add(dtoJson);
-                            wrappedContent.set("workflows", workflowsArray);
+            // Read and process workflow file
+            String dtoContent = Files.readString(workflowFile);
+            JsonNode dtoJson = objectMapper.readTree(dtoContent);
 
-                            String wrappedContentJson = wrappedContent.toString();
+            // Wrap the workflow content in the required format: {"workflows": [file_content]}
+            ObjectNode wrappedContent = objectMapper.createObjectNode();
+            ArrayNode workflowsArray = objectMapper.createArrayNode();
+            workflowsArray.add(dtoJson);
+            wrappedContent.set("workflows", workflowsArray);
 
-                            // Use the new endpoint format: model/{entity_name}/{version}/workflow/import
-                            String importPath = String.format("model/%s/%s/workflow/import", entityName, version);
-                            logger.debug("🔗 Using import endpoint: {}", importPath);
+            String wrappedContentJson = wrappedContent.toString();
 
-                            return httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson,
-                                    Map.of("importMode", "MERGE"))
-                                    .thenApply(response -> {
-                                        int statusCode = response.get("status").asInt();
-                                        if (statusCode >= 200 && statusCode < 300) {
-                                            logger.info("✅ Successfully imported workflow for entity: {} (version: {})", entityName, version);
-                                            return null;
-                                        } else {
-                                            String body = response.path("json").toString();
-                                            String errorMsg = String.format("Failed to import workflow for entity %s (version %s). Status code: %d, body: %s",
-                                                    entityName, version, statusCode, body);
-                                            logger.error("❌ {}", errorMsg);
-                                            throw new RuntimeException(errorMsg);
-                                        }
-                                    });
-                        } catch (IOException e) {
-                            logger.error("❌ Error reading workflow file {}: {}", file, e.getMessage());
-                            throw new RuntimeException("Failed to read workflow file for entity " + entityName, e);
-                        }
-                    });
+            // Use the endpoint format: model/{entity_name}/{version}/workflow/import
+            String importPath = String.format("model/%s/%s/workflow/import", entityName, version);
+            logger.debug("🔗 Using import endpoint: {}", importPath);
+
+            JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson,
+                    Map.of("importMode", "MERGE")).join();
+
+            int statusCode = response.get("status").asInt();
+            if (statusCode >= 200 && statusCode < 300) {
+                logger.info("✅ Successfully imported workflow for entity: {} (version: {})", entityName, version);
+            } else {
+                String body = response.path("json").toString();
+                String errorMsg = String.format("Failed to import workflow for entity %s (version %s). Status code: %d, body: %s",
+                        entityName, version, statusCode, body);
+                logger.error("❌ {}", errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
         } catch (Exception e) {
-            logger.error("❌ Unexpected error processing workflow file {}: {}", file, e.getMessage());
-            return CompletableFuture.failedFuture(new RuntimeException("Failed to process workflow file for entity " + entityName, e));
+            logger.error("❌ Error importing workflow for entity {}: {}", entityName, e.getMessage());
+            throw new RuntimeException("Failed to import workflow for entity " + entityName, e);
         }
     }
 
     /**
      * Checks if entity model exists and creates it if needed
      */
-    private CompletableFuture<Void> checkAndCreateEntityModel(String token, String entityName, String version) {
+    private void checkAndCreateEntityModel(String token, String entityName, Integer version) {
         String exportPath = String.format("model/export/SIMPLE_VIEW/%s/%s", entityName, version);
         logger.debug("🔍 Checking if entity model exists: {}", exportPath);
 
-        return httpUtils.sendGetRequest(token, CYODA_API_URL, exportPath)
-                .thenCompose(response -> {
-                    int statusCode = response.get("status").asInt();
-                    if (statusCode >= 200 && statusCode < 300) {
-                        logger.info("✅ Entity model already exists for: {} (version: {})", entityName, version);
-                        return CompletableFuture.completedFuture(null);
-                    } else if (statusCode == 404) {
-                        logger.info("📝 Entity model not found, creating for: {} (version: {})", entityName, version);
-                        return createEntityModel(token, entityName, version);
-                    } else {
-                        String body = response.path("json").toString();
-                        String errorMsg = String.format("Failed to check entity model for %s (version %s). Status code: %d, body: %s",
-                                entityName, version, statusCode, body);
-                        logger.error("❌ {}", errorMsg);
-                        throw new RuntimeException(errorMsg);
-                    }
-                })
-                .exceptionally(ex -> {
-                    if (ex.getCause() instanceof RuntimeException && ex.getMessage().contains("404")) {
-                        logger.info("📝 Entity model not found (404), creating for: {} (version: {})", entityName, version);
-                        return createEntityModel(token, entityName, version).join();
-                    }
-                    throw new RuntimeException("Failed to check entity model for " + entityName, ex);
-                });
+        try {
+            JsonNode response = httpUtils.sendGetRequest(token, CYODA_API_URL, exportPath).join();
+            int statusCode = response.get("status").asInt();
+
+            if (statusCode >= 200 && statusCode < 300) {
+                logger.info("✅ Entity model already exists for: {} (version: {})", entityName, version);
+            } else if (statusCode == 404) {
+                logger.info("📝 Entity model not found, creating for: {} (version: {})", entityName, version);
+                createEntityModel(token, entityName, version);
+            } else {
+                String body = response.path("json").toString();
+                String errorMsg = String.format("Failed to check entity model for %s (version %s). Status code: %d, body: %s",
+                        entityName, version, statusCode, body);
+                logger.error("❌ {}", errorMsg);
+                throw new RuntimeException(errorMsg);
+            }
+        } catch (Exception ex) {
+            if (ex.getMessage() != null && ex.getMessage().contains("404")) {
+                logger.info("📝 Entity model not found (404), creating for: {} (version: {})", entityName, version);
+                createEntityModel(token, entityName, version);
+            } else {
+                throw new RuntimeException("Failed to check entity model for " + entityName, ex);
+            }
+        }
     }
 
     /**
      * Creates entity model using sample data, then sets change level to STRUCTURAL and locks the model
      */
-    private CompletableFuture<Void> createEntityModel(String token, String entityName, String version) {
+    private void createEntityModel(String token, String entityName, Integer version) {
         String importPath = String.format("model/import/JSON/SAMPLE_DATA/%s/%s", entityName, version);
         logger.debug("🔗 Creating entity model at: {}", importPath);
 
-        return httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, "{}")
-                .thenApply(response -> {
-                    int statusCode = response.get("status").asInt();
-                    if (statusCode >= 200 && statusCode < 300) {
-                        logger.info("✅ Successfully created entity model for: {} (version: {})", entityName, version);
-                        return null;
-                    } else {
-                        String body = response.path("json").toString();
-                        String errorMsg = String.format("Failed to create entity model for %s (version %s). Status code: %d, body: %s",
-                                entityName, version, statusCode, body);
-                        logger.error("❌ {}", errorMsg);
-                        throw new RuntimeException(errorMsg);
-                    }
-                })
-                .thenCompose(v -> setChangeLevel(token, entityName, version))
-                .thenCompose(v -> lockModel(token, entityName, version));
+        JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, "{}").join();
+        int statusCode = response.get("status").asInt();
+
+        if (statusCode >= 200 && statusCode < 300) {
+            logger.info("✅ Successfully created entity model for: {} (version: {})", entityName, version);
+        } else {
+            String body = response.path("json").toString();
+            String errorMsg = String.format("Failed to create entity model for %s (version %s). Status code: %d, body: %s",
+                    entityName, version, statusCode, body);
+            logger.error("❌ {}", errorMsg);
+            throw new RuntimeException(errorMsg);
+        }
+
+        setChangeLevel(token, entityName, version);
+        lockModel(token, entityName, version);
     }
 
     /**
      * Sets the change level to STRUCTURAL for the entity model
      */
-    private CompletableFuture<Void> setChangeLevel(String token, String entityName, String version) {
+    private void setChangeLevel(String token, String entityName, Integer version) {
         String changeLevel = "STRUCTURAL";
         String changeLevelPath = String.format("model/%s/%s/changeLevel/%s", entityName, version, changeLevel);
         logger.debug("🔗 Setting change level to {} for entity: {} (version: {})", changeLevel, entityName, version);
 
-        return httpUtils.sendPostRequest(token, CYODA_API_URL, changeLevelPath, null)
-                .thenApply(response -> {
-                    int statusCode = response.get("status").asInt();
-                    if (statusCode >= 200 && statusCode < 300) {
-                        logger.info("✅ Successfully set change level to {} for entity: {} (version: {})", changeLevel, entityName, version);
-                        return null;
-                    } else {
-                        String body = response.path("json").toString();
-                        String errorMsg = String.format("Failed to set change level for %s (version %s). Status code: %d, body: %s",
-                                entityName, version, statusCode, body);
-                        logger.error("❌ {}", errorMsg);
-                        throw new RuntimeException(errorMsg);
-                    }
-                });
+        JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, changeLevelPath, null).join();
+        int statusCode = response.get("status").asInt();
+
+        if (statusCode >= 200 && statusCode < 300) {
+            logger.info("✅ Successfully set change level to {} for entity: {} (version: {})", changeLevel, entityName, version);
+        } else {
+            String body = response.path("json").toString();
+            String errorMsg = String.format("Failed to set change level for %s (version %s). Status code: %d, body: %s",
+                    entityName, version, statusCode, body);
+            logger.error("❌ {}", errorMsg);
+            throw new RuntimeException(errorMsg);
+        }
     }
 
     /**
      * Locks the entity model
      */
-    private CompletableFuture<Void> lockModel(String token, String entityName, String version) {
+    private void lockModel(String token, String entityName, Integer version) {
         String lockPath = String.format("model/%s/%s/lock", entityName, version);
         logger.debug("🔗 Locking entity model for: {} (version: {})", entityName, version);
 
-        return httpUtils.sendPutRequest(token, CYODA_API_URL, lockPath, null)
-                .thenApply(response -> {
-                    int statusCode = response.get("status").asInt();
-                    if (statusCode >= 200 && statusCode < 300) {
-                        logger.info("✅ Successfully locked entity model for: {} (version: {})", entityName, version);
-                        return null;
-                    } else {
-                        String body = response.path("json").toString();
-                        String errorMsg = String.format("Failed to lock entity model for %s (version %s). Status code: %d, body: %s",
-                                entityName, version, statusCode, body);
-                        logger.error("❌ {}", errorMsg);
-                        throw new RuntimeException(errorMsg);
-                    }
-                });
-    }
+        JsonNode response = httpUtils.sendPutRequest(token, CYODA_API_URL, lockPath, null).join();
+        int statusCode = response.get("status").asInt();
 
-    private static String extractVersionFromPath(Path jsonFile) {
-        // Expecting path like .../workflow/<entity>/version_1/<file>.json
-        // We search for a segment starting with "version_" and extract the numeric suffix
-        for (Path part : jsonFile) {
-            String name = part.getFileName().toString();
-            if (name.startsWith("version_")) {
-                String suffix = name.substring("version_".length());
-                // basic sanitization: keep digits only
-                String digits = suffix.replaceAll("[^0-9]", "");
-                return digits;
-            }
+        if (statusCode >= 200 && statusCode < 300) {
+            logger.info("✅ Successfully locked entity model for: {} (version: {})", entityName, version);
+        } else {
+            String body = response.path("json").toString();
+            String errorMsg = String.format("Failed to lock entity model for %s (version %s). Status code: %d, body: %s",
+                    entityName, version, statusCode, body);
+            logger.error("❌ {}", errorMsg);
+            throw new RuntimeException(errorMsg);
         }
-        return null;
     }
 }

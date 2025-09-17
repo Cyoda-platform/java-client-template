@@ -2,6 +2,7 @@ package com.java_template.common.serializer.jackson;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.SerializerEnum;
 import com.java_template.common.serializer.ResponseBuilder;
 import com.java_template.common.serializer.CriterionSerializer;
@@ -11,8 +12,8 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
 /**
- * Jackson-based implementation of CriterionSerializer.
- * Provides sealed interface integration with Jackson serialization for criteria evaluation.
+ * ABOUTME: Jackson-based implementation of CriterionSerializer providing JSON serialization
+ * and deserialization for workflow criterion request and response handling.
  */
 @Component
 public class JacksonCriterionSerializer extends BaseJacksonSerializer<EntityCriteriaCalculationRequest>
@@ -22,31 +23,64 @@ public class JacksonCriterionSerializer extends BaseJacksonSerializer<EntityCrit
         super(objectMapper);
     }
 
+    /**
+     * Extracts a typed entity from the request payload and wraps it in EntityWithMetadata.
+     * Uses Jackson ObjectMapper for JSON deserialization.
+     * @param <T> the entity type
+     * @param request the criterion calculation request
+     * @param clazz the entity class for deserialization
+     * @return EntityWithMetadata containing the entity and metadata
+     */
     @Override
-    public <T extends CyodaEntity> T extractEntity(EntityCriteriaCalculationRequest request, Class<T> clazz) {
-        return super.extractEntity(request, clazz, req -> req.getPayload().getData());
+    public <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityCriteriaCalculationRequest request, Class<T> clazz) {
+        return EntityWithMetadata.fromDataPayload(request.getPayload(), clazz, objectMapper);
     }
 
+    /**
+     * Extracts raw JSON payload from the request.
+     * @param request the criterion calculation request
+     * @return JsonNode containing the payload data
+     */
     @Override
     public JsonNode extractPayload(EntityCriteriaCalculationRequest request) {
         return super.extractPayload(request, req -> req.getPayload().getData());
     }
 
+    /**
+     * Converts a CyodaEntity to JsonNode using Jackson ObjectMapper.
+     * @param <T> the entity type
+     * @param entity the entity to convert
+     * @return JsonNode representation of the entity
+     */
     @Override
     public <T extends CyodaEntity> JsonNode entityToJsonNode(T entity) {
         return super.entityToJsonNode(entity);
     }
 
+    /**
+     * Creates a response builder for criterion responses.
+     * @param request the criterion calculation request
+     * @return CriterionResponseBuilder for building responses
+     */
     @Override
     public ResponseBuilder.CriterionResponseBuilder responseBuilder(EntityCriteriaCalculationRequest request) {
         return ResponseBuilder.forCriterion(request);
     }
 
+    /**
+     * Gets the serializer type identifier.
+     * @return the serializer type ("jackson")
+     */
     @Override
     public String getType() {
         return SerializerEnum.JACKSON.getType();
     }
 
+    /**
+     * Validates the criterion calculation request.
+     * @param request the request to validate
+     * @throws IllegalArgumentException if the request or its payload is null
+     */
     @Override
     protected void validateRequest(@NotNull EntityCriteriaCalculationRequest request) {
         if (request.getPayload() == null) {

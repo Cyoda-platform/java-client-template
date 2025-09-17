@@ -6,6 +6,10 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * ABOUTME: Factory component for creating and managing ProcessorSerializer and CriterionSerializer
+ * instances with caching and type-based serializer selection.
+ */
 @Component
 public class SerializerFactory {
 

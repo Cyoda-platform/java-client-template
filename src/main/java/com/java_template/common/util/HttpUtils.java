@@ -19,9 +19,14 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+
+/**
+ * ABOUTME: Utility component providing HTTP client operations for REST API communication
+ * with JSON request/response handling and error management.
+ */
 @Component
 public class HttpUtils {
-    private final HttpClient client = HttpClient.newHttpClient();
+    private final HttpClient client = SslUtils.createHttpClient();
     private final Logger logger = LoggerFactory.getLogger(HttpUtils.class);
     private final ObjectMapper om;
     private final JsonUtils jsonUtils;

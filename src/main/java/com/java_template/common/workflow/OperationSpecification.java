@@ -43,10 +43,18 @@ public sealed class OperationSpecification
         this.operationName = "";
     }
 
+    /**
+     * Gets the model specification containing entity name and version.
+     * @return the ModelSpec for this operation
+     */
     public @NotNull ModelSpec modelKey() {
         return modelKey;
     }
 
+    /**
+     * Gets the operation name (processor name or criterion name).
+     * @return the operation name
+     */
     public @NotNull String operationName() {
         return operationName;
     }
@@ -261,6 +269,13 @@ public sealed class OperationSpecification
         }
     }
 
+    /**
+     * Factory method for creating a Processor operation specification from a request and metadata.
+     * @param request the EntityProcessorCalculationRequest
+     * @param metadata the EntityMetadata containing workflow context
+     * @return a new Processor operation specification
+     * @throws IllegalStateException if transition or workflow information is missing
+     */
     public static Processor create(EntityProcessorCalculationRequest request, EntityMetadata metadata) {
 
         // TODO This is just a suggestion of things to add. Need to agree what we really should pack up.
@@ -277,6 +292,13 @@ public sealed class OperationSpecification
         return new Processor(metadata.getModelKey(), processorName, stateName, transitionName, workflowName);
     }
 
+    /**
+     * Factory method for creating a Criterion operation specification from a request and metadata.
+     * @param request the EntityCriteriaCalculationRequest
+     * @param metadata the EntityMetadata containing workflow context
+     * @return a new Criterion operation specification
+     * @throws IllegalStateException if transition or workflow information is missing
+     */
     public static Criterion create(EntityCriteriaCalculationRequest request, EntityMetadata metadata) {
 
         // TODO This is just a suggestion of things to add. Need to agree what we really should pack up.

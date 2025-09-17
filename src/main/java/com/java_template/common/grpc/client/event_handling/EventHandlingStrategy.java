@@ -6,8 +6,8 @@ import org.cyoda.cloud.api.event.common.CloudEventType;
 import org.jetbrains.annotations.NotNull;
 
 /**
- * Strategy interface for handling different types of CloudEvents.
- * Each implementation handles a specific event type (processors, criteria, etc.).
+ * ABOUTME: Strategy interface for handling different types of CloudEvents using
+ * the Strategy Pattern for extensible event processing without modifying existing code.
 
  * This follows the Strategy Pattern to keep the CyodaCalculationMemberClient
  * clean and extensible - new event types can be added without modifying existing code.

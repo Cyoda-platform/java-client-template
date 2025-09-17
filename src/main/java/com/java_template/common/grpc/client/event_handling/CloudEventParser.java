@@ -9,6 +9,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+/**
+ * ABOUTME: Component for parsing CloudEvent instances into BaseEvent objects
+ * with JSON deserialization and error handling capabilities.
+ */
 @Component
 public class CloudEventParser {
     private final Logger log = LoggerFactory.getLogger(this.getClass());

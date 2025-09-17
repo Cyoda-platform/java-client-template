@@ -1,16 +1,18 @@
 package com.java_template.common.serializer;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.workflow.CyodaEntity;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
- * Processor serializer interface that integrates with sealed response builders.
- * Provides type-safe response building with sealed interface hierarchy.
+ * ABOUTME: Processor serializer interface providing type-safe response building
+ * with sealed interface hierarchy for workflow entity processing.
  */
 public interface ProcessorSerializer {
 
@@ -27,9 +29,15 @@ public interface ProcessorSerializer {
     record ProcessorEntityExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, T entity) {}
 
     /**
-     * Extracts a typed entity from the request payload.
+     * Context record containing the original request and EntityWithMetadata for processor evaluation.
+     * Provides access to both request metadata and complete entity response with metadata.
      */
-    <T extends CyodaEntity> T extractEntity(EntityProcessorCalculationRequest request, Class<T> clazz);
+    record ProcessorEntityResponseExecutionContext<T extends CyodaEntity>(EntityProcessorCalculationRequest request, EntityWithMetadata<T> entityResponse) {}
+
+    /**
+     * Extracts a typed entity from the request payload and wraps it in EntityWithMetadata.
+     */
+    <T extends CyodaEntity> EntityWithMetadata<T> extractEntityWithMetadata(EntityProcessorCalculationRequest request, Class<T> clazz);
 
     /**
      * Extracts raw JSON payload from the request.
@@ -38,7 +46,6 @@ public interface ProcessorSerializer {
 
     /**
      * Converts a CyodaEntity to JsonNode.
-     * This method allows processors to convert entities for use with withEntity method.
      */
     <T extends CyodaEntity> JsonNode entityToJsonNode(T entity);
 
@@ -86,11 +93,12 @@ public interface ProcessorSerializer {
         ProcessingChain map(Function<ProcessorExecutionContext, JsonNode> mapper);
 
         /**
-         * Extracts an entity and initiates entity-based processing flow.
+         * Extracts an entity and wraps it in EntityWithMetadata for unified interface processing.
+         * This creates a unified interface between processors and controllers.
          * @param clazz Entity class to extract
-         * @return EntityProcessingChain for entity-based chaining
+         * @return EntityProcessingChain for EntityWithMetadata-based chaining
          */
-        <T extends CyodaEntity> EntityProcessingChain<T> toEntity(Class<T> clazz);
+        <T extends CyodaEntity> EntityProcessingChain<T> toEntityWithMetadata(Class<T> clazz);
 
         /**
          * Sets the error handler for the processing chain.
@@ -108,65 +116,64 @@ public interface ProcessorSerializer {
     }
 
     /**
-     * Entity processing chain API for entity-based processor operations.
-     * Provides a chainable interface for transforming entity instances and building responses.
-     * This interface supports entity flows where processing operates on entity instances
-     * rather than JsonNode objects.
+     * EntityWithMetadata processing chain API for unified interface processor operations.
+     * Provides a chainable interface for transforming EntityWithMetadata instances and building responses.
+     * This interface creates consistency between processors and controllers by working with EntityWithMetadata.
      */
     interface EntityProcessingChain<T extends CyodaEntity> {
         /**
-         * Maps the current entity using the provided function with request context.
-         * Provides access to both request metadata and entity data.
-         * @param mapper Function to transform the entity with context
+         * Maps the current EntityWithMetadata using the provided function with request context.
+         * Provides access to both request metadata and complete EntityWithMetadata data.
+         * @param mapper Function to transform the EntityWithMetadata with context
          * @return EntityProcessingChain for chaining
          */
-        EntityProcessingChain<T> map(Function<ProcessorEntityExecutionContext<T>, T> mapper);
+        EntityProcessingChain<T> map(Function<ProcessorEntityResponseExecutionContext<T>, EntityWithMetadata<T>> mapper);
 
         /**
-         * Validates the current entity using the provided predicate.
+         * Validates the current EntityWithMetadata using the provided predicate.
          * If validation fails, the processing chain will error.
-         * @param validator Predicate to validate the entity
+         * @param validator Predicate to validate the EntityWithMetadata
          * @return EntityProcessingChain for chaining
          */
-        EntityProcessingChain<T> validate(Function<T, Boolean> validator);
+        EntityProcessingChain<T> validate(Function<EntityWithMetadata<T>, Boolean> validator);
 
         /**
-         * Validates the current entity with a custom error message.
-         * @param validator Predicate to validate the entity
+         * Validates the current EntityWithMetadata with a custom error message.
+         * @param validator Predicate to validate the EntityWithMetadata
          * @param errorMessage Custom error message if validation fails
          * @return EntityProcessingChain for chaining
          */
-        EntityProcessingChain<T> validate(Function<T, Boolean> validator, String errorMessage);
+        EntityProcessingChain<T> validate(Function<EntityWithMetadata<T>, Boolean> validator, String errorMessage);
 
         /**
-         * Switches back to JsonNode processing by converting the current entity.
-         * @param converter Function to convert entity to JsonNode
+         * Switches back to JsonNode processing by converting the current EntityWithMetadata.
+         * @param converter Function to convert EntityWithMetadata to JsonNode
          * @return ProcessingChain for JsonNode-based chaining
          */
-        ProcessingChain toJsonFlow(Function<T, JsonNode> converter);
+        ProcessingChain toJsonFlow(Function<EntityWithMetadata<T>, JsonNode> converter);
 
         /**
-         * Sets the error handler for the entity processing chain.
+         * Sets the error handler for the EntityWithMetadata processing chain.
          * @param errorHandler Function to handle errors and create error responses
          * @return EntityProcessingChain for chaining
          */
-        EntityProcessingChain<T> withErrorHandler(BiFunction<Throwable, T, ErrorInfo> errorHandler);
+        EntityProcessingChain<T> withErrorHandler(BiFunction<Throwable, EntityWithMetadata<T>, ErrorInfo> errorHandler);
 
         /**
-         * Completes the entity processing chain and returns the response.
+         * Completes the EntityWithMetadata processing chain and returns the response.
          * Uses the error handler if one was set, otherwise uses default error handling.
-         * The entity is automatically converted to JsonNode using the serializer.
+         * The EntityWithMetadata entity is automatically converted to JsonNode using the serializer.
          * @return EntityProcessorCalculationResponse
          */
         EntityProcessorCalculationResponse complete();
 
         /**
-         * Completes the entity processing chain with a custom converter.
+         * Completes the EntityWithMetadata processing chain with a custom converter.
          * Uses the error handler if one was set, otherwise uses default error handling.
-         * @param converter Function to convert the final entity to JsonNode
+         * @param converter Function to convert the final EntityWithMetadata to JsonNode
          * @return EntityProcessorCalculationResponse
          */
-        EntityProcessorCalculationResponse complete(Function<T, JsonNode> converter);
+        EntityProcessorCalculationResponse complete(Function<EntityWithMetadata<T>, JsonNode> converter);
     }
 
     /**
@@ -217,17 +224,19 @@ public interface ProcessorSerializer {
         }
 
         @Override
-        public <T extends CyodaEntity> EntityProcessingChain<T> toEntity(Class<T> clazz) {
+        public <T extends CyodaEntity> EntityProcessingChain<T> toEntityWithMetadata(Class<T> clazz) {
             if (error == null) {
                 try {
-                    T entity = serializer.extractEntity(request, clazz);
-                    return new EntityProcessingChainImpl<>(serializer, request, entity);
+                    EntityWithMetadata<T> entityResponse = serializer.extractEntityWithMetadata(request, clazz);
+                    return new EntityProcessingChainImpl<>(serializer, request, entityResponse);
                 } catch (Exception e) {
                     return new EntityProcessingChainImpl<>(serializer, request, e);
                 }
             }
             return new EntityProcessingChainImpl<>(serializer, request, error);
         }
+
+
 
         @Override
         public ProcessingChain withErrorHandler(BiFunction<Throwable, JsonNode, ErrorInfo> errorHandler) {
@@ -257,154 +266,121 @@ public interface ProcessorSerializer {
 
     /**
      * Implementation of the EntityProcessingChain interface.
-     * Handles entity-based processing flows where operations work on entity instances.
      */
     class EntityProcessingChainImpl<T extends CyodaEntity> implements EntityProcessingChain<T> {
         private final ProcessorSerializer serializer;
         private final EntityProcessorCalculationRequest request;
-        private T processedEntity;
-        private Throwable error;
-        private BiFunction<Throwable, T, ErrorInfo> errorHandler;
+        private final EntityWithMetadata<T> processedEntityResponse;
+        private final Throwable error;
+        private BiFunction<Throwable, EntityWithMetadata<T>, ErrorInfo> errorHandler;
 
-        EntityProcessingChainImpl(ProcessorSerializer serializer, EntityProcessorCalculationRequest request, T entity) {
+        EntityProcessingChainImpl(ProcessorSerializer serializer, EntityProcessorCalculationRequest request, EntityWithMetadata<T> entityResponse) {
             this.serializer = serializer;
             this.request = request;
-            this.processedEntity = entity;
+            this.processedEntityResponse = entityResponse;
             this.error = null;
         }
 
         EntityProcessingChainImpl(ProcessorSerializer serializer, EntityProcessorCalculationRequest request, Throwable error) {
             this.serializer = serializer;
             this.request = request;
-            this.processedEntity = null;
+            this.processedEntityResponse = null;
             this.error = error;
         }
 
         @Override
-        public EntityProcessingChain<T> map(Function<ProcessorEntityExecutionContext<T>, T> mapper) {
-            if (error == null && processedEntity != null) {
+        public EntityProcessingChain<T> map(Function<ProcessorEntityResponseExecutionContext<T>, EntityWithMetadata<T>> mapper) {
+            if (error == null && processedEntityResponse != null) {
                 try {
-                    ProcessorEntityExecutionContext<T> context = new ProcessorEntityExecutionContext<>(request, processedEntity);
-                    processedEntity = mapper.apply(context);
+                    ProcessorEntityResponseExecutionContext<T> context = new ProcessorEntityResponseExecutionContext<>(request, processedEntityResponse);
+                    EntityWithMetadata<T> result = mapper.apply(context);
+                    return new EntityProcessingChainImpl<>(serializer, request, result);
                 } catch (Exception e) {
-                    error = e;
+                    return new EntityProcessingChainImpl<>(serializer, request, e);
                 }
             }
             return this;
         }
 
         @Override
-        public EntityProcessingChain<T> validate(Function<T, Boolean> validator) {
-            return validate(validator, "Entity validation failed");
+        public EntityProcessingChain<T> validate(Function<EntityWithMetadata<T>, Boolean> validator) {
+            return validate(validator, "Validation failed");
         }
 
         @Override
-        public EntityProcessingChain<T> validate(Function<T, Boolean> validator, String errorMessage) {
-            if (error == null && processedEntity != null) {
+        public EntityProcessingChain<T> validate(Function<EntityWithMetadata<T>, Boolean> validator, String errorMessage) {
+            if (error == null && processedEntityResponse != null) {
                 try {
-                    Boolean isValid = validator.apply(processedEntity);
-                    if (isValid == null || !isValid) {
-                        error = new IllegalArgumentException(errorMessage);
+                    if (!validator.apply(processedEntityResponse)) {
+                        return new EntityProcessingChainImpl<>(serializer, request, new IllegalArgumentException(errorMessage));
                     }
                 } catch (Exception e) {
-                    error = e;
+                    return new EntityProcessingChainImpl<>(serializer, request, e);
                 }
             }
             return this;
         }
 
         @Override
-        public ProcessingChain toJsonFlow(Function<T, JsonNode> converter) {
-            if (error == null && processedEntity != null) {
+        public ProcessingChain toJsonFlow(Function<EntityWithMetadata<T>, JsonNode> converter) {
+            if (error == null && processedEntityResponse != null) {
                 try {
-                    JsonNode jsonData = converter.apply(processedEntity);
-                    return new ProcessingChainImpl(serializer, request, jsonData);
+                    JsonNode jsonNode = converter.apply(processedEntityResponse);
+                    return new ProcessingChainImpl(serializer, request, jsonNode);
                 } catch (Exception e) {
                     return new ProcessingChainImpl(serializer, request, e);
                 }
             }
-            return new ProcessingChainImpl(serializer, request, error);
+            return new ProcessingChainImpl(serializer, request, error != null ? error : new IllegalStateException("EntityWithMetadata is null"));
         }
 
         @Override
-        public EntityProcessingChain<T> withErrorHandler(BiFunction<Throwable, T, ErrorInfo> errorHandler) {
+        public EntityProcessingChain<T> withErrorHandler(BiFunction<Throwable, EntityWithMetadata<T>, ErrorInfo> errorHandler) {
             this.errorHandler = errorHandler;
             return this;
         }
 
         @Override
         public EntityProcessorCalculationResponse complete() {
-            if (error != null) {
-                if (errorHandler != null) {
-                    ErrorInfo errorInfo = errorHandler.apply(error, processedEntity);
-                    return serializer.responseBuilder(request)
-                            .withError(errorInfo.code(), errorInfo.message())
-                            .build();
-                } else {
-                    return serializer.responseBuilder(request)
-                            .withError(StandardErrorCodes.PROCESSING_ERROR.getCode(), error.getMessage())
-                            .build();
-                }
-            }
-            if (processedEntity == null) {
-                return serializer.responseBuilder(request)
-                        .withError(StandardErrorCodes.PROCESSING_ERROR.getCode(), "Entity is null")
-                        .build();
-            }
-            try {
-                JsonNode entityJson = serializer.entityToJsonNode(processedEntity);
-                return serializer.responseBuilder(request)
-                        .withSuccess(entityJson)
-                        .build();
-            } catch (Exception e) {
-                if (errorHandler != null) {
-                    ErrorInfo errorInfo = errorHandler.apply(e, processedEntity);
-                    return serializer.responseBuilder(request)
-                            .withError(errorInfo.code(), errorInfo.message())
-                            .build();
-                } else {
-                    return serializer.responseBuilder(request)
-                            .withError("CONVERSION_ERROR", e.getMessage())
-                            .build();
-                }
-            }
+            return complete(entityResponse -> serializer.entityToJsonNode(entityResponse.entity()));
         }
 
         @Override
-        public EntityProcessorCalculationResponse complete(Function<T, JsonNode> converter) {
+        public EntityProcessorCalculationResponse complete(Function<EntityWithMetadata<T>, JsonNode> converter) {
             if (error != null) {
-                if (errorHandler != null) {
-                    ErrorInfo errorInfo = errorHandler.apply(error, processedEntity);
-                    return serializer.responseBuilder(request)
-                            .withError(errorInfo.code(), errorInfo.message())
-                            .build();
-                } else {
-                    return serializer.responseBuilder(request)
-                            .withError("PROCESSING_ERROR", error.getMessage())
-                            .build();
-                }
+                return handleError(error, "PROCESSING_ERROR");
             }
-            if (processedEntity == null) {
+            if (processedEntityResponse == null) {
+                return serializer.responseBuilder(request)
+                        .withError("PROCESSING_ERROR", "EntityWithMetadata is null")
+                        .build();
+            }
+            if (processedEntityResponse.entity() == null) {
                 return serializer.responseBuilder(request)
                         .withError("PROCESSING_ERROR", "Entity is null")
                         .build();
             }
             try {
-                JsonNode entityJson = converter.apply(processedEntity);
+                JsonNode entityJson = converter.apply(processedEntityResponse);
                 return serializer.responseBuilder(request)
                         .withSuccess(entityJson)
                         .build();
             } catch (Exception e) {
-                if (errorHandler != null) {
-                    ErrorInfo errorInfo = errorHandler.apply(e, processedEntity);
-                    return serializer.responseBuilder(request)
-                            .withError(errorInfo.code(), errorInfo.message())
-                            .build();
-                } else {
-                    return serializer.responseBuilder(request)
-                            .withError("CONVERSION_ERROR", e.getMessage())
-                            .build();
-                }
+                return handleError(e, "CONVERSION_ERROR");
+            }
+        }
+
+        @NotNull
+        private EntityProcessorCalculationResponse handleError(Throwable error, String errorCode) {
+            if (errorHandler != null) {
+                ErrorInfo errorInfo = errorHandler.apply(error, processedEntityResponse);
+                return serializer.responseBuilder(request)
+                        .withError(errorInfo.code(), errorInfo.message())
+                        .build();
+            } else {
+                return serializer.responseBuilder(request)
+                        .withError(errorCode, error.getMessage())
+                        .build();
             }
         }
     }

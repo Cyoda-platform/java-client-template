@@ -10,6 +10,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.function.Function;
 
+/**
+ * ABOUTME: Abstract base class for Jackson-based serializers providing common
+ * JSON serialization and entity conversion functionality.
+ */
 public abstract class BaseJacksonSerializer<TRequest> {
 
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());

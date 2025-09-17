@@ -12,6 +12,10 @@ import static com.java_template.common.config.Config.FAILED_RECONNECTS_LIMIT;
 import static com.java_template.common.config.Config.INITIAL_RECONNECT_DELAY_MS;
 import static com.java_template.common.config.Config.MAX_RECONNECT_DELAY_MS;
 
+/**
+ * ABOUTME: Default implementation of ReconnectionStrategy with exponential backoff,
+ * retry limits, and scheduled reconnection attempts for gRPC connections.
+ */
 public class DefaultReconnectionStrategy implements ReconnectionStrategy {
 
     private final Logger log = LoggerFactory.getLogger(this.getClass());
