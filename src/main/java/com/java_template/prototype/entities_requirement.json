@@ -1,0 +1,106 @@
+{
+    "entities": [
+        {
+            "Pet": {
+                "entity_data_example": {
+                    "birthDate": "2022-01-01",
+                    "breed": "Persian",
+                    "category": {
+                        "categoryId": "C001",
+                        "name": "Cats"
+                    },
+                    "createdAt": "2023-01-01T10:00:00",
+                    "description": "A friendly cat.",
+                    "name": "Fluffy",
+                    "petId": "P001",
+                    "photoUrls": [
+                        "http://example.com/photo1.jpg",
+                        "http://example.com/photo2.jpg"
+                    ],
+                    "price": 150.0,
+                    "tags": [
+                        {
+                            "name": "friendly",
+                            "tagId": "T001"
+                        },
+                        {
+                            "name": "young",
+                            "tagId": "T002"
+                        }
+                    ],
+                    "updatedAt": "2023-01-10T10:00:00",
+                    "vaccinated": true,
+                    "weight": 4.5
+                }
+            }
+        },
+        {
+            "Order": {
+                "entity_data_example": {
+                    "complete": false,
+                    "createdAt": "2023-01-01T10:00:00",
+                    "customerInfo": {
+                        "customerId": "U001",
+                        "email": "john.doe@example.com",
+                        "firstName": "John",
+                        "lastName": "Doe",
+                        "phone": "1234567890"
+                    },
+                    "orderId": "O001",
+                    "orderNotes": "Please deliver after 5 PM.",
+                    "paymentMethod": "Credit Card",
+                    "petId": "P001",
+                    "quantity": 1,
+                    "shipDate": "2023-01-15T10:00:00",
+                    "shippingAddress": {
+                        "city": "Springfield",
+                        "country": "USA",
+                        "line1": "123 Main St",
+                        "line2": "",
+                        "postcode": "62701",
+                        "state": "IL"
+                    },
+                    "totalAmount": 150.0,
+                    "updatedAt": "2023-01-10T10:00:00"
+                }
+            }
+        },
+        {
+            "User": {
+                "entity_data_example": {
+                    "addresses": [
+                        {
+                            "addressId": "A001",
+                            "city": "Springfield",
+                            "country": "USA",
+                            "isDefault": true,
+                            "line1": "123 Main St",
+                            "line2": "",
+                            "postcode": "62701",
+                            "state": "IL"
+                        }
+                    ],
+                    "email": "john.doe@example.com",
+                    "firstName": "John",
+                    "isActive": true,
+                    "lastLoginDate": "2023-01-10T10:00:00",
+                    "lastName": "Doe",
+                    "password": "encrypted_password",
+                    "phone": "1234567890",
+                    "preferences": {
+                        "emailNotifications": true,
+                        "preferredCategories": [
+                            "Dogs",
+                            "Cats"
+                        ],
+                        "preferredContactMethod": "email",
+                        "smsNotifications": false
+                    },
+                    "registrationDate": "2023-01-01T10:00:00",
+                    "userId": "U001",
+                    "username": "john_doe"
+                }
+            }
+        }
+    ]
+}
