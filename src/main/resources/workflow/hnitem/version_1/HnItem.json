@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "name": "HnItem",
+  "desc": "Workflow for managing Hacker News items through validation, processing, and storage",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "initialize_item",
+          "next": "pending"
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_item",
+          "next": "validated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "HnItemValidationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "process_item",
+          "next": "processed",
+          "processors": [
+            {
+              "name": "HnItemStorageProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail_processing",
+          "next": "failed",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HnItemValidationCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 2000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_processing",
+          "next": "pending",
+          "manual": true
+        }
+      ]
+    },
+    "processed": {
+      "transitions": []
+    }
+  }
+}
