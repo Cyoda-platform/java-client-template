@@ -155,3 +155,39 @@ tasks.register('runApp', JavaExec) {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
 }
+
+tasks.register('validateWorkflowImplementations', JavaExec) {
+    group = 'validation'
+    description = 'Validate that all processors/criteria in workflows exist as Java classes. Usage: -Pargs="path/to/workflow.json" (optional)'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('com.java_template.common.tool.WorkflowImplementationValidator')
+    if (project.hasProperty('args')) {
+        args project.property('args').toString().split(' ')
+    }
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+}
+
+tasks.register('validateFunctionalRequirements', JavaExec) {
+    group = 'validation'
+    description = 'Validate that all processors/criteria in requirements are implemented in workflows. Usage: -Pargs="requirements.md workflow.json" (optional)'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('com.java_template.common.tool.FunctionalRequirementsValidator')
+    if (project.hasProperty('args')) {
+        args project.property('args').toString().split(' ')
+    }
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+}
+
+tasks.register('validateWorkflows', JavaExec) {
+    group = 'validation'
+    description = 'Run complete workflow validation suite'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('com.java_template.common.tool.WorkflowValidationSuite')
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+}
