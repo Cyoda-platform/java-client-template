@@ -1,0 +1,68 @@
+{
+    "entities": [
+        {
+            "HNItem": {
+                "entity_data_example": {
+                    "by": "authorName",
+                    "dead": false,
+                    "deleted": false,
+                    "descendants": 10,
+                    "id": 12345,
+                    "kids": [
+                        6789,
+                        101112
+                    ],
+                    "parent": null,
+                    "parts": [
+                        131415,
+                        161718
+                    ],
+                    "poll": null,
+                    "score": 100,
+                    "text": "This is a story text.",
+                    "time": 1633072800,
+                    "title": "Example Story Title",
+                    "type": "story",
+                    "url": "https://example.com"
+                }
+            }
+        },
+        {
+            "SearchQuery": {
+                "entity_data_example": {
+                    "author": "authorName",
+                    "fromTime": 1633072800,
+                    "includeParentHierarchy": true,
+                    "itemType": "story",
+                    "limit": 20,
+                    "maxDepth": 5,
+                    "maxScore": 100,
+                    "minScore": 10,
+                    "offset": 0,
+                    "queryId": "uniqueQueryId",
+                    "searchText": "example",
+                    "sortBy": "score",
+                    "sortOrder": "asc",
+                    "toTime": 1633169200
+                }
+            }
+        },
+        {
+            "BulkUpload": {
+                "entity_data_example": {
+                    "errorMessages": [
+                        "Error processing item 1",
+                        "Error processing item 2"
+                    ],
+                    "failedItems": 20,
+                    "fileName": "upload.json",
+                    "fileSize": 2048,
+                    "processedItems": 80,
+                    "totalItems": 100,
+                    "uploadId": "uniqueUploadId",
+                    "uploadTime": 1633072800
+                }
+            }
+        }
+    ]
+}
