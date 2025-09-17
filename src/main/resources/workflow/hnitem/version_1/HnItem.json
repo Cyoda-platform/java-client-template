@@ -1,0 +1,100 @@
+{
+  "version": "1.0",
+  "name": "HnItem",
+  "desc": "Workflow for managing Hacker News items from creation through processing and validation",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_validate",
+          "next": "pending_validation",
+          "manual": false
+        }
+      ]
+    },
+    "pending_validation": {
+      "transitions": [
+        {
+          "name": "validate_item",
+          "next": "validated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ValidateHnItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "validation_failed",
+          "next": "failed",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "process_item",
+          "next": "processed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ProcessHnItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "processing_failed",
+          "next": "failed",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProcessingFailedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "processed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
