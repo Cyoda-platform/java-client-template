@@ -216,7 +216,7 @@ public class EmailNotificationController {
 
             SimpleCondition simpleCondition = new SimpleCondition()
                     .withJsonPath("$.sentAt")
-                    .withOperation(sent ? Operation.NOT_NULL : Operation.NULL)
+                    .withOperation(sent ? Operation.NOT_NULL : Operation.IS_NULL)
                     .withValue(null);
 
             GroupCondition condition = new GroupCondition()
