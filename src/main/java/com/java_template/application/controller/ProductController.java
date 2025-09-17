@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,11 +56,11 @@ public class ProductController {
             ModelSpec modelSpec = new ModelSpec().withName(Product.ENTITY_NAME).withVersion(Product.ENTITY_VERSION);
             
             // Build search conditions
-            List<SimpleCondition> conditions = new ArrayList<>();
-            
+            List<QueryCondition> conditions = new ArrayList<>();
+
             // Free-text search on name OR description
             if (search != null && !search.trim().isEmpty()) {
-                List<SimpleCondition> textConditions = new ArrayList<>();
+                List<QueryCondition> textConditions = new ArrayList<>();
                 textConditions.add(new SimpleCondition()
                         .withJsonPath("$.name")
                         .withOperation(Operation.CONTAINS)
@@ -68,16 +69,13 @@ public class ProductController {
                         .withJsonPath("$.description")
                         .withOperation(Operation.CONTAINS)
                         .withValue(objectMapper.valueToTree(search)));
-                
+
                 // Create OR condition for text search
                 GroupCondition textSearchCondition = new GroupCondition()
                         .withOperator(GroupCondition.Operator.OR)
                         .withConditions(textConditions);
-                
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$")
-                        .withOperation(Operation.CUSTOM)
-                        .withValue(objectMapper.valueToTree(textSearchCondition)));
+
+                conditions.add(textSearchCondition);
             }
             
             // Category filter
