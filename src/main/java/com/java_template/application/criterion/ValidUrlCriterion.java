@@ -82,24 +82,24 @@ public class ValidUrlCriterion implements CyodaCriterion {
             int responseCode = connection.getResponseCode();
             if (responseCode != 200) {
                 logger.warn("URL is not accessible, response code: {}", responseCode);
-                return EvaluationOutcome.fail("URL is not accessible (HTTP " + responseCode + ")", 
-                    StandardEvalReasonCategories.EXTERNAL_DEPENDENCY_FAILURE);
+                return EvaluationOutcome.fail("URL is not accessible (HTTP " + responseCode + ")",
+                    StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
 
             String contentType = connection.getContentType();
             if (contentType != null && !contentType.toLowerCase().contains("text")) {
                 logger.warn("URL does not return text content, content type: {}", contentType);
-                return EvaluationOutcome.fail("URL does not return text content", 
+                return EvaluationOutcome.fail("URL does not return text content",
                     StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
             }
 
             logger.debug("URL validation successful for: {}", entity.getUrl());
             return EvaluationOutcome.success();
-            
+
         } catch (Exception e) {
             logger.warn("URL validation failed for: {}", entity.getUrl(), e);
-            return EvaluationOutcome.fail("URL validation failed: " + e.getMessage(), 
-                StandardEvalReasonCategories.EXTERNAL_DEPENDENCY_FAILURE);
+            return EvaluationOutcome.fail("URL validation failed: " + e.getMessage(),
+                StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
     }
 }
