@@ -1,0 +1,154 @@
+{
+  "version": "1.0",
+  "name": "HNItem",
+  "desc": "Workflow for managing Hacker News items lifecycle",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_create",
+          "next": "created",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateHNItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "created": {
+      "transitions": [
+        {
+          "name": "validate_item",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateHNItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HNItemValidCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HNItemValidCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.valid",
+                "operation": "EQUALS",
+                "value": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "index_item",
+          "next": "indexed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IndexHNItemProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "indexing_failed",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "indexed": {
+      "transitions": [
+        {
+          "name": "reindex_item",
+          "next": "validated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReindexHNItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_processing",
+          "next": "created",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RetryHNItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
