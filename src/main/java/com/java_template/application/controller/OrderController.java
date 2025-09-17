@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -159,7 +160,7 @@ public class OrderController {
                 if (!conditions.isEmpty()) {
                     GroupCondition condition = new GroupCondition()
                             .withOperator(GroupCondition.Operator.AND)
-                            .withConditions(conditions);
+                            .withConditions(new ArrayList<QueryCondition>(conditions));
 
                     List<EntityWithMetadata<Order>> orders = entityService.search(modelSpec, condition, Order.class);
                     
@@ -238,7 +239,7 @@ public class OrderController {
 
             GroupCondition condition = new GroupCondition()
                     .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(conditions);
+                    .withConditions(new ArrayList<QueryCondition>(conditions));
 
             List<EntityWithMetadata<Order>> orders = entityService.search(modelSpec, condition, Order.class);
             return ResponseEntity.ok(orders);
