@@ -1,0 +1,86 @@
+{
+    "version": "1.0",
+    "name": "SearchQuery Workflow",
+    "desc": "Manages the execution of search queries for HN items, including validation, execution, and result processing.",
+    "initialState": "initial_state",
+    "active": true,
+    "states": {
+        "initial_state": {
+            "transitions": [
+                {
+                    "name": "transition_to_validated",
+                    "next": "validated",
+                    "manual": false
+                }
+            ]
+        },
+        "validated": {
+            "transitions": [
+                {
+                    "name": "transition_to_executing",
+                    "next": "executing",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SearchQueryValidationProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "executing": {
+            "transitions": [
+                {
+                    "name": "transition_to_completed",
+                    "next": "completed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SearchQueryExecutionProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "transition_to_failed",
+                    "next": "failed",
+                    "manual": false,
+                    "processors": [
+                        {
+                            "name": "SearchQueryFailureProcessor",
+                            "executionMode": "SYNC",
+                            "config": {
+                                "calculationNodesTags": "cyoda_application"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        "completed": {
+            "transitions": [
+                {
+                    "name": "transition_to_validated_retry",
+                    "next": "validated",
+                    "manual": true
+                }
+            ]
+        },
+        "failed": {
+            "transitions": [
+                {
+                    "name": "transition_to_validated_retry",
+                    "next": "validated",
+                    "manual": true
+                }
+            ]
+        }
+    }
+}
