@@ -1,0 +1,143 @@
+{
+  "version": "1.0",
+  "name": "HNItem",
+  "desc": "Workflow for managing Hacker News items",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_create",
+          "next": "pending",
+          "manual": false
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "validate_item",
+          "next": "validated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateHNItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidItemCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        },
+        {
+          "name": "validation_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidItemCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.id",
+                "operation": "EQUALS",
+                "value": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "store_item",
+          "next": "stored",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StoreHNItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "stored": {
+      "transitions": [
+        {
+          "name": "index_item",
+          "next": "indexed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "IndexHNItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "indexed": {
+      "transitions": [
+        {
+          "name": "activate_item",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_item",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StoreHNItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_processing",
+          "next": "pending",
+          "manual": true
+        }
+      ]
+    }
+  }
+}

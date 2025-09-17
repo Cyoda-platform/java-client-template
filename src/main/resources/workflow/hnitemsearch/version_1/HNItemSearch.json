@@ -1,0 +1,101 @@
+{
+  "version": "1.0",
+  "name": "HNItemSearch",
+  "desc": "Workflow for managing HN item search operations",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_create",
+          "next": "pending",
+          "manual": false
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_search",
+          "next": "executing",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidSearchQueryCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "executing": {
+      "transitions": [
+        {
+          "name": "complete_search_success",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ExecuteSearchProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            },
+            {
+              "name": "CompleteSearchProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SearchSuccessfulCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        },
+        {
+          "name": "complete_search_failed",
+          "next": "failed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ExecuteSearchProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_search",
+          "next": "pending",
+          "manual": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "version": "1.0",
+  "name": "HNItemUpload",
+  "desc": "Workflow for managing bulk HN item uploads",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_create",
+          "next": "pending",
+          "manual": false
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "processing",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasUploadDataCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "complete_upload_success",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessUploadProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            },
+            {
+              "name": "CompleteUploadProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ProcessingSuccessfulCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        },
+        {
+          "name": "complete_upload_failed",
+          "next": "failed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ProcessUploadProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_upload",
+          "next": "pending",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
