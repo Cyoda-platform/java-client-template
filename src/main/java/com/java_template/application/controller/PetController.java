@@ -188,7 +188,7 @@ public class PetController {
 
             GroupCondition condition = new GroupCondition()
                     .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(conditions);
+                    .withConditions(new ArrayList<>(conditions));
 
             List<EntityWithMetadata<Pet>> pets = entityService.search(modelSpec, condition, Pet.class);
             return ResponseEntity.ok(pets);

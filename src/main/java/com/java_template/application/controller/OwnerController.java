@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -195,8 +196,8 @@ public class OwnerController {
                     .withName(Owner.ENTITY_NAME)
                     .withVersion(Owner.ENTITY_VERSION);
 
-            List<SimpleCondition> conditions = List.of();
-            
+            List<SimpleCondition> conditions = new ArrayList<>();
+
             if (firstName != null && !firstName.trim().isEmpty()) {
                 conditions.add(new SimpleCondition()
                         .withJsonPath("$.firstName")
@@ -217,7 +218,7 @@ public class OwnerController {
 
             GroupCondition condition = new GroupCondition()
                     .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(conditions);
+                    .withConditions(new ArrayList<>(conditions));
 
             List<EntityWithMetadata<Owner>> owners = entityService.search(modelSpec, condition, Owner.class);
             return ResponseEntity.ok(owners);
