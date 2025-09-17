@@ -58,7 +58,7 @@ public class BulkUploadController {
             data.put("entity", response.entity());
             Map<String, Object> meta = new HashMap<>();
             meta.put("state", response.metadata().getState());
-            meta.put("createdAt", response.metadata().getCreatedAt());
+            meta.put("createdAt", response.metadata().getCreationDate());
             data.put("meta", meta);
             result.put("data", data);
 
@@ -92,8 +92,7 @@ public class BulkUploadController {
             data.put("entity", response.entity());
             Map<String, Object> meta = new HashMap<>();
             meta.put("state", response.metadata().getState());
-            meta.put("createdAt", response.metadata().getCreatedAt());
-            meta.put("updatedAt", response.metadata().getUpdatedAt());
+            meta.put("createdAt", response.metadata().getCreationDate());
             data.put("meta", meta);
             result.put("data", data);
 
@@ -128,8 +127,7 @@ public class BulkUploadController {
             data.put("entity", response.entity());
             Map<String, Object> meta = new HashMap<>();
             meta.put("state", response.metadata().getState());
-            meta.put("createdAt", response.metadata().getCreatedAt());
-            meta.put("updatedAt", response.metadata().getUpdatedAt());
+            meta.put("createdAt", response.metadata().getCreationDate());
             data.put("meta", meta);
             result.put("data", data);
 
