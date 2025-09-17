@@ -126,6 +126,10 @@ bootJar {
     mainClass.set("com.java_template.Application")
 }
 
+bootRun {
+    mainClass.set("com.java_template.Application")
+}
+
 // Prototype mode is handled via conditional test: ./gradlew test --tests PrototypeApplicationTest -Dprototype.enabled=true
 
 task bootJarWorkflowImport(type: org.springframework.boot.gradle.tasks.bundling.BootJar) {
