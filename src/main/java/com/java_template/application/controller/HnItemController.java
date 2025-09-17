@@ -236,14 +236,158 @@ public class HnItemController {
             // Get current entity
             ModelSpec modelSpec = new ModelSpec().withName(HnItem.ENTITY_NAME).withVersion(HnItem.ENTITY_VERSION);
             EntityWithMetadata<HnItem> current = entityService.getById(id, modelSpec, HnItem.class);
-            
+
             // Apply transition
             EntityWithMetadata<HnItem> response = entityService.update(id, current.entity(), transitionRequest.getTransition());
             logger.info("Applied transition '{}' to HnItem {}", transitionRequest.getTransition(), id);
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating HnItem state", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Search HN items with hierarchical joins
+     * GET /api/hnitem/search
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<EntityWithMetadata<HnItem>>> searchHnItems(
+            @RequestParam(required = false) String text,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) Long parent,
+            @RequestParam(defaultValue = "50") Integer limit,
+            @RequestParam(defaultValue = "0") Integer offset) {
+        try {
+            logger.info("Searching HnItems with text={}, type={}, author={}, parent={}", text, type, author, parent);
+
+            ModelSpec modelSpec = new ModelSpec().withName(HnItem.ENTITY_NAME).withVersion(HnItem.ENTITY_VERSION);
+
+            // Build search conditions
+            List<SimpleCondition> conditions = new ArrayList<>();
+
+            if (text != null && !text.trim().isEmpty()) {
+                // Search in title and text fields
+                SimpleCondition titleCondition = new SimpleCondition()
+                        .withJsonPath("$.title")
+                        .withOperation(Operation.CONTAINS)
+                        .withValue(objectMapper.valueToTree(text));
+
+                SimpleCondition textCondition = new SimpleCondition()
+                        .withJsonPath("$.text")
+                        .withOperation(Operation.CONTAINS)
+                        .withValue(objectMapper.valueToTree(text));
+
+                // Create OR condition for title or text
+                GroupCondition textOrCondition = new GroupCondition()
+                        .withOperator(GroupCondition.Operator.OR)
+                        .withConditions(List.of(titleCondition, textCondition));
+
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$")
+                        .withOperation(Operation.CUSTOM)
+                        .withValue(objectMapper.valueToTree(textOrCondition)));
+            }
+
+            if (type != null && !type.trim().isEmpty()) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.type")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(type)));
+            }
+
+            if (author != null && !author.trim().isEmpty()) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.by")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(author)));
+            }
+
+            if (parent != null) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.parent")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(parent)));
+            }
+
+            // Create final search condition
+            GroupCondition finalCondition = new GroupCondition()
+                    .withOperator(GroupCondition.Operator.AND)
+                    .withConditions(conditions);
+
+            List<EntityWithMetadata<HnItem>> results = entityService.search(modelSpec, finalCondition, HnItem.class);
+
+            // Apply pagination
+            int start = Math.min(offset, results.size());
+            int end = Math.min(offset + limit, results.size());
+            List<EntityWithMetadata<HnItem>> paginatedResults = results.subList(start, end);
+
+            logger.info("Found {} HnItems, returning {} with offset {}", results.size(), paginatedResults.size(), offset);
+            return ResponseEntity.ok(paginatedResults);
+        } catch (Exception e) {
+            logger.error("Error searching HnItems", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Advanced search with complex criteria
+     * POST /api/hnitem/search/advanced
+     */
+    @PostMapping("/search/advanced")
+    public ResponseEntity<List<EntityWithMetadata<HnItem>>> advancedSearch(@RequestBody SearchRequest searchRequest) {
+        try {
+            logger.info("Advanced search for HnItems: {}", searchRequest);
+
+            ModelSpec modelSpec = new ModelSpec().withName(HnItem.ENTITY_NAME).withVersion(HnItem.ENTITY_VERSION);
+
+            // Build complex search conditions
+            List<SimpleCondition> conditions = new ArrayList<>();
+
+            if (searchRequest.getText() != null && !searchRequest.getText().trim().isEmpty()) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.title")
+                        .withOperation(Operation.CONTAINS)
+                        .withValue(objectMapper.valueToTree(searchRequest.getText())));
+            }
+
+            if (searchRequest.getType() != null && !searchRequest.getType().trim().isEmpty()) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.type")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(searchRequest.getType())));
+            }
+
+            if (searchRequest.getAuthor() != null && !searchRequest.getAuthor().trim().isEmpty()) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.by")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(searchRequest.getAuthor())));
+            }
+
+            if (searchRequest.getParent() != null) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.parent")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(searchRequest.getParent())));
+            }
+
+            GroupCondition condition = new GroupCondition()
+                    .withOperator(GroupCondition.Operator.AND)
+                    .withConditions(conditions);
+
+            List<EntityWithMetadata<HnItem>> results = entityService.search(modelSpec, condition, HnItem.class);
+
+            // Apply pagination
+            int start = Math.min(searchRequest.getOffset(), results.size());
+            int end = Math.min(searchRequest.getOffset() + searchRequest.getLimit(), results.size());
+            List<EntityWithMetadata<HnItem>> paginatedResults = results.subList(start, end);
+
+            return ResponseEntity.ok(paginatedResults);
+        } catch (Exception e) {
+            logger.error("Error performing advanced search", e);
             return ResponseEntity.badRequest().build();
         }
     }
