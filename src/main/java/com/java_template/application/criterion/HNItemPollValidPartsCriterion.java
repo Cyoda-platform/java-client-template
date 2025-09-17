@@ -53,7 +53,7 @@ public class HNItemPollValidPartsCriterion implements CyodaCriterion {
         }
 
         if (!"poll".equals(entity.getType())) {
-            return EvaluationOutcome.success("Not applicable to non-polls");
+            return EvaluationOutcome.success();
         }
 
         // Polls must have parts (poll options)

@@ -71,7 +71,7 @@ public class SearchQueryFailureCriterion implements CyodaCriterion {
         }
 
         if (!isSuccess) {
-            return EvaluationOutcome.success("Search query execution failed");
+            return EvaluationOutcome.success();
         } else {
             return EvaluationOutcome.fail("Search query execution was successful", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }

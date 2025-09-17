@@ -53,7 +53,7 @@ public class HNItemPollOptValidPollCriterion implements CyodaCriterion {
         }
 
         if (!"pollopt".equals(entity.getType())) {
-            return EvaluationOutcome.success("Not applicable to non-poll options");
+            return EvaluationOutcome.success();
         }
 
         // Poll options must reference a poll

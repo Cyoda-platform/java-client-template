@@ -53,7 +53,7 @@ public class HNItemCommentValidParentCriterion implements CyodaCriterion {
         }
 
         if (!"comment".equals(entity.getType())) {
-            return EvaluationOutcome.success("Not applicable to non-comments");
+            return EvaluationOutcome.success();
         }
 
         // Comments must have a parent
