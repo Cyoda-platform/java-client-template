@@ -1,0 +1,88 @@
+{
+  "version": "1.0",
+  "name": "Adoption",
+  "desc": "Adoption workflow for managing pet adoption process",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initiate_adoption",
+          "next": "initiated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "InitiateAdoptionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "initiated": {
+      "transitions": [
+        {
+          "name": "start_review",
+          "next": "under_review",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StartReviewProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "under_review": {
+      "transitions": [
+        {
+          "name": "approve_adoption",
+          "next": "approved",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AdoptionApprovalCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "complete_adoption",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CompleteAdoptionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}

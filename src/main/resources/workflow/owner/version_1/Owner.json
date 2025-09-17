@@ -1,0 +1,69 @@
+{
+  "version": "1.0",
+  "name": "Owner",
+  "desc": "Owner workflow for managing pet owner registration and approval",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "register_owner",
+          "next": "registered",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RegisterOwnerProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "registered": {
+      "transitions": [
+        {
+          "name": "verify_owner",
+          "next": "verified",
+          "manual": true,
+          "processors": [
+            {
+              "name": "VerifyOwnerProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "verified": {
+      "transitions": [
+        {
+          "name": "approve_owner",
+          "next": "approved",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OwnerEligibilityCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "approved": {
+      "transitions": []
+    }
+  }
+}
