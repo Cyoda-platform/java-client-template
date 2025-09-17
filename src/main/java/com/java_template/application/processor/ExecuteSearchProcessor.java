@@ -138,7 +138,7 @@ public class ExecuteSearchProcessor implements CyodaProcessor {
     private List<EntityWithMetadata<HNItem>> searchByText(HNItemSearch searchEntity) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(HNItem.ENTITY_NAME).withVersion(HNItem.ENTITY_VERSION);
-            List<SimpleCondition> conditions = new ArrayList<>();
+            List<QueryCondition> conditions = new ArrayList<>();
 
             // Search in title
             conditions.add(new SimpleCondition()
