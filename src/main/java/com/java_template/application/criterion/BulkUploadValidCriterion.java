@@ -86,7 +86,7 @@ public class BulkUploadValidCriterion implements CyodaCriterion {
             logger.warn("BulkUpload file '{}' does not exist for upload: {}", entity.getFileName(), entity.getUploadId());
             return EvaluationOutcome.fail(
                 String.format("File '%s' does not exist", entity.getFileName()),
-                StandardEvalReasonCategories.EXTERNAL_DEPENDENCY_FAILURE
+                StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
             );
         }
 

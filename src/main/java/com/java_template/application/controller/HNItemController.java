@@ -196,14 +196,11 @@ public class HNItemController {
 
             // Text search across title, text, and url
             if (query != null && !query.trim().isEmpty()) {
-                GroupCondition textSearch = new GroupCondition()
-                        .withOperator(GroupCondition.Operator.OR)
-                        .withConditions(List.of(
-                                new SimpleCondition().withJsonPath("$.title").withOperation(Operation.CONTAINS).withValue(objectMapper.valueToTree(query)),
-                                new SimpleCondition().withJsonPath("$.text").withOperation(Operation.CONTAINS).withValue(objectMapper.valueToTree(query)),
-                                new SimpleCondition().withJsonPath("$.url").withOperation(Operation.CONTAINS).withValue(objectMapper.valueToTree(query))
-                        ));
-                conditions.add(new SimpleCondition().withJsonPath("$").withOperation(Operation.CUSTOM).withValue(objectMapper.valueToTree(textSearch)));
+                // For simplicity, search in title field only
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.title")
+                        .withOperation(Operation.CONTAINS)
+                        .withValue(objectMapper.valueToTree(query)));
             }
 
             // Filter by type
