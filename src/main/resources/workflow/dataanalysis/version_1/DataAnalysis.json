@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "name": "DataAnalysis",
+  "desc": "Workflow for analyzing downloaded CSV data and generating insights",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "start_analysis",
+          "next": "pending_analysis",
+          "manual": false
+        }
+      ]
+    },
+    "pending_analysis": {
+      "transitions": [
+        {
+          "name": "begin_analysis",
+          "next": "analyzing",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DataAvailableCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "analyzing": {
+      "transitions": [
+        {
+          "name": "analysis_success",
+          "next": "analysis_complete",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AnalyzeHousingDataProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 60000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "analysis_failure",
+          "next": "analysis_failed",
+          "manual": false
+        }
+      ]
+    },
+    "analysis_complete": {
+      "transitions": []
+    },
+    "analysis_failed": {
+      "transitions": [
+        {
+          "name": "retry_analysis",
+          "next": "pending_analysis",
+          "manual": true
+        }
+      ]
+    }
+  }
+}

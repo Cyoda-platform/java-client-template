@@ -1,0 +1,89 @@
+{
+  "version": "1.0",
+  "name": "EmailNotification",
+  "desc": "Workflow for sending analysis reports via email to subscribers",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "prepare_email",
+          "next": "pending_send",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FormatEmailReportProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pending_send": {
+      "transitions": [
+        {
+          "name": "begin_send",
+          "next": "sending",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnalysisCompleteCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sending": {
+      "transitions": [
+        {
+          "name": "send_success",
+          "next": "sent",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendEmailReportProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "send_failure",
+          "next": "send_failed",
+          "manual": false
+        }
+      ]
+    },
+    "sent": {
+      "transitions": []
+    },
+    "send_failed": {
+      "transitions": [
+        {
+          "name": "retry_send",
+          "next": "pending_send",
+          "manual": true
+        }
+      ]
+    }
+  }
+}

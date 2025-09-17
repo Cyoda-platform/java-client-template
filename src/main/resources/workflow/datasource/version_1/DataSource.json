@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "name": "DataSource",
+  "desc": "Workflow for downloading CSV data from external URLs",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "start_download",
+          "next": "pending_download",
+          "manual": false
+        }
+      ]
+    },
+    "pending_download": {
+      "transitions": [
+        {
+          "name": "begin_download",
+          "next": "downloading",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidUrlCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "downloading": {
+      "transitions": [
+        {
+          "name": "download_success",
+          "next": "download_complete",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DownloadDataProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "download_failure",
+          "next": "download_failed",
+          "manual": false
+        }
+      ]
+    },
+    "download_complete": {
+      "transitions": []
+    },
+    "download_failed": {
+      "transitions": [
+        {
+          "name": "retry_download",
+          "next": "pending_download",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
