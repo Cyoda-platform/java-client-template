@@ -1,0 +1,1 @@
+I want to build a service that saves hacker news items in the JSON format of the Firebase HN API. I want to be able to trigger pulling data from the Firebase HN API, as well as being able to POST single HN items, an array of HN Items and a bulk upload of HN Items in a JSON file. I want to be able to search for HN items using queries, including joins up the parent hierarchy.
