@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -316,7 +317,7 @@ public class HnItemController {
 
             GroupCondition condition = new GroupCondition()
                     .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(conditions);
+                    .withConditions(new ArrayList<QueryCondition>(conditions));
 
             List<EntityWithMetadata<HnItem>> entities = entityService.search(modelSpec, condition, HnItem.class);
 
@@ -482,7 +483,7 @@ public class HnItemController {
             GroupCondition condition = new GroupCondition()
                     .withOperator(childTypes != null && childTypes.size() > 1 ?
                             GroupCondition.Operator.OR : GroupCondition.Operator.AND)
-                    .withConditions(conditions);
+                    .withConditions(new ArrayList<QueryCondition>(conditions));
 
             List<EntityWithMetadata<HnItem>> children = entityService.search(modelSpec, condition, HnItem.class);
 
