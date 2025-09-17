@@ -79,13 +79,7 @@ public class CreateHNItemProcessor implements CyodaProcessor {
             entity.setSourceType("UNKNOWN");
         }
 
-        // Initialize counters to default values if null
-        if (entity.getProcessedItems() == null) {
-            entity.setProcessedItems(0);
-        }
-        if (entity.getFailedItems() == null) {
-            entity.setFailedItems(0);
-        }
+        // HNItem doesn't have processedItems/failedItems - those are for BulkUpload
 
         logger.info("HNItem {} initialized successfully with sourceType: {}", 
                    entity.getId(), entity.getSourceType());
