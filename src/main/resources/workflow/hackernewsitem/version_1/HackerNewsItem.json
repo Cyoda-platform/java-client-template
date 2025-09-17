@@ -1,0 +1,159 @@
+{
+  "version": "1.0",
+  "name": "HackerNewsItem",
+  "desc": "Workflow for managing Hacker News items from creation through validation, enrichment, and storage",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initial_to_validation",
+          "next": "pending_validation",
+          "manual": false
+        }
+      ]
+    },
+    "pending_validation": {
+      "transitions": [
+        {
+          "name": "validate_item",
+          "next": "validated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ValidateHackerNewsItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "validation_failed",
+          "next": "failed",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ValidationFailedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "enrich_item",
+          "next": "enriching",
+          "manual": true,
+          "processors": [
+            {
+              "name": "EnrichHackerNewsItemProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "skip_enrichment",
+          "next": "stored",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StoreHackerNewsItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "enriching": {
+      "transitions": [
+        {
+          "name": "enrichment_complete",
+          "next": "enriched",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EnrichmentCompleteCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        },
+        {
+          "name": "enrichment_failed",
+          "next": "failed",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EnrichmentFailedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "enriched": {
+      "transitions": [
+        {
+          "name": "store_enriched_item",
+          "next": "stored",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StoreHackerNewsItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "stored": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
