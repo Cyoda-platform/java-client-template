@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "name": "Product",
+  "desc": "Product workflow for catalog management",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "ACTIVATE_PRODUCT",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "UPDATE_STOCK",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdateStockProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

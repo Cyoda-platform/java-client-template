@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "name": "Cart",
+  "desc": "Cart workflow for shopping session management",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "CREATE_CART",
+          "next": "new",
+          "manual": false
+        }
+      ]
+    },
+    "new": {
+      "transitions": [
+        {
+          "name": "ADD_FIRST_ITEM",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RecalculateTotalsProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "MODIFY_ITEMS",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RecalculateTotalsProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "OPEN_CHECKOUT",
+          "next": "checking_out",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasItemsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "checking_out": {
+      "transitions": [
+        {
+          "name": "CHECKOUT",
+          "next": "converted",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "HasGuestContactCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "converted": {
+      "transitions": []
+    }
+  }
+}
