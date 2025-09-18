@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "name": "Adoption",
+  "desc": "Adoption process workflow managing pet adoption applications from submission to completion",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "submit_application",
+          "next": "pending",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubmitAdoptionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "approve_adoption",
+          "next": "approved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ApproveAdoptionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AdoptionApprovalCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        },
+        {
+          "name": "cancel_adoption",
+          "next": "cancelled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CancelAdoptionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "complete_adoption",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CompleteAdoptionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "process_return",
+          "next": "returned",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ProcessReturnProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "cancelled": {
+      "transitions": []
+    },
+    "returned": {
+      "transitions": []
+    }
+  }
+}
