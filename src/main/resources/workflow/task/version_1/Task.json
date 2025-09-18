@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "name": "Task",
+  "desc": "Task lifecycle management workflow",
+  "initialState": "none",
+  "active": true,
+  "states": {
+    "none": {
+      "transitions": [
+        {
+          "name": "auto_create",
+          "next": "created",
+          "processors": [
+            {
+              "name": "TaskCreationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "created": {
+      "transitions": [
+        {
+          "name": "assign_task",
+          "next": "assigned",
+          "manual": true,
+          "processors": [
+            {
+              "name": "TaskAssignmentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UserAvailabilityCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "assigned": {
+      "transitions": [
+        {
+          "name": "start_work",
+          "next": "in_progress",
+          "manual": true
+        },
+        {
+          "name": "unassign_task",
+          "next": "created",
+          "manual": true
+        }
+      ]
+    },
+    "in_progress": {
+      "transitions": [
+        {
+          "name": "submit_for_review",
+          "next": "review",
+          "manual": true,
+          "processors": [
+            {
+              "name": "TaskSubmissionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "review": {
+      "transitions": [
+        {
+          "name": "approve_task",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "TaskCompletionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "request_changes",
+          "next": "in_progress",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
