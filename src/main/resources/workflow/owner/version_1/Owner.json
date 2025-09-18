@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "name": "Owner",
+  "desc": "Owner workflow for managing customer registration and verification",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "register_owner",
+          "next": "registered",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OwnerRegistrationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "registered": {
+      "transitions": [
+        {
+          "name": "verify_owner",
+          "next": "verified",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OwnerVerificationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OwnerEligibilityCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "verified": {
+      "transitions": [
+        {
+          "name": "activate_account",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    },
+    "active": {
+      "transitions": []
+    }
+  }
+}

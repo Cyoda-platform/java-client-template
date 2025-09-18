@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "Store",
+  "desc": "Store workflow for managing store operations",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initialize_store",
+          "next": "setup",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StoreInitializationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "setup": {
+      "transitions": [
+        {
+          "name": "open_store",
+          "next": "operational",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StoreOpeningProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StoreReadinessCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "operational": {
+      "transitions": [
+        {
+          "name": "start_maintenance",
+          "next": "maintenance",
+          "manual": true
+        }
+      ]
+    },
+    "maintenance": {
+      "transitions": [
+        {
+          "name": "end_maintenance",
+          "next": "operational",
+          "manual": true
+        }
+      ]
+    }
+  }
+}

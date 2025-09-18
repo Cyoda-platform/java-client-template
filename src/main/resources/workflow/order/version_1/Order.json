@@ -1,0 +1,117 @@
+{
+  "version": "1.0",
+  "name": "Order",
+  "desc": "Order workflow for managing pet adoption orders",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_order",
+          "next": "created",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderCreationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "created": {
+      "transitions": [
+        {
+          "name": "confirm_order",
+          "next": "confirmed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderConfirmationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OrderValidationCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "processing",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderProcessingProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "ship_order",
+          "next": "shipped",
+          "manual": true
+        }
+      ]
+    },
+    "shipped": {
+      "transitions": [
+        {
+          "name": "complete_delivery",
+          "next": "delivered",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderCompletionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delivered": {
+      "transitions": []
+    }
+  }
+}
