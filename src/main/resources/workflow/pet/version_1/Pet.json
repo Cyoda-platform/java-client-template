@@ -1,0 +1,104 @@
+{
+  "version": "1.0",
+  "name": "Pet",
+  "desc": "Pet workflow for managing pet adoption lifecycle",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "initialize_pet",
+          "next": "available",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetInitializationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "available": {
+      "transitions": [
+        {
+          "name": "reserve_pet",
+          "next": "reserved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PetReservationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PetAvailabilityCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reserved": {
+      "transitions": [
+        {
+          "name": "adopt_pet",
+          "next": "adopted",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PetAdoptionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_reservation",
+          "next": "available",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReservationCancellationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "adopted": {
+      "transitions": []
+    }
+  }
+}
