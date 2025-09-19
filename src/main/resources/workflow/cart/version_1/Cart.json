@@ -1,0 +1,102 @@
+{
+  "version": "1.0",
+  "name": "Cart",
+  "desc": "Cart workflow for OMS - manages cart lifecycle from creation to conversion",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "CREATE_ON_FIRST_ADD",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RecalculateTotals",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "ADD_ITEM",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RecalculateTotals",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "DECREMENT_ITEM",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RecalculateTotals",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "REMOVE_ITEM",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RecalculateTotals",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "OPEN_CHECKOUT",
+          "next": "checking_out",
+          "manual": true
+        }
+      ]
+    },
+    "checking_out": {
+      "transitions": [
+        {
+          "name": "CHECKOUT",
+          "next": "converted",
+          "manual": true
+        }
+      ]
+    },
+    "converted": {
+      "transitions": []
+    }
+  }
+}
