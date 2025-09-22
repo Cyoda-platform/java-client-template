@@ -63,15 +63,15 @@ public class SendFailureCriterion implements CyodaCriterion {
         // Check if recipient count is null, which indicates send failure
         if (report.getRecipientCount() == null) {
             logger.warn("Email sending failed for Report: {} - recipient count is null", report.getReportId());
-            return EvaluationOutcome.fail("Email sending failed - no recipient count recorded", 
-                                        StandardEvalReasonCategories.EXTERNAL_DEPENDENCY_FAILURE);
+            return EvaluationOutcome.fail("Email sending failed - no recipient count recorded",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check if recipient count is zero, which indicates no emails were sent
         if (report.getRecipientCount() == 0) {
             logger.warn("Email sending failed for Report: {} - no recipients", report.getReportId());
-            return EvaluationOutcome.fail("Email sending failed - no emails were sent to recipients", 
-                                        StandardEvalReasonCategories.EXTERNAL_DEPENDENCY_FAILURE);
+            return EvaluationOutcome.fail("Email sending failed - no emails were sent to recipients",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check if recipient count is negative (invalid state)
