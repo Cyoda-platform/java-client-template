@@ -9,10 +9,7 @@ It is critical to import workflows before you start the application - otherwise 
 Retry until workflow import is successful.
 
 ## ⚠️ **KNOWN LIMITATIONS DISCOVERED IN E2E TESTING**
-- **Processor Data Persistence**: Processors execute correctly and log business logic, but entity field changes may not persist to the database
-- **Business Status vs Workflow State**: Workflow state changes (e.g., "checking_out") don't automatically update business status fields (e.g., cart.status)
-- **Workaround**: Create separate processors to bridge workflow states to business status fields
-- **Testing Approach**: Focus on verifying processor execution via logs rather than entity data changes
+- **Testing Approach**: Focus on verifying processor and criteria execution via logs rather than entity data changes
 
 ### **Entity Name Case Sensitivity** ⚠️
 **MOST IMPORTANT**: Entity names for workflow import must **EXACTLY** match the `ENTITY_NAME` constant in your entity class:
@@ -509,7 +506,7 @@ INFO com.java_template.application.processor.YourEntityProcessor : Processing gl
 - **Application startup**: < 30 seconds (Spring Boot with all beans)
 - **Workflow import**: < 2 seconds per workflow
 - **Entity creation via REST API**: < 1 second per entity
-- **Workflow execution (criteria + processor)**: < 5 seconds per entity
+- **Workflow execution (criteria + processor)**: < 5 seconds per entity: You can see processors/criteria execution in logs
 - **Test suite**: < 60 seconds total
 - **End-to-end workflow**: < 10 seconds from creation to completion
 
