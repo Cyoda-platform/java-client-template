@@ -60,7 +60,7 @@ public class ProductController {
                     .withVersion(Product.ENTITY_VERSION);
 
             // Build search conditions
-            List<SimpleCondition> conditions = new ArrayList<>();
+            List<Object> conditions = new ArrayList<>();
 
             // Free-text search on name OR description
             if (search != null && !search.trim().isEmpty()) {
@@ -114,7 +114,7 @@ public class ProductController {
                 // Apply filters
                 GroupCondition condition = new GroupCondition()
                         .withOperator(GroupCondition.Operator.AND)
-                        .withConditions(new ArrayList<>(conditions));
+                        .withConditions(conditions);
                 products = entityService.search(modelSpec, condition, Product.class);
             }
 
@@ -181,7 +181,7 @@ public class ProductController {
             Product.ProductEvent createdEvent = new Product.ProductEvent();
             createdEvent.setType("ProductCreated");
             createdEvent.setAt(now.toString());
-            createdEvent.setPayload(objectMapper.createObjectNode().put("sku", product.getSku()));
+            createdEvent.setPayload(java.util.Map.of("sku", product.getSku()));
             product.getEvents().add(createdEvent);
 
             EntityWithMetadata<Product> response = entityService.create(product);
