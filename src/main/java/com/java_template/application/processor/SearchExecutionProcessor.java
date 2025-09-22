@@ -61,12 +61,12 @@ public class SearchExecutionProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntityWithMetadata(EntityWithMetadata<SearchQuery> entityWithMetadata) {
-        if (entityWithMetadata == null || entityWithMetadata.getEntity() == null) {
+        if (entityWithMetadata == null || entityWithMetadata.entity() == null) {
             logger.error("EntityWithMetadata or SearchQuery entity is null");
             return false;
         }
 
-        SearchQuery searchQuery = entityWithMetadata.getEntity();
+        SearchQuery searchQuery = entityWithMetadata.entity();
         if (!searchQuery.isValid()) {
             logger.error("SearchQuery entity validation failed for queryId: {}", searchQuery.getQueryId());
             return false;
@@ -75,8 +75,10 @@ public class SearchExecutionProcessor implements CyodaProcessor {
         return true;
     }
 
-    private EntityWithMetadata<SearchQuery> processSearchExecution(EntityWithMetadata<SearchQuery> entityWithMetadata) {
-        SearchQuery searchQuery = entityWithMetadata.getEntity();
+    private EntityWithMetadata<SearchQuery> processSearchExecution(
+            ProcessorSerializer.ProcessorEntityResponseExecutionContext<SearchQuery> context) {
+        EntityWithMetadata<SearchQuery> entityWithMetadata = context.entityResponse();
+        SearchQuery searchQuery = entityWithMetadata.entity();
         logger.info("Executing search for query: {} with term: {}", searchQuery.getQueryId(), searchQuery.getSearchTerm());
 
         try {
