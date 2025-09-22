@@ -279,4 +279,66 @@ SENT → DELIVERED (mark_delivered)
 - Workflow validation passes: `./gradlew validateWorkflowImplementations`
 - All functional requirements implemented
 
+## API Reference Quick Guide
+
+### Product Management
+```bash
+# Search products
+curl "http://localhost:8080/ui/products?search=phone&category=electronics&minPrice=100&maxPrice=1000"
+
+# Get product detail
+curl "http://localhost:8080/ui/products/PHONE-001"
+
+# Create product
+curl -X POST "http://localhost:8080/ui/products" \
+  -H "Content-Type: application/json" \
+  -d '{"sku":"PHONE-001","name":"Smartphone","description":"Latest model","price":599.99,"quantityAvailable":100,"category":"electronics"}'
+```
+
+### Cart Operations
+```bash
+# Create cart
+curl -X POST "http://localhost:8080/ui/cart"
+
+# Add item to cart
+curl -X POST "http://localhost:8080/ui/cart/{cartId}/lines" \
+  -H "Content-Type: application/json" \
+  -d '{"sku":"PHONE-001","qty":1}'
+
+# Update cart line
+curl -X PATCH "http://localhost:8080/ui/cart/{cartId}/lines" \
+  -H "Content-Type: application/json" \
+  -d '{"sku":"PHONE-001","qty":2}'
+
+# Open checkout
+curl -X POST "http://localhost:8080/ui/cart/{cartId}/open-checkout"
+```
+
+### Checkout & Payment
+```bash
+# Submit guest contact
+curl -X POST "http://localhost:8080/ui/checkout/{cartId}" \
+  -H "Content-Type: application/json" \
+  -d '{"guestContact":{"name":"John Doe","email":"john@example.com","address":{"line1":"123 Main St","city":"Anytown","postcode":"12345","country":"US"}}}'
+
+# Start payment
+curl -X POST "http://localhost:8080/ui/payment/start" \
+  -H "Content-Type: application/json" \
+  -d '{"cartId":"{cartId}"}'
+
+# Check payment status
+curl "http://localhost:8080/ui/payment/{paymentId}"
+```
+
+### Order Management
+```bash
+# Create order
+curl -X POST "http://localhost:8080/ui/order/create" \
+  -H "Content-Type: application/json" \
+  -d '{"paymentId":"{paymentId}","cartId":"{cartId}"}'
+
+# Get order status
+curl "http://localhost:8080/ui/order/{orderId}"
+```
+
 This OMS implementation provides a complete, production-ready foundation for e-commerce operations with the Cyoda platform, featuring comprehensive product management, cart functionality, payment processing, order fulfillment, and shipment tracking.
