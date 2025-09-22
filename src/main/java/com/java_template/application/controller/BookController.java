@@ -78,7 +78,7 @@ public class BookController {
 
         try {
             ModelSpec modelSpec = createBookModelSpec();
-            EntityWithMetadata<Book> book = entityService.findByBusinessId(modelSpec, bookId, Book.class);
+            EntityWithMetadata<Book> book = entityService.findByBusinessId(modelSpec, bookId, "bookId", Book.class);
 
             if (book != null) {
                 return ResponseEntity.ok(book);
@@ -106,8 +106,8 @@ public class BookController {
             book.setUpdatedAt(LocalDateTime.now());
 
             // Update with manual transition to trigger processor
-            EntityWithMetadata<Book> result = entityService.updateWithManualTransition(
-                modelSpec, bookId, book, "update_book_metadata");
+            EntityWithMetadata<Book> result = entityService.updateByBusinessId(
+                book, "bookId", "update_book_metadata");
 
             return ResponseEntity.ok(result.getId());
 
@@ -131,8 +131,8 @@ public class BookController {
             book.setUpdatedAt(LocalDateTime.now());
 
             // Update with manual transition to trigger processor
-            EntityWithMetadata<Book> result = entityService.updateWithManualTransition(
-                modelSpec, bookId, book, "update_popularity_score");
+            EntityWithMetadata<Book> result = entityService.updateByBusinessId(
+                book, "bookId", "update_popularity_score");
 
             return ResponseEntity.ok(result.getId());
 
@@ -305,7 +305,7 @@ public class BookController {
         if (searchRequest.getPublicationYearStart() != null) {
             SimpleCondition yearStartCondition = new SimpleCondition()
                     .withJsonPath("$.publicationYear")
-                    .withOperation(Operation.GREATER_THAN_OR_EQUAL)
+                    .withOperation(Operation.GREATER_THAN_EQUALS)
                     .withValue(objectMapper.valueToTree(searchRequest.getPublicationYearStart()));
             conditions.add(yearStartCondition);
         }
@@ -313,7 +313,7 @@ public class BookController {
         if (searchRequest.getPublicationYearEnd() != null) {
             SimpleCondition yearEndCondition = new SimpleCondition()
                     .withJsonPath("$.publicationYear")
-                    .withOperation(Operation.LESS_THAN_OR_EQUAL)
+                    .withOperation(Operation.LESS_THAN_EQUALS)
                     .withValue(objectMapper.valueToTree(searchRequest.getPublicationYearEnd()));
             conditions.add(yearEndCondition);
         }

@@ -82,8 +82,8 @@ public class SearchController {
             EntityWithMetadata<SearchQuery> result = entityService.create(searchQuery);
 
             // Execute the search (triggers SearchExecutionProcessor)
-            EntityWithMetadata<SearchQuery> executedResult = entityService.updateWithManualTransition(
-                createSearchQueryModelSpec(), searchQuery.getQueryId(), searchQuery, "execute_search");
+            EntityWithMetadata<SearchQuery> executedResult = entityService.updateByBusinessId(
+                searchQuery, "queryId", "execute_search");
 
             logger.info("Search query created and executed with ID: {}", result.getId());
             return ResponseEntity.ok(executedResult);
@@ -103,7 +103,7 @@ public class SearchController {
 
         try {
             ModelSpec modelSpec = createSearchQueryModelSpec();
-            EntityWithMetadata<SearchQuery> searchQuery = entityService.findByBusinessId(modelSpec, queryId, SearchQuery.class);
+            EntityWithMetadata<SearchQuery> searchQuery = entityService.findByBusinessId(modelSpec, queryId, "queryId", SearchQuery.class);
 
             if (searchQuery != null) {
                 return ResponseEntity.ok(searchQuery);
@@ -129,7 +129,7 @@ public class SearchController {
             ModelSpec modelSpec = createSearchQueryModelSpec();
             
             // Get current search query
-            EntityWithMetadata<SearchQuery> searchQueryEntity = entityService.findByBusinessId(modelSpec, queryId, SearchQuery.class);
+            EntityWithMetadata<SearchQuery> searchQueryEntity = entityService.findByBusinessId(modelSpec, queryId, "queryId", SearchQuery.class);
             if (searchQueryEntity == null) {
                 return ResponseEntity.notFound().build();
             }
