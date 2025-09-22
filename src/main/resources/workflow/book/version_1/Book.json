@@ -1,0 +1,87 @@
+{
+  "version": "1.0",
+  "name": "Book",
+  "desc": "Book entity lifecycle workflow for managing book data from Open Library API",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_book",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_book_metadata",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "BookMetadataProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "update_popularity_score",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "BookPopularityProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "refresh_from_api",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "BookRefreshProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "archive_book",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": [
+        {
+          "name": "reactivate_book",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}

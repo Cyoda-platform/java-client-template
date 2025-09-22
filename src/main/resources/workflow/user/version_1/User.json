@@ -1,0 +1,113 @@
+{
+  "version": "1.0",
+  "name": "User",
+  "desc": "User entity lifecycle workflow for managing user profiles and preferences",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_user",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserInitializationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_preferences",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UserPreferencesProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "update_activity",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UserActivityProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "generate_recommendations",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UserRecommendationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 8000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend_user",
+          "next": "suspended",
+          "manual": true
+        },
+        {
+          "name": "deactivate_user",
+          "next": "inactive",
+          "manual": true
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_user",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    },
+    "inactive": {
+      "transitions": [
+        {
+          "name": "reactivate_user",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}

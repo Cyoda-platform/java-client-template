@@ -1,0 +1,125 @@
+{
+  "version": "1.0",
+  "name": "WeeklyReport",
+  "desc": "WeeklyReport entity lifecycle workflow for generating analytics and reports",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_report",
+          "next": "generating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReportInitializationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "generating": {
+      "transitions": [
+        {
+          "name": "generate_analytics",
+          "next": "generating",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReportAnalyticsProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "complete_generation",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReportCompletionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "generation_failed",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "publish_report",
+          "next": "published",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReportPublishProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "archive_report",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "published": {
+      "transitions": [
+        {
+          "name": "archive_report",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_generation",
+          "next": "generating",
+          "manual": true
+        },
+        {
+          "name": "archive_report",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}

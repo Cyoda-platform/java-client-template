@@ -1,0 +1,108 @@
+{
+  "version": "1.0",
+  "name": "SearchQuery",
+  "desc": "SearchQuery entity lifecycle workflow for managing book search operations",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_search",
+          "next": "pending",
+          "manual": false
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "execute_search",
+          "next": "executing",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SearchExecutionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 15000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "executing": {
+      "transitions": [
+        {
+          "name": "search_completed",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SearchCompletionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "search_failed",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "track_interaction",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SearchInteractionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "archive_search",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_search",
+          "next": "pending",
+          "manual": true
+        },
+        {
+          "name": "archive_search",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}
