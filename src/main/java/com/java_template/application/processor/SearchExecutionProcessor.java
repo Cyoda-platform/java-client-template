@@ -147,15 +147,59 @@ public class SearchExecutionProcessor implements CyodaProcessor {
     }
 
     private List<Book> executeOpenLibrarySearch(SearchQuery searchQuery) {
-        // Simulate Open Library API search
-        // In a real implementation, this would make HTTP calls to Open Library API
-        logger.info("Simulating Open Library API search for term: {}", searchQuery.getSearchTerm());
+        logger.info("Executing Open Library API search for term: {}", searchQuery.getSearchTerm());
+
+        try {
+            // Build search filters from search query
+            OpenLibraryService.SearchFilters filters = buildSearchFilters(searchQuery);
+
+            // Execute search using OpenLibraryService
+            List<Book> results = openLibraryService.searchBooksWithFilters(filters).get();
+
+            logger.info("Retrieved {} books from Open Library API", results.size());
+            return results;
+
+        } catch (Exception e) {
+            logger.error("Failed to search Open Library API for term: {}", searchQuery.getSearchTerm(), e);
+
+            // Fallback to sample data if API fails
+            return createFallbackResults(searchQuery.getSearchTerm());
+        }
+    }
+
+    private OpenLibraryService.SearchFilters buildSearchFilters(SearchQuery searchQuery) {
+        OpenLibraryService.SearchFilters filters = new OpenLibraryService.SearchFilters();
+
+        // Set general query from search term
+        filters.setGeneralQuery(searchQuery.getSearchTerm());
+
+        // Apply filters if available
+        SearchQuery.SearchFilters queryFilters = searchQuery.getFilters();
+        if (queryFilters != null) {
+            // Set specific filters based on search query filters
+            if (queryFilters.getAuthors() != null && !queryFilters.getAuthors().isEmpty()) {
+                filters.setAuthor(String.join(" OR ", queryFilters.getAuthors()));
+            }
+
+            if (queryFilters.getLanguages() != null && !queryFilters.getLanguages().isEmpty()) {
+                filters.setLanguage(queryFilters.getLanguages().get(0)); // Take first language
+            }
+
+            filters.setLimit(queryFilters.getLimit());
+            filters.setOffset(queryFilters.getOffset());
+        }
+
+        return filters;
+    }
+
+    private List<Book> createFallbackResults(String searchTerm) {
+        logger.info("Creating fallback results for search term: {}", searchTerm);
 
         List<Book> results = new ArrayList<>();
-        
+
         // Create sample books based on search term
         for (int i = 1; i <= 5; i++) {
-            Book book = createSampleBook(searchQuery.getSearchTerm(), i);
+            Book book = createSampleBook(searchTerm, i);
             results.add(book);
         }
 
