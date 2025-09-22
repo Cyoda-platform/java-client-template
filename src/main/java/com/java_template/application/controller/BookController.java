@@ -305,7 +305,7 @@ public class BookController {
         if (searchRequest.getPublicationYearStart() != null) {
             SimpleCondition yearStartCondition = new SimpleCondition()
                     .withJsonPath("$.publicationYear")
-                    .withOperation(Operation.GREATER_THAN_EQUALS)
+                    .withOperation(Operation.GREATER_OR_EQUAL)
                     .withValue(objectMapper.valueToTree(searchRequest.getPublicationYearStart()));
             conditions.add(yearStartCondition);
         }
@@ -313,7 +313,7 @@ public class BookController {
         if (searchRequest.getPublicationYearEnd() != null) {
             SimpleCondition yearEndCondition = new SimpleCondition()
                     .withJsonPath("$.publicationYear")
-                    .withOperation(Operation.LESS_THAN_EQUALS)
+                    .withOperation(Operation.LESS_OR_EQUAL)
                     .withValue(objectMapper.valueToTree(searchRequest.getPublicationYearEnd()));
             conditions.add(yearEndCondition);
         }
