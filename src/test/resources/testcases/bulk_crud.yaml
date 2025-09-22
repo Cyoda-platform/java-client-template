@@ -1,0 +1,62 @@
+scenario: "Bunch of Prizes CRUD"
+
+variables:
+  modelName: "nobel-prize"
+  modelVersion: 1
+  initialEntities:
+    - year: "2027"
+      category: "Bulk Test 1"
+      comment: "First prize in the bulk set"
+    - year: "2028"
+      category: "Bulk Test 2"
+      comment: "Second prize in the bulk set"
+
+steps:
+  - name: CreateThePrizes
+    command: service.addItems
+    arguments:
+      modelName: ${variables.modelName}
+      modelVersion: ${variables.modelVersion}
+      entities: ${variables.initialEntities}
+
+  - name: AssertNumberOfAccepted
+    command: assert.size
+    arguments:
+      expected: 2
+      actual: ${CreateThePrizes}
+
+  - name: GetThePrizes
+    command: service.getItems
+    arguments:
+      modelName: ${variables.modelName}
+      modelVersion: ${variables.modelVersion}
+
+  - name: AssertNumberOfFetched
+    command: assert.size
+    arguments:
+      expected: 2
+      actual: ${GetThePrizes}
+
+  - name: DeleteThePrizes
+    command: service.deleteItems
+    arguments:
+      modelName: ${variables.modelName}
+      modelVersion: ${variables.modelVersion}
+
+  - name: AssertPrizesDeletedCount
+    command: assert.equals
+    arguments:
+      expected: 2
+      actual: ${DeleteThePrizes}
+
+  - name: GetThePrizes
+    command: service.getItems
+    arguments:
+      modelName: ${variables.modelName}
+      modelVersion: ${variables.modelVersion}
+
+  - name: AssertNumberOfFetched
+    command: assert.size
+    arguments:
+      expected: 0
+      actual: ${GetThePrizes}
