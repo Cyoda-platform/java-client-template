@@ -3,6 +3,7 @@ package com.java_template.application.processor;
 import com.java_template.application.entity.search_query.version_1.SearchQuery;
 import com.java_template.application.entity.book.version_1.Book;
 import com.java_template.application.entity.user.version_1.User;
+import com.java_template.application.service.OpenLibraryService;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -37,10 +38,12 @@ public class SearchExecutionProcessor implements CyodaProcessor {
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
     private final EntityService entityService;
+    private final OpenLibraryService openLibraryService;
 
-    public SearchExecutionProcessor(SerializerFactory serializerFactory, EntityService entityService) {
+    public SearchExecutionProcessor(SerializerFactory serializerFactory, EntityService entityService, OpenLibraryService openLibraryService) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
         this.entityService = entityService;
+        this.openLibraryService = openLibraryService;
     }
 
     @Override
