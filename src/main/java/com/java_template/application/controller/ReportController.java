@@ -166,7 +166,7 @@ public class ReportController {
             ModelSpec modelSpec = createWeeklyReportModelSpec();
             
             // Get current report
-            EntityWithMetadata<WeeklyReport> reportEntity = entityService.findByBusinessId(modelSpec, reportId, WeeklyReport.class);
+            EntityWithMetadata<WeeklyReport> reportEntity = entityService.findByBusinessId(modelSpec, reportId, "reportId", WeeklyReport.class);
             if (reportEntity == null) {
                 return ResponseEntity.notFound().build();
             }
@@ -174,8 +174,8 @@ public class ReportController {
             WeeklyReport report = reportEntity.entity();
 
             // Complete generation with manual transition
-            EntityWithMetadata<WeeklyReport> result = entityService.updateWithManualTransition(
-                modelSpec, reportId, report, "complete_generation");
+            EntityWithMetadata<WeeklyReport> result = entityService.updateByBusinessId(
+                report, "reportId", "complete_generation");
 
             return ResponseEntity.ok(result.getId());
 
@@ -196,7 +196,7 @@ public class ReportController {
             ModelSpec modelSpec = createWeeklyReportModelSpec();
             
             // Get current report
-            EntityWithMetadata<WeeklyReport> reportEntity = entityService.findByBusinessId(modelSpec, reportId, WeeklyReport.class);
+            EntityWithMetadata<WeeklyReport> reportEntity = entityService.findByBusinessId(modelSpec, reportId, "reportId", WeeklyReport.class);
             if (reportEntity == null) {
                 return ResponseEntity.notFound().build();
             }
@@ -205,8 +205,8 @@ public class ReportController {
             report.setPublishedAt(LocalDateTime.now());
 
             // Publish with manual transition
-            EntityWithMetadata<WeeklyReport> result = entityService.updateWithManualTransition(
-                modelSpec, reportId, report, "publish_report");
+            EntityWithMetadata<WeeklyReport> result = entityService.updateByBusinessId(
+                report, "reportId", "publish_report");
 
             return ResponseEntity.ok(result.getId());
 
@@ -289,7 +289,7 @@ public class ReportController {
             ModelSpec modelSpec = createWeeklyReportModelSpec();
             
             // Get current report
-            EntityWithMetadata<WeeklyReport> reportEntity = entityService.findByBusinessId(modelSpec, reportId, WeeklyReport.class);
+            EntityWithMetadata<WeeklyReport> reportEntity = entityService.findByBusinessId(modelSpec, reportId, "reportId", WeeklyReport.class);
             if (reportEntity == null) {
                 return ResponseEntity.notFound().build();
             }
@@ -297,8 +297,8 @@ public class ReportController {
             WeeklyReport report = reportEntity.entity();
 
             // Archive with manual transition
-            EntityWithMetadata<WeeklyReport> result = entityService.updateWithManualTransition(
-                modelSpec, reportId, report, "archive_report");
+            EntityWithMetadata<WeeklyReport> result = entityService.updateByBusinessId(
+                report, "reportId", "archive_report");
 
             return ResponseEntity.ok(result.getId());
 
