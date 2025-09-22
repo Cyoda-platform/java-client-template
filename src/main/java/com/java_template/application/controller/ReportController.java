@@ -78,8 +78,8 @@ public class ReportController {
             EntityWithMetadata<WeeklyReport> result = entityService.create(report);
 
             // Start analytics generation (triggers ReportAnalyticsProcessor)
-            EntityWithMetadata<WeeklyReport> analyticsResult = entityService.updateWithManualTransition(
-                createWeeklyReportModelSpec(), report.getReportId(), report, "generate_analytics");
+            EntityWithMetadata<WeeklyReport> analyticsResult = entityService.updateByBusinessId(
+                report, "reportId", "generate_analytics");
 
             logger.info("Weekly report created and analytics generation started with ID: {}", result.getId());
             return ResponseEntity.ok(analyticsResult);
@@ -99,7 +99,7 @@ public class ReportController {
 
         try {
             ModelSpec modelSpec = createWeeklyReportModelSpec();
-            EntityWithMetadata<WeeklyReport> report = entityService.findByBusinessId(modelSpec, reportId, WeeklyReport.class);
+            EntityWithMetadata<WeeklyReport> report = entityService.findByBusinessId(modelSpec, reportId, "reportId", WeeklyReport.class);
 
             if (report != null) {
                 return ResponseEntity.ok(report);

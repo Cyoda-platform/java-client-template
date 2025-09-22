@@ -188,8 +188,8 @@ public class UserController {
             user.setUpdatedAt(LocalDateTime.now());
 
             // Update with manual transition to trigger recommendation processor
-            EntityWithMetadata<User> result = entityService.updateWithManualTransition(
-                modelSpec, userId, user, "generate_recommendations");
+            EntityWithMetadata<User> result = entityService.updateByBusinessId(
+                user, "userId", "generate_recommendations");
 
             return ResponseEntity.ok(result);
 
@@ -208,7 +208,7 @@ public class UserController {
 
         try {
             ModelSpec modelSpec = createUserModelSpec();
-            EntityWithMetadata<User> userEntity = entityService.findByBusinessId(modelSpec, userId, User.class);
+            EntityWithMetadata<User> userEntity = entityService.findByBusinessId(modelSpec, userId, "userId", User.class);
 
             if (userEntity == null) {
                 return ResponseEntity.notFound().build();
@@ -236,7 +236,7 @@ public class UserController {
 
         try {
             ModelSpec modelSpec = createUserModelSpec();
-            EntityWithMetadata<User> userEntity = entityService.findByBusinessId(modelSpec, userId, User.class);
+            EntityWithMetadata<User> userEntity = entityService.findByBusinessId(modelSpec, userId, "userId", User.class);
 
             if (userEntity == null) {
                 return ResponseEntity.notFound().build();
@@ -266,7 +266,7 @@ public class UserController {
             ModelSpec modelSpec = createUserModelSpec();
             
             // Get current user
-            EntityWithMetadata<User> userEntity = entityService.findByBusinessId(modelSpec, userId, User.class);
+            EntityWithMetadata<User> userEntity = entityService.findByBusinessId(modelSpec, userId, "userId", User.class);
             if (userEntity == null) {
                 return ResponseEntity.notFound().build();
             }
@@ -276,8 +276,8 @@ public class UserController {
             user.setUpdatedAt(LocalDateTime.now());
 
             // Update with manual transition
-            EntityWithMetadata<User> result = entityService.updateWithManualTransition(
-                modelSpec, userId, user, "suspend_user");
+            EntityWithMetadata<User> result = entityService.updateByBusinessId(
+                user, "userId", "suspend_user");
 
             return ResponseEntity.ok(result.getId());
 
@@ -298,7 +298,7 @@ public class UserController {
             ModelSpec modelSpec = createUserModelSpec();
             
             // Get current user
-            EntityWithMetadata<User> userEntity = entityService.findByBusinessId(modelSpec, userId, User.class);
+            EntityWithMetadata<User> userEntity = entityService.findByBusinessId(modelSpec, userId, "userId", User.class);
             if (userEntity == null) {
                 return ResponseEntity.notFound().build();
             }
@@ -309,8 +309,8 @@ public class UserController {
             user.setLastLoginAt(LocalDateTime.now());
 
             // Update with manual transition
-            EntityWithMetadata<User> result = entityService.updateWithManualTransition(
-                modelSpec, userId, user, "reactivate_user");
+            EntityWithMetadata<User> result = entityService.updateByBusinessId(
+                user, "userId", "reactivate_user");
 
             return ResponseEntity.ok(result.getId());
 
