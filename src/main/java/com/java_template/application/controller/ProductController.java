@@ -90,7 +90,7 @@ public class ProductController {
             if (minPrice != null) {
                 SimpleCondition minPriceCondition = new SimpleCondition()
                         .withJsonPath("$.price")
-                        .withOperation(Operation.GREATER_THAN_OR_EQUAL)
+                        .withOperation(Operation.GREATER_OR_EQUAL)
                         .withValue(objectMapper.valueToTree(minPrice));
                 conditions.add(minPriceCondition);
             }
@@ -98,7 +98,7 @@ public class ProductController {
             if (maxPrice != null) {
                 SimpleCondition maxPriceCondition = new SimpleCondition()
                         .withJsonPath("$.price")
-                        .withOperation(Operation.LESS_THAN_OR_EQUAL)
+                        .withOperation(Operation.LESS_OR_EQUAL)
                         .withValue(objectMapper.valueToTree(maxPrice));
                 conditions.add(maxPriceCondition);
             }
@@ -175,7 +175,11 @@ public class ProductController {
             Product.Event creationEvent = new Product.Event();
             creationEvent.setType("ProductCreated");
             creationEvent.setAt(now.toString());
-            creationEvent.setPayload(objectMapper.createObjectNode().put("sku", product.getSku()));
+
+            // Create payload as Map
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("sku", product.getSku());
+            creationEvent.setPayload(payload);
             product.getEvents().add(creationEvent);
 
             EntityWithMetadata<Product> response = entityService.create(product);
