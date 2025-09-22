@@ -1,0 +1,69 @@
+{
+  "version": "1.0",
+  "name": "Subscriber",
+  "desc": "Workflow for managing email subscriber lifecycle",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_create",
+          "next": "created",
+          "manual": false
+        }
+      ]
+    },
+    "created": {
+      "transitions": [
+        {
+          "name": "activate_subscription",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SubscriptionActivationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "unsubscribe",
+          "next": "unsubscribed",
+          "manual": true
+        }
+      ]
+    },
+    "unsubscribed": {
+      "transitions": [
+        {
+          "name": "reactivate",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SubscriptionActivationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

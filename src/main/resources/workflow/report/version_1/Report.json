@@ -1,0 +1,153 @@
+{
+  "version": "1.0",
+  "name": "Report",
+  "desc": "Workflow for managing report generation and distribution",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_create",
+          "next": "created",
+          "manual": false
+        }
+      ]
+    },
+    "created": {
+      "transitions": [
+        {
+          "name": "start_generation",
+          "next": "generating",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReportContentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "generating": {
+      "transitions": [
+        {
+          "name": "generation_complete",
+          "next": "ready",
+          "manual": false
+        },
+        {
+          "name": "generation_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "GenerationFailureCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ready": {
+      "transitions": [
+        {
+          "name": "send_to_subscribers",
+          "next": "sending",
+          "manual": true,
+          "processors": [
+            {
+              "name": "EmailSendProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 60000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "sending": {
+      "transitions": [
+        {
+          "name": "send_complete",
+          "next": "sent",
+          "manual": false
+        },
+        {
+          "name": "send_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SendFailureCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "sent": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_generation",
+          "next": "generating",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReportContentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "retry_send",
+          "next": "sending",
+          "manual": true,
+          "processors": [
+            {
+              "name": "EmailSendProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 60000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,157 @@
+{
+  "version": "1.0",
+  "name": "DataSource",
+  "desc": "Workflow for managing CSV data source lifecycle",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_create",
+          "next": "created",
+          "manual": false
+        }
+      ]
+    },
+    "created": {
+      "transitions": [
+        {
+          "name": "start_fetch",
+          "next": "fetching",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DataFetchProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "fetching": {
+      "transitions": [
+        {
+          "name": "fetch_complete",
+          "next": "analyzing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DataAnalysisProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 60000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fetch_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FetchFailureCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "analyzing": {
+      "transitions": [
+        {
+          "name": "analysis_complete",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReportGenerationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "analysis_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnalysisFailureCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "refresh_data",
+          "next": "fetching",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DataFetchProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_fetch",
+          "next": "fetching",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DataFetchProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
