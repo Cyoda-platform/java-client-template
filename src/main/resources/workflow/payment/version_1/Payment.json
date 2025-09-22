@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "name": "Payment",
+  "desc": "Payment workflow for dummy payment processing with auto-approval",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "start_dummy_payment",
+          "next": "initiated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateDummyPayment",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "initiated": {
+      "transitions": [
+        {
+          "name": "auto_mark_paid",
+          "next": "paid",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoMarkPaidAfter3s",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "mark_failed",
+          "next": "failed",
+          "manual": true
+        },
+        {
+          "name": "cancel_payment",
+          "next": "canceled",
+          "manual": true
+        }
+      ]
+    },
+    "paid": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_payment",
+          "next": "initiated",
+          "manual": true
+        }
+      ]
+    },
+    "canceled": {
+      "transitions": []
+    }
+  }
+}
