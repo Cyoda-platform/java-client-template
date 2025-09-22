@@ -1,0 +1,65 @@
+scenario: "Single Prize CRUD"
+
+variables:
+  modelName: "nobel-prize"
+  modelVersion: 1
+  initialEntity:
+    year: "2025"
+    category: "Unified Step Test"
+    comment: "This is a test"
+
+steps:
+  - name: CreateThePrize
+    command: service.addItem
+    arguments:
+      modelName: ${variables.modelName}
+      modelVersion: ${variables.modelVersion}
+      entity: ${variables.initialEntity}
+
+  - name: AssertIdIsNotNull
+    command: assert.isNotNull
+    arguments:
+      actual: ${CreateThePrize}
+
+  - name: GetThePrize
+    command: service.getItem
+    arguments:
+      entityId: ${CreateThePrize.id}
+
+  - name: AssertPrizeYear
+    command: assert.equals
+    arguments:
+      actual: ${GetThePrize.entity.year}
+      expected: "2025"
+
+  - name: UpdateThePrize
+    command: service.updateItem
+    arguments:
+      entityId: ${CreateThePrize.id}
+      entity:
+        year: "2026"
+        category: "Unified Step Test"
+        comment: "This is a test"
+        transitionName: UPDATE
+
+  - name: GetThePrize
+    command: service.getItem
+    arguments:
+      entityId: ${CreateThePrize.id}
+
+  - name: AssertPrizeYear
+    command: assert.equals
+    arguments:
+      actual: ${GetThePrize.entity.year}
+      expected: "2026"
+
+  - name: DeletePrize
+    command: service.deleteItem
+    arguments:
+      entityId: ${CreateThePrize.id}
+
+  - name: GetThePrize
+    command: service.getItem
+    arguments:
+      entityId: ${CreateThePrize.id}
+    expectError: NOT_FOUND
