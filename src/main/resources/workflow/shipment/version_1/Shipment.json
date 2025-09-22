@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "name": "Shipment",
+  "desc": "Shipment workflow for tracking single shipment per order",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_shipment",
+          "next": "picking",
+          "manual": false
+        }
+      ]
+    },
+    "picking": {
+      "transitions": [
+        {
+          "name": "ready_to_send",
+          "next": "waiting_to_send",
+          "manual": true
+        }
+      ]
+    },
+    "waiting_to_send": {
+      "transitions": [
+        {
+          "name": "mark_sent",
+          "next": "sent",
+          "manual": true
+        }
+      ]
+    },
+    "sent": {
+      "transitions": [
+        {
+          "name": "mark_delivered",
+          "next": "delivered",
+          "manual": true
+        }
+      ]
+    },
+    "delivered": {
+      "transitions": []
+    }
+  }
+}
