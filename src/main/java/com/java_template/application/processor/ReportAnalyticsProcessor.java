@@ -57,12 +57,12 @@ public class ReportAnalyticsProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntityWithMetadata(EntityWithMetadata<WeeklyReport> entityWithMetadata) {
-        if (entityWithMetadata == null || entityWithMetadata.getEntity() == null) {
+        if (entityWithMetadata == null || entityWithMetadata.entity() == null) {
             logger.error("EntityWithMetadata or WeeklyReport entity is null");
             return false;
         }
 
-        WeeklyReport report = entityWithMetadata.getEntity();
+        WeeklyReport report = entityWithMetadata.entity();
         if (!report.isValid()) {
             logger.error("WeeklyReport entity validation failed for reportId: {}", report.getReportId());
             return false;
@@ -71,8 +71,10 @@ public class ReportAnalyticsProcessor implements CyodaProcessor {
         return true;
     }
 
-    private EntityWithMetadata<WeeklyReport> processReportAnalytics(EntityWithMetadata<WeeklyReport> entityWithMetadata) {
-        WeeklyReport report = entityWithMetadata.getEntity();
+    private EntityWithMetadata<WeeklyReport> processReportAnalytics(
+            ProcessorSerializer.ProcessorEntityResponseExecutionContext<WeeklyReport> context) {
+        EntityWithMetadata<WeeklyReport> entityWithMetadata = context.entityResponse();
+        WeeklyReport report = entityWithMetadata.entity();
         logger.info("Generating analytics for weekly report: {} (Week {}, {})", 
                    report.getReportId(), report.getWeekNumber(), report.getYear());
 

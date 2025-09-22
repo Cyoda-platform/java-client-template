@@ -204,8 +204,10 @@ public class SearchExecutionProcessor implements CyodaProcessor {
                 bookModelSpec.setName("Book");
                 bookModelSpec.setVersion(1);
 
-                EntityWithMetadata<Book> bookEntity = new EntityWithMetadata<>();
-                bookEntity.setEntity(book);
+                // In a real implementation, you would store the book entity using EntityService
+                // EntityWithMetadata<Book> bookEntity = EntityWithMetadata.builder()
+                //     .entity(book)
+                //     .build();
 
                 // In a real implementation, you would check if book already exists
                 // and update it accordingly

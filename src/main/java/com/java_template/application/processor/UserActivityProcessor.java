@@ -58,12 +58,12 @@ public class UserActivityProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntityWithMetadata(EntityWithMetadata<User> entityWithMetadata) {
-        if (entityWithMetadata == null || entityWithMetadata.getEntity() == null) {
+        if (entityWithMetadata == null || entityWithMetadata.entity() == null) {
             logger.error("EntityWithMetadata or User entity is null");
             return false;
         }
 
-        User user = entityWithMetadata.getEntity();
+        User user = entityWithMetadata.entity();
         if (!user.isValid()) {
             logger.error("User entity validation failed for userId: {}", user.getUserId());
             return false;
@@ -72,8 +72,10 @@ public class UserActivityProcessor implements CyodaProcessor {
         return true;
     }
 
-    private EntityWithMetadata<User> processUserActivity(EntityWithMetadata<User> entityWithMetadata) {
-        User user = entityWithMetadata.getEntity();
+    private EntityWithMetadata<User> processUserActivity(
+            ProcessorSerializer.ProcessorEntityResponseExecutionContext<User> context) {
+        EntityWithMetadata<User> entityWithMetadata = context.entityResponse();
+        User user = entityWithMetadata.entity();
         logger.info("Processing user activity for user: {}", user.getUserId());
 
         try {

@@ -58,12 +58,12 @@ public class UserRecommendationProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntityWithMetadata(EntityWithMetadata<User> entityWithMetadata) {
-        if (entityWithMetadata == null || entityWithMetadata.getEntity() == null) {
+        if (entityWithMetadata == null || entityWithMetadata.entity() == null) {
             logger.error("EntityWithMetadata or User entity is null");
             return false;
         }
 
-        User user = entityWithMetadata.getEntity();
+        User user = entityWithMetadata.entity();
         if (!user.isValid()) {
             logger.error("User entity validation failed for userId: {}", user.getUserId());
             return false;
@@ -72,8 +72,10 @@ public class UserRecommendationProcessor implements CyodaProcessor {
         return true;
     }
 
-    private EntityWithMetadata<User> processUserRecommendations(EntityWithMetadata<User> entityWithMetadata) {
-        User user = entityWithMetadata.getEntity();
+    private EntityWithMetadata<User> processUserRecommendations(
+            ProcessorSerializer.ProcessorEntityResponseExecutionContext<User> context) {
+        EntityWithMetadata<User> entityWithMetadata = context.entityResponse();
+        User user = entityWithMetadata.entity();
         logger.info("Generating recommendations for user: {}", user.getUserId());
 
         try {
