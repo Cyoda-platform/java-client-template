@@ -63,8 +63,8 @@ public class FetchFailureCriterion implements CyodaCriterion {
         // Check if fetch failed - lastFetchTime should be null if fetch failed
         if (dataSource.getLastFetchTime() == null) {
             logger.warn("Data fetch failed for DataSource: {}", dataSource.getDataSourceId());
-            return EvaluationOutcome.fail("Data fetch operation failed - no fetch timestamp", 
-                                        StandardEvalReasonCategories.EXTERNAL_DEPENDENCY_FAILURE);
+            return EvaluationOutcome.fail("Data fetch operation failed - no fetch timestamp",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check if file size is null or zero, which might indicate fetch failure
