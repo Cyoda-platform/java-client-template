@@ -160,8 +160,8 @@ public class SearchController {
             interaction.setLastInteractionAt(LocalDateTime.now());
 
             // Update with manual transition to trigger processor
-            EntityWithMetadata<SearchQuery> result = entityService.updateWithManualTransition(
-                modelSpec, queryId, searchQuery, "track_interaction");
+            EntityWithMetadata<SearchQuery> result = entityService.updateByBusinessId(
+                searchQuery, "queryId", "track_interaction");
 
             return ResponseEntity.ok(result.getId());
 
@@ -242,7 +242,7 @@ public class SearchController {
             ModelSpec modelSpec = createSearchQueryModelSpec();
             
             // Get current search query
-            EntityWithMetadata<SearchQuery> searchQueryEntity = entityService.findByBusinessId(modelSpec, queryId, SearchQuery.class);
+            EntityWithMetadata<SearchQuery> searchQueryEntity = entityService.findByBusinessId(modelSpec, queryId, "queryId", SearchQuery.class);
             if (searchQueryEntity == null) {
                 return ResponseEntity.notFound().build();
             }
@@ -250,8 +250,8 @@ public class SearchController {
             SearchQuery searchQuery = searchQueryEntity.entity();
 
             // Archive with manual transition
-            EntityWithMetadata<SearchQuery> result = entityService.updateWithManualTransition(
-                modelSpec, queryId, searchQuery, "archive_search");
+            EntityWithMetadata<SearchQuery> result = entityService.updateByBusinessId(
+                searchQuery, "queryId", "archive_search");
 
             return ResponseEntity.ok(result.getId());
 
