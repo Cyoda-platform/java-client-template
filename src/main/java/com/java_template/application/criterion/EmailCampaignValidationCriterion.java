@@ -155,16 +155,16 @@ public class EmailCampaignValidationCriterion implements CyodaCriterion {
             if (name.length() > 100) {
                 logger.warn("Campaign name too long for campaign {}: {} characters", 
                            entity.getCampaignId(), name.length());
-                return EvaluationOutcome.fail("Campaign name is too long (maximum 100 characters)", 
-                                            StandardEvalReasonCategories.CONFIGURATION_FAILURE);
+                return EvaluationOutcome.fail("Campaign name is too long (maximum 100 characters)",
+                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
         }
 
         // Validate email template if present
         if (entity.getEmailTemplate() != null && entity.getEmailTemplate().trim().isEmpty()) {
             logger.warn("Email template is empty for campaign: {}", entity.getCampaignId());
-            return EvaluationOutcome.fail("Email template cannot be empty", 
-                                        StandardEvalReasonCategories.CONFIGURATION_FAILURE);
+            return EvaluationOutcome.fail("Email template cannot be empty",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         return EvaluationOutcome.success();
