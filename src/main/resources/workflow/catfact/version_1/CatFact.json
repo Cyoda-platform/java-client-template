@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "name": "CatFact",
+  "desc": "CatFact lifecycle workflow for fact retrieval and usage tracking",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "retrieve_fact",
+          "next": "available",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CatFactRetrievalProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CatFactValidationCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "available": {
+      "transitions": [
+        {
+          "name": "mark_used",
+          "next": "used",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CatFactValidationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "update_fact",
+          "next": "available",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CatFactValidationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "used": {
+      "transitions": []
+    }
+  }
+}

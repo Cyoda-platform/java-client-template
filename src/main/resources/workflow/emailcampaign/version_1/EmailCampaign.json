@@ -1,0 +1,118 @@
+{
+  "version": "1.0",
+  "name": "EmailCampaign",
+  "desc": "EmailCampaign lifecycle workflow for email sending and reporting",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_campaign",
+          "next": "draft",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EmailCampaignProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailCampaignValidationCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "draft": {
+      "transitions": [
+        {
+          "name": "send_campaign",
+          "next": "sending",
+          "manual": true,
+          "processors": [
+            {
+              "name": "EmailCampaignProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "update_campaign",
+          "next": "draft",
+          "manual": true,
+          "processors": [
+            {
+              "name": "EmailCampaignProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "sending": {
+      "transitions": [
+        {
+          "name": "complete_campaign",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "EmailReportingProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail_campaign",
+          "next": "failed",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_campaign",
+          "next": "draft",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
