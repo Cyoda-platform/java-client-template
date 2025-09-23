@@ -12,6 +12,15 @@ public class PrizeEntity implements CyodaEntity {
     public String category;
     public String comment;
 
+    public PrizeEntity() {
+    }
+
+    public PrizeEntity(final String year, final String category, final String comment) {
+        this.year = year;
+        this.category = category;
+        this.comment = comment;
+    }
+
     @Override
     public OperationSpecification getModelKey() {
         final var modelSpec = new org.cyoda.cloud.api.event.common.ModelSpec();
