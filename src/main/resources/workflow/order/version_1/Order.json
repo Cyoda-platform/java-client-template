@@ -1,0 +1,147 @@
+{
+  "version": "1.0",
+  "name": "Order",
+  "desc": "Order workflow for managing pet adoption and purchase orders",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_order",
+          "next": "created",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateOrderProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "created": {
+      "transitions": [
+        {
+          "name": "start_processing",
+          "next": "processing",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StartProcessingProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "OrderValidationCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        },
+        {
+          "name": "cancel_order",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "request_payment",
+          "next": "payment_pending",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RequestPaymentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_processing",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "payment_pending": {
+      "transitions": [
+        {
+          "name": "confirm_payment",
+          "next": "confirmed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ConfirmPaymentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_payment",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "complete_order",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CompleteOrderProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
