@@ -36,7 +36,7 @@ public class UpdateProductInventory implements CyodaProcessor {
         return serializer.withRequest(request)
                 .toEntityWithMetadata(Product.class)
                 .validate(this::isValidEntityWithMetadata, "Invalid product entity wrapper")
-                .map(this::processInventoryUpdate)
+                .map(this::processInventoryUpdateWithContext)
                 .complete();
     }
 
@@ -49,12 +49,12 @@ public class UpdateProductInventory implements CyodaProcessor {
      * Validate the entity wrapper
      */
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Product> entityWithMetadata) {
-        if (entityWithMetadata == null || entityWithMetadata.getEntity() == null) {
+        if (entityWithMetadata == null || entityWithMetadata.entity() == null) {
             logger.error("EntityWithMetadata or entity is null");
             return false;
         }
 
-        Product product = entityWithMetadata.getEntity();
+        Product product = entityWithMetadata.entity();
         if (!product.isValid()) {
             logger.error("Product entity is not valid: {}", product);
             return false;
@@ -64,21 +64,22 @@ public class UpdateProductInventory implements CyodaProcessor {
     }
 
     /**
-     * Process inventory update logic
+     * Process inventory update logic with context
      */
-    private EntityWithMetadata<Product> processInventoryUpdate(EntityWithMetadata<Product> entityWithMetadata) {
-        Product product = entityWithMetadata.getEntity();
+    private EntityWithMetadata<Product> processInventoryUpdateWithContext(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Product> context) {
+        EntityWithMetadata<Product> entityWithMetadata = context.entityResponse();
+        Product product = entityWithMetadata.entity();
         logger.info("Processing inventory update for product SKU: {}", product.getSku());
 
         try {
             // Calculate total available quantity from inventory nodes
             Integer totalAvailable = calculateTotalAvailableQuantity(product);
-            
+
             // Update the quantityAvailable field
             product.setQuantityAvailable(totalAvailable);
-            
+
             logger.info("Updated quantityAvailable for SKU {} to {}", product.getSku(), totalAvailable);
-            
+
             return entityWithMetadata;
 
         } catch (Exception e) {
