@@ -97,7 +97,7 @@ public class ProductController {
             if (minPrice != null) {
                 SimpleCondition minPriceCondition = new SimpleCondition()
                         .withJsonPath("$.price")
-                        .withOperation(Operation.GREATER_THAN_OR_EQUAL)
+                        .withOperation(Operation.GREATER_OR_EQUAL)
                         .withValue(objectMapper.valueToTree(minPrice));
                 conditions.add(minPriceCondition);
             }
@@ -105,7 +105,7 @@ public class ProductController {
             if (maxPrice != null) {
                 SimpleCondition maxPriceCondition = new SimpleCondition()
                         .withJsonPath("$.price")
-                        .withOperation(Operation.LESS_THAN_OR_EQUAL)
+                        .withOperation(Operation.LESS_OR_EQUAL)
                         .withValue(objectMapper.valueToTree(maxPrice));
                 conditions.add(maxPriceCondition);
             }
@@ -156,7 +156,7 @@ public class ProductController {
             EntityWithMetadata<Product> product = entityService.findByBusinessId(modelSpec, "sku", sku, Product.class);
             
             if (product != null) {
-                logger.info("Found product: {}", product.getEntity().getName());
+                logger.info("Found product: {}", product.entity().getName());
                 return ResponseEntity.ok(product);
             } else {
                 logger.warn("Product not found for SKU: {}", sku);
@@ -187,8 +187,8 @@ public class ProductController {
             modelSpec.setName(Product.ENTITY_NAME);
             modelSpec.setVersion(Product.ENTITY_VERSION);
 
-            EntityWithMetadata<Product> savedProduct = entityService.save(modelSpec, product, Product.class);
-            UUID productId = savedProduct.getMetadata().getId();
+            EntityWithMetadata<Product> savedProduct = entityService.create(product);
+            UUID productId = savedProduct.metadata().getId();
 
             logger.info("Created product with ID: {}", productId);
             return ResponseEntity.ok(productId);
@@ -220,8 +220,8 @@ public class ProductController {
             // Ensure SKU matches
             product.setSku(sku);
 
-            EntityWithMetadata<Product> updatedProduct = entityService.save(modelSpec, product, "update_product", Product.class);
-            UUID productId = updatedProduct.getMetadata().getId();
+            EntityWithMetadata<Product> updatedProduct = entityService.updateByBusinessId(product, "sku", "update_product");
+            UUID productId = updatedProduct.metadata().getId();
 
             logger.info("Updated product with ID: {}", productId);
             return ResponseEntity.ok(productId);
@@ -236,7 +236,7 @@ public class ProductController {
      * Convert full Product to slim DTO for list views
      */
     private ProductSlimDto toSlimDto(EntityWithMetadata<Product> productWithMetadata) {
-        Product product = productWithMetadata.getEntity();
+        Product product = productWithMetadata.entity();
         ProductSlimDto dto = new ProductSlimDto();
         dto.setSku(product.getSku());
         dto.setName(product.getName());
