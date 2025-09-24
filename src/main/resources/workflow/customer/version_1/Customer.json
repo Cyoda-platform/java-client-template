@@ -1,0 +1,102 @@
+{
+  "version": "1.0",
+  "name": "Customer",
+  "desc": "Customer workflow for managing customer registration, verification, and account status",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "register_customer",
+          "next": "registered",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RegisterCustomerProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "registered": {
+      "transitions": [
+        {
+          "name": "verify_customer",
+          "next": "verified",
+          "manual": true,
+          "processors": [
+            {
+              "name": "VerifyCustomerProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CustomerVerificationCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "verified": {
+      "transitions": [
+        {
+          "name": "activate_customer",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "suspend_customer",
+          "next": "suspended",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SuspendCustomerProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_customer",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
