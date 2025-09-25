@@ -1,0 +1,10 @@
+UI.
+
+Key demo rules
+• Anonymous checkout only (no user accounts).
+• Payment (dummy) auto-approves after ~3 seconds.
+• Stock policy: decrement Product.quantityAvailable on order creation (no reservations).
+• Shipping: single shipment per order.
+• Order number: short ULID.
+• Catalog filters: category, free-text (name/description), price range.
+• Product must include category and must use the attached Product schema verbatim for persistence/round-trip (UI list can use a slim view).
