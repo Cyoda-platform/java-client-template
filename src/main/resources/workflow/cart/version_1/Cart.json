@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "name": "Cart",
+  "desc": "Cart workflow for managing shopping cart lifecycle",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "CREATE_CART",
+          "next": "NEW",
+          "manual": false
+        }
+      ]
+    },
+    "NEW": {
+      "transitions": [
+        {
+          "name": "ADD_FIRST_ITEM",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AddItemProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "MODIFY_CART",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ModifyCartProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "START_CHECKOUT",
+          "next": "CHECKING_OUT",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CartHasItemsCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CHECKING_OUT": {
+      "transitions": [
+        {
+          "name": "COMPLETE_CHECKOUT",
+          "next": "CONVERTED",
+          "manual": true
+        }
+      ]
+    },
+    "CONVERTED": {
+      "transitions": []
+    }
+  }
+}

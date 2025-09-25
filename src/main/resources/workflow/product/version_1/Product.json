@@ -1,0 +1,68 @@
+{
+  "version": "1.0",
+  "name": "Product",
+  "desc": "Product workflow for managing product lifecycle and stock",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "ACTIVATE_PRODUCT",
+          "next": "ACTIVE",
+          "manual": false
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "STOCK_DEPLETED",
+          "next": "OUT_OF_STOCK",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StockDepletedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        },
+        {
+          "name": "UPDATE_STOCK",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdateStockProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "OUT_OF_STOCK": {
+      "transitions": [
+        {
+          "name": "STOCK_REPLENISHED",
+          "next": "ACTIVE",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StockAvailableCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
