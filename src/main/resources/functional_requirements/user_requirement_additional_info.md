@@ -1,3 +1,3 @@
-You've provided a detailed requirement for building a Spring Boot client application that serves as a backend for a Cyoda OMS with specific functionalities. The key features include anonymous checkout, dummy payment approval, stock policy management, order number generation, and catalog filtering.
+You've provided a requirement to build a Spring Boot client application for the Cyoda OMS backend, with specific objectives and key demo rules. The application will expose REST APIs for a browser UI, supporting anonymous checkout, dummy payment approval, stock policy management, order number generation, and catalog filtering.
 
-Would you like to proceed with building your application based on these requirements, or do you want to add more details? Additionally, if you require GitHub access or collaboration, please provide your GitHub username.
+Would you like to proceed with building your application based on these requirements, or do you want to add more details? Additionally, if you need GitHub access or collaboration, please provide your GitHub username.
