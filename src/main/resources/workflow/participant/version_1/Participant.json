@@ -1,0 +1,310 @@
+{
+  "version": "1.0",
+  "name": "Participant",
+  "desc": "Clinical Trial Participant lifecycle workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_participant",
+          "next": "screening",
+          "manual": false
+        }
+      ]
+    },
+    "screening": {
+      "transitions": [
+        {
+          "name": "update_screening",
+          "next": "screening",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantScreeningProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "screen_pass",
+          "next": "eligible",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantEligibilityProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "screen_fail",
+          "next": "screen_failed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantScreenFailProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "eligible": {
+      "transitions": [
+        {
+          "name": "obtain_consent",
+          "next": "consented",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantConsentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "consented": {
+      "transitions": [
+        {
+          "name": "enroll_participant",
+          "next": "enrolled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantEnrollmentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "withdraw_consent",
+          "next": "withdrawn",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantWithdrawalProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "enrolled": {
+      "transitions": [
+        {
+          "name": "randomize_participant",
+          "next": "randomized",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantRandomizationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "withdraw_participant",
+          "next": "withdrawn",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantWithdrawalProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "randomized": {
+      "transitions": [
+        {
+          "name": "update_participant",
+          "next": "randomized",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "record_visit",
+          "next": "randomized",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantVisitProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "record_adverse_event",
+          "next": "randomized",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantAdverseEventProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "complete_study",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantCompletionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "withdraw_participant",
+          "next": "withdrawn",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantWithdrawalProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "follow_up",
+          "next": "follow_up",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantFollowUpProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "follow_up": {
+      "transitions": [
+        {
+          "name": "close_follow_up",
+          "next": "closed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ParticipantClosureProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "screen_failed": {
+      "transitions": []
+    },
+    "withdrawn": {
+      "transitions": []
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}
