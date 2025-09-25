@@ -68,7 +68,8 @@ public class AutoMarkPaidAfter3s implements CyodaProcessor {
     /**
      * Simulates payment processing delay and marks payment as PAID
      */
-    private Payment autoMarkPaymentPaid(EntityWithMetadata<Payment> entityWithMetadata) {
+    private EntityWithMetadata<Payment> autoMarkPaymentPaid(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Payment> context) {
+        EntityWithMetadata<Payment> entityWithMetadata = context.entityResponse();
         Payment payment = entityWithMetadata.entity();
         logger.info("Auto-marking payment as PAID: {}", payment.getPaymentId());
 
@@ -86,6 +87,6 @@ public class AutoMarkPaidAfter3s implements CyodaProcessor {
 
         logger.info("Payment {} automatically marked as PAID after 3s delay", payment.getPaymentId());
 
-        return payment;
+        return entityWithMetadata;
     }
 }

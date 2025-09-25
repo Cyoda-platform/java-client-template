@@ -87,7 +87,8 @@ public class CreateOrderFromPaid implements CyodaProcessor {
     /**
      * Creates order from paid cart, decrements stock, and creates shipment
      */
-    private Order createOrderFromPaidCart(EntityWithMetadata<Order> entityWithMetadata) {
+    private EntityWithMetadata<Order> createOrderFromPaidCart(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Order> context) {
+        EntityWithMetadata<Order> entityWithMetadata = context.entityResponse();
         Order order = entityWithMetadata.entity();
         logger.info("Creating order from paid cart for orderId: {}", order.getOrderId());
 
@@ -109,7 +110,7 @@ public class CreateOrderFromPaid implements CyodaProcessor {
             throw new RuntimeException("Order creation failed", e);
         }
 
-        return order;
+        return entityWithMetadata;
     }
 
     /**
@@ -125,15 +126,13 @@ public class CreateOrderFromPaid implements CyodaProcessor {
                 productModelSpec.setName(Product.ENTITY_NAME);
                 productModelSpec.setVersion(Product.ENTITY_VERSION);
 
-                List<EntityWithMetadata<Product>> products = entityService.findByBusinessId(
-                    productModelSpec, "sku", line.getSku(), Product.class);
+                EntityWithMetadata<Product> productWithMetadata = entityService.findByBusinessId(
+                    productModelSpec, line.getSku(), "sku", Product.class);
 
-                if (products.isEmpty()) {
+                if (productWithMetadata == null) {
                     logger.warn("Product not found for SKU: {}", line.getSku());
                     continue;
                 }
-
-                EntityWithMetadata<Product> productWithMetadata = products.get(0);
                 Product product = productWithMetadata.entity();
 
                 // Decrement quantity
@@ -142,7 +141,7 @@ public class CreateOrderFromPaid implements CyodaProcessor {
                 product.setQuantityAvailable(newQty);
 
                 // Update product (manual transition to stay in same state)
-                entityService.update(productWithMetadata.metadata().getId(), product, "update_product", Product.class);
+                entityService.update(productWithMetadata.metadata().getId(), product, "update_product");
 
                 logger.info("Decremented product {} quantity from {} to {}", 
                            line.getSku(), currentQty, newQty);
@@ -181,12 +180,8 @@ public class CreateOrderFromPaid implements CyodaProcessor {
             }
             shipment.setLines(shipmentLines);
 
-            // Save shipment
-            ModelSpec shipmentModelSpec = new ModelSpec();
-            shipmentModelSpec.setName(Shipment.ENTITY_NAME);
-            shipmentModelSpec.setVersion(Shipment.ENTITY_VERSION);
-
-            entityService.save(shipmentModelSpec, shipment, "create_shipment", Shipment.class);
+            // Save shipment using create method
+            entityService.create(shipment);
 
             logger.info("Shipment {} created for order {} with {} lines", 
                        shipment.getShipmentId(), order.getOrderId(), shipmentLines.size());
