@@ -96,7 +96,7 @@ public class ProductController {
             if (minPrice != null) {
                 SimpleCondition minPriceCondition = new SimpleCondition()
                         .withJsonPath("$.price")
-                        .withOperation(Operation.GREATER_THAN_OR_EQUAL)
+                        .withOperation(Operation.GREATER_OR_EQUAL)
                         .withValue(objectMapper.valueToTree(minPrice));
                 conditions.add(minPriceCondition);
             }
@@ -104,7 +104,7 @@ public class ProductController {
             if (maxPrice != null) {
                 SimpleCondition maxPriceCondition = new SimpleCondition()
                         .withJsonPath("$.price")
-                        .withOperation(Operation.LESS_THAN_OR_EQUAL)
+                        .withOperation(Operation.LESS_OR_EQUAL)
                         .withValue(objectMapper.valueToTree(maxPrice));
                 conditions.add(maxPriceCondition);
             }
