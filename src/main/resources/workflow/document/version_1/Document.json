@@ -1,0 +1,100 @@
+{
+  "version": "1.0",
+  "name": "Document",
+  "desc": "Document Management Workflow with Versioning",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_document",
+          "next": "draft",
+          "manual": false
+        }
+      ]
+    },
+    "draft": {
+      "transitions": [
+        {
+          "name": "finalize_document",
+          "next": "final",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DocumentFinalizationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "update_document",
+          "next": "draft",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DocumentUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "final": {
+      "transitions": [
+        {
+          "name": "create_new_version",
+          "next": "superseded",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DocumentVersioningProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "withdraw_document",
+          "next": "withdrawn",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DocumentWithdrawalProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "superseded": {
+      "transitions": []
+    },
+    "withdrawn": {
+      "transitions": []
+    }
+  }
+}
