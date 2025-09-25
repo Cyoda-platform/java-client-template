@@ -43,7 +43,7 @@ public class InvestigatorTerminationProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Investigator> entityWithMetadata) {
-        return entityWithMetadata \!= null && entityWithMetadata.entity() \!= null && entityWithMetadata.entity().isValid();
+        return entityWithMetadata != null && entityWithMetadata.entity() != null && entityWithMetadata.entity().isValid();
     }
 
     private EntityWithMetadata<Investigator> processEntity(EntityWithMetadata<Investigator> entityWithMetadata) {

@@ -43,7 +43,7 @@ public class SiteMonitoringProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Site> entityWithMetadata) {
-        return entityWithMetadata \!= null && entityWithMetadata.entity() \!= null && entityWithMetadata.entity().isValid();
+        return entityWithMetadata != null && entityWithMetadata.entity() != null && entityWithMetadata.entity().isValid();
     }
 
     private EntityWithMetadata<Site> processEntity(EntityWithMetadata<Site> entityWithMetadata) {

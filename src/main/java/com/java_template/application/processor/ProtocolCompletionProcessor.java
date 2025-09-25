@@ -43,7 +43,7 @@ public class ProtocolCompletionProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Protocol> entityWithMetadata) {
-        return entityWithMetadata \!= null && entityWithMetadata.entity() \!= null && entityWithMetadata.entity().isValid();
+        return entityWithMetadata != null && entityWithMetadata.entity() != null && entityWithMetadata.entity().isValid();
     }
 
     private EntityWithMetadata<Protocol> processEntity(EntityWithMetadata<Protocol> entityWithMetadata) {

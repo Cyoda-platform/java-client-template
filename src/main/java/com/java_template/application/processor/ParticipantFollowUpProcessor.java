@@ -43,7 +43,7 @@ public class ParticipantFollowUpProcessor implements CyodaProcessor {
     }
 
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Participant> entityWithMetadata) {
-        return entityWithMetadata \!= null && entityWithMetadata.entity() \!= null && entityWithMetadata.entity().isValid();
+        return entityWithMetadata != null && entityWithMetadata.entity() != null && entityWithMetadata.entity().isValid();
     }
 
     private EntityWithMetadata<Participant> processEntity(EntityWithMetadata<Participant> entityWithMetadata) {
