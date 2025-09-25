@@ -74,7 +74,7 @@ public class ProtocolController {
                 return ResponseEntity.notFound().build();
             }
 
-            EntityWithMetadata<Protocol> updatedProtocol = (transition != null && !=transition.trim().isEmpty()) 
+            EntityWithMetadata<Protocol> updatedProtocol = (transition != null && !transition.trim().isEmpty()) 
                 ? entityService.save(protocol, transition, Protocol.class)
                 : entityService.save(protocol, Protocol.class);
             

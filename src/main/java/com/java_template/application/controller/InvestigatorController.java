@@ -74,7 +74,7 @@ public class InvestigatorController {
                 return ResponseEntity.notFound().build();
             }
 
-            EntityWithMetadata<Investigator> updatedInvestigator = (transition != null && !=transition.trim().isEmpty()) 
+            EntityWithMetadata<Investigator> updatedInvestigator = (transition != null && !transition.trim().isEmpty()) 
                 ? entityService.save(investigator, transition, Investigator.class)
                 : entityService.save(investigator, Investigator.class);
             

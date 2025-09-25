@@ -77,7 +77,7 @@ public class SiteController {
                 return ResponseEntity.notFound().build();
             }
 
-            EntityWithMetadata<Site> updatedSite = (transition != null && !=transition.trim().isEmpty()) 
+            EntityWithMetadata<Site> updatedSite = (transition != null && !transition.trim().isEmpty()) 
                 ? entityService.save(site, transition, Site.class)
                 : entityService.save(site, Site.class);
             

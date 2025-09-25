@@ -159,7 +159,7 @@ public class ParticipantEnrollmentProcessor implements CyodaProcessor {
                 study.setUpdatedAt(LocalDateTime.now());
 
                 // Save the updated study (without transition to stay in same state)
-                entityService.save(studyEntity, Study.class);
+                entityService.save(study, Study.class);
                 
                 logger.info("Updated enrollment count for study: {} to {}", studyId, study.getCurrentEnrollment());
             } else {
