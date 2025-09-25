@@ -45,7 +45,7 @@ public class InvestigatorController {
     public ResponseEntity<EntityWithMetadata<Investigator>> getInvestigatorById(@PathVariable UUID id) {
         try {
             EntityWithMetadata<Investigator> investigator = entityService.findById(createModelSpec(), id, Investigator.class);
-            return investigator \!= null ? ResponseEntity.ok(investigator) : ResponseEntity.notFound().build();
+            return investigator != null ? ResponseEntity.ok(investigator) : ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error retrieving investigator by ID: {}", id, e);
             return ResponseEntity.badRequest().build();
@@ -56,7 +56,7 @@ public class InvestigatorController {
     public ResponseEntity<EntityWithMetadata<Investigator>> getInvestigatorByBusinessId(@PathVariable String investigatorId) {
         try {
             EntityWithMetadata<Investigator> investigator = entityService.findByBusinessId(createModelSpec(), "investigatorId", investigatorId, Investigator.class);
-            return investigator \!= null ? ResponseEntity.ok(investigator) : ResponseEntity.notFound().build();
+            return investigator != null ? ResponseEntity.ok(investigator) : ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error retrieving investigator by business ID: {}", investigatorId, e);
             return ResponseEntity.badRequest().build();
@@ -74,7 +74,7 @@ public class InvestigatorController {
                 return ResponseEntity.notFound().build();
             }
 
-            EntityWithMetadata<Investigator> updatedInvestigator = (transition \!= null && \!transition.trim().isEmpty()) 
+            EntityWithMetadata<Investigator> updatedInvestigator = (transition != null && !=transition.trim().isEmpty()) 
                 ? entityService.save(investigator, transition, Investigator.class)
                 : entityService.save(investigator, Investigator.class);
             

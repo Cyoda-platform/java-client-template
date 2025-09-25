@@ -45,7 +45,7 @@ public class ProtocolController {
     public ResponseEntity<EntityWithMetadata<Protocol>> getProtocolById(@PathVariable UUID id) {
         try {
             EntityWithMetadata<Protocol> protocol = entityService.findById(createModelSpec(), id, Protocol.class);
-            return protocol \!= null ? ResponseEntity.ok(protocol) : ResponseEntity.notFound().build();
+            return protocol != null ? ResponseEntity.ok(protocol) : ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error retrieving protocol by ID: {}", id, e);
             return ResponseEntity.badRequest().build();
@@ -56,7 +56,7 @@ public class ProtocolController {
     public ResponseEntity<EntityWithMetadata<Protocol>> getProtocolByBusinessId(@PathVariable String protocolId) {
         try {
             EntityWithMetadata<Protocol> protocol = entityService.findByBusinessId(createModelSpec(), "protocolId", protocolId, Protocol.class);
-            return protocol \!= null ? ResponseEntity.ok(protocol) : ResponseEntity.notFound().build();
+            return protocol != null ? ResponseEntity.ok(protocol) : ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error retrieving protocol by business ID: {}", protocolId, e);
             return ResponseEntity.badRequest().build();
@@ -74,7 +74,7 @@ public class ProtocolController {
                 return ResponseEntity.notFound().build();
             }
 
-            EntityWithMetadata<Protocol> updatedProtocol = (transition \!= null && \!transition.trim().isEmpty()) 
+            EntityWithMetadata<Protocol> updatedProtocol = (transition != null && !=transition.trim().isEmpty()) 
                 ? entityService.save(protocol, transition, Protocol.class)
                 : entityService.save(protocol, Protocol.class);
             

@@ -48,7 +48,7 @@ public class SiteController {
     public ResponseEntity<EntityWithMetadata<Site>> getSiteById(@PathVariable UUID id) {
         try {
             EntityWithMetadata<Site> site = entityService.findById(createModelSpec(), id, Site.class);
-            return site \!= null ? ResponseEntity.ok(site) : ResponseEntity.notFound().build();
+            return site != null ? ResponseEntity.ok(site) : ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error retrieving site by ID: {}", id, e);
             return ResponseEntity.badRequest().build();
@@ -59,7 +59,7 @@ public class SiteController {
     public ResponseEntity<EntityWithMetadata<Site>> getSiteByBusinessId(@PathVariable String siteId) {
         try {
             EntityWithMetadata<Site> site = entityService.findByBusinessId(createModelSpec(), "siteId", siteId, Site.class);
-            return site \!= null ? ResponseEntity.ok(site) : ResponseEntity.notFound().build();
+            return site != null ? ResponseEntity.ok(site) : ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error retrieving site by business ID: {}", siteId, e);
             return ResponseEntity.badRequest().build();
@@ -77,7 +77,7 @@ public class SiteController {
                 return ResponseEntity.notFound().build();
             }
 
-            EntityWithMetadata<Site> updatedSite = (transition \!= null && \!transition.trim().isEmpty()) 
+            EntityWithMetadata<Site> updatedSite = (transition != null && !=transition.trim().isEmpty()) 
                 ? entityService.save(site, transition, Site.class)
                 : entityService.save(site, Site.class);
             
