@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "name": "Report",
+  "desc": "Analytics and reporting workflow for system metrics",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_generate",
+          "next": "generating",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReportPermissionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "ReportGenerationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "generating": {
+      "transitions": [
+        {
+          "name": "complete_generation",
+          "next": "completed",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReportParametersCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "ReportCompletionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail_generation",
+          "next": "failed",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "archive_report",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_generation",
+          "next": "generating",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}
