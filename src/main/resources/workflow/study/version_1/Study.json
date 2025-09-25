@@ -1,0 +1,235 @@
+{
+  "version": "1.0",
+  "name": "Study",
+  "desc": "Clinical Study lifecycle workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_study",
+          "next": "draft",
+          "manual": false
+        }
+      ]
+    },
+    "draft": {
+      "transitions": [
+        {
+          "name": "update_study",
+          "next": "draft",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "submit_for_approval",
+          "next": "pending_approval",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudySubmissionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pending_approval": {
+      "transitions": [
+        {
+          "name": "approve_study",
+          "next": "approved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyApprovalProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_study",
+          "next": "draft",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyRejectionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "activate_study",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyActivationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_enrollment",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyEnrollmentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend_study",
+          "next": "suspended",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudySuspensionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "complete_study",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyCompletionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "resume_study",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyResumptionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "terminate_study",
+          "next": "terminated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyTerminationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "close_study",
+          "next": "closed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyClosureProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "terminated": {
+      "transitions": []
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}
