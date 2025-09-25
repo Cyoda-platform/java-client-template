@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -172,7 +173,7 @@ public class ProductController {
             Product.Event createEvent = new Product.Event();
             createEvent.setType("ProductCreated");
             createEvent.setAt(LocalDateTime.now());
-            createEvent.setPayload(objectMapper.createObjectNode().put("sku", product.getSku()));
+            createEvent.setPayload(Map.of("sku", product.getSku()));
             product.getEvents().add(createEvent);
 
             EntityWithMetadata<Product> response = entityService.create(product);
