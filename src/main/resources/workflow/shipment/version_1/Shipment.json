@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "name": "Shipment",
+  "desc": "Shipment workflow for managing order fulfillment and delivery",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "CREATE_SHIPMENT",
+          "next": "PICKING",
+          "manual": false
+        }
+      ]
+    },
+    "PICKING": {
+      "transitions": [
+        {
+          "name": "COMPLETE_PICKING",
+          "next": "WAITING_TO_SEND",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdatePickingProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "WAITING_TO_SEND": {
+      "transitions": [
+        {
+          "name": "DISPATCH_SHIPMENT",
+          "next": "SENT",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdateOrderStatusProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "CONFIRM_DELIVERY",
+          "next": "DELIVERED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdateOrderStatusProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    }
+  }
+}

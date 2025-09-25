@@ -1,0 +1,66 @@
+{
+  "version": "1.0",
+  "name": "Order",
+  "desc": "Order workflow for managing order lifecycle and fulfillment",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "CREATE_ORDER",
+          "next": "WAITING_TO_FULFILL",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateOrderProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "WAITING_TO_FULFILL": {
+      "transitions": [
+        {
+          "name": "START_PICKING",
+          "next": "PICKING",
+          "manual": true
+        }
+      ]
+    },
+    "PICKING": {
+      "transitions": [
+        {
+          "name": "COMPLETE_PICKING",
+          "next": "WAITING_TO_SEND",
+          "manual": true
+        }
+      ]
+    },
+    "WAITING_TO_SEND": {
+      "transitions": [
+        {
+          "name": "SHIP_ORDER",
+          "next": "SENT",
+          "manual": true
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "DELIVER_ORDER",
+          "next": "DELIVERED",
+          "manual": true
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "name": "Payment",
+  "desc": "Payment workflow for dummy payment processing",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "START_PAYMENT",
+          "next": "INITIATED",
+          "manual": false
+        }
+      ]
+    },
+    "INITIATED": {
+      "transitions": [
+        {
+          "name": "AUTO_APPROVE_PAYMENT",
+          "next": "PAID",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AutoApprovePaymentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PAYMENT_FAILED",
+          "next": "FAILED",
+          "manual": true
+        },
+        {
+          "name": "CANCEL_PAYMENT",
+          "next": "CANCELED",
+          "manual": true
+        }
+      ]
+    },
+    "PAID": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "CANCELED": {
+      "transitions": []
+    }
+  }
+}
