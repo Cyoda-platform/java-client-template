@@ -1,0 +1,134 @@
+{
+  "version": "1.0",
+  "name": "Submission",
+  "desc": "Research and clinical trial submission workflow",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_create",
+          "next": "draft",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SubmissionCreationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "draft": {
+      "transitions": [
+        {
+          "name": "submit_for_review",
+          "next": "submitted",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubmissionValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        },
+        {
+          "name": "withdraw_submission",
+          "next": "withdrawn",
+          "manual": true
+        }
+      ]
+    },
+    "submitted": {
+      "transitions": [
+        {
+          "name": "assign_reviewer",
+          "next": "under_review",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReviewerValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "ReviewerAssignmentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "withdraw_submission",
+          "next": "withdrawn",
+          "manual": true
+        }
+      ]
+    },
+    "under_review": {
+      "transitions": [
+        {
+          "name": "approve_submission",
+          "next": "approved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DecisionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_submission",
+          "next": "rejected",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DecisionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "request_revision",
+          "next": "submitted",
+          "manual": true
+        }
+      ]
+    },
+    "approved": {
+      "transitions": []
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "withdrawn": {
+      "transitions": []
+    }
+  }
+}

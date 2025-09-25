@@ -1,0 +1,92 @@
+{
+  "version": "1.0",
+  "name": "Document",
+  "desc": "Document management with version control and audit trail",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_upload",
+          "next": "uploaded",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DocumentPermissionCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "DocumentUploadProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "uploaded": {
+      "transitions": [
+        {
+          "name": "validate_document",
+          "next": "validated",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "DocumentValidityCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "DocumentValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "delete_document",
+          "next": "deleted",
+          "manual": true
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "archive_document",
+          "next": "archived",
+          "manual": true
+        },
+        {
+          "name": "delete_document",
+          "next": "deleted",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    },
+    "deleted": {
+      "transitions": []
+    }
+  }
+}
