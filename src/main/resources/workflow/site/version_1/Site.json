@@ -1,0 +1,252 @@
+{
+  "version": "1.0",
+  "name": "Site",
+  "desc": "Research Site lifecycle workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_site",
+          "next": "pending_qualification",
+          "manual": false
+        }
+      ]
+    },
+    "pending_qualification": {
+      "transitions": [
+        {
+          "name": "update_site_info",
+          "next": "pending_qualification",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "qualify_site",
+          "next": "qualified",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteQualificationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "disqualify_site",
+          "next": "disqualified",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteDisqualificationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "qualified": {
+      "transitions": [
+        {
+          "name": "assign_study",
+          "next": "study_assigned",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteStudyAssignmentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "study_assigned": {
+      "transitions": [
+        {
+          "name": "initiate_site",
+          "next": "initiated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteInitiationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "initiated": {
+      "transitions": [
+        {
+          "name": "activate_site",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteActivationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_performance",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SitePerformanceProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "conduct_monitoring",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteMonitoringProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend_site",
+          "next": "suspended",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteSuspensionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "close_site",
+          "next": "closed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteClosureProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_site",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteReactivationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "close_site",
+          "next": "closed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SiteClosureProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "disqualified": {
+      "transitions": []
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}
