@@ -7,8 +7,8 @@ import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
-import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationRequest;
-import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationResponse;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,8 +33,8 @@ public class ParticipantEligibilityCriterion implements CyodaCriterion {
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.info("Checking {} for request: {}", className, request.getId());
 
         return serializer.withRequest(request)
