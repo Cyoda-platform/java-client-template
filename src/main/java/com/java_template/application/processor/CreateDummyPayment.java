@@ -68,7 +68,8 @@ public class CreateDummyPayment implements CyodaProcessor {
     /**
      * Initializes the dummy payment with INITIATED status and DUMMY provider
      */
-    private Payment initializeDummyPayment(EntityWithMetadata<Payment> entityWithMetadata) {
+    private EntityWithMetadata<Payment> initializeDummyPayment(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Payment> context) {
+        EntityWithMetadata<Payment> entityWithMetadata = context.entityResponse();
         Payment payment = entityWithMetadata.entity();
         logger.info("Initializing dummy payment: {}", payment.getPaymentId());
 
@@ -78,9 +79,9 @@ public class CreateDummyPayment implements CyodaProcessor {
         payment.setCreatedAt(LocalDateTime.now());
         payment.setUpdatedAt(LocalDateTime.now());
 
-        logger.info("Dummy payment {} initialized with status: {}, provider: {}", 
+        logger.info("Dummy payment {} initialized with status: {}, provider: {}",
                    payment.getPaymentId(), payment.getStatus(), payment.getProvider());
 
-        return payment;
+        return entityWithMetadata;
     }
 }

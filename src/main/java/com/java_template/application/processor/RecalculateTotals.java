@@ -66,7 +66,8 @@ public class RecalculateTotals implements CyodaProcessor {
     /**
      * Recalculates cart totals based on current line items
      */
-    private Cart recalculateCartTotals(EntityWithMetadata<Cart> entityWithMetadata) {
+    private EntityWithMetadata<Cart> recalculateCartTotals(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Cart> context) {
+        EntityWithMetadata<Cart> entityWithMetadata = context.entityResponse();
         Cart cart = entityWithMetadata.entity();
         logger.info("Recalculating totals for cart: {}", cart.getCartId());
 
@@ -87,9 +88,9 @@ public class RecalculateTotals implements CyodaProcessor {
         cart.setTotalItems(totalItems);
         cart.setGrandTotal(grandTotal);
 
-        logger.info("Cart {} totals updated - Items: {}, Grand Total: {}", 
+        logger.info("Cart {} totals updated - Items: {}, Grand Total: {}",
                    cart.getCartId(), totalItems, grandTotal);
 
-        return cart;
+        return entityWithMetadata;
     }
 }
