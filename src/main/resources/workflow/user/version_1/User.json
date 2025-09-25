@@ -1,0 +1,88 @@
+{
+  "version": "1.0",
+  "name": "User",
+  "desc": "User registration and account management workflow",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_register",
+          "next": "registered",
+          "manual": false,
+          "processors": [
+            {
+              "name": "UserRegistrationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "registered": {
+      "transitions": [
+        {
+          "name": "activate_user",
+          "next": "active",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "UserValidationCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "UserActivationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "suspend_user",
+          "next": "suspended",
+          "manual": true
+        },
+        {
+          "name": "deactivate_user",
+          "next": "deactivated",
+          "manual": true
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_user",
+          "next": "active",
+          "manual": true
+        },
+        {
+          "name": "deactivate_user",
+          "next": "deactivated",
+          "manual": true
+        }
+      ]
+    },
+    "deactivated": {
+      "transitions": []
+    }
+  }
+}
