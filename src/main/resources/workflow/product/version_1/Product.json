@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "name": "Product",
+  "desc": "Product lifecycle workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_product",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_product",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
