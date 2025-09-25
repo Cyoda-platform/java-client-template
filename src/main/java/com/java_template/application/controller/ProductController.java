@@ -55,7 +55,7 @@ public class ProductController {
                     .withVersion(Product.ENTITY_VERSION);
 
             // Build search conditions
-            List<SimpleCondition> conditions = new ArrayList<>();
+            List<Object> conditions = new ArrayList<>();
 
             // Free-text search on name or description
             if (search != null && !search.trim().isEmpty()) {
@@ -106,7 +106,7 @@ public class ProductController {
                 // Apply filters
                 GroupCondition groupCondition = new GroupCondition()
                         .withOperator(GroupCondition.Operator.AND)
-                        .withConditions(new ArrayList<>(conditions));
+                        .withConditions(conditions);
                 products = entityService.search(modelSpec, groupCondition, Product.class);
             }
 
