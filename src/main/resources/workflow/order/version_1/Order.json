@@ -1,0 +1,105 @@
+{
+  "version": "1.0",
+  "name": "Order",
+  "desc": "Order lifecycle workflow for OMS system",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_order",
+          "next": "waiting_to_fulfill",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateOrderFromPaid",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "waiting_to_fulfill": {
+      "transitions": [
+        {
+          "name": "start_picking",
+          "next": "picking",
+          "manual": true
+        }
+      ]
+    },
+    "picking": {
+      "transitions": [
+        {
+          "name": "ready_to_send",
+          "next": "waiting_to_send",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReadyToSend",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "waiting_to_send": {
+      "transitions": [
+        {
+          "name": "mark_sent",
+          "next": "sent",
+          "manual": true,
+          "processors": [
+            {
+              "name": "MarkSent",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "sent": {
+      "transitions": [
+        {
+          "name": "mark_delivered",
+          "next": "delivered",
+          "manual": true,
+          "processors": [
+            {
+              "name": "MarkDelivered",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delivered": {
+      "transitions": []
+    }
+  }
+}
