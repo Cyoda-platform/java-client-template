@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,9 +56,10 @@ public class ProductController {
                     .withVersion(Product.ENTITY_VERSION);
 
             // Build search conditions
-            List<Object> conditions = new ArrayList<>();
+            List<SimpleCondition> simpleConditions = new ArrayList<>();
 
             // Free-text search on name or description
+            GroupCondition finalCondition = null;
             if (search != null && !search.trim().isEmpty()) {
                 GroupCondition textSearchCondition = new GroupCondition()
                         .withOperator(GroupCondition.Operator.OR)
@@ -71,12 +73,12 @@ public class ProductController {
                                         .withOperation(Operation.CONTAINS)
                                         .withValue(objectMapper.valueToTree(search))
                         ));
-                conditions.add(textSearchCondition);
+                finalCondition = textSearchCondition;
             }
 
             // Category filter
             if (category != null && !category.trim().isEmpty()) {
-                conditions.add(new SimpleCondition()
+                simpleConditions.add(new SimpleCondition()
                         .withJsonPath("$.category")
                         .withOperation(Operation.EQUALS)
                         .withValue(objectMapper.valueToTree(category)));
@@ -84,14 +86,14 @@ public class ProductController {
 
             // Price range filters
             if (minPrice != null) {
-                conditions.add(new SimpleCondition()
+                simpleConditions.add(new SimpleCondition()
                         .withJsonPath("$.price")
                         .withOperation(Operation.GREATER_OR_EQUAL)
                         .withValue(objectMapper.valueToTree(minPrice)));
             }
 
             if (maxPrice != null) {
-                conditions.add(new SimpleCondition()
+                simpleConditions.add(new SimpleCondition()
                         .withJsonPath("$.price")
                         .withOperation(Operation.LESS_OR_EQUAL)
                         .withValue(objectMapper.valueToTree(maxPrice)));
@@ -99,14 +101,26 @@ public class ProductController {
 
             // Execute search
             List<EntityWithMetadata<Product>> products;
-            if (conditions.isEmpty()) {
+            if (finalCondition == null && simpleConditions.isEmpty()) {
                 // No filters - get all products
                 products = entityService.findAll(modelSpec, Product.class);
-            } else {
-                // Apply filters
+            } else if (finalCondition != null && !simpleConditions.isEmpty()) {
+                // Combine text search with other conditions
+                List<QueryCondition> allConditions = new ArrayList<>();
+                allConditions.add(finalCondition);
+                allConditions.addAll(simpleConditions);
                 GroupCondition groupCondition = new GroupCondition()
                         .withOperator(GroupCondition.Operator.AND)
-                        .withConditions(conditions);
+                        .withConditions(allConditions);
+                products = entityService.search(modelSpec, groupCondition, Product.class);
+            } else if (finalCondition != null) {
+                // Only text search
+                products = entityService.search(modelSpec, finalCondition, Product.class);
+            } else {
+                // Only simple conditions
+                GroupCondition groupCondition = new GroupCondition()
+                        .withOperator(GroupCondition.Operator.AND)
+                        .withConditions(new ArrayList<>(simpleConditions));
                 products = entityService.search(modelSpec, groupCondition, Product.class);
             }
 
