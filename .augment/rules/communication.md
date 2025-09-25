@@ -1,3 +1,7 @@
+---
+type: "always_apply"
+---
+
 # Communication Rules
 
 > **SCOPE**: Apply these rules anytime you communicate with the human.

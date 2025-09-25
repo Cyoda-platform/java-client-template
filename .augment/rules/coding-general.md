@@ -1,3 +1,8 @@
+---
+type: "agent_requested"
+description: "Example description"
+---
+
 # Coding Practices Rules
 
 > **SCOPE**: Apply these rules anytime you write code.
