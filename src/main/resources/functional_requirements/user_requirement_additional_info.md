@@ -1,35 +1,43 @@
-Thank you for sharing the API data contracts for your MVP scope! It looks like you have a structured approach in mind. Let’s delve deeper into the functionalities based on these contracts. Here are some aspects to consider:
+Thank you for sharing the user stories and field lists for your MVP scope! Let's break down the functionalities based on what you've provided and explore them further.
 
-### 1. **Submission Creation**
-You mentioned the creation of submissions. What specific fields are most critical for your users when submitting documents? 
-
-Example User Story:
-```markdown
-As a researcher, I want to create a submission with all necessary metadata, so that I can ensure compliance and regulatory requirements are met.
-```
-
-### 2. **Adverse Events (AE) Reporting**
-The AE structure you provided is quite detailed. What types of adverse events are most relevant for your platform? Do you envision any additional fields or functionalities for tracking these events?
+### 1. **User Registration & Sign-In**
+You mentioned the need for an external user registration and sign-in process. What specific fields do you think are crucial for user registration? 
 
 Example User Story:
 ```markdown
-As a clinician, I want to report adverse events swiftly, so that I can contribute to patient safety and regulatory compliance.
+As an external submitter, I want to register and sign in to the portal, so that I can securely access and submit my documents.
 ```
 
-### 3. **Error Handling**
-Considering your common error model, how do you expect the system to respond to validation failures or conflicts? Would you like to provide users with specific guidance on how to correct their submissions?
+### 2. **Role Management**
+With different user roles like External Submitter, Reviewer, and Admin, how do you envision the permissions being managed? Are there specific actions that each role should be able to perform?
 
 Example User Story:
 ```markdown
-As a user, I want to receive detailed error messages when my submission fails, so that I can quickly correct the issues and resubmit.
+As an admin, I want to assign roles and permissions to users, so that I can control access to different functionalities based on their responsibilities.
 ```
 
-### 4. **Idempotency and Security**
-You’ve indicated the use of idempotency keys and role-based access control (RBAC). How do you envision managing user roles and permissions? 
+### 3. **Submission Workflow**
+You outlined a workflow for submissions that includes document uploads and decision-making processes. Can you describe how you envision the workflow progressing from submission to decision?
 
 Example User Story:
 ```markdown
-As an admin, I want to manage user roles effectively, so that I can control access to sensitive data and functionalities.
+As a reviewer, I want to track the progress of submissions through different stages, so that I can ensure timely decisions are made.
 ```
 
-Is there anything else you’d like to add or clarify regarding these functionalities? Once we have a complete understanding, you can simply click 'Approve' to move to the next step!
+### 4. **Audit Trail**
+The need for an audit trail for document versions is crucial. What specific events do you want to capture in this audit trail?
+
+Example User Story:
+```markdown
+As a system admin, I want to view the audit trail for document versions, so that I can ensure compliance and track changes over time.
+```
+
+### 5. **Reporting Features**
+You mentioned report creation and live board updates. What key metrics or data points would you like to include in these reports?
+
+Example User Story:
+```markdown
+As a stakeholder, I want to generate reports on submission statuses and key metrics, so that I can analyze the efficiency of our processes.
+```
+
+Is there anything else you’d like to add or clarify regarding these functionalities? Once we have a clear understanding, you can simply click 'Approve' to move to the next step!
