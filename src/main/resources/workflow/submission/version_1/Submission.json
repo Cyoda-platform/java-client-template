@@ -1,0 +1,184 @@
+{
+  "version": "1.0",
+  "name": "Submission",
+  "desc": "Clinical Trial Submission Review Workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_submission",
+          "next": "draft",
+          "manual": false
+        }
+      ]
+    },
+    "draft": {
+      "transitions": [
+        {
+          "name": "submit_for_review",
+          "next": "submitted",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SubmissionValidationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "submitted": {
+      "transitions": [
+        {
+          "name": "intake_review",
+          "next": "intake",
+          "manual": true,
+          "processors": [
+            {
+              "name": "IntakeProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "intake": {
+      "transitions": [
+        {
+          "name": "route_to_scientific_review",
+          "next": "scientific_review",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ScientificReviewProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "scientific_review": {
+      "transitions": [
+        {
+          "name": "approve_submission",
+          "next": "approved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ApprovalProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_submission",
+          "next": "rejected",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RejectionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "request_more_info",
+          "next": "pending_rfi",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RFIProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pending_rfi": {
+      "transitions": [
+        {
+          "name": "rfi_response_received",
+          "next": "scientific_review",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RFIResponseProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "activate_study",
+          "next": "activated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyActivationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "activated": {
+      "transitions": []
+    }
+  }
+}
