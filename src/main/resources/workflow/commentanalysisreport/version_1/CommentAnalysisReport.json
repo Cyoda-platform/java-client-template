@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "name": "CommentAnalysisReport",
+  "desc": "Workflow for generating and sending comment analysis reports via email",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_start",
+          "next": "generating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SendEmailReportProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "generating": {
+      "transitions": [
+        {
+          "name": "report_ready",
+          "next": "completed",
+          "manual": false
+        },
+        {
+          "name": "report_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EmailFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_generation",
+          "next": "generating",
+          "manual": true
+        }
+      ]
+    }
+  }
+}

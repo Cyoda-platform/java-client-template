@@ -1,0 +1,93 @@
+{
+  "version": "1.0",
+  "name": "CommentAnalysisRequest",
+  "desc": "Workflow for processing comment analysis requests from JSONPlaceholder API",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "auto_start",
+          "next": "pending",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateRequestProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "start_analysis",
+          "next": "processing",
+          "manual": true,
+          "processors": [
+            {
+              "name": "FetchCommentsProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "processing": {
+      "transitions": [
+        {
+          "name": "analysis_complete",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "GenerateReportProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          ]
+        },
+        {
+          "name": "analysis_failed",
+          "next": "failed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AnalysisFailedCriterion",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_analysis",
+          "next": "processing",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
