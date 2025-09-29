@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "name": "Customer",
+  "desc": "Customer lifecycle workflow for Purrfect Pets store",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "register_customer",
+          "next": "registered",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CustomerRegistrationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "registered": {
+      "transitions": [
+        {
+          "name": "verify_customer",
+          "next": "verified",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CustomerVerificationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend_customer",
+          "next": "suspended",
+          "manual": true
+        }
+      ]
+    },
+    "verified": {
+      "transitions": [
+        {
+          "name": "suspend_verified_customer",
+          "next": "suspended",
+          "manual": true
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_customer",
+          "next": "registered",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
