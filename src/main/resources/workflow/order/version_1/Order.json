@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "name": "Order",
+  "desc": "Order processing workflow for Purrfect Pets store",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "create_order",
+          "next": "pending",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderCreationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "process_payment",
+          "next": "paid",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PaymentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_pending_order",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "paid": {
+      "transitions": [
+        {
+          "name": "confirm_order",
+          "next": "confirmed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderConfirmationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_paid_order",
+          "next": "cancelled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RefundProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "complete_order",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderCompletionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
