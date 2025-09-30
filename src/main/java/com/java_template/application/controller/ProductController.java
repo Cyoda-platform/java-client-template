@@ -9,6 +9,7 @@ import lombok.Setter;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +58,7 @@ public class ProductController {
                     .withVersion(Product.ENTITY_VERSION);
 
             // Build search conditions
-            List<SimpleCondition> conditions = new ArrayList<>();
+            List<QueryCondition> conditions = new ArrayList<>();
 
             // Free-text search on name OR description
             if (search != null && !search.trim().isEmpty()) {
@@ -76,11 +77,8 @@ public class ProductController {
                         .withOperator(GroupCondition.Operator.OR)
                         .withConditions(List.of(nameCondition, descCondition));
 
-                // Wrap in a simple condition for the main AND group
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$")
-                        .withOperation(Operation.CUSTOM)
-                        .withValue(objectMapper.valueToTree(searchCondition)));
+                // Add the search condition to main conditions
+                conditions.add(searchCondition);
             }
 
             // Category filter
