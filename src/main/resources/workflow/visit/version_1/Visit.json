@@ -1,0 +1,82 @@
+{
+  "version": "1.0",
+  "name": "Visit",
+  "desc": "Visit tracking and completion workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_visit",
+          "next": "planned",
+          "manual": false
+        }
+      ]
+    },
+    "planned": {
+      "transitions": [
+        {
+          "name": "complete_visit",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "VisitCompletionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "mark_missed",
+          "next": "missed",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "update_visit",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "VisitUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "lock_visit_data",
+          "next": "locked",
+          "manual": true
+        }
+      ]
+    },
+    "missed": {
+      "transitions": [
+        {
+          "name": "reschedule_visit",
+          "next": "planned",
+          "manual": true
+        }
+      ]
+    },
+    "locked": {
+      "transitions": []
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "name": "AdverseEvent",
+  "desc": "Adverse event reporting and follow-up workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_adverse_event",
+          "next": "reported",
+          "manual": false
+        }
+      ]
+    },
+    "reported": {
+      "transitions": [
+        {
+          "name": "assess_adverse_event",
+          "next": "assessed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdverseEventAssessmentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "assessed": {
+      "transitions": [
+        {
+          "name": "update_adverse_event",
+          "next": "assessed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdverseEventUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "require_follow_up",
+          "next": "follow_up_required",
+          "manual": true,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SAEFollowUpCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        },
+        {
+          "name": "close_adverse_event",
+          "next": "closed",
+          "manual": true
+        }
+      ]
+    },
+    "follow_up_required": {
+      "transitions": [
+        {
+          "name": "complete_follow_up",
+          "next": "closed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdverseEventFollowUpProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}

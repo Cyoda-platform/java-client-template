@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "name": "RFI",
+  "desc": "Request for Information workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_rfi",
+          "next": "open",
+          "manual": false
+        }
+      ]
+    },
+    "open": {
+      "transitions": [
+        {
+          "name": "add_message",
+          "next": "open",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RFIMessageProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "answer_rfi",
+          "next": "answered",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RFIAnswerProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "answered": {
+      "transitions": [
+        {
+          "name": "close_rfi",
+          "next": "closed",
+          "manual": true
+        },
+        {
+          "name": "reopen_rfi",
+          "next": "open",
+          "manual": true
+        }
+      ]
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}

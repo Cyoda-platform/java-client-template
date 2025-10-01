@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "name": "Medication",
+  "desc": "Medication lot and accountability workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_medication_lot",
+          "next": "available",
+          "manual": false
+        }
+      ]
+    },
+    "available": {
+      "transitions": [
+        {
+          "name": "dispense_medication",
+          "next": "available",
+          "manual": true,
+          "processors": [
+            {
+              "name": "MedicationDispenseProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "receive_return",
+          "next": "available",
+          "manual": true,
+          "processors": [
+            {
+              "name": "MedicationReturnProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "expire_lot",
+          "next": "expired",
+          "manual": true
+        },
+        {
+          "name": "deplete_lot",
+          "next": "depleted",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "MedicationDepletionCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "expired": {
+      "transitions": []
+    },
+    "depleted": {
+      "transitions": []
+    }
+  }
+}
