@@ -69,27 +69,27 @@ public class SAEFollowUpCriterion implements CyodaCriterion {
         // Check if this is an SAE - SAEs always require follow-up
         if (Boolean.TRUE.equals(adverseEvent.getIsSAE())) {
             logger.debug("AE {} is SAE - follow-up required", adverseEvent.getAdverseEventId());
-            return EvaluationOutcome.success("SAE requires follow-up");
+            return EvaluationOutcome.success();
         }
 
         // Check severity - severe events require follow-up
         if ("severe".equalsIgnoreCase(adverseEvent.getSeverity())) {
             logger.debug("AE {} is severe - follow-up required", adverseEvent.getAdverseEventId());
-            return EvaluationOutcome.success("Severe AE requires follow-up");
+            return EvaluationOutcome.success();
         }
 
         // Check if outcome is concerning
-        if ("fatal".equalsIgnoreCase(adverseEvent.getOutcome()) || 
+        if ("fatal".equalsIgnoreCase(adverseEvent.getOutcome()) ||
             "not_recovered".equalsIgnoreCase(adverseEvent.getOutcome())) {
             logger.debug("AE {} has concerning outcome - follow-up required", adverseEvent.getAdverseEventId());
-            return EvaluationOutcome.success("Concerning outcome requires follow-up");
+            return EvaluationOutcome.success();
         }
 
         // Check relatedness - probable/definite relationship requires follow-up
-        if ("probable".equalsIgnoreCase(adverseEvent.getRelatedness()) || 
+        if ("probable".equalsIgnoreCase(adverseEvent.getRelatedness()) ||
             "definite".equalsIgnoreCase(adverseEvent.getRelatedness())) {
             logger.debug("AE {} has high relatedness - follow-up required", adverseEvent.getAdverseEventId());
-            return EvaluationOutcome.success("High relatedness requires follow-up");
+            return EvaluationOutcome.success();
         }
 
         // No follow-up required

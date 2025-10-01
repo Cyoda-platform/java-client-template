@@ -70,11 +70,7 @@ public class RFIProcessor implements CyodaProcessor {
         RFI rfi = createRFIForSubmission(submission);
         
         // Save the RFI
-        ModelSpec rfiModelSpec = new ModelSpec()
-                .withName(RFI.ENTITY_NAME)
-                .withVersion(RFI.ENTITY_VERSION);
-        
-        EntityWithMetadata<RFI> savedRFI = entityService.save(rfiModelSpec, rfi);
+        EntityWithMetadata<RFI> savedRFI = entityService.create(rfi);
         
         logger.info("RFI {} created for submission {}", rfi.getRfiId(), submission.getSubmissionId());
 

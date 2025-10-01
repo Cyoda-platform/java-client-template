@@ -76,9 +76,9 @@ public class MedicationDepletionCriterion implements CyodaCriterion {
 
         // Check if depleted (quantity is 0 or negative)
         if (quantityOnHand <= 0) {
-            logger.info("Medication lot {} is depleted (quantity: {})", 
+            logger.info("Medication lot {} is depleted (quantity: {})",
                        medication.getLotNumber(), quantityOnHand);
-            return EvaluationOutcome.success("Medication lot is depleted");
+            return EvaluationOutcome.success();
         }
 
         // Not depleted

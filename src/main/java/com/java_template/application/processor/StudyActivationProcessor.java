@@ -74,11 +74,7 @@ public class StudyActivationProcessor implements CyodaProcessor {
         Study study = createStudyFromSubmission(submission);
         
         // Save the new study
-        ModelSpec studyModelSpec = new ModelSpec()
-                .withName(Study.ENTITY_NAME)
-                .withVersion(Study.ENTITY_VERSION);
-        
-        EntityWithMetadata<Study> savedStudy = entityService.save(studyModelSpec, study);
+        EntityWithMetadata<Study> savedStudy = entityService.create(study);
         
         logger.info("Study {} created successfully from submission {}", 
                    study.getStudyId(), submission.getSubmissionId());
