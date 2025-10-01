@@ -1,0 +1,1 @@
+Implement the backend services for this Integrated Digital Platform for Research & Clinical Trial Management. Examine the attached README.md and related files for a complete picture of the requirement
