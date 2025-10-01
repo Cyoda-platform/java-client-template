@@ -1,0 +1,165 @@
+{
+  "version": "1.0",
+  "name": "Submission",
+  "desc": "Clinical trial submission review and approval workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_submission",
+          "next": "draft",
+          "manual": false
+        }
+      ]
+    },
+    "draft": {
+      "transitions": [
+        {
+          "name": "submit_for_review",
+          "next": "submitted",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SubmissionValidationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "submitted": {
+      "transitions": [
+        {
+          "name": "intake_review",
+          "next": "intake",
+          "manual": true,
+          "processors": [
+            {
+              "name": "IntakeProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "intake": {
+      "transitions": [
+        {
+          "name": "route_to_scientific_review",
+          "next": "scientific_review",
+          "manual": true
+        },
+        {
+          "name": "request_information",
+          "next": "rfi_pending",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RFIProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "scientific_review": {
+      "transitions": [
+        {
+          "name": "approve_submission",
+          "next": "approved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ApprovalProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_submission",
+          "next": "rejected",
+          "manual": true
+        },
+        {
+          "name": "request_information",
+          "next": "rfi_pending",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RFIProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "rfi_pending": {
+      "transitions": [
+        {
+          "name": "rfi_resolved",
+          "next": "scientific_review",
+          "manual": true
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "activate_study",
+          "next": "activated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyActivationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "activated": {
+      "transitions": []
+    }
+  }
+}

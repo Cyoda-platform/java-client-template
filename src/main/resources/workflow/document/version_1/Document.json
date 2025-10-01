@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "name": "Document",
+  "desc": "Document lifecycle management workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_document",
+          "next": "draft",
+          "manual": false
+        }
+      ]
+    },
+    "draft": {
+      "transitions": [
+        {
+          "name": "finalize_document",
+          "next": "final",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DocumentValidationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "final": {
+      "transitions": [
+        {
+          "name": "supersede_document",
+          "next": "superseded",
+          "manual": true
+        },
+        {
+          "name": "withdraw_document",
+          "next": "withdrawn",
+          "manual": true
+        },
+        {
+          "name": "create_new_version",
+          "next": "final",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DocumentVersionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "superseded": {
+      "transitions": []
+    },
+    "withdrawn": {
+      "transitions": []
+    }
+  }
+}

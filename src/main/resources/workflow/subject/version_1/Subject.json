@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "name": "Subject",
+  "desc": "Subject lifecycle management workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_subject",
+          "next": "screening",
+          "manual": false
+        }
+      ]
+    },
+    "screening": {
+      "transitions": [
+        {
+          "name": "enroll_subject",
+          "next": "enrolled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SubjectEnrollmentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "screen_fail",
+          "next": "screen_failed",
+          "manual": true
+        }
+      ]
+    },
+    "enrolled": {
+      "transitions": [
+        {
+          "name": "update_subject",
+          "next": "enrolled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SubjectUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "complete_subject",
+          "next": "completed",
+          "manual": true
+        },
+        {
+          "name": "withdraw_subject",
+          "next": "withdrawn",
+          "manual": true
+        }
+      ]
+    },
+    "screen_failed": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    },
+    "withdrawn": {
+      "transitions": []
+    }
+  }
+}

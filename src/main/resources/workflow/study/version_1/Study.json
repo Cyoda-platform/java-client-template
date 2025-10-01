@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "name": "Study",
+  "desc": "Study operational lifecycle workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_study",
+          "next": "setup",
+          "manual": false
+        }
+      ]
+    },
+    "setup": {
+      "transitions": [
+        {
+          "name": "activate_study",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudySetupProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_study",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StudyUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "complete_study",
+          "next": "completed",
+          "manual": true
+        },
+        {
+          "name": "suspend_study",
+          "next": "suspended",
+          "manual": true
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_study",
+          "next": "active",
+          "manual": true
+        },
+        {
+          "name": "terminate_study",
+          "next": "terminated",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "terminated": {
+      "transitions": []
+    }
+  }
+}
