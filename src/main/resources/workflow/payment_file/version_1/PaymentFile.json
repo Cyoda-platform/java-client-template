@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "name": "PaymentFile",
+  "desc": "Payment file import workflow from receipt through validation to payment creation",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "receive_file",
+          "next": "received",
+          "manual": false
+        }
+      ]
+    },
+    "received": {
+      "transitions": [
+        {
+          "name": "start_validation",
+          "next": "validating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateFileHeaderProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "name": "pass_validation",
+          "next": "valid",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FileValidationPassCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "ParseFileProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail_validation",
+          "next": "invalid",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "FileValidationFailCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "RaiseImportExceptionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "valid": {
+      "transitions": [
+        {
+          "name": "mark_imported",
+          "next": "imported",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllPaymentsProcessedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "invalid": {
+      "transitions": []
+    },
+    "imported": {
+      "transitions": []
+    }
+  }
+}

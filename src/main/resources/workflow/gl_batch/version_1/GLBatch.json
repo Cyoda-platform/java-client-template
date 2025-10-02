@@ -1,0 +1,115 @@
+{
+  "version": "1.0",
+  "name": "GLBatch",
+  "desc": "GL batch workflow for monthly summarization and export to General Ledger",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "open_batch",
+          "next": "open",
+          "manual": false
+        }
+      ]
+    },
+    "open": {
+      "transitions": [
+        {
+          "name": "prepare_batch",
+          "next": "prepared",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SummarizePeriodProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "prepared": {
+      "transitions": [
+        {
+          "name": "export_batch",
+          "next": "exported",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RenderGLFileProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "SendToGLProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 15000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "exported": {
+      "transitions": [
+        {
+          "name": "mark_posted",
+          "next": "posted",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "GLAcknowledgmentReceivedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "posted": {
+      "transitions": [
+        {
+          "name": "archive_batch",
+          "next": "archived",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ArchiveBatchProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}

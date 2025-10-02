@@ -1,0 +1,124 @@
+{
+  "version": "1.0",
+  "name": "SettlementQuote",
+  "desc": "Settlement quote workflow from generation through acceptance to execution or expiry",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "generate_quote",
+          "next": "quoted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CalculatePayoffProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "quoted": {
+      "transitions": [
+        {
+          "name": "accept_quote",
+          "next": "accepted",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AcceptQuoteProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "expire_quote",
+          "next": "expired",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "QuoteExpiryCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "accepted": {
+      "transitions": [
+        {
+          "name": "execute_settlement",
+          "next": "executed",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SettlementPaymentReceivedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "ExecuteSettlementProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "expire_accepted_quote",
+          "next": "expired",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "QuoteExpiryCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "executed": {
+      "transitions": []
+    },
+    "expired": {
+      "transitions": []
+    }
+  }
+}

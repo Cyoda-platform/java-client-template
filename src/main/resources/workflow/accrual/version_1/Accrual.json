@@ -1,0 +1,81 @@
+{
+  "version": "1.0",
+  "name": "Accrual",
+  "desc": "Daily interest accrual workflow from scheduling through calculation to recording",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "schedule_accrual",
+          "next": "scheduled",
+          "manual": false
+        }
+      ]
+    },
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "start_calculation",
+          "next": "calculating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ComputeDailyInterestProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "calculating": {
+      "transitions": [
+        {
+          "name": "record_accrual",
+          "next": "recorded",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RecordAccrualProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "recorded": {
+      "transitions": [
+        {
+          "name": "trigger_recomputation",
+          "next": "scheduled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "TriggerAccrualRecomputationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
