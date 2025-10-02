@@ -30,7 +30,7 @@ class RaiseImportExceptionProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
@@ -53,7 +53,7 @@ class RecordAccrualProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
@@ -76,7 +76,7 @@ class TriggerAccrualRecomputationProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
@@ -99,7 +99,7 @@ class CalculatePayoffProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
@@ -122,7 +122,7 @@ class AcceptQuoteProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
@@ -145,7 +145,7 @@ class ExecuteSettlementProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
@@ -168,7 +168,7 @@ class SummarizePeriodProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
@@ -191,7 +191,7 @@ class RenderGLFileProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
@@ -214,7 +214,7 @@ class SendToGLProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
@@ -237,7 +237,7 @@ class ArchiveBatchProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload()).complete();
     }
 
     @Override
