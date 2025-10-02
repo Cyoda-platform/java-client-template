@@ -1,0 +1,1 @@
+I want to build a Loan Management System in Java 21 in accordance with the attached specification.
