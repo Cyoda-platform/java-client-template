@@ -23,7 +23,7 @@ public class LoanFundingDateCriterion implements CyodaCriterion {
 
     private static final Logger logger = LoggerFactory.getLogger(LoanFundingDateCriterion.class);
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.serializer.CriteriaSerializer serializer;
+    private final CriterionSerializer serializer;
 
     public LoanFundingDateCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -44,7 +44,7 @@ public class LoanFundingDateCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private com.java_template.common.serializer.EvaluationOutcome checkFundingDateLogic(com.java_template.common.serializer.CriteriaSerializer.CriteriaEntityEvaluationContext<Loan> context) {
+    private com.java_template.common.serializer.EvaluationOutcome checkFundingDateLogic(CriterionSerializer.CriterionEntityEvaluationContext<Loan> context) {
         Loan loan = context.entityWithMetadata().entity();
         
         if (loan.getFundedDate() == null) {

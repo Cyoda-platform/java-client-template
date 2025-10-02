@@ -24,7 +24,7 @@ public class LoanMaturityCriterion implements CyodaCriterion {
 
     private static final Logger logger = LoggerFactory.getLogger(LoanMaturityCriterion.class);
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.serializer.CriteriaSerializer serializer;
+    private final CriterionSerializer serializer;
 
     public LoanMaturityCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -45,7 +45,7 @@ public class LoanMaturityCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private com.java_template.common.serializer.EvaluationOutcome checkMaturityLogic(com.java_template.common.serializer.CriteriaSerializer.CriteriaEntityEvaluationContext<Loan> context) {
+    private com.java_template.common.serializer.EvaluationOutcome checkMaturityLogic(CriterionSerializer.CriterionEntityEvaluationContext<Loan> context) {
         Loan loan = context.entityWithMetadata().entity();
         
         if (loan.getMaturityDate() == null) {

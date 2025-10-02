@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 class LoanSettlementCriterion implements CyodaCriterion {
     private static final Logger logger = LoggerFactory.getLogger(LoanSettlementCriterion.class);
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.serializer.CriteriaSerializer serializer;
+    private final CriterionSerializer serializer;
 
     public LoanSettlementCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
