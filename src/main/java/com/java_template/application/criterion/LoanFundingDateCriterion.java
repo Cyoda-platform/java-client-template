@@ -1,0 +1,69 @@
+package com.java_template.application.criterion;
+
+import com.java_template.application.entity.loan.version_1.Loan;
+import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaCriterion;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+
+/**
+ * ABOUTME: This criterion checks if a funded loan should transition to active state
+ * by comparing the funded date with the current date.
+ */
+@Component
+public class LoanFundingDateCriterion implements CyodaCriterion {
+
+    private static final Logger logger = LoggerFactory.getLogger(LoanFundingDateCriterion.class);
+    private final String className = this.getClass().getSimpleName();
+    private final CriterionSerializer serializer;
+
+    public LoanFundingDateCriterion(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+    }
+
+    @Override
+    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
+        EntityCriterionCalculationRequest request = context.getEvent();
+        logger.debug("Checking {} for request: {}", className, request.getId());
+
+        return serializer.withRequest(request)
+                .toEntity(Loan.class)
+                .validate(this::isValidLoan, "Invalid loan entity")
+                .map(this::checkFundingDateLogic)
+                .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return className.equalsIgnoreCase(modelSpec.operationName());
+    }
+
+    private boolean isValidLoan(Loan loan) {
+        return loan != null && loan.isValid();
+    }
+
+    private boolean checkFundingDateLogic(CriterionSerializer.CriterionEntityResponseExecutionContext<Loan> context) {
+        Loan loan = context.entity();
+        
+        if (loan.getFundedDate() == null) {
+            logger.debug("Loan {} has no funded date, criterion not met", loan.getLoanId());
+            return false;
+        }
+
+        LocalDate today = LocalDate.now();
+        boolean shouldActivate = !loan.getFundedDate().isAfter(today);
+
+        logger.debug("Loan {} funding date criterion: funded={}, today={}, result={}", 
+                    loan.getLoanId(), loan.getFundedDate(), today, shouldActivate);
+
+        return shouldActivate;
+    }
+}
