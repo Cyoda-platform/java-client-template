@@ -23,7 +23,7 @@ class LoanSettlementCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public LoanSettlementCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
@@ -46,7 +46,7 @@ class FileValidationPassCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public FileValidationPassCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
@@ -69,7 +69,7 @@ class FileValidationFailCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public FileValidationFailCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
@@ -92,7 +92,7 @@ class AllPaymentsProcessedCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public AllPaymentsProcessedCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
@@ -115,7 +115,7 @@ class QuoteExpiryCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public QuoteExpiryCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
@@ -138,7 +138,7 @@ class SettlementPaymentReceivedCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public SettlementPaymentReceivedCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
@@ -161,7 +161,7 @@ class GLAcknowledgmentReceivedCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public GLAcknowledgmentReceivedCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
