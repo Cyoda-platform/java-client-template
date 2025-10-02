@@ -5,8 +5,8 @@ import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
-import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationRequest;
-import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationResponse;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -27,8 +27,8 @@ class LoanSettlementCriterion implements CyodaCriterion {
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
         return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
     }
@@ -50,8 +50,8 @@ class FileValidationPassCriterion implements CyodaCriterion {
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
         return serializer.withRequest(request).toEntity(Object.class).map(ctx -> true).complete();
     }
@@ -73,8 +73,8 @@ class FileValidationFailCriterion implements CyodaCriterion {
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
         return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
     }
@@ -96,8 +96,8 @@ class AllPaymentsProcessedCriterion implements CyodaCriterion {
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
         return serializer.withRequest(request).toEntity(Object.class).map(ctx -> true).complete();
     }
