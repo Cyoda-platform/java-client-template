@@ -43,7 +43,7 @@ class LoanSettlementCriterion implements CyodaCriterion {
 class FileValidationPassCriterion implements CyodaCriterion {
     private static final Logger logger = LoggerFactory.getLogger(FileValidationPassCriterion.class);
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.serializer.CriteriaSerializer serializer;
+    private final CriterionSerializer serializer;
 
     public FileValidationPassCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -66,7 +66,7 @@ class FileValidationPassCriterion implements CyodaCriterion {
 class FileValidationFailCriterion implements CyodaCriterion {
     private static final Logger logger = LoggerFactory.getLogger(FileValidationFailCriterion.class);
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.serializer.CriteriaSerializer serializer;
+    private final CriterionSerializer serializer;
 
     public FileValidationFailCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -89,7 +89,7 @@ class FileValidationFailCriterion implements CyodaCriterion {
 class AllPaymentsProcessedCriterion implements CyodaCriterion {
     private static final Logger logger = LoggerFactory.getLogger(AllPaymentsProcessedCriterion.class);
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.serializer.CriteriaSerializer serializer;
+    private final CriterionSerializer serializer;
 
     public AllPaymentsProcessedCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -112,7 +112,7 @@ class AllPaymentsProcessedCriterion implements CyodaCriterion {
 class QuoteExpiryCriterion implements CyodaCriterion {
     private static final Logger logger = LoggerFactory.getLogger(QuoteExpiryCriterion.class);
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.serializer.CriteriaSerializer serializer;
+    private final CriterionSerializer serializer;
 
     public QuoteExpiryCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -135,7 +135,7 @@ class QuoteExpiryCriterion implements CyodaCriterion {
 class SettlementPaymentReceivedCriterion implements CyodaCriterion {
     private static final Logger logger = LoggerFactory.getLogger(SettlementPaymentReceivedCriterion.class);
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.serializer.CriteriaSerializer serializer;
+    private final CriterionSerializer serializer;
 
     public SettlementPaymentReceivedCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
@@ -158,7 +158,7 @@ class SettlementPaymentReceivedCriterion implements CyodaCriterion {
 class GLAcknowledgmentReceivedCriterion implements CyodaCriterion {
     private static final Logger logger = LoggerFactory.getLogger(GLAcknowledgmentReceivedCriterion.class);
     private final String className = this.getClass().getSimpleName();
-    private final com.java_template.common.serializer.CriteriaSerializer serializer;
+    private final CriterionSerializer serializer;
 
     public GLAcknowledgmentReceivedCriterion(SerializerFactory serializerFactory) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();

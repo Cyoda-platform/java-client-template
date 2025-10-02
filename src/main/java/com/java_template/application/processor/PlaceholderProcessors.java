@@ -33,7 +33,7 @@ class UpdatePartyProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
     }
 
     @Override
