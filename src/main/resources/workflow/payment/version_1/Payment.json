@@ -1,0 +1,113 @@
+{
+  "version": "1.0",
+  "name": "Payment",
+  "desc": "Payment processing workflow from capture through matching, allocation to posting",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "capture_payment",
+          "next": "captured",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CapturePaymentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "captured": {
+      "transitions": [
+        {
+          "name": "match_loan",
+          "next": "matched",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MatchLoanProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "update_payment",
+          "next": "captured",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdatePaymentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "matched": {
+      "transitions": [
+        {
+          "name": "allocate_payment",
+          "next": "allocated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AllocatePaymentProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "allocated": {
+      "transitions": [
+        {
+          "name": "post_to_subledger",
+          "next": "posted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PostPaymentToSubledgerProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "posted": {
+      "transitions": []
+    }
+  }
+}

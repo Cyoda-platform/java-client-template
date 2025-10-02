@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "name": "Party",
+  "desc": "Party lifecycle workflow for borrower and corporate customer management",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "activate_party",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_party",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdatePartyProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend_party",
+          "next": "suspended",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SuspendPartyProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_party",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReactivatePartyProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
