@@ -30,7 +30,7 @@ class UpdatePartyProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -53,7 +53,7 @@ class SuspendPartyProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -76,7 +76,7 @@ class ReactivatePartyProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -99,7 +99,7 @@ class SubmitLoanForApprovalProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -122,7 +122,7 @@ class UpdateLoanProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -145,7 +145,7 @@ class RejectLoanProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -168,7 +168,7 @@ class GenerateReferenceScheduleProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override

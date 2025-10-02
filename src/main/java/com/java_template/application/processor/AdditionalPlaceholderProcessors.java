@@ -30,7 +30,7 @@ class RequestSettlementQuoteProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -53,7 +53,7 @@ class ApplySettlementProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -76,7 +76,7 @@ class CloseLoanProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -99,7 +99,7 @@ class CapturePaymentProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -122,7 +122,7 @@ class UpdatePaymentProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -145,7 +145,7 @@ class PostPaymentToSubledgerProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -168,7 +168,7 @@ class ValidateFileHeaderProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
@@ -191,7 +191,7 @@ class ParseFileProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).map(ctx -> ctx.payload).complete();
     }
 
     @Override
