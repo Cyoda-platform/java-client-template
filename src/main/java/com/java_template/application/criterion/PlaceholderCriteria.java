@@ -119,8 +119,8 @@ class QuoteExpiryCriterion implements CyodaCriterion {
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
         return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
     }
@@ -142,8 +142,8 @@ class SettlementPaymentReceivedCriterion implements CyodaCriterion {
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
         return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
     }
@@ -165,8 +165,8 @@ class GLAcknowledgmentReceivedCriterion implements CyodaCriterion {
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
         return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
     }

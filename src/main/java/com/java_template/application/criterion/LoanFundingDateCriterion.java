@@ -35,9 +35,7 @@ public class LoanFundingDateCriterion implements CyodaCriterion {
         logger.debug("Checking {} for request: {}", className, request.getId());
 
         return serializer.withRequest(request)
-                .toEntity(Loan.class)
-                .validate(this::isValidLoan, "Invalid loan entity")
-                .map(this::checkFundingDateLogic)
+                .evaluateEntity(Loan.class, this::checkFundingDateLogic)
                 .complete();
     }
 
@@ -46,12 +44,8 @@ public class LoanFundingDateCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidLoan(Loan loan) {
-        return loan != null && loan.isValid();
-    }
-
-    private boolean checkFundingDateLogic(CriterionSerializer.CriterionEntityExecutionContext<Loan> context) {
-        Loan loan = context.entity();
+    private com.java_template.common.serializer.EvaluationOutcome checkFundingDateLogic(CriterionSerializer.CriterionEntityEvaluationContext<Loan> context) {
+        Loan loan = context.entityWithMetadata().entity();
         
         if (loan.getFundedDate() == null) {
             logger.debug("Loan {} has no funded date, criterion not met", loan.getLoanId());
