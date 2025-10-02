@@ -99,7 +99,7 @@ class AllPaymentsProcessedCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntity(Object.class).map(ctx -> true).complete();
+        return serializer.withRequest(request).evaluate(ctx -> com.java_template.common.serializer.EvaluationOutcome.success()).complete();
     }
 
     @Override
@@ -122,7 +122,7 @@ class QuoteExpiryCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
+        return serializer.withRequest(request).evaluate(ctx -> com.java_template.common.serializer.EvaluationOutcome.fail("Quote not expired")).complete();
     }
 
     @Override
@@ -145,7 +145,7 @@ class SettlementPaymentReceivedCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
+        return serializer.withRequest(request).evaluate(ctx -> com.java_template.common.serializer.EvaluationOutcome.fail("Payment not received")).complete();
     }
 
     @Override
@@ -168,7 +168,7 @@ class GLAcknowledgmentReceivedCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
+        return serializer.withRequest(request).evaluate(ctx -> com.java_template.common.serializer.EvaluationOutcome.fail("Acknowledgment not received")).complete();
     }
 
     @Override

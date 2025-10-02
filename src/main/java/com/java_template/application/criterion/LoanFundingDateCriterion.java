@@ -26,7 +26,7 @@ public class LoanFundingDateCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public LoanFundingDateCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override

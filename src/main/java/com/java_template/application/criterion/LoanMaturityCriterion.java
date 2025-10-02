@@ -27,7 +27,7 @@ public class LoanMaturityCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public LoanMaturityCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
