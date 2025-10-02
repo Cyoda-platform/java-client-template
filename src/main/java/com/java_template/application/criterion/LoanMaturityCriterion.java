@@ -36,9 +36,7 @@ public class LoanMaturityCriterion implements CyodaCriterion {
         logger.debug("Checking {} for request: {}", className, request.getId());
 
         return serializer.withRequest(request)
-                .toEntity(Loan.class)
-                .validate(this::isValidLoan, "Invalid loan entity")
-                .map(this::checkMaturityLogic)
+                .evaluateEntity(Loan.class, this::checkMaturityLogic)
                 .complete();
     }
 
@@ -47,29 +45,27 @@ public class LoanMaturityCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidLoan(Loan loan) {
-        return loan != null && loan.isValid();
-    }
-
-    private boolean checkMaturityLogic(CriterionSerializer.CriterionEntityExecutionContext<Loan> context) {
-        Loan loan = context.entity();
+    private com.java_template.common.serializer.EvaluationOutcome checkMaturityLogic(CriterionSerializer.CriterionEntityEvaluationContext<Loan> context) {
+        Loan loan = context.entityWithMetadata().entity();
         
         if (loan.getMaturityDate() == null) {
             logger.debug("Loan {} has no maturity date, criterion not met", loan.getLoanId());
-            return false;
+            return com.java_template.common.serializer.EvaluationOutcome.fail("No maturity date");
         }
 
         LocalDate today = LocalDate.now();
         boolean maturityReached = !loan.getMaturityDate().isAfter(today);
-        
+
         BigDecimal outstandingPrincipal = loan.getOutstandingPrincipal();
         boolean principalPaidOff = outstandingPrincipal == null || outstandingPrincipal.compareTo(BigDecimal.ZERO) == 0;
 
         boolean shouldClose = maturityReached && principalPaidOff;
 
-        logger.debug("Loan {} maturity criterion: maturity={}, today={}, principal={}, result={}", 
+        logger.debug("Loan {} maturity criterion: maturity={}, today={}, principal={}, result={}",
                     loan.getLoanId(), loan.getMaturityDate(), today, outstandingPrincipal, shouldClose);
 
-        return shouldClose;
+        return shouldClose ?
+            com.java_template.common.serializer.EvaluationOutcome.success() :
+            com.java_template.common.serializer.EvaluationOutcome.fail("Maturity conditions not met");
     }
 }

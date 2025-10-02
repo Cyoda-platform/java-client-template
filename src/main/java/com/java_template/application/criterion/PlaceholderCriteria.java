@@ -30,7 +30,7 @@ class LoanSettlementCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
+        return serializer.withRequest(request).evaluate(ctx -> com.java_template.common.serializer.EvaluationOutcome.fail("Not implemented")).complete();
     }
 
     @Override
@@ -53,7 +53,7 @@ class FileValidationPassCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntity(Object.class).map(ctx -> true).complete();
+        return serializer.withRequest(request).evaluate(ctx -> com.java_template.common.serializer.EvaluationOutcome.success()).complete();
     }
 
     @Override
@@ -76,7 +76,7 @@ class FileValidationFailCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntity(Object.class).map(ctx -> false).complete();
+        return serializer.withRequest(request).evaluate(ctx -> com.java_template.common.serializer.EvaluationOutcome.fail("Validation failed")).complete();
     }
 
     @Override

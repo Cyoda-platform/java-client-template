@@ -49,15 +49,17 @@ public class LoanFundingDateCriterion implements CyodaCriterion {
         
         if (loan.getFundedDate() == null) {
             logger.debug("Loan {} has no funded date, criterion not met", loan.getLoanId());
-            return false;
+            return com.java_template.common.serializer.EvaluationOutcome.fail("No funded date");
         }
 
         LocalDate today = LocalDate.now();
         boolean shouldActivate = !loan.getFundedDate().isAfter(today);
 
-        logger.debug("Loan {} funding date criterion: funded={}, today={}, result={}", 
+        logger.debug("Loan {} funding date criterion: funded={}, today={}, result={}",
                     loan.getLoanId(), loan.getFundedDate(), today, shouldActivate);
 
-        return shouldActivate;
+        return shouldActivate ?
+            com.java_template.common.serializer.EvaluationOutcome.success() :
+            com.java_template.common.serializer.EvaluationOutcome.fail("Funding date not reached");
     }
 }
