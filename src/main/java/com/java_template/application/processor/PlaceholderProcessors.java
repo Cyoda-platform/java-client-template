@@ -1,6 +1,5 @@
 package com.java_template.application.processor;
 
-import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
@@ -11,8 +10,6 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
 
 /**
  * ABOUTME: This file contains placeholder processors for workflow compilation.
@@ -56,7 +53,7 @@ class SuspendPartyProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
     }
 
     @Override
@@ -79,7 +76,7 @@ class ReactivatePartyProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
     }
 
     @Override
@@ -102,7 +99,7 @@ class SubmitLoanForApprovalProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
     }
 
     @Override
@@ -125,7 +122,7 @@ class UpdateLoanProcessor implements CyodaProcessor {
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Processing {} for request: {}", className, request.getId());
-        return serializer.withRequest(request).toEntityWithMetadata(Object.class).complete();
+        return serializer.withRequest(request).process(ctx -> ctx.entityResponse()).complete();
     }
 
     @Override
