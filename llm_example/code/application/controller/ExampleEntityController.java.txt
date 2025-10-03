@@ -102,7 +102,9 @@ public class ExampleEntityController {
         try {
             // Use findByBusinessId() for business identifiers (MEDIUM SPEED)
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
-            EntityWithMetadata<ExampleEntity> response = entityService.findByBusinessId(
+            // We use findByBusinessIdOrNull() to handle cases where the model might
+            // not yet contain the business ID field yet (bootrapping phase)
+            EntityWithMetadata<ExampleEntity> response = entityService.findByBusinessIdOrNull(
                     modelSpec, exampleId, "exampleId", ExampleEntity.class);
 
             if (response == null) {

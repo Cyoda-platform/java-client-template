@@ -215,7 +215,7 @@ public class CyodaRepository implements CrudRepository {
     public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> update(
             @NotNull final UUID id,
             @NotNull final ENTITY_TYPE entity,
-            @NotNull final String transition
+            @Nullable final String transition
     ) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
@@ -233,7 +233,7 @@ public class CyodaRepository implements CrudRepository {
     @Override
     public <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
             @NotNull final Collection<ENTITY_TYPE> entities,
-            @NotNull final String transition
+            @Nullable final String transition
     ) {
         final var entitiesByIds = entities.stream()
                 .map(objectMapper::valueToTree)

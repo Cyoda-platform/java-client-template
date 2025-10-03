@@ -214,11 +214,11 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("update should handle repository failure gracefully")
     void testUpdateRepositoryFailure() {
-        when(repository.update(eq(testEntityId), any(), eq(TRANSITION_UPDATE)))
+        when(repository.update(eq(testEntityId), any(), isNull()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Update failed")));
 
         assertRepositoryFailure(() -> entityService.update(testEntityId, testEntity, null), "Update failed");
-        verify(repository).update(eq(testEntityId), any(), eq(TRANSITION_UPDATE));
+        verify(repository).update(eq(testEntityId), any(), isNull());
     }
 
     // ========================================
@@ -310,10 +310,10 @@ class EntityServiceImplTest {
     // ========================================
 
     @Test
-    @DisplayName("update should use default UPDATE transition when transition is null")
+    @DisplayName("update should pass null transition directly to repository")
     void testUpdateWithNullTransition() {
         EntityTransactionResponse response = createTransactionResponse(testEntityId);
-        when(repository.update(eq(testEntityId), any(), eq(TRANSITION_UPDATE)))
+        when(repository.update(eq(testEntityId), any(), isNull()))
                 .thenReturn(CompletableFuture.completedFuture(response));
 
         EntityWithMetadata<TestEntity> result = entityService.update(testEntityId, testEntity, null);
@@ -323,7 +323,7 @@ class EntityServiceImplTest {
         assertNotNull(result.metadata());
         assertEntityMatches(result.entity(), testEntity);
         assertEquals(testEntityId, result.metadata().getId());
-        verify(repository).update(eq(testEntityId), any(), eq(TRANSITION_UPDATE));
+        verify(repository).update(eq(testEntityId), any(), isNull());
     }
 
     @Test
@@ -383,11 +383,11 @@ class EntityServiceImplTest {
     }
 
     @Test
-    @DisplayName("updateAll should use default UPDATE transition when transition is null")
+    @DisplayName("updateAll should pass null transition directly to repository")
     void testUpdateAllWithNullTransition() {
         Collection<TestEntity> entities = List.of(testEntity);
         List<EntityTransactionResponse> responses = List.of(createTransactionResponse(testEntityId));
-        when(repository.updateAll(any(), eq(TRANSITION_UPDATE)))
+        when(repository.updateAll(any(), isNull()))
                 .thenReturn(CompletableFuture.completedFuture(responses));
 
         List<EntityWithMetadata<TestEntity>> result = entityService.updateAll(entities, null);
@@ -399,7 +399,7 @@ class EntityServiceImplTest {
         assertNotNull(entityWithMetadata.metadata());
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertEquals(testEntityId, entityWithMetadata.metadata().getId());
-        verify(repository).updateAll(any(), eq(TRANSITION_UPDATE));
+        verify(repository).updateAll(any(), isNull());
     }
 
     // ========================================

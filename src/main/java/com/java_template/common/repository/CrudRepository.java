@@ -59,12 +59,12 @@ public interface CrudRepository {
     <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> update(
             @NotNull UUID id,
             @NotNull ENTITY_TYPE entity,
-            @NotNull String transition
+            @Nullable String transition
     );
 
     <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
             @NotNull Collection<ENTITY_TYPE> entities,
-            @NotNull String transition
+            @Nullable String transition
     );
 
     CompletableFuture<EntityTransitionResponse> applyTransition(@NotNull UUID entityId, @NotNull String transitionName);

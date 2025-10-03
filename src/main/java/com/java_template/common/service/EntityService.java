@@ -73,6 +73,24 @@ public interface EntityService {
     );
 
     /**
+     * Find entity by business identifier, returning null on any exception (MEDIUM SPEED)
+     * This method wraps findByBusinessId and catches all exceptions, returning null instead.
+     * Use this when you want to check for entity existence without handling exceptions.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param businessId Business identifier value (e.g., "CART-123")
+     * @param businessIdField Field name containing the business ID (e.g., "cartId")
+     * @param entityClass Entity class type for deserialization
+     * @return EntityWithMetadata with entity and metadata, or null if not found or on error
+     */
+    <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessIdOrNull(
+            @NotNull ModelSpec modelSpec,
+            @NotNull String businessId,
+            @NotNull String businessIdField,
+            @NotNull Class<T> entityClass
+    );
+
+    /**
      * Get all entities of a type (SLOW - use sparingly)
      *
      * @param modelSpec Model specification containing name and version
