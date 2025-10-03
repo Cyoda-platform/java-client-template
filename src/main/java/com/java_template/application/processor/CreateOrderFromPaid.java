@@ -193,11 +193,10 @@ public class CreateOrderFromPaid implements CyodaProcessor {
         for (Cart.CartLine line : cart.getLines()) {
             try {
                 // Find product by SKU
-                List<EntityWithMetadata<Product>> products = entityService.findByBusinessId(
-                        productModelSpec, line.getSku(), Product.class);
+                EntityWithMetadata<Product> productWithMetadata = entityService.findByBusinessId(
+                        productModelSpec, line.getSku(), "sku", Product.class);
                 
-                if (!products.isEmpty()) {
-                    EntityWithMetadata<Product> productWithMetadata = products.get(0);
+                if (productWithMetadata != null) {
                     Product product = productWithMetadata.entity();
                     
                     // Decrement quantity available
@@ -244,7 +243,7 @@ public class CreateOrderFromPaid implements CyodaProcessor {
                     .withName(Shipment.ENTITY_NAME)
                     .withVersion(Shipment.ENTITY_VERSION);
             
-            entityService.create(shipmentModelSpec, shipment, null);
+            entityService.create(shipment);
             
             logger.info("Shipment {} created for order {}", shipment.getShipmentId(), order.getOrderId());
             
