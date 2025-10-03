@@ -51,20 +51,20 @@ public class StockAvailabilityCriterion implements CyodaCriterion {
 
         // Check if inventory item is null (structural validation)
         if (inventoryItem == null) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "InventoryItem entity is null");
+            return EvaluationOutcome.fail("InventoryItem entity is null",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Validate basic inventory item fields
         if (!inventoryItem.isValid()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "InventoryItem validation failed");
+            return EvaluationOutcome.fail("InventoryItem validation failed",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Validate stock locations exist
         if (inventoryItem.getStockByLocation() == null || inventoryItem.getStockByLocation().isEmpty()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "No stock locations defined for product: " + inventoryItem.getProductId());
+            return EvaluationOutcome.fail("No stock locations defined for product: " + inventoryItem.getProductId(),
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Check each location for stock availability issues
@@ -72,32 +72,32 @@ public class StockAvailabilityCriterion implements CyodaCriterion {
             
             // Validate stock location data
             if (!stock.isValid()) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                            "Invalid stock data for location: " + stock.getLocationId());
+                return EvaluationOutcome.fail("Invalid stock data for location: " + stock.getLocationId(),
+                                            StandardEvalReasonCategories.STRUCTURAL_FAILURE);
             }
 
             // Check for negative available stock (overselling prevention)
             if (stock.hasNegativeStock()) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                            String.format("Negative stock detected at location %s for product %s. Available: %d", 
-                                                         stock.getLocationId(), inventoryItem.getProductId(), stock.getAvailable()));
+                return EvaluationOutcome.fail(String.format("Negative stock detected at location %s for product %s. Available: %d",
+                                                         stock.getLocationId(), inventoryItem.getProductId(), stock.getAvailable()),
+                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
 
             // Check for unreasonable stock levels
             if (stock.getTotalStock() < 0) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.DATA_QUALITY_FAILURE, 
-                                            String.format("Total stock is negative at location %s for product %s", 
-                                                         stock.getLocationId(), inventoryItem.getProductId()));
+                return EvaluationOutcome.fail(String.format("Total stock is negative at location %s for product %s",
+                                                         stock.getLocationId(), inventoryItem.getProductId()),
+                                            StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
             }
 
             // Validate reserved stock doesn't exceed total stock
             Integer totalStock = stock.getTotalStock();
             Integer reservedStock = stock.getReserved() != null ? stock.getReserved() : 0;
-            
+
             if (reservedStock > totalStock) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.DATA_QUALITY_FAILURE, 
-                                            String.format("Reserved stock (%d) exceeds total stock (%d) at location %s for product %s", 
-                                                         reservedStock, totalStock, stock.getLocationId(), inventoryItem.getProductId()));
+                return EvaluationOutcome.fail(String.format("Reserved stock (%d) exceeds total stock (%d) at location %s for product %s",
+                                                         reservedStock, totalStock, stock.getLocationId(), inventoryItem.getProductId()),
+                                            StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
             }
 
             // Check for excessive damaged stock (warning threshold)
@@ -117,8 +117,8 @@ public class StockAvailabilityCriterion implements CyodaCriterion {
 
         // Validate total available stock is reasonable
         if (totalAvailable < 0) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Total available stock is negative for product: " + inventoryItem.getProductId());
+            return EvaluationOutcome.fail("Total available stock is negative for product: " + inventoryItem.getProductId(),
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check if inventory is completely depleted

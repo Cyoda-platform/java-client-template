@@ -118,8 +118,8 @@ public class InventoryAvailabilityCriterion implements CyodaCriterion {
 
             // Check if inventory item exists
             if (inventoryItems.isEmpty()) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                            "Product not found in inventory: " + lineItem.getProductId());
+                return EvaluationOutcome.fail("Product not found in inventory: " + lineItem.getProductId(),
+                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
 
             InventoryItem inventoryItem = inventoryItems.get(0).entity();
@@ -129,15 +129,15 @@ public class InventoryAvailabilityCriterion implements CyodaCriterion {
             Integer requiredQuantity = lineItem.getQuantity();
 
             if (totalAvailable < requiredQuantity) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                            String.format("Insufficient stock for product %s. Required: %d, Available: %d", 
-                                                         lineItem.getProductId(), requiredQuantity, totalAvailable));
+                return EvaluationOutcome.fail(String.format("Insufficient stock for product %s. Required: %d, Available: %d",
+                                                         lineItem.getProductId(), requiredQuantity, totalAvailable),
+                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
 
             // Check for negative stock (overselling prevention)
             if (inventoryItem.hasNegativeStock()) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.DATA_QUALITY_FAILURE, 
-                                            "Product has negative stock: " + lineItem.getProductId());
+                return EvaluationOutcome.fail("Product has negative stock: " + lineItem.getProductId(),
+                                            StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
             }
 
             // Check if any location has sufficient stock
@@ -145,9 +145,9 @@ public class InventoryAvailabilityCriterion implements CyodaCriterion {
                     .anyMatch(stock -> stock.getAvailable() >= requiredQuantity);
 
             if (!hasLocationWithSufficientStock) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                            String.format("No single location has sufficient stock for product %s. Required: %d", 
-                                                         lineItem.getProductId(), requiredQuantity));
+                return EvaluationOutcome.fail(String.format("No single location has sufficient stock for product %s. Required: %d",
+                                                         lineItem.getProductId(), requiredQuantity),
+                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
 
             logger.debug("Inventory check passed for productId: {}, required: {}, available: {}", 
@@ -156,10 +156,10 @@ public class InventoryAvailabilityCriterion implements CyodaCriterion {
             return EvaluationOutcome.success();
 
         } catch (Exception e) {
-            logger.error("Error checking inventory for productId: {}, orderId: {}", 
+            logger.error("Error checking inventory for productId: {}, orderId: {}",
                         lineItem.getProductId(), orderId, e);
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.EXTERNAL_DEPENDENCY_FAILURE, 
-                                        "Failed to check inventory for product: " + lineItem.getProductId());
+            return EvaluationOutcome.fail("Failed to check inventory for product: " + lineItem.getProductId(),
+                                        StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
     }
 }
