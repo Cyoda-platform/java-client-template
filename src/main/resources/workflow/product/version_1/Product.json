@@ -1,0 +1,32 @@
+{
+  "version": "1.0",
+  "name": "Product",
+  "desc": "Product catalog lifecycle workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_product",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_product",
+          "next": "active",
+          "manual": true
+        },
+        {
+          "name": "update_inventory",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
