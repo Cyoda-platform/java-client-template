@@ -51,31 +51,31 @@ public class ReorderPointCriterion implements CyodaCriterion {
 
         // Check if inventory item is null (structural validation)
         if (inventoryItem == null) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "InventoryItem entity is null");
+            return EvaluationOutcome.fail("InventoryItem entity is null",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Validate basic inventory item fields
         if (!inventoryItem.isValid()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "InventoryItem validation failed");
+            return EvaluationOutcome.fail("InventoryItem validation failed",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Validate reorder point is configured
         if (inventoryItem.getReorderPoint() == null) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.CONFIGURATION_FAILURE, 
-                                        "Reorder point not configured for product: " + inventoryItem.getProductId());
+            return EvaluationOutcome.fail("Reorder point not configured for product: " + inventoryItem.getProductId(),
+                                        StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         if (inventoryItem.getReorderPoint() < 0) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.CONFIGURATION_FAILURE, 
-                                        "Invalid reorder point (negative) for product: " + inventoryItem.getProductId());
+            return EvaluationOutcome.fail("Invalid reorder point (negative) for product: " + inventoryItem.getProductId(),
+                                        StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         // Validate reorder quantity is configured
         if (inventoryItem.getReorderQuantity() == null || inventoryItem.getReorderQuantity() <= 0) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.CONFIGURATION_FAILURE, 
-                                        "Invalid reorder quantity for product: " + inventoryItem.getProductId());
+            return EvaluationOutcome.fail("Invalid reorder quantity for product: " + inventoryItem.getProductId(),
+                                        StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         // Check if reorder is needed
@@ -91,11 +91,11 @@ public class ReorderPointCriterion implements CyodaCriterion {
         }
 
         // Stock is above reorder point - criterion fails (no transition needed)
-        logger.debug("Stock level sufficient for product {}: available ({}) > reorder point ({})", 
+        logger.debug("Stock level sufficient for product {}: available ({}) > reorder point ({})",
                     inventoryItem.getProductId(), totalAvailable, reorderPoint);
-        
-        return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                    String.format("Stock level (%d) is above reorder point (%d) for product %s", 
-                                                 totalAvailable, reorderPoint, inventoryItem.getProductId()));
+
+        return EvaluationOutcome.fail(String.format("Stock level (%d) is above reorder point (%d) for product %s",
+                                                 totalAvailable, reorderPoint, inventoryItem.getProductId()),
+                                    StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
     }
 }
