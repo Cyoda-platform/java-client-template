@@ -6,8 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletionException;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests for CyodaExceptionUtil to verify error message extraction from Cyoda backend exceptions.

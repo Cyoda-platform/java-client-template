@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
  * ABOUTME: Utility class for extracting clean error messages from Cyoda backend exceptions.
  * Handles the nested exception structure (CompletionException -> StatusRuntimeException)
  * and extracts meaningful error messages without stacktraces.
- *<p>
+ *
  * Cyoda exceptions typically follow this pattern:
  * CompletionException: StatusRuntimeException: CANCELLED: Transaction ... was cancelled:
  * Sync process[...] failed: Fail with error code [ERROR_CODE] with message 'External error: <actual message>'
