@@ -1,0 +1,171 @@
+{
+  "version": "1.0",
+  "name": "InventoryItem",
+  "desc": "Inventory item lifecycle workflow for stock management and tracking",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_inventory_item",
+          "next": "Active",
+          "manual": false
+        }
+      ]
+    },
+    "Active": {
+      "transitions": [
+        {
+          "name": "adjust_stock",
+          "next": "Active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdjustStockProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StockAvailabilityCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        },
+        {
+          "name": "reserve_inventory",
+          "next": "Active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReserveInventoryProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "StockAvailabilityCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        },
+        {
+          "name": "update_inventory",
+          "next": "Active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdateInventoryProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "check_reorder",
+          "next": "ReorderRequired",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "ReorderPointCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        },
+        {
+          "name": "discontinue_item",
+          "next": "Discontinued",
+          "manual": true
+        }
+      ]
+    },
+    "ReorderRequired": {
+      "transitions": [
+        {
+          "name": "restock_inventory",
+          "next": "Active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RestockInventoryProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "adjust_stock",
+          "next": "Active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AdjustStockProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "discontinue_item",
+          "next": "Discontinued",
+          "manual": true
+        }
+      ]
+    },
+    "Discontinued": {
+      "transitions": [
+        {
+          "name": "reactivate_item",
+          "next": "Active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
