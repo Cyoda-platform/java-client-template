@@ -82,7 +82,8 @@ public class DeliverOrderProcessor implements CyodaProcessor {
         return true;
     }
 
-    private EntityWithMetadata<Order> processDeliverOrder(EntityWithMetadata<Order> entityWithMetadata) {
+    private EntityWithMetadata<Order> processDeliverOrder(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Order> context) {
+        EntityWithMetadata<Order> entityWithMetadata = context.entityResponse();
         Order order = entityWithMetadata.entity();
         logger.info("Processing delivery for order with orderId: {}", order.getOrderId());
 

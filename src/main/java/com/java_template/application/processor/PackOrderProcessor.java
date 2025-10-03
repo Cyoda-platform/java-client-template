@@ -93,7 +93,8 @@ public class PackOrderProcessor implements CyodaProcessor {
         return true;
     }
 
-    private EntityWithMetadata<Order> processPackOrder(EntityWithMetadata<Order> entityWithMetadata) {
+    private EntityWithMetadata<Order> processPackOrder(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Order> context) {
+        EntityWithMetadata<Order> entityWithMetadata = context.entityResponse();
         Order order = entityWithMetadata.entity();
         logger.info("Processing packing for order with orderId: {}", order.getOrderId());
 
@@ -198,7 +199,7 @@ public class PackOrderProcessor implements CyodaProcessor {
                 inventoryItem.getAuditLog().add(auditEntry);
 
                 // Update inventory item with manual transition
-                entityService.save(inventoryItem, "reserve_inventory");
+                entityService.update(inventoryItemWithMetadata.metadata().getId(), inventoryItem, "reserve_inventory");
                 
                 logger.info("Reserved {} units of productId: {} at location: {} for orderId: {}", 
                            lineItem.getQuantity(), lineItem.getProductId(), locationId, orderId);
