@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.java_template.common.auth.Authentication;
 import com.java_template.common.util.HttpUtils;
 import com.java_template.common.workflow.CyodaEntity;
@@ -202,14 +203,19 @@ public class CyodaInit {
             workflowsArray.add(dtoJson);
             wrappedContent.set("workflows", workflowsArray);
 
+            // Other alternatives are "MERGE" and "ACTIVATE"
+            // MERGE will just add these workflows which may not be what you want, because you might have several workflows active for the same model
+            // ACTIVATE will activate the imported ones and deactivate the others for the same model
+            // Since we want to initialize, we'll just REPLACE, meaning for the models imported, only this one workflow will exist.
+            wrappedContent.set("importMode", new TextNode("REPLACE") );
+
             String wrappedContentJson = wrappedContent.toString();
 
             // Use the endpoint format: model/{entity_name}/{version}/workflow/import
             String importPath = String.format("model/%s/%s/workflow/import", entityName, version);
             logger.debug("🔗 Using import endpoint: {}", importPath);
 
-            JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson,
-                    Map.of("importMode", "MERGE")).join();
+            JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson).join();
 
             int statusCode = response.get("status").asInt();
             if (statusCode >= 200 && statusCode < 300) {
