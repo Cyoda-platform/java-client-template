@@ -154,4 +154,69 @@ The application follows Cyoda's workflow-driven architecture with:
 - **Server-Side Credentials**: Cyoda credentials stored server-side, never exposed to browser
 - **CORS Enabled**: Allows cross-origin requests for UI integration
 
+## Sample API Test Sequence
+
+### Create a Product
+```bash
+curl -X POST http://localhost:8080/ui/products \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sku": "LAPTOP-001",
+    "name": "Gaming Laptop",
+    "description": "High-performance gaming laptop",
+    "price": 1299.99,
+    "quantityAvailable": 10,
+    "category": "Electronics"
+  }'
+```
+
+### Create Cart and Add Item
+```bash
+# Create cart
+curl -X POST http://localhost:8080/ui/cart
+
+# Add item to cart (use cartId from response)
+curl -X POST http://localhost:8080/ui/cart/CART-12345678/lines \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sku": "LAPTOP-001",
+    "qty": 1
+  }'
+```
+
+### Complete Checkout Flow
+```bash
+# Open checkout
+curl -X POST http://localhost:8080/ui/cart/CART-12345678/open-checkout
+
+# Add guest contact
+curl -X POST http://localhost:8080/ui/checkout/CART-12345678 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "guestContact": {
+      "name": "John Doe",
+      "email": "john@example.com",
+      "address": {
+        "line1": "123 Main St",
+        "city": "New York",
+        "postcode": "10001",
+        "country": "USA"
+      }
+    }
+  }'
+
+# Start payment
+curl -X POST http://localhost:8080/ui/payment/start \
+  -H "Content-Type: application/json" \
+  -d '{"cartId": "CART-12345678"}'
+
+# Wait 3+ seconds, then create order
+curl -X POST http://localhost:8080/ui/order/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "paymentId": "PAY-87654321",
+    "cartId": "CART-12345678"
+  }'
+```
+
 This implementation provides a complete, production-ready OMS backend that demonstrates Cyoda's workflow-driven architecture and entity management capabilities.
