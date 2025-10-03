@@ -1,0 +1,36 @@
+Build an order and inventory tracking service for a multi-channel retailer. Capture structured orders, track product stock levels, manage fulfilment, and provide audit and reporting.
+
+Primary entity: Order
+	•	Identifiers: orderId, externalRef, channel (web, store, marketplace), createdTimestamp, status.
+	•	Customer: {customerId, name, contactDetails, addresses[]}
+	•	LineItems: array of {productId, description, quantity, unitPrice, discount, tax, fulfilmentStatus}.
+	•	Payments: {method, amount, currency, transactionRef, status, timestamps}.
+	•	Shipments: {shipmentId, carrier, serviceLevel, trackingNumber, estimatedDelivery, events[]}.
+	•	State: {Draft, Submitted, Paid, Packed, Shipped, Delivered, Cancelled, Returned}.
+
+Secondary entity: InventoryItem
+	•	productId, sku, description, attributes {size, colour, batch, expiryDate}.
+	•	stockByLocation: {locationId, available, reserved, damaged}.
+	•	reorderPoint, reorderQuantity, supplierRef.
+	•	auditLog of adjustments {reason, actor, delta, timestamp}.
+
+Workflow:
+	•	Draft → Submitted when mandatory fields and line items exist.
+	•	Submitted → Paid once payment status confirmed.
+	•	Paid → Packed triggers inventory reservation, stock deduction, and fulfilment task.
+	•	Packed → Shipped with carrier/tracking assignment.
+	•	Shipped → Delivered on carrier confirmation.
+	•	Any → Cancelled/Returned with reason codes; inventory auto-adjusted.
+	•	SLA timers: escalate if Packed but not Shipped > 24h.
+
+Validations & checks:
+	•	Order total = sum(lineItems × unitPrice − discounts + tax).
+	•	InventoryItem availability must cover reserved quantities; prevent overselling.
+	•	Stock adjustments logged immutably with who/what/when.
+	•	Location-level checks: negative stock disallowed; expiry-dated items tracked.
+	•	Duplicate order prevention by externalRef + channel.
+
+APIs & reports:
+	•	Create/Update Order; adjust Inventory; post shipment events; query stock.
+	•	Webhooks on order status changes, low stock alerts, shipment updates.
+	•	Reports: order throughput, fulfilment cycle times, backorders, inventory by location, shrinkage, audit of adjustments.
