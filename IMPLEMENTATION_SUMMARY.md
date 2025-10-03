@@ -129,7 +129,7 @@ This project implements a comprehensive **Loan Management System** using the Cyo
 This validates that all processors and criteria referenced in workflow JSON files are implemented.
 
 ### 3. **API Testing**
-The system provides REST endpoints at `/ui/{entity}/**` for:
+The system provides REST endpoints at `/api/v1/{entity}/**` for:
 - Creating entities with proper validation
 - Retrieving by technical UUID or business ID
 - Updating with optional workflow transitions

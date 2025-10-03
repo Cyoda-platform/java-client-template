@@ -70,12 +70,16 @@ This template follows a clear separation between **framework code** (that you do
 ### `src/main/java/com/java_template/application/` - Your Business Logic (CREATE AS NEEDED)
 
 **Your Implementation Areas:**
-- `controller/` – REST endpoints and HTTP API controllers
+- `controller/` – REST endpoints and HTTP API controllers (thin adapters)
+- `interactor/` – Business logic layer (use case implementations)
 - `entity/` – Domain entities implementing `CyodaEntity` interface
 - `processor/` – Workflow processors implementing `CyodaProcessor` interface
 - `criterion/` – Workflow criteria implementing `CyodaCriterion` interface
 
 ## 🔑 Core Concepts
+
+### Interactor Pattern
+Controllers delegate all business logic to interactor classes. Controllers handle only HTTP concerns (request/response mapping), while interactors contain business logic, validation, and EntityService interactions. See `INTERACTOR_PATTERN.md` for details.
 
 ### What is a CyodaEntity?
 Domain objects that represent your business data. Must implement `CyodaEntity` interface and be placed in `application/entity/` directory.
@@ -146,6 +150,70 @@ src/main/resources/workflow/$entity_name/version_$version/$entity_name.json
 - ❌ No Java reflection usage allowed
 
 > 📚 **See `llm_example/` directory for complete implementation examples, patterns, and configuration templates**
+
+## 🌐 REST API Controllers
+
+All controllers provide CRUD operations with duplicate prevention and business key support:
+
+### Standard Endpoints
+
+Each entity controller provides:
+
+**Create (with duplicate prevention)**
+- `POST /api/v1/{entity}` - Create new entity
+  - Returns `201 Created` on success
+  - Returns `409 Conflict` if business key already exists
+  - Automatically checks for duplicate business keys before creation
+
+**Read Operations**
+- `GET /api/v1/{entity}` - Get all entities
+- `GET /api/v1/{entity}/{uuid}` - Get by technical UUID
+- `GET /api/v1/{entity}/business/{businessId}` - Get by business key
+
+**Update Operations**
+- `PUT /api/v1/{entity}/{uuid}` - Update by technical UUID
+- `PUT /api/v1/{entity}/business/{businessId}` - Update by business key
+  - Returns `200 OK` on success
+  - Returns `404 Not Found` if business key doesn't exist
+  - Supports optional `?transition=TRANSITION_NAME` query parameter
+
+**Delete Operations**
+- `DELETE /api/v1/{entity}/{uuid}` - Delete by technical UUID
+
+### Entity Business Keys
+
+| Entity | Business Key Field | Endpoint Base |
+|--------|-------------------|---------------|
+| Loan | `loanId` | `/api/v1/loan` |
+| Party | `partyId` | `/api/v1/party` |
+| Payment | `paymentId` | `/api/v1/payment` |
+| PaymentFile | `paymentFileId` | `/api/v1/payment-file` |
+| Accrual | `accrualId` | `/api/v1/accrual` |
+| SettlementQuote | `settlementQuoteId` | `/api/v1/settlement-quote` |
+| GLBatch | `glBatchId` | `/api/v1/gl-batch` |
+
+### Example Usage
+
+**Create with duplicate prevention:**
+```bash
+# First creation succeeds
+POST /api/v1/loan
+{"loanId": "LOAN-001", "partyId": "PARTY-001", ...}
+# Response: 201 Created
+
+# Duplicate attempt fails
+POST /api/v1/loan
+{"loanId": "LOAN-001", ...}
+# Response: 409 Conflict
+# Body: "Loan with loanId 'LOAN-001' already exists"
+```
+
+**Update by business key:**
+```bash
+PUT /api/v1/loan/business/LOAN-001?transition=approve_loan
+{"loanId": "LOAN-001", "principalAmount": 15000, ...}
+# Response: 200 OK (if exists) or 404 Not Found
+```
 
 ## 🚀 Getting Started
 

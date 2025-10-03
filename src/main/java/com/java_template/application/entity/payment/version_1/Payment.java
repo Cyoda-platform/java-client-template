@@ -3,6 +3,8 @@ package com.java_template.application.entity.payment.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.math.BigDecimal;
@@ -14,11 +16,13 @@ import java.time.LocalDateTime;
  * that are captured, matched to loans, allocated to interest/fees/principal, and posted.
  */
 @Data
+@NoArgsConstructor
 public class Payment implements CyodaEntity {
     public static final String ENTITY_NAME = Payment.class.getSimpleName();
     public static final Integer ENTITY_VERSION = 1;
 
     // Required business identifier
+    @NonNull
     private String paymentId;
     
     // Payment details

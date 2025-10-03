@@ -3,6 +3,8 @@ package com.java_template.application.entity.loan.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.math.BigDecimal;
@@ -15,11 +17,13 @@ import java.util.List;
  * with lifecycle management from draft through funding to settlement or closure.
  */
 @Data
+@NoArgsConstructor
 public class Loan implements CyodaEntity {
     public static final String ENTITY_NAME = Loan.class.getSimpleName();
     public static final Integer ENTITY_VERSION = 1;
 
     // Required business identifier
+    @NonNull
     private String loanId;
     
     // Party reference

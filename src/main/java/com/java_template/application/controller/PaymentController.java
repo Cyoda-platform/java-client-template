@@ -1,15 +1,17 @@
 package com.java_template.application.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.payment.version_1.Payment;
+import com.java_template.application.interactor.PaymentInteractor;
 import com.java_template.common.dto.EntityWithMetadata;
-import com.java_template.common.service.EntityService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.Getter;
 import lombok.Setter;
-import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
-import org.cyoda.cloud.api.event.common.condition.Operation;
-import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -17,44 +19,52 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * ABOUTME: This controller provides REST endpoints for payment management including
  * CRUD operations, workflow transitions, and search functionality.
+ * All business logic is delegated to PaymentInteractor.
  */
 @RestController
-@RequestMapping("/ui/payment")
+@RequestMapping("/api/v1/payment")
 @CrossOrigin(origins = "*")
+@Tag(name = "Payment Management", description = "APIs for managing borrower payments including capture, matching, allocation, and posting")
 public class PaymentController {
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentController.class);
-    private final EntityService entityService;
-    private final ObjectMapper objectMapper;
+    private final PaymentInteractor paymentInteractor;
 
-    public PaymentController(EntityService entityService, ObjectMapper objectMapper) {
-        this.entityService = entityService;
-        this.objectMapper = objectMapper;
+    public PaymentController(PaymentInteractor paymentInteractor) {
+        this.paymentInteractor = paymentInteractor;
     }
 
     /**
      * Create a new payment
      * POST /ui/payment
      */
+    @Operation(
+        summary = "Create a new payment",
+        description = "Creates a new payment entity. Validates that the paymentId is unique before creation."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Payment created successfully",
+            content = @Content(schema = @Schema(implementation = EntityWithMetadata.class))),
+        @ApiResponse(responseCode = "409", description = "Payment with the same paymentId already exists",
+            content = @Content(schema = @Schema(implementation = String.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid payment data or creation failed")
+    })
     @PostMapping
-    public ResponseEntity<EntityWithMetadata<Payment>> createPayment(@RequestBody Payment payment) {
+    public ResponseEntity<?> createPayment(
+        @Parameter(description = "Payment entity to create", required = true)
+        @RequestBody Payment payment) {
         try {
-            payment.setCapturedAt(LocalDateTime.now());
-            payment.setCreatedAt(LocalDateTime.now());
-            payment.setUpdatedAt(LocalDateTime.now());
-            payment.setSourceType("MANUAL");
-
-            EntityWithMetadata<Payment> response = entityService.create(payment);
-            logger.info("Payment created with ID: {}", response.metadata().getId());
-            return ResponseEntity.ok(response);
+            EntityWithMetadata<Payment> response = paymentInteractor.createPayment(payment);
+            return ResponseEntity.status(201).body(response);
+        } catch (PaymentInteractor.DuplicateEntityException e) {
+            logger.warn("Duplicate payment creation attempt: {}", e.getMessage());
+            return ResponseEntity.status(409).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating payment", e);
             return ResponseEntity.badRequest().build();
@@ -65,11 +75,21 @@ public class PaymentController {
      * Get payment by technical UUID
      * GET /ui/payment/{id}
      */
+    @Operation(
+        summary = "Get payment by technical ID",
+        description = "Retrieves a payment entity by its technical UUID"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Payment found",
+            content = @Content(schema = @Schema(implementation = EntityWithMetadata.class))),
+        @ApiResponse(responseCode = "404", description = "Payment not found")
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Payment>> getPaymentById(@PathVariable UUID id) {
+    public ResponseEntity<EntityWithMetadata<Payment>> getPaymentById(
+        @Parameter(description = "Technical UUID of the payment", required = true)
+        @PathVariable UUID id) {
         try {
-            ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
-            EntityWithMetadata<Payment> response = entityService.getById(id, modelSpec, Payment.class);
+            EntityWithMetadata<Payment> response = paymentInteractor.getPaymentById(id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error getting payment by ID: {}", id, e);
@@ -81,19 +101,62 @@ public class PaymentController {
      * Get payment by business identifier
      * GET /ui/payment/business/{paymentId}
      */
+    @Operation(
+        summary = "Get payment by business ID",
+        description = "Retrieves a payment entity by its business identifier (paymentId)"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Payment found",
+            content = @Content(schema = @Schema(implementation = EntityWithMetadata.class))),
+        @ApiResponse(responseCode = "404", description = "Payment not found"),
+        @ApiResponse(responseCode = "400", description = "Invalid request")
+    })
     @GetMapping("/business/{paymentId}")
-    public ResponseEntity<EntityWithMetadata<Payment>> getPaymentByBusinessId(@PathVariable String paymentId) {
+    public ResponseEntity<EntityWithMetadata<Payment>> getPaymentByBusinessId(
+        @Parameter(description = "Business identifier of the payment", required = true)
+        @PathVariable String paymentId) {
         try {
-            ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
-            EntityWithMetadata<Payment> response = entityService.findByBusinessId(
-                    modelSpec, paymentId, "paymentId", Payment.class);
-
-            if (response == null) {
-                return ResponseEntity.notFound().build();
-            }
+            EntityWithMetadata<Payment> response = paymentInteractor.getPaymentByBusinessId(paymentId);
             return ResponseEntity.ok(response);
+        } catch (PaymentInteractor.EntityNotFoundException e) {
+            logger.warn("Payment not found: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error getting payment by business ID: {}", paymentId, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Update payment by business identifier
+     * PUT /ui/payment/business/{paymentId}?transition=TRANSITION_NAME
+     */
+    @Operation(
+        summary = "Update payment by business ID",
+        description = "Updates a payment entity by its business identifier with optional workflow transition"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Payment updated successfully",
+            content = @Content(schema = @Schema(implementation = EntityWithMetadata.class))),
+        @ApiResponse(responseCode = "404", description = "Payment not found",
+            content = @Content(schema = @Schema(implementation = String.class)))
+    })
+    @PutMapping("/business/{paymentId}")
+    public ResponseEntity<?> updatePaymentByBusinessId(
+            @Parameter(description = "Business identifier of the payment", required = true)
+            @PathVariable String paymentId,
+            @Parameter(description = "Updated payment entity", required = true)
+            @RequestBody Payment payment,
+            @Parameter(description = "Optional workflow transition name")
+            @RequestParam(required = false) String transition) {
+        try {
+            EntityWithMetadata<Payment> response = paymentInteractor.updatePaymentByBusinessId(paymentId, payment, transition);
+            return ResponseEntity.ok(response);
+        } catch (PaymentInteractor.EntityNotFoundException e) {
+            logger.warn("Payment not found for update: {}", e.getMessage());
+            return ResponseEntity.status(404).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("Error updating payment by business ID: {}", paymentId, e);
             return ResponseEntity.badRequest().build();
         }
     }
@@ -102,16 +165,25 @@ public class PaymentController {
      * Update payment with optional workflow transition
      * PUT /ui/payment/{id}?transition=TRANSITION_NAME
      */
+    @Operation(
+        summary = "Update payment by technical ID",
+        description = "Updates a payment entity by its technical UUID with optional workflow transition"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Payment updated successfully",
+            content = @Content(schema = @Schema(implementation = EntityWithMetadata.class))),
+        @ApiResponse(responseCode = "400", description = "Invalid payment data or update failed")
+    })
     @PutMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<Payment>> updatePayment(
+            @Parameter(description = "Technical UUID of the payment", required = true)
             @PathVariable UUID id,
+            @Parameter(description = "Updated payment entity", required = true)
             @RequestBody Payment payment,
+            @Parameter(description = "Optional workflow transition name")
             @RequestParam(required = false) String transition) {
         try {
-            payment.setUpdatedAt(LocalDateTime.now());
-
-            EntityWithMetadata<Payment> response = entityService.update(id, payment, transition);
-            logger.info("Payment updated with ID: {}", id);
+            EntityWithMetadata<Payment> response = paymentInteractor.updatePaymentById(id, payment, transition);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating payment", e);
@@ -123,11 +195,20 @@ public class PaymentController {
      * Delete payment by technical UUID
      * DELETE /ui/payment/{id}
      */
+    @Operation(
+        summary = "Delete payment",
+        description = "Deletes a payment entity by its technical UUID"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Payment deleted successfully"),
+        @ApiResponse(responseCode = "400", description = "Delete operation failed")
+    })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePayment(@PathVariable UUID id) {
+    public ResponseEntity<Void> deletePayment(
+        @Parameter(description = "Technical UUID of the payment", required = true)
+        @PathVariable UUID id) {
         try {
-            entityService.deleteById(id);
-            logger.info("Payment deleted with ID: {}", id);
+            paymentInteractor.deletePayment(id);
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
             logger.error("Error deleting payment", e);
@@ -139,11 +220,18 @@ public class PaymentController {
      * Get all payments
      * GET /ui/payment
      */
+    @Operation(
+        summary = "Get all payments",
+        description = "Retrieves all payment entities. Use sparingly as this can be slow for large datasets."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Payments retrieved successfully"),
+        @ApiResponse(responseCode = "400", description = "Retrieval failed")
+    })
     @GetMapping
     public ResponseEntity<List<EntityWithMetadata<Payment>>> getAllPayments() {
         try {
-            ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
-            List<EntityWithMetadata<Payment>> payments = entityService.findAll(modelSpec, Payment.class);
+            List<EntityWithMetadata<Payment>> payments = paymentInteractor.getAllPayments();
             return ResponseEntity.ok(payments);
         } catch (Exception e) {
             logger.error("Error getting all payments", e);
@@ -155,21 +243,20 @@ public class PaymentController {
      * Search payments by loan
      * GET /ui/payment/search/loan/{loanId}
      */
+    @Operation(
+        summary = "Search payments by loan",
+        description = "Retrieves all payments associated with a specific loan ID"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Payments retrieved successfully"),
+        @ApiResponse(responseCode = "400", description = "Search failed")
+    })
     @GetMapping("/search/loan/{loanId}")
-    public ResponseEntity<List<EntityWithMetadata<Payment>>> getPaymentsByLoan(@PathVariable String loanId) {
+    public ResponseEntity<List<EntityWithMetadata<Payment>>> getPaymentsByLoan(
+        @Parameter(description = "Loan ID to search for", required = true)
+        @PathVariable String loanId) {
         try {
-            ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
-
-            SimpleCondition condition = new SimpleCondition()
-                    .withJsonPath("$.loanId")
-                    .withOperation(Operation.EQUALS)
-                    .withValue(objectMapper.valueToTree(loanId));
-
-            GroupCondition groupCondition = new GroupCondition()
-                    .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(List.of(condition));
-
-            List<EntityWithMetadata<Payment>> payments = entityService.search(modelSpec, groupCondition, Payment.class);
+            List<EntityWithMetadata<Payment>> payments = paymentInteractor.getPaymentsByLoan(loanId);
             return ResponseEntity.ok(payments);
         } catch (Exception e) {
             logger.error("Error searching payments by loan: {}", loanId, e);
@@ -181,54 +268,27 @@ public class PaymentController {
      * Advanced payment search
      * POST /ui/payment/search/advanced
      */
+    @Operation(
+        summary = "Advanced payment search",
+        description = "Performs advanced search on payments with multiple filter criteria including loan ID, amount range, and value date range"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Search completed successfully"),
+        @ApiResponse(responseCode = "400", description = "Search failed")
+    })
     @PostMapping("/search/advanced")
     public ResponseEntity<List<EntityWithMetadata<Payment>>> advancedSearch(
+            @Parameter(description = "Search criteria for payments", required = true)
             @RequestBody PaymentSearchRequest searchRequest) {
         try {
-            ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
+            PaymentInteractor.PaymentSearchCriteria criteria = new PaymentInteractor.PaymentSearchCriteria();
+            criteria.setLoanId(searchRequest.getLoanId());
+            criteria.setMinAmount(searchRequest.getMinAmount());
+            criteria.setMaxAmount(searchRequest.getMaxAmount());
+            criteria.setValueDateFrom(searchRequest.getValueDateFrom());
+            criteria.setValueDateTo(searchRequest.getValueDateTo());
 
-            List<SimpleCondition> conditions = new ArrayList<>();
-
-            if (searchRequest.getLoanId() != null && !searchRequest.getLoanId().trim().isEmpty()) {
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$.loanId")
-                        .withOperation(Operation.EQUALS)
-                        .withValue(objectMapper.valueToTree(searchRequest.getLoanId())));
-            }
-
-            if (searchRequest.getMinAmount() != null) {
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$.amount")
-                        .withOperation(Operation.GREATER_OR_EQUAL)
-                        .withValue(objectMapper.valueToTree(searchRequest.getMinAmount())));
-            }
-
-            if (searchRequest.getMaxAmount() != null) {
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$.amount")
-                        .withOperation(Operation.LESS_OR_EQUAL)
-                        .withValue(objectMapper.valueToTree(searchRequest.getMaxAmount())));
-            }
-
-            if (searchRequest.getValueDateFrom() != null) {
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$.valueDate")
-                        .withOperation(Operation.GREATER_OR_EQUAL)
-                        .withValue(objectMapper.valueToTree(searchRequest.getValueDateFrom())));
-            }
-
-            if (searchRequest.getValueDateTo() != null) {
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$.valueDate")
-                        .withOperation(Operation.LESS_OR_EQUAL)
-                        .withValue(objectMapper.valueToTree(searchRequest.getValueDateTo())));
-            }
-
-            GroupCondition groupCondition = new GroupCondition()
-                    .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(new ArrayList<>(conditions));
-
-            List<EntityWithMetadata<Payment>> payments = entityService.search(modelSpec, groupCondition, Payment.class);
+            List<EntityWithMetadata<Payment>> payments = paymentInteractor.advancedSearch(criteria);
             return ResponseEntity.ok(payments);
         } catch (Exception e) {
             logger.error("Error performing advanced payment search", e);
@@ -241,11 +301,21 @@ public class PaymentController {
      */
     @Getter
     @Setter
+    @Schema(description = "Search criteria for advanced payment search")
     public static class PaymentSearchRequest {
+        @Schema(description = "Loan ID to filter by", example = "LOAN-001")
         private String loanId;
+
+        @Schema(description = "Minimum payment amount", example = "100.00")
         private BigDecimal minAmount;
+
+        @Schema(description = "Maximum payment amount", example = "10000.00")
         private BigDecimal maxAmount;
+
+        @Schema(description = "Value date from (inclusive)", example = "2024-01-01")
         private LocalDate valueDateFrom;
+
+        @Schema(description = "Value date to (inclusive)", example = "2024-12-31")
         private LocalDate valueDateTo;
     }
 }

@@ -3,6 +3,8 @@ package com.java_template.application.entity.gl_batch.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.NonNull;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.math.BigDecimal;
@@ -15,11 +17,13 @@ import java.util.List;
  * entries for export to the General Ledger system with maker/checker controls.
  */
 @Data
+@NoArgsConstructor
 public class GLBatch implements CyodaEntity {
     public static final String ENTITY_NAME = GLBatch.class.getSimpleName();
     public static final Integer ENTITY_VERSION = 1;
 
     // Required business identifier
+    @NonNull
     private String glBatchId;
     
     // Period information

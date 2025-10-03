@@ -481,3 +481,9 @@ Timers are valid initiators of transitions/processors in Cyoda’s event‑drive
 * Business‑day calendar, time zone, and EOD/EOM cutover times.
 * Maker/checker **roles** mapped via your SSO.
 
+---
+
+# 4. Implementation Design
+
+For detailed REST API design patterns and implementation guidelines, see [API_DESIGN.md](API_DESIGN.md).
+
