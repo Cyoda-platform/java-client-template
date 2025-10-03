@@ -12,6 +12,8 @@ import org.cyoda.cloud.api.event.common.condition.Operation;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -58,10 +60,34 @@ public class ExampleEntityController {
     /**
      * Create a new entity
      * POST /ui/example
+     * <p>
+     * IMPORTANT: This endpoint checks for duplicate business identifiers before creating.
+     * Since Cyoda does not enforce uniqueness of business identifiers, this must be
+     * done at the application level. Returns 409 Conflict if entity already exists.
      */
     @PostMapping
-    public ResponseEntity<EntityWithMetadata<ExampleEntity>> createEntity(@RequestBody ExampleEntity entity) {
+    public ResponseEntity<?> createEntity(@RequestBody ExampleEntity entity) {
         try {
+            // Check for duplicate business identifier
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            EntityWithMetadata<ExampleEntity> existing = entityService.findByBusinessIdOrNull(
+                    modelSpec, entity.getExampleId(), "exampleId", ExampleEntity.class);
+
+            if (existing != null) {
+                logger.warn("ExampleEntity with business ID {} already exists", entity.getExampleId());
+                ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.CONFLICT,
+                    String.format(
+                        "Entity already exists for model '%s' version '%s' with business identifier '%s'. Is has technical ID: %s",
+                        ExampleEntity.ENTITY_NAME,
+                        ExampleEntity.ENTITY_VERSION,
+                        entity.getExampleId(),
+                        existing.getId()
+                    )
+                );
+                return ResponseEntity.of(problemDetail).build();
+            }
+
             // Set creation timestamp
             entity.setCreatedAt(LocalDateTime.now());
             entity.setUpdatedAt(LocalDateTime.now());
