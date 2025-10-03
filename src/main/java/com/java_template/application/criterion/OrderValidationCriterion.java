@@ -177,11 +177,12 @@ public class OrderValidationCriterion implements CyodaCriterion {
         return EvaluationOutcome.success();
     }
 
-    private boolean validateCustomerInformation(Order order) {
+    private EvaluationOutcome validateCustomerInformation(Order order) {
         // Check if customer exists
         if (order.getCustomer() == null) {
             logger.debug("Customer information is missing");
-            return false;
+            return EvaluationOutcome.fail("Customer information is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         Order.Customer customer = order.getCustomer();
@@ -189,19 +190,22 @@ public class OrderValidationCriterion implements CyodaCriterion {
         // Check customer ID
         if (customer.getCustomerId() == null || customer.getCustomerId().trim().isEmpty()) {
             logger.debug("Customer ID is missing");
-            return false;
+            return EvaluationOutcome.fail("Customer ID is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Check customer name
         if (customer.getName() == null || customer.getName().trim().isEmpty()) {
             logger.debug("Customer name is missing");
-            return false;
+            return EvaluationOutcome.fail("Customer name is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Check addresses
         if (customer.getAddresses() == null || customer.getAddresses().isEmpty()) {
             logger.debug("Customer addresses are missing");
-            return false;
+            return EvaluationOutcome.fail("Customer must have at least one address",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate at least one address
@@ -210,10 +214,11 @@ public class OrderValidationCriterion implements CyodaCriterion {
 
         if (!hasValidAddress) {
             logger.debug("No valid customer address found");
-            return false;
+            return EvaluationOutcome.fail("Customer must have at least one valid address",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
-        return true;
+        return EvaluationOutcome.success();
     }
 
     private boolean validateAddress(Order.Address address) {
@@ -223,11 +228,12 @@ public class OrderValidationCriterion implements CyodaCriterion {
                address.getCountry() != null && !address.getCountry().trim().isEmpty();
     }
 
-    private boolean validateOrderTotals(Order order) {
+    private EvaluationOutcome validateOrderTotals(Order order) {
         // Check if total amount is set
         if (order.getTotalAmount() == null || order.getTotalAmount() < 0) {
             logger.debug("Invalid total amount: {}", order.getTotalAmount());
-            return false;
+            return EvaluationOutcome.fail("Order total amount must be non-negative",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Calculate expected total from line items
@@ -239,10 +245,12 @@ public class OrderValidationCriterion implements CyodaCriterion {
         double difference = Math.abs(order.getTotalAmount() - calculatedTotal);
         if (difference > 0.01) {
             logger.debug("Order total mismatch - Expected: {}, Actual: {}", calculatedTotal, order.getTotalAmount());
-            return false;
+            return EvaluationOutcome.fail(String.format("Order total mismatch - Expected: %.2f, Actual: %.2f",
+                                                       calculatedTotal, order.getTotalAmount()),
+                                        StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
 
-        return true;
+        return EvaluationOutcome.success();
     }
 
     private double calculateLineItemTotal(Order.LineItem lineItem) {

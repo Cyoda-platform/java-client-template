@@ -2,12 +2,15 @@ package com.java_template.application.criterion;
 
 import com.java_template.application.entity.order.version_1.Order;
 import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
-import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationRequest;
-import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationResponse;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -24,18 +27,17 @@ public class PaymentConfirmationCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public PaymentConfirmationCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.info("Checking {} for request: {}", className, request.getId());
 
         return serializer.withRequest(request)
-                .toEntity(Order.class)
-                .validate(this::isValidOrder, "Invalid order")
-                .map(this::checkPaymentConfirmation)
+                .evaluateEntity(Order.class, this::validatePayment)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
                 .complete();
     }
 
@@ -44,12 +46,8 @@ public class PaymentConfirmationCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidOrder(Order order) {
-        return order != null && order.getOrderId() != null;
-    }
-
-    private boolean checkPaymentConfirmation(CriterionSerializer.CriterionEntityResponseExecutionContext<Order> context) {
-        Order order = context.entity();
+    private EvaluationOutcome validatePayment(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
+        Order order = context.entityWithMetadata().entity();
         
         logger.debug("Checking payment confirmation for order: {}", order.getOrderId());
 
