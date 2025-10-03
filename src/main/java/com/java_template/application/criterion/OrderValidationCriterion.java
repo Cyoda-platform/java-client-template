@@ -2,12 +2,15 @@ package com.java_template.application.criterion;
 
 import com.java_template.application.entity.order.version_1.Order;
 import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
-import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationRequest;
-import org.cyoda.cloud.api.event.processing.EntityCriterionCalculationResponse;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -24,18 +27,17 @@ public class OrderValidationCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public OrderValidationCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.info("Checking {} for request: {}", className, request.getId());
 
         return serializer.withRequest(request)
-                .toEntity(Order.class)
-                .validate(this::isValidOrder, "Invalid order")
-                .map(this::checkOrderValidation)
+                .evaluateEntity(Order.class, this::validateOrder)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
                 .complete();
     }
 
@@ -44,125 +46,135 @@ public class OrderValidationCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidOrder(Order order) {
-        return order != null && order.getOrderId() != null;
-    }
+    private EvaluationOutcome validateOrder(CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
+        Order order = context.entityWithMetadata().entity();
 
-    private boolean checkOrderValidation(CriterionSerializer.CriterionEntityResponseExecutionContext<Order> context) {
-        Order order = context.entity();
-        
+        if (order == null) {
+            logger.warn("Order is null");
+            return EvaluationOutcome.fail("Order is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
+        }
+
         logger.debug("Validating order: {}", order.getOrderId());
 
         try {
             // Check mandatory fields
-            if (!validateMandatoryFields(order)) {
-                logger.warn("Order validation failed - missing mandatory fields: {}", order.getOrderId());
-                return false;
+            EvaluationOutcome mandatoryFieldsResult = validateMandatoryFields(order);
+            if (!mandatoryFieldsResult.isSuccess()) {
+                return mandatoryFieldsResult;
             }
 
             // Check line items
-            if (!validateLineItems(order)) {
-                logger.warn("Order validation failed - invalid line items: {}", order.getOrderId());
-                return false;
+            EvaluationOutcome lineItemsResult = validateLineItems(order);
+            if (!lineItemsResult.isSuccess()) {
+                return lineItemsResult;
             }
 
             // Check customer information
-            if (!validateCustomerInformation(order)) {
-                logger.warn("Order validation failed - invalid customer information: {}", order.getOrderId());
-                return false;
+            EvaluationOutcome customerResult = validateCustomerInformation(order);
+            if (!customerResult.isSuccess()) {
+                return customerResult;
             }
 
             // Check order totals
-            if (!validateOrderTotals(order)) {
-                logger.warn("Order validation failed - invalid order totals: {}", order.getOrderId());
-                return false;
+            EvaluationOutcome totalsResult = validateOrderTotals(order);
+            if (!totalsResult.isSuccess()) {
+                return totalsResult;
             }
 
             logger.info("Order validation passed: {}", order.getOrderId());
-            return true;
+            return EvaluationOutcome.success();
 
         } catch (Exception e) {
             logger.error("Error during order validation for order: {}", order.getOrderId(), e);
-            return false;
+            return EvaluationOutcome.fail("Validation error: " + e.getMessage(),
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
     }
 
-    private boolean validateMandatoryFields(Order order) {
+    private EvaluationOutcome validateMandatoryFields(Order order) {
         // Check order ID
         if (order.getOrderId() == null || order.getOrderId().trim().isEmpty()) {
             logger.debug("Order ID is missing");
-            return false;
+            return EvaluationOutcome.fail("Order ID is required", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Check channel
         if (order.getChannel() == null || order.getChannel().trim().isEmpty()) {
             logger.debug("Channel is missing");
-            return false;
+            return EvaluationOutcome.fail("Channel is required", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Validate channel values
         if (!isValidChannel(order.getChannel())) {
             logger.debug("Invalid channel: {}", order.getChannel());
-            return false;
+            return EvaluationOutcome.fail("Invalid channel: " + order.getChannel(),
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check external reference for marketplace orders
-        if ("marketplace".equals(order.getChannel()) && 
+        if ("marketplace".equals(order.getChannel()) &&
             (order.getExternalRef() == null || order.getExternalRef().trim().isEmpty())) {
             logger.debug("External reference is required for marketplace orders");
-            return false;
+            return EvaluationOutcome.fail("External reference is required for marketplace orders",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
-        return true;
+        return EvaluationOutcome.success();
     }
 
     private boolean isValidChannel(String channel) {
         return "web".equals(channel) || "store".equals(channel) || "marketplace".equals(channel);
     }
 
-    private boolean validateLineItems(Order order) {
+    private EvaluationOutcome validateLineItems(Order order) {
         // Check if line items exist
         if (order.getLineItems() == null || order.getLineItems().isEmpty()) {
             logger.debug("No line items found");
-            return false;
+            return EvaluationOutcome.fail("Order must have at least one line item",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate each line item
         for (Order.LineItem lineItem : order.getLineItems()) {
-            if (!validateLineItem(lineItem)) {
-                return false;
+            EvaluationOutcome lineItemResult = validateLineItem(lineItem);
+            if (!lineItemResult.isSuccess()) {
+                return lineItemResult;
             }
         }
 
-        return true;
+        return EvaluationOutcome.success();
     }
 
-    private boolean validateLineItem(Order.LineItem lineItem) {
+    private EvaluationOutcome validateLineItem(Order.LineItem lineItem) {
         // Check product ID
         if (lineItem.getProductId() == null || lineItem.getProductId().trim().isEmpty()) {
             logger.debug("Line item missing product ID");
-            return false;
+            return EvaluationOutcome.fail("Line item missing product ID",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Check quantity
         if (lineItem.getQuantity() == null || lineItem.getQuantity() <= 0) {
             logger.debug("Line item has invalid quantity: {}", lineItem.getQuantity());
-            return false;
+            return EvaluationOutcome.fail("Line item quantity must be positive",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check unit price
         if (lineItem.getUnitPrice() == null || lineItem.getUnitPrice() < 0) {
             logger.debug("Line item has invalid unit price: {}", lineItem.getUnitPrice());
-            return false;
+            return EvaluationOutcome.fail("Line item unit price cannot be negative",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check description
         if (lineItem.getDescription() == null || lineItem.getDescription().trim().isEmpty()) {
             logger.debug("Line item missing description");
-            return false;
+            return EvaluationOutcome.fail("Line item description is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        return true;
+        return EvaluationOutcome.success();
     }
 
     private boolean validateCustomerInformation(Order order) {
