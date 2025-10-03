@@ -80,7 +80,8 @@ public class CancelOrderProcessor implements CyodaProcessor {
         return true;
     }
 
-    private EntityWithMetadata<Order> processCancelOrder(EntityWithMetadata<Order> entityWithMetadata) {
+    private EntityWithMetadata<Order> processCancelOrder(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Order> context) {
+        EntityWithMetadata<Order> entityWithMetadata = context.entityResponse();
         Order order = entityWithMetadata.entity();
         String currentState = entityWithMetadata.metadata().getState();
         logger.info("Processing cancellation for order with orderId: {}, currentState: {}", order.getOrderId(), currentState);
@@ -182,7 +183,7 @@ public class CancelOrderProcessor implements CyodaProcessor {
                             inventoryItem.getAuditLog().add(auditEntry);
 
                             // Update inventory item
-                            entityService.save(inventoryItem, "adjust_stock");
+                            entityService.update(inventoryItemWithMetadata.metadata().getId(), inventoryItem, "adjust_stock");
                             
                             logger.info("Released {} units of productId: {} for cancelled order: {}", 
                                        lineItem.getQuantity(), lineItem.getProductId(), order.getOrderId());

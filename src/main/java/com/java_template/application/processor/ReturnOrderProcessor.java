@@ -86,7 +86,8 @@ public class ReturnOrderProcessor implements CyodaProcessor {
         return true;
     }
 
-    private EntityWithMetadata<Order> processReturnOrder(EntityWithMetadata<Order> entityWithMetadata) {
+    private EntityWithMetadata<Order> processReturnOrder(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Order> context) {
+        EntityWithMetadata<Order> entityWithMetadata = context.entityResponse();
         Order order = entityWithMetadata.entity();
         String currentState = entityWithMetadata.metadata().getState();
         logger.info("Processing return for order with orderId: {}, currentState: {}", order.getOrderId(), currentState);
@@ -183,7 +184,7 @@ public class ReturnOrderProcessor implements CyodaProcessor {
                     inventoryItem.getAuditLog().add(auditEntry);
 
                     // Update inventory item
-                    entityService.save(inventoryItem, "adjust_stock");
+                    entityService.update(inventoryItemWithMetadata.metadata().getId(), inventoryItem, "adjust_stock");
                     
                     logger.info("Restocked {} units of productId: {} for returned order: {}", 
                                lineItem.getQuantity(), lineItem.getProductId(), order.getOrderId());
