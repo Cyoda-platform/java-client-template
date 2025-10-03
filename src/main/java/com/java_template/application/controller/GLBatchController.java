@@ -3,6 +3,7 @@ package com.java_template.application.controller;
 import com.java_template.application.entity.gl_batch.version_1.GLBatch;
 import com.java_template.application.interactor.GLBatchInteractor;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.util.CyodaExceptionUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -49,7 +50,10 @@ public class GLBatchController {
             return ResponseEntity.status(409).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating GL batch", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -68,7 +72,7 @@ public class GLBatchController {
 
     @Operation(summary = "Get GL batch by business ID")
     @GetMapping("/business/{glBatchId}")
-    public ResponseEntity<EntityWithMetadata<GLBatch>> getGLBatchByBusinessId(
+    public ResponseEntity<?> getGLBatchByBusinessId(
         @Parameter(description = "Business identifier", required = true) @PathVariable String glBatchId) {
         try {
             EntityWithMetadata<GLBatch> response = glBatchInteractor.getGLBatchByBusinessId(glBatchId);
@@ -77,7 +81,10 @@ public class GLBatchController {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error getting GL batch by business ID: {}", glBatchId, e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -98,7 +105,7 @@ public class GLBatchController {
 
     @Operation(summary = "Update GL batch by technical ID")
     @PutMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<GLBatch>> updateGLBatch(
+    public ResponseEntity<?> updateGLBatch(
             @Parameter(description = "Technical UUID", required = true) @PathVariable UUID id,
             @Parameter(description = "Updated GL batch", required = true) @RequestBody GLBatch glBatch,
             @Parameter(description = "Optional workflow transition") @RequestParam(required = false) String transition) {
@@ -107,19 +114,25 @@ public class GLBatchController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating GL batch", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     @Operation(summary = "Get all GL batches", description = "Retrieves all general ledger batch entities")
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<GLBatch>>> getAllGLBatches() {
+    public ResponseEntity<?> getAllGLBatches() {
         try {
             List<EntityWithMetadata<GLBatch>> batches = glBatchInteractor.getAllGLBatches();
             return ResponseEntity.ok(batches);
         } catch (Exception e) {
             logger.error("Error getting all GL batches", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 }

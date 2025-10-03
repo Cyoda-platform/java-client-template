@@ -1,6 +1,5 @@
 package com.java_template.application.interactor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.accrual.version_1.Accrual;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
@@ -22,23 +21,21 @@ public class AccrualInteractor {
 
     private static final Logger logger = LoggerFactory.getLogger(AccrualInteractor.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public AccrualInteractor(EntityService entityService, ObjectMapper objectMapper) {
+    public AccrualInteractor(EntityService entityService) {
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     public EntityWithMetadata<Accrual> createAccrual(Accrual accrual) {
-        // Validate business key is mandatory
-        if (accrual.getAccrualId() == null || accrual.getAccrualId().trim().isEmpty()) {
-            logger.error("Accrual creation failed: accrualId is mandatory");
-            throw new IllegalArgumentException("accrualId is mandatory and cannot be null or empty");
+        // Validate business key is not empty
+        if (accrual.getAccrualId().trim().isEmpty()) {
+            logger.error("Accrual creation failed: accrualId cannot be empty");
+            throw new IllegalArgumentException("accrualId cannot be empty");
         }
 
         // Check for duplicate business key
         ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
-        EntityWithMetadata<Accrual> existing = entityService.findByBusinessId(
+        EntityWithMetadata<Accrual> existing = entityService.findByBusinessIdOrNull(
                 modelSpec, accrual.getAccrualId(), "accrualId", Accrual.class);
 
         if (existing != null) {

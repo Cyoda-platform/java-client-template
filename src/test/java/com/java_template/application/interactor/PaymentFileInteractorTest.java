@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,7 +24,7 @@ class PaymentFileInteractorTest extends BaseInteractorTest<PaymentFile> {
 
     @BeforeEach
     void setUp() {
-        paymentFileInteractor = new PaymentFileInteractor(entityService, objectMapper);
+        paymentFileInteractor = new PaymentFileInteractor(entityService);
     }
 
     @Override
@@ -79,8 +78,8 @@ class PaymentFileInteractorTest extends BaseInteractorTest<PaymentFile> {
         void shouldCreatePaymentFileSuccessfully() {
             PaymentFile paymentFile = createValidEntity("FILE-001");
             EntityWithMetadata<PaymentFile> expected = createEntityWithMetadata(paymentFile, testEntityId);
-            
-            mockFindByBusinessIdNotFound("FILE-001");
+
+            mockFindByBusinessIdOrNullNotFound("FILE-001");
             mockCreate(paymentFile, expected);
 
             EntityWithMetadata<PaymentFile> result = paymentFileInteractor.createPaymentFile(paymentFile);
@@ -90,7 +89,7 @@ class PaymentFileInteractorTest extends BaseInteractorTest<PaymentFile> {
             assertNotNull(paymentFile.getReceivedAt());
             assertNotNull(paymentFile.getCreatedAt());
             assertNotNull(paymentFile.getUpdatedAt());
-            assertEntityServiceFindByBusinessIdCalled("FILE-001", 1);
+            assertEntityServiceFindByBusinessIdOrNullCalled("FILE-001", 1);
             assertEntityServiceCreateCalled(1);
         }
 
@@ -128,7 +127,7 @@ class PaymentFileInteractorTest extends BaseInteractorTest<PaymentFile> {
                     () -> paymentFileInteractor.createPaymentFile(paymentFile)
             );
 
-            assertEquals("paymentFileId is mandatory and cannot be null or empty", exception.getMessage());
+            assertEquals("paymentFileId cannot be empty", exception.getMessage());
             assertEntityServiceCreateCalled(0);
         }
     }
@@ -142,7 +141,7 @@ class PaymentFileInteractorTest extends BaseInteractorTest<PaymentFile> {
         void shouldGetPaymentFileByIdSuccessfully() {
             PaymentFile paymentFile = createValidEntity("FILE-001");
             EntityWithMetadata<PaymentFile> expected = createEntityWithMetadata(paymentFile, testEntityId);
-            
+
             mockGetById(testEntityId, expected);
 
             EntityWithMetadata<PaymentFile> result = paymentFileInteractor.getPaymentFileById(testEntityId);
@@ -221,7 +220,7 @@ class PaymentFileInteractorTest extends BaseInteractorTest<PaymentFile> {
                     createEntityWithMetadata(paymentFile1, testEntityId),
                     createEntityWithMetadata(paymentFile2, testEntityId2)
             );
-            
+
             mockFindAll(expected);
 
             List<EntityWithMetadata<PaymentFile>> result = paymentFileInteractor.getAllPaymentFiles();

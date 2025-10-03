@@ -25,7 +25,7 @@ class GLBatchInteractorTest extends BaseInteractorTest<GLBatch> {
 
     @BeforeEach
     void setUp() {
-        glBatchInteractor = new GLBatchInteractor(entityService, objectMapper);
+        glBatchInteractor = new GLBatchInteractor(entityService);
     }
 
     @Override
@@ -80,8 +80,8 @@ class GLBatchInteractorTest extends BaseInteractorTest<GLBatch> {
         void shouldCreateGLBatchSuccessfully() {
             GLBatch glBatch = createValidEntity("BATCH-001");
             EntityWithMetadata<GLBatch> expected = createEntityWithMetadata(glBatch, testEntityId);
-            
-            mockFindByBusinessIdNotFound("BATCH-001");
+
+            mockFindByBusinessIdOrNullNotFound("BATCH-001");
             mockCreate(glBatch, expected);
 
             EntityWithMetadata<GLBatch> result = glBatchInteractor.createGLBatch(glBatch);
@@ -90,7 +90,7 @@ class GLBatchInteractorTest extends BaseInteractorTest<GLBatch> {
             assertMetadata(result, testEntityId);
             assertNotNull(glBatch.getCreatedAt());
             assertNotNull(glBatch.getUpdatedAt());
-            assertEntityServiceFindByBusinessIdCalled("BATCH-001", 1);
+            assertEntityServiceFindByBusinessIdOrNullCalled("BATCH-001", 1);
             assertEntityServiceCreateCalled(1);
         }
 
@@ -128,7 +128,7 @@ class GLBatchInteractorTest extends BaseInteractorTest<GLBatch> {
                     () -> glBatchInteractor.createGLBatch(glBatch)
             );
 
-            assertEquals("glBatchId is mandatory and cannot be null or empty", exception.getMessage());
+            assertEquals("glBatchId cannot be empty", exception.getMessage());
             assertEntityServiceCreateCalled(0);
         }
     }

@@ -44,11 +44,48 @@ Each entity controller implements the following endpoints:
 **Behavior:**
 1. Validate business key is non-null and non-empty (mandatory requirement)
 2. If business key is null or empty, return `400 Bad Request` with error message
-3. Query for existing entity using `entityService.findByBusinessId()`
+3. Query for existing entity using `entityService.findByBusinessIdOrNull()` with exception handling
 4. If duplicate found, return `409 Conflict` with descriptive message
 5. If no duplicate, set timestamps (`createdAt`, `updatedAt`)
 6. Call `entityService.create()` to persist entity
 7. Return `201 Created` with `EntityWithMetadata<T>` response
+
+**CRITICAL - Business ID Duplicate Checking:**
+
+When checking for existing entities by business ID, you MUST handle exceptions gracefully. Use `findByBusinessIdOrNull()` which catches exceptions and returns null.
+
+**Why This Matters:**
+- During environment bootstrapping, entity models may be empty (no data exists yet)
+- When the model is empty, it doesn't contain the business ID field being searched for
+- This causes an exception from the Cyoda backend
+- The exception simply means "entity doesn't exist" (because there's no data for that model yet)
+- Treating the exception as "entity not found" allows proper bootstrapping
+
+**Correct Pattern:**
+```java
+// Use findByBusinessIdOrNull which handles exceptions
+EntityWithMetadata<Loan> existing = entityService.findByBusinessIdOrNull(
+    modelSpec, loan.getLoanId(), "loanId", Loan.class);
+
+if (existing != null) {
+    throw new DuplicateEntityException("Loan with loanId '" + loan.getLoanId() + "' already exists");
+}
+// Continue with creation...
+```
+
+**Incorrect Pattern (DO NOT USE):**
+```java
+// DON'T use findByBusinessId without exception handling
+// This will fail during bootstrapping when model is empty
+try {
+    EntityWithMetadata<Loan> existing = entityService.findByBusinessId(
+        modelSpec, loan.getLoanId(), "loanId", Loan.class);
+    // This throws exception when model is empty, breaking bootstrapping
+} catch (Exception e) {
+    // Wrong: treating all exceptions as errors
+    throw e;
+}
+```
 
 **Response Codes:**
 - `201 Created` - Entity successfully created
@@ -118,6 +155,45 @@ Each entity controller implements the following endpoints:
 | PUT (by business key) | 200 OK | N/A | 404 Not Found | 404 Not Found |
 | DELETE | 204 No Content | N/A | N/A | 400 Bad Request |
 
+### 4.1. Error Response Format
+
+**CRITICAL:** All 400 Bad Request responses MUST include clean error messages from the Cyoda backend without stacktraces.
+
+**Implementation Pattern:**
+```java
+} catch (Exception e) {
+    logger.error("Error description", e);
+    String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+    return ResponseEntity.badRequest().body(errorMessage);
+}
+```
+
+**Why This Matters:**
+- Cyoda backend exceptions are nested (`CompletionException` → `StatusRuntimeException`)
+- Raw exceptions expose internal stacktraces and implementation details
+- `CyodaExceptionUtil.extractErrorMessage()` extracts only the meaningful error message
+- Full exceptions are still logged for debugging
+- Clients receive actionable error messages (e.g., "Invalid day count basis. Must be ACT/365F, ACT/360, or ACT/365L. Got: 30/360")
+
+**Return Type Requirement:**
+- Methods that can return error messages must use `ResponseEntity<?>` as return type
+- This allows returning either the entity type on success or String on error
+
+**Example:**
+```java
+@GetMapping("/{id}")
+public ResponseEntity<?> getLoanById(@PathVariable UUID id) {
+    try {
+        EntityWithMetadata<Loan> response = loanInteractor.getLoanById(id);
+        return ResponseEntity.ok(response);
+    } catch (Exception e) {
+        logger.error("Error getting loan by ID: {}", id, e);
+        String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+        return ResponseEntity.badRequest().body(errorMessage);
+    }
+}
+```
+
 ## 5. Workflow Integration
 
 All update endpoints support optional workflow transitions via query parameter:
@@ -161,6 +237,9 @@ PUT /api/v1/loan/business/LOAN-001?transition=fund_loan
 - **Enforce mandatory business keys** - All entities must have a non-null, non-empty business key annotated with Lombok's `@NonNull`
 - Lombok's `@NonNull` generates null-checks in setters and constructors automatically
 - Validate business keys in interactors before duplicate checking and throw `IllegalArgumentException` if null or empty
+- **Use `findByBusinessIdOrNull()` for duplicate checking** - This handles bootstrapping scenarios where the model is empty
+- **Extract clean error messages** - Always use `CyodaExceptionUtil.extractErrorMessage()` for 400 responses
+- **Use `ResponseEntity<?>` return type** - For methods that can return either entity or error message
 - Log all create, update, and delete operations with relevant identifiers
 - Use descriptive error messages that include the business key value
 - Leverage `EntityWithMetadata<T>` wrapper for all responses
@@ -174,7 +253,7 @@ When implementing a new entity controller, ensure:
 - [ ] Controller class annotated with `@RestController`, `@RequestMapping`, `@CrossOrigin`
 - [ ] Constructor injection of `EntityService` and `ObjectMapper`
 - [ ] Logger instance configured
-- [ ] POST endpoint with duplicate checking implemented
+- [ ] POST endpoint with duplicate checking implemented using `findByBusinessIdOrNull()`
 - [ ] GET all endpoint implemented
 - [ ] GET by UUID endpoint implemented
 - [ ] GET by business key endpoint implemented
@@ -182,7 +261,8 @@ When implementing a new entity controller, ensure:
 - [ ] PUT by business key endpoint with transition support implemented
 - [ ] DELETE by UUID endpoint implemented
 - [ ] All endpoints use proper HTTP status codes
-- [ ] All endpoints have appropriate error handling
+- [ ] **All catch blocks use `CyodaExceptionUtil.extractErrorMessage()` for 400 responses**
+- [ ] **All methods that return errors use `ResponseEntity<?>` return type**
 - [ ] All create/update operations set timestamps
 - [ ] All operations logged with relevant identifiers
 - [ ] Business key field name matches entity class field

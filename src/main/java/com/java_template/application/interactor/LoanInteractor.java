@@ -34,15 +34,15 @@ public class LoanInteractor {
     }
 
     public EntityWithMetadata<Loan> createLoan(Loan loan) {
-        // Validate business key is mandatory
-        if (loan.getLoanId() == null || loan.getLoanId().trim().isEmpty()) {
-            logger.error("Loan creation failed: loanId is mandatory");
-            throw new IllegalArgumentException("loanId is mandatory and cannot be null or empty");
+        // Validate business key is not empty
+        if (loan.getLoanId().trim().isEmpty()) {
+            logger.error("Loan creation failed: loanId cannot be empty");
+            throw new IllegalArgumentException("loanId cannot be empty");
         }
 
         // Check for duplicate business key
         ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
-        EntityWithMetadata<Loan> existing = entityService.findByBusinessId(
+        EntityWithMetadata<Loan> existing = entityService.findByBusinessIdOrNull(
                 modelSpec, loan.getLoanId(), "loanId", Loan.class);
 
         if (existing != null) {

@@ -35,15 +35,15 @@ public class PaymentInteractor {
     }
 
     public EntityWithMetadata<Payment> createPayment(Payment payment) {
-        // Validate business key is mandatory
-        if (payment.getPaymentId() == null || payment.getPaymentId().trim().isEmpty()) {
-            logger.error("Payment creation failed: paymentId is mandatory");
-            throw new IllegalArgumentException("paymentId is mandatory and cannot be null or empty");
+        // Validate business key is not empty
+        if (payment.getPaymentId().trim().isEmpty()) {
+            logger.error("Payment creation failed: paymentId cannot be empty");
+            throw new IllegalArgumentException("paymentId cannot be empty");
         }
 
         // Check for duplicate business key
         ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
-        EntityWithMetadata<Payment> existing = entityService.findByBusinessId(
+        EntityWithMetadata<Payment> existing = entityService.findByBusinessIdOrNull(
                 modelSpec, payment.getPaymentId(), "paymentId", Payment.class);
 
         if (existing != null) {

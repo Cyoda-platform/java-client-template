@@ -11,7 +11,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -85,7 +84,7 @@ class PaymentInteractorTest extends BaseInteractorTest<Payment> {
             Payment payment = createValidEntity("PAY-001");
             EntityWithMetadata<Payment> expected = createEntityWithMetadata(payment, testEntityId);
 
-            mockFindByBusinessIdNotFound("PAY-001");
+            mockFindByBusinessIdOrNullNotFound("PAY-001");
             mockCreate(payment, expected);
 
             EntityWithMetadata<Payment> result = paymentInteractor.createPayment(payment);
@@ -96,7 +95,7 @@ class PaymentInteractorTest extends BaseInteractorTest<Payment> {
             assertNotNull(payment.getCreatedAt());
             assertNotNull(payment.getUpdatedAt());
             assertEquals("MANUAL", payment.getSourceType());
-            assertEntityServiceFindByBusinessIdCalled("PAY-001", 1);
+            assertEntityServiceFindByBusinessIdOrNullCalled("PAY-001", 1);
             assertEntityServiceCreateCalled(1);
         }
 
@@ -134,7 +133,7 @@ class PaymentInteractorTest extends BaseInteractorTest<Payment> {
                     () -> paymentInteractor.createPayment(payment)
             );
 
-            assertEquals("paymentId is mandatory and cannot be null or empty", exception.getMessage());
+            assertEquals("paymentId cannot be empty", exception.getMessage());
             assertEntityServiceCreateCalled(0);
         }
     }

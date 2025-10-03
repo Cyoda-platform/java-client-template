@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.repository.CrudRepository;
-
 import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -30,7 +29,6 @@ import java.util.*;
 @Service
 public class EntityServiceImpl implements EntityService {
 
-    private static final String UPDATE_TRANSITION = "UPDATE";
     private static final int DEFAULT_PAGE_SIZE = 100;
     private static final int FIRST_PAGE = 1;
 
@@ -79,6 +77,20 @@ public class EntityServiceImpl implements EntityService {
                 entityClass, modelSpec, condition, true);
 
         return result.orElse(null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessIdOrNull(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final String businessId,
+            @NotNull final String businessIdField,
+            @NotNull final Class<T> entityClass
+    ) {
+        try {
+            return findByBusinessId(modelSpec, businessId, businessIdField, entityClass);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override
@@ -282,8 +294,7 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final T entity,
             @Nullable final String transition
     ) {
-        String transitionToUse = transition != null ? transition : UPDATE_TRANSITION;
-        EntityTransactionResponse response = repository.update(entityId, objectMapper.valueToTree(entity), transitionToUse).join();
+        EntityTransactionResponse response = repository.update(entityId, objectMapper.valueToTree(entity), transition).join();
         return EntityWithMetadata.fromTransactionResponse(response, entity, objectMapper);
     }
 
@@ -292,10 +303,8 @@ public class EntityServiceImpl implements EntityService {
             return List.of();
         }
 
-        String transitionToUse = transition != null ? transition : UPDATE_TRANSITION;
-
         List<EntityTransactionResponse> responses = repository.updateAll(objectMapper.convertValue(entities, new TypeReference<>() {
-        }), transitionToUse).join();
+        }), transition).join();
         return EntityWithMetadata.fromTransactionResponseList(responses, entities, objectMapper);
     }
 

@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,7 +24,7 @@ class PartyInteractorTest extends BaseInteractorTest<Party> {
 
     @BeforeEach
     void setUp() {
-        partyInteractor = new PartyInteractor(entityService, objectMapper);
+        partyInteractor = new PartyInteractor(entityService);
     }
 
     @Override
@@ -78,8 +77,8 @@ class PartyInteractorTest extends BaseInteractorTest<Party> {
         void shouldCreatePartySuccessfully() {
             Party party = createValidEntity("PARTY-001");
             EntityWithMetadata<Party> expected = createEntityWithMetadata(party, testEntityId);
-            
-            mockFindByBusinessIdNotFound("PARTY-001");
+
+            mockFindByBusinessIdOrNullNotFound("PARTY-001");
             mockCreate(party, expected);
 
             EntityWithMetadata<Party> result = partyInteractor.createParty(party);
@@ -89,7 +88,7 @@ class PartyInteractorTest extends BaseInteractorTest<Party> {
             assertNotNull(party.getCreatedAt());
             assertNotNull(party.getUpdatedAt());
             assertEquals("ACTIVE", party.getStatus());
-            assertEntityServiceFindByBusinessIdCalled("PARTY-001", 1);
+            assertEntityServiceFindByBusinessIdOrNullCalled("PARTY-001", 1);
             assertEntityServiceCreateCalled(1);
         }
 
@@ -127,7 +126,7 @@ class PartyInteractorTest extends BaseInteractorTest<Party> {
                     () -> partyInteractor.createParty(party)
             );
 
-            assertEquals("partyId is mandatory and cannot be null or empty", exception.getMessage());
+            assertEquals("partyId cannot be empty", exception.getMessage());
             assertEntityServiceCreateCalled(0);
         }
     }
@@ -141,7 +140,7 @@ class PartyInteractorTest extends BaseInteractorTest<Party> {
         void shouldGetPartyByIdSuccessfully() {
             Party party = createValidEntity("PARTY-001");
             EntityWithMetadata<Party> expected = createEntityWithMetadata(party, testEntityId);
-            
+
             mockGetById(testEntityId, expected);
 
             EntityWithMetadata<Party> result = partyInteractor.getPartyById(testEntityId);
@@ -178,7 +177,7 @@ class PartyInteractorTest extends BaseInteractorTest<Party> {
             Party party = createValidEntity("PARTY-001");
             party.setName("Updated Party Name");
             EntityWithMetadata<Party> expected = createEntityWithMetadata(party, testEntityId);
-            
+
             mockUpdate(testEntityId, expected);
 
             EntityWithMetadata<Party> result = partyInteractor.updatePartyById(testEntityId, party, "UPDATE");
@@ -195,7 +194,7 @@ class PartyInteractorTest extends BaseInteractorTest<Party> {
             Party party = createValidEntity("PARTY-001");
             party.setName("Updated Party Name");
             EntityWithMetadata<Party> expected = createEntityWithMetadata(party, testEntityId);
-            
+
             mockUpdateByBusinessId(expected);
 
             EntityWithMetadata<Party> result = partyInteractor.updatePartyByBusinessId("PARTY-001", party, "UPDATE");
@@ -235,7 +234,7 @@ class PartyInteractorTest extends BaseInteractorTest<Party> {
                     createEntityWithMetadata(party1, testEntityId),
                     createEntityWithMetadata(party2, testEntityId2)
             );
-            
+
             mockFindAll(expected);
 
             List<EntityWithMetadata<Party>> result = partyInteractor.getAllParties();

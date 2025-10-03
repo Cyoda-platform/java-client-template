@@ -3,6 +3,7 @@ package com.java_template.application.controller;
 import com.java_template.application.entity.loan.version_1.Loan;
 import com.java_template.application.interactor.LoanInteractor;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.util.CyodaExceptionUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -41,7 +42,6 @@ public class LoanController {
 
     /**
      * Create a new loan
-     * POST /ui/loan
      */
     @Operation(
         summary = "Create a new loan",
@@ -66,13 +66,13 @@ public class LoanController {
             return ResponseEntity.status(409).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating loan", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Get loan by technical UUID
-     * GET /ui/loan/{id}
      */
     @Operation(
         summary = "Get loan by technical ID",
@@ -84,7 +84,7 @@ public class LoanController {
         @ApiResponse(responseCode = "404", description = "Loan not found")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Loan>> getLoanById(
+    public ResponseEntity<?> getLoanById(
         @Parameter(description = "Technical UUID of the loan", required = true)
         @PathVariable UUID id) {
         try {
@@ -92,13 +92,13 @@ public class LoanController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error getting loan by ID: {}", id, e);
-            return ResponseEntity.notFound().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Get loan by business identifier
-     * GET /ui/loan/business/{loanId}
      */
     @Operation(
         summary = "Get loan by business ID",
@@ -111,7 +111,7 @@ public class LoanController {
         @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     @GetMapping("/business/{loanId}")
-    public ResponseEntity<EntityWithMetadata<Loan>> getLoanByBusinessId(
+    public ResponseEntity<?> getLoanByBusinessId(
         @Parameter(description = "Business identifier of the loan", required = true)
         @PathVariable String loanId) {
         try {
@@ -122,13 +122,13 @@ public class LoanController {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error getting loan by business ID: {}", loanId, e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Update loan by business identifier
-     * PUT /ui/loan/business/{loanId}?transition=TRANSITION_NAME
      */
     @Operation(
         summary = "Update loan by business ID",
@@ -156,13 +156,13 @@ public class LoanController {
             return ResponseEntity.status(404).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error updating loan by business ID: {}", loanId, e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Update loan with optional workflow transition
-     * PUT /ui/loan/{id}?transition=TRANSITION_NAME
      */
     @Operation(
         summary = "Update loan by technical ID",
@@ -174,7 +174,7 @@ public class LoanController {
         @ApiResponse(responseCode = "400", description = "Invalid loan data or update failed")
     })
     @PutMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Loan>> updateLoan(
+    public ResponseEntity<?> updateLoan(
             @Parameter(description = "Technical UUID of the loan", required = true)
             @PathVariable UUID id,
             @Parameter(description = "Updated loan entity", required = true)
@@ -186,13 +186,13 @@ public class LoanController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating loan", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Delete loan by technical UUID
-     * DELETE /ui/loan/{id}
      */
     @Operation(
         summary = "Delete loan",
@@ -203,7 +203,7 @@ public class LoanController {
         @ApiResponse(responseCode = "400", description = "Delete operation failed")
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteLoan(
+    public ResponseEntity<?> deleteLoan(
         @Parameter(description = "Technical UUID of the loan", required = true)
         @PathVariable UUID id) {
         try {
@@ -211,13 +211,13 @@ public class LoanController {
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
             logger.error("Error deleting loan", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Get all loans
-     * GET /ui/loan
      */
     @Operation(
         summary = "Get all loans",
@@ -228,19 +228,19 @@ public class LoanController {
         @ApiResponse(responseCode = "400", description = "Retrieval failed")
     })
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<Loan>>> getAllLoans() {
+    public ResponseEntity<?> getAllLoans() {
         try {
             List<EntityWithMetadata<Loan>> loans = loanInteractor.getAllLoans();
             return ResponseEntity.ok(loans);
         } catch (Exception e) {
             logger.error("Error getting all loans", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Search loans by party
-     * GET /ui/loan/search/party/{partyId}
      */
     @Operation(
         summary = "Search loans by party",
@@ -251,7 +251,7 @@ public class LoanController {
         @ApiResponse(responseCode = "400", description = "Search failed")
     })
     @GetMapping("/search/party/{partyId}")
-    public ResponseEntity<List<EntityWithMetadata<Loan>>> getLoansByParty(
+    public ResponseEntity<?> getLoansByParty(
         @Parameter(description = "Party ID to search for", required = true)
         @PathVariable String partyId) {
         try {
@@ -259,13 +259,13 @@ public class LoanController {
             return ResponseEntity.ok(loans);
         } catch (Exception e) {
             logger.error("Error searching loans by party: {}", partyId, e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Advanced loan search
-     * POST /ui/loan/search/advanced
      */
     @Operation(
         summary = "Advanced loan search",
@@ -276,7 +276,7 @@ public class LoanController {
         @ApiResponse(responseCode = "400", description = "Search failed")
     })
     @PostMapping("/search/advanced")
-    public ResponseEntity<List<EntityWithMetadata<Loan>>> advancedSearch(
+    public ResponseEntity<?> advancedSearch(
             @Parameter(description = "Search criteria for loans", required = true)
             @RequestBody LoanSearchRequest searchRequest) {
         try {
@@ -290,13 +290,13 @@ public class LoanController {
             return ResponseEntity.ok(loans);
         } catch (Exception e) {
             logger.error("Error performing advanced loan search", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Approve loan
-     * POST /ui/loan/{id}/approve
      */
     @Operation(
         summary = "Approve loan",
@@ -308,7 +308,7 @@ public class LoanController {
         @ApiResponse(responseCode = "400", description = "Approval failed")
     })
     @PostMapping("/{id}/approve")
-    public ResponseEntity<EntityWithMetadata<Loan>> approveLoan(
+    public ResponseEntity<?> approveLoan(
         @Parameter(description = "Technical UUID of the loan", required = true)
         @PathVariable UUID id) {
         try {
@@ -316,13 +316,13 @@ public class LoanController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error approving loan", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Fund loan
-     * POST /ui/loan/{id}/fund
      */
     @Operation(
         summary = "Fund loan",
@@ -334,7 +334,7 @@ public class LoanController {
         @ApiResponse(responseCode = "400", description = "Funding failed")
     })
     @PostMapping("/{id}/fund")
-    public ResponseEntity<EntityWithMetadata<Loan>> fundLoan(
+    public ResponseEntity<?> fundLoan(
         @Parameter(description = "Technical UUID of the loan", required = true)
         @PathVariable UUID id) {
         try {
@@ -342,7 +342,8 @@ public class LoanController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error funding loan", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 

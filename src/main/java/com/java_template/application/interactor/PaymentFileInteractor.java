@@ -1,6 +1,5 @@
 package com.java_template.application.interactor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.payment_file.version_1.PaymentFile;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
@@ -22,23 +21,21 @@ public class PaymentFileInteractor {
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentFileInteractor.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public PaymentFileInteractor(EntityService entityService, ObjectMapper objectMapper) {
+    public PaymentFileInteractor(EntityService entityService) {
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     public EntityWithMetadata<PaymentFile> createPaymentFile(PaymentFile paymentFile) {
-        // Validate business key is mandatory
-        if (paymentFile.getPaymentFileId() == null || paymentFile.getPaymentFileId().trim().isEmpty()) {
-            logger.error("PaymentFile creation failed: paymentFileId is mandatory");
-            throw new IllegalArgumentException("paymentFileId is mandatory and cannot be null or empty");
+        // Validate business key is not empty
+        if (paymentFile.getPaymentFileId().trim().isEmpty()) {
+            logger.error("PaymentFile creation failed: paymentFileId cannot be empty");
+            throw new IllegalArgumentException("paymentFileId cannot be empty");
         }
 
         // Check for duplicate business key
         ModelSpec modelSpec = new ModelSpec().withName(PaymentFile.ENTITY_NAME).withVersion(PaymentFile.ENTITY_VERSION);
-        EntityWithMetadata<PaymentFile> existing = entityService.findByBusinessId(
+        EntityWithMetadata<PaymentFile> existing = entityService.findByBusinessIdOrNull(
                 modelSpec, paymentFile.getPaymentFileId(), "paymentFileId", PaymentFile.class);
 
         if (existing != null) {

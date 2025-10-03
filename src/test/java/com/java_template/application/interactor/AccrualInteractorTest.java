@@ -26,7 +26,7 @@ class AccrualInteractorTest extends BaseInteractorTest<Accrual> {
 
     @BeforeEach
     void setUp() {
-        accrualInteractor = new AccrualInteractor(entityService, objectMapper);
+        accrualInteractor = new AccrualInteractor(entityService);
     }
 
     @Override
@@ -84,8 +84,8 @@ class AccrualInteractorTest extends BaseInteractorTest<Accrual> {
         void shouldCreateAccrualSuccessfully() {
             Accrual accrual = createValidEntity("ACCR-001");
             EntityWithMetadata<Accrual> expected = createEntityWithMetadata(accrual, testEntityId);
-            
-            mockFindByBusinessIdNotFound("ACCR-001");
+
+            mockFindByBusinessIdOrNullNotFound("ACCR-001");
             mockCreate(accrual, expected);
 
             EntityWithMetadata<Accrual> result = accrualInteractor.createAccrual(accrual);
@@ -95,7 +95,7 @@ class AccrualInteractorTest extends BaseInteractorTest<Accrual> {
             assertNotNull(accrual.getScheduledAt());
             assertNotNull(accrual.getCreatedAt());
             assertNotNull(accrual.getUpdatedAt());
-            assertEntityServiceFindByBusinessIdCalled("ACCR-001", 1);
+            assertEntityServiceFindByBusinessIdOrNullCalled("ACCR-001", 1);
             assertEntityServiceCreateCalled(1);
         }
 
@@ -133,7 +133,7 @@ class AccrualInteractorTest extends BaseInteractorTest<Accrual> {
                     () -> accrualInteractor.createAccrual(accrual)
             );
 
-            assertEquals("accrualId is mandatory and cannot be null or empty", exception.getMessage());
+            assertEquals("accrualId cannot be empty", exception.getMessage());
             assertEntityServiceCreateCalled(0);
         }
     }

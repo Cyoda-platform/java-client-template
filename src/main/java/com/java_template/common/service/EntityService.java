@@ -1,16 +1,15 @@
 package com.java_template.common.service;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
-
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.workflow.CyodaEntity;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 
-import jakarta.annotation.Nullable;
-import jakarta.validation.constraints.NotNull;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * ABOUTME: Core entity service interface providing CRUD operations and search capabilities
@@ -66,6 +65,24 @@ public interface EntityService {
      * @return EntityWithMetadata with entity and metadata, or null if not found
      */
     <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessId(
+            @NotNull ModelSpec modelSpec,
+            @NotNull String businessId,
+            @NotNull String businessIdField,
+            @NotNull Class<T> entityClass
+    );
+
+    /**
+     * Find entity by business identifier, returning null on any exception (MEDIUM SPEED)
+     * This method wraps findByBusinessId and catches all exceptions, returning null instead.
+     * Use this when you want to check for entity existence without handling exceptions.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param businessId Business identifier value (e.g., "CART-123")
+     * @param businessIdField Field name containing the business ID (e.g., "cartId")
+     * @param entityClass Entity class type for deserialization
+     * @return EntityWithMetadata with entity and metadata, or null if not found or on error
+     */
+    <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessIdOrNull(
             @NotNull ModelSpec modelSpec,
             @NotNull String businessId,
             @NotNull String businessIdField,

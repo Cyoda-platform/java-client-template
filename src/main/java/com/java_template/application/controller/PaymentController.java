@@ -3,6 +3,7 @@ package com.java_template.application.controller;
 import com.java_template.application.entity.payment.version_1.Payment;
 import com.java_template.application.interactor.PaymentInteractor;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.util.CyodaExceptionUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -42,7 +43,6 @@ public class PaymentController {
 
     /**
      * Create a new payment
-     * POST /ui/payment
      */
     @Operation(
         summary = "Create a new payment",
@@ -67,13 +67,13 @@ public class PaymentController {
             return ResponseEntity.status(409).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating payment", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Get payment by technical UUID
-     * GET /ui/payment/{id}
      */
     @Operation(
         summary = "Get payment by technical ID",
@@ -99,7 +99,6 @@ public class PaymentController {
 
     /**
      * Get payment by business identifier
-     * GET /ui/payment/business/{paymentId}
      */
     @Operation(
         summary = "Get payment by business ID",
@@ -112,7 +111,7 @@ public class PaymentController {
         @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     @GetMapping("/business/{paymentId}")
-    public ResponseEntity<EntityWithMetadata<Payment>> getPaymentByBusinessId(
+    public ResponseEntity<?> getPaymentByBusinessId(
         @Parameter(description = "Business identifier of the payment", required = true)
         @PathVariable String paymentId) {
         try {
@@ -123,13 +122,13 @@ public class PaymentController {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error getting payment by business ID: {}", paymentId, e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Update payment by business identifier
-     * PUT /ui/payment/business/{paymentId}?transition=TRANSITION_NAME
      */
     @Operation(
         summary = "Update payment by business ID",
@@ -157,13 +156,13 @@ public class PaymentController {
             return ResponseEntity.status(404).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error updating payment by business ID: {}", paymentId, e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Update payment with optional workflow transition
-     * PUT /ui/payment/{id}?transition=TRANSITION_NAME
      */
     @Operation(
         summary = "Update payment by technical ID",
@@ -175,7 +174,7 @@ public class PaymentController {
         @ApiResponse(responseCode = "400", description = "Invalid payment data or update failed")
     })
     @PutMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Payment>> updatePayment(
+    public ResponseEntity<?> updatePayment(
             @Parameter(description = "Technical UUID of the payment", required = true)
             @PathVariable UUID id,
             @Parameter(description = "Updated payment entity", required = true)
@@ -187,13 +186,13 @@ public class PaymentController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating payment", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Delete payment by technical UUID
-     * DELETE /ui/payment/{id}
      */
     @Operation(
         summary = "Delete payment",
@@ -204,7 +203,7 @@ public class PaymentController {
         @ApiResponse(responseCode = "400", description = "Delete operation failed")
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletePayment(
+    public ResponseEntity<?> deletePayment(
         @Parameter(description = "Technical UUID of the payment", required = true)
         @PathVariable UUID id) {
         try {
@@ -212,13 +211,13 @@ public class PaymentController {
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
             logger.error("Error deleting payment", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Get all payments
-     * GET /ui/payment
      */
     @Operation(
         summary = "Get all payments",
@@ -229,19 +228,19 @@ public class PaymentController {
         @ApiResponse(responseCode = "400", description = "Retrieval failed")
     })
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<Payment>>> getAllPayments() {
+    public ResponseEntity<?> getAllPayments() {
         try {
             List<EntityWithMetadata<Payment>> payments = paymentInteractor.getAllPayments();
             return ResponseEntity.ok(payments);
         } catch (Exception e) {
             logger.error("Error getting all payments", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Search payments by loan
-     * GET /ui/payment/search/loan/{loanId}
      */
     @Operation(
         summary = "Search payments by loan",
@@ -252,7 +251,7 @@ public class PaymentController {
         @ApiResponse(responseCode = "400", description = "Search failed")
     })
     @GetMapping("/search/loan/{loanId}")
-    public ResponseEntity<List<EntityWithMetadata<Payment>>> getPaymentsByLoan(
+    public ResponseEntity<?> getPaymentsByLoan(
         @Parameter(description = "Loan ID to search for", required = true)
         @PathVariable String loanId) {
         try {
@@ -260,13 +259,13 @@ public class PaymentController {
             return ResponseEntity.ok(payments);
         } catch (Exception e) {
             logger.error("Error searching payments by loan: {}", loanId, e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     /**
      * Advanced payment search
-     * POST /ui/payment/search/advanced
      */
     @Operation(
         summary = "Advanced payment search",
@@ -277,7 +276,7 @@ public class PaymentController {
         @ApiResponse(responseCode = "400", description = "Search failed")
     })
     @PostMapping("/search/advanced")
-    public ResponseEntity<List<EntityWithMetadata<Payment>>> advancedSearch(
+    public ResponseEntity<?> advancedSearch(
             @Parameter(description = "Search criteria for payments", required = true)
             @RequestBody PaymentSearchRequest searchRequest) {
         try {
@@ -292,7 +291,8 @@ public class PaymentController {
             return ResponseEntity.ok(payments);
         } catch (Exception e) {
             logger.error("Error performing advanced payment search", e);
-            return ResponseEntity.badRequest().build();
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 

@@ -26,7 +26,7 @@ class SettlementQuoteInteractorTest extends BaseInteractorTest<SettlementQuote> 
 
     @BeforeEach
     void setUp() {
-        settlementQuoteInteractor = new SettlementQuoteInteractor(entityService, objectMapper);
+        settlementQuoteInteractor = new SettlementQuoteInteractor(entityService);
     }
 
     @Override
@@ -84,8 +84,8 @@ class SettlementQuoteInteractorTest extends BaseInteractorTest<SettlementQuote> 
         void shouldCreateSettlementQuoteSuccessfully() {
             SettlementQuote quote = createValidEntity("QUOTE-001");
             EntityWithMetadata<SettlementQuote> expected = createEntityWithMetadata(quote, testEntityId);
-            
-            mockFindByBusinessIdNotFound("QUOTE-001");
+
+            mockFindByBusinessIdOrNullNotFound("QUOTE-001");
             mockCreate(quote, expected);
 
             EntityWithMetadata<SettlementQuote> result = settlementQuoteInteractor.createSettlementQuote(quote);
@@ -96,7 +96,7 @@ class SettlementQuoteInteractorTest extends BaseInteractorTest<SettlementQuote> 
             assertEquals(quote.getAsOfDate(), quote.getQuotedDate());
             assertNotNull(quote.getCreatedAt());
             assertNotNull(quote.getUpdatedAt());
-            assertEntityServiceFindByBusinessIdCalled("QUOTE-001", 1);
+            assertEntityServiceFindByBusinessIdOrNullCalled("QUOTE-001", 1);
             assertEntityServiceCreateCalled(1);
         }
 
@@ -134,7 +134,7 @@ class SettlementQuoteInteractorTest extends BaseInteractorTest<SettlementQuote> 
                     () -> settlementQuoteInteractor.createSettlementQuote(quote)
             );
 
-            assertEquals("settlementQuoteId is mandatory and cannot be null or empty", exception.getMessage());
+            assertEquals("settlementQuoteId cannot be empty", exception.getMessage());
             assertEntityServiceCreateCalled(0);
         }
     }

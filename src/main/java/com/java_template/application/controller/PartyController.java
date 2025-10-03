@@ -3,6 +3,7 @@ package com.java_template.application.controller;
 import com.java_template.application.entity.party.version_1.Party;
 import com.java_template.application.interactor.PartyInteractor;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.util.CyodaExceptionUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -59,7 +60,10 @@ public class PartyController {
             return ResponseEntity.status(409).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating party", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -96,7 +100,7 @@ public class PartyController {
         @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     @GetMapping("/business/{partyId}")
-    public ResponseEntity<EntityWithMetadata<Party>> getPartyByBusinessId(
+    public ResponseEntity<?> getPartyByBusinessId(
         @Parameter(description = "Business identifier of the party", required = true)
         @PathVariable String partyId) {
         try {
@@ -107,7 +111,10 @@ public class PartyController {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error getting party by business ID: {}", partyId, e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -137,7 +144,10 @@ public class PartyController {
             return ResponseEntity.status(404).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error updating party by business ID: {}", partyId, e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -151,7 +161,7 @@ public class PartyController {
         @ApiResponse(responseCode = "400", description = "Invalid party data or update failed")
     })
     @PutMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Party>> updateParty(
+    public ResponseEntity<?> updateParty(
             @Parameter(description = "Technical UUID of the party", required = true)
             @PathVariable UUID id,
             @Parameter(description = "Updated party entity", required = true)
@@ -163,7 +173,10 @@ public class PartyController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating party", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -176,7 +189,7 @@ public class PartyController {
         @ApiResponse(responseCode = "400", description = "Delete operation failed")
     })
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteParty(
+    public ResponseEntity<?> deleteParty(
         @Parameter(description = "Technical UUID of the party", required = true)
         @PathVariable UUID id) {
         try {
@@ -184,7 +197,10 @@ public class PartyController {
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
             logger.error("Error deleting party", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -197,13 +213,16 @@ public class PartyController {
         @ApiResponse(responseCode = "400", description = "Retrieval failed")
     })
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<Party>>> getAllParties() {
+    public ResponseEntity<?> getAllParties() {
         try {
             List<EntityWithMetadata<Party>> parties = partyInteractor.getAllParties();
             return ResponseEntity.ok(parties);
         } catch (Exception e) {
             logger.error("Error getting all parties", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.java_template.application.interactor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.settlement_quote.version_1.SettlementQuote;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
@@ -22,23 +21,21 @@ public class SettlementQuoteInteractor {
 
     private static final Logger logger = LoggerFactory.getLogger(SettlementQuoteInteractor.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public SettlementQuoteInteractor(EntityService entityService, ObjectMapper objectMapper) {
+    public SettlementQuoteInteractor(EntityService entityService) {
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     public EntityWithMetadata<SettlementQuote> createSettlementQuote(SettlementQuote settlementQuote) {
-        // Validate business key is mandatory
-        if (settlementQuote.getSettlementQuoteId() == null || settlementQuote.getSettlementQuoteId().trim().isEmpty()) {
-            logger.error("SettlementQuote creation failed: settlementQuoteId is mandatory");
-            throw new IllegalArgumentException("settlementQuoteId is mandatory and cannot be null or empty");
+        // Validate business key is not empty
+        if (settlementQuote.getSettlementQuoteId().trim().isEmpty()) {
+            logger.error("SettlementQuote creation failed: settlementQuoteId cannot be empty");
+            throw new IllegalArgumentException("settlementQuoteId cannot be empty");
         }
 
         // Check for duplicate business key
         ModelSpec modelSpec = new ModelSpec().withName(SettlementQuote.ENTITY_NAME).withVersion(SettlementQuote.ENTITY_VERSION);
-        EntityWithMetadata<SettlementQuote> existing = entityService.findByBusinessId(
+        EntityWithMetadata<SettlementQuote> existing = entityService.findByBusinessIdOrNull(
                 modelSpec, settlementQuote.getSettlementQuoteId(), "settlementQuoteId", SettlementQuote.class);
 
         if (existing != null) {

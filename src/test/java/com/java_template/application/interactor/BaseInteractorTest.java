@@ -15,7 +15,6 @@ import org.mockito.Mock;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -97,7 +96,7 @@ public abstract class BaseInteractorTest<T extends CyodaEntity> {
         metadata.setId(entityId);
         metadata.setState(state);
         metadata.setCreationDate(new Date());
-        
+
         return new EntityWithMetadata<>(entity, metadata);
     }
 
@@ -149,6 +148,25 @@ public abstract class BaseInteractorTest<T extends CyodaEntity> {
 
     protected void mockFindByBusinessIdNotFound(String businessId) {
         when(entityService.findByBusinessId(
+                any(ModelSpec.class),
+                eq(businessId),
+                eq(getBusinessIdField()),
+                any(Class.class)
+        )).thenReturn(null);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected void mockFindByBusinessIdOrNull(String businessId, EntityWithMetadata<T> response) {
+        when(entityService.findByBusinessIdOrNull(
+                any(ModelSpec.class),
+                eq(businessId),
+                eq(getBusinessIdField()),
+                any(Class.class)
+        )).thenReturn((EntityWithMetadata) response);
+    }
+
+    protected void mockFindByBusinessIdOrNullNotFound(String businessId) {
+        when(entityService.findByBusinessIdOrNull(
                 any(ModelSpec.class),
                 eq(businessId),
                 eq(getBusinessIdField()),
@@ -220,6 +238,15 @@ public abstract class BaseInteractorTest<T extends CyodaEntity> {
         );
     }
 
+    protected void assertEntityServiceFindByBusinessIdOrNullCalled(String businessId, int times) {
+        verify(entityService, times(times)).findByBusinessIdOrNull(
+                any(ModelSpec.class),
+                eq(businessId),
+                eq(getBusinessIdField()),
+                any(Class.class)
+        );
+    }
+
     protected void assertEntityServiceUpdateCalled(UUID id, int times) {
         verify(entityService, times(times)).update(eq(id), any(), anyString());
     }
@@ -267,8 +294,8 @@ public abstract class BaseInteractorTest<T extends CyodaEntity> {
     ) {
         T entity = createValidEntity("TEST-001");
         EntityWithMetadata<T> existing = createEntityWithMetadata(entity, testEntityId);
-        
-        mockFindByBusinessId("TEST-001", existing);
+
+        mockFindByBusinessIdOrNull("TEST-001", existing);
 
         assertThrowsWithMessage(
                 expectedExceptionClass,
@@ -276,7 +303,7 @@ public abstract class BaseInteractorTest<T extends CyodaEntity> {
                 () -> createMethod.apply(entity)
         );
 
-        assertEntityServiceFindByBusinessIdCalled("TEST-001", 1);
+        assertEntityServiceFindByBusinessIdOrNullCalled("TEST-001", 1);
         assertEntityServiceCreateCalled(0);
     }
 
@@ -306,7 +333,7 @@ public abstract class BaseInteractorTest<T extends CyodaEntity> {
     ) {
         T entity = createValidEntity("TEST-001");
         EntityWithMetadata<T> expected = createEntityWithMetadata(entity, testEntityId);
-        
+
         mockFindByBusinessId("TEST-001", expected);
 
         EntityWithMetadata<T> result = getMethod.apply("TEST-001");

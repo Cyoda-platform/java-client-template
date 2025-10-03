@@ -1,6 +1,5 @@
 package com.java_template.application.interactor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.gl_batch.version_1.GLBatch;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
@@ -22,23 +21,21 @@ public class GLBatchInteractor {
 
     private static final Logger logger = LoggerFactory.getLogger(GLBatchInteractor.class);
     private final EntityService entityService;
-    private final ObjectMapper objectMapper;
 
-    public GLBatchInteractor(EntityService entityService, ObjectMapper objectMapper) {
+    public GLBatchInteractor(EntityService entityService) {
         this.entityService = entityService;
-        this.objectMapper = objectMapper;
     }
 
     public EntityWithMetadata<GLBatch> createGLBatch(GLBatch glBatch) {
-        // Validate business key is mandatory
-        if (glBatch.getGlBatchId() == null || glBatch.getGlBatchId().trim().isEmpty()) {
-            logger.error("GLBatch creation failed: glBatchId is mandatory");
-            throw new IllegalArgumentException("glBatchId is mandatory and cannot be null or empty");
+        // Validate business key is not empty
+        if (glBatch.getGlBatchId().trim().isEmpty()) {
+            logger.error("GLBatch creation failed: glBatchId cannot be empty");
+            throw new IllegalArgumentException("glBatchId cannot be empty");
         }
 
         // Check for duplicate business key
         ModelSpec modelSpec = new ModelSpec().withName(GLBatch.ENTITY_NAME).withVersion(GLBatch.ENTITY_VERSION);
-        EntityWithMetadata<GLBatch> existing = entityService.findByBusinessId(
+        EntityWithMetadata<GLBatch> existing = entityService.findByBusinessIdOrNull(
                 modelSpec, glBatch.getGlBatchId(), "glBatchId", GLBatch.class);
 
         if (existing != null) {

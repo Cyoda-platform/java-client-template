@@ -7,18 +7,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 /**
  * ABOUTME: Unit tests for LoanInteractor covering CRUD operations, search functionality,
@@ -94,7 +88,7 @@ class LoanInteractorTest extends BaseInteractorTest<Loan> {
             Loan loan = createValidEntity("LOAN-001");
             EntityWithMetadata<Loan> expected = createEntityWithMetadata(loan, testEntityId);
 
-            mockFindByBusinessIdNotFound("LOAN-001");
+            mockFindByBusinessIdOrNullNotFound("LOAN-001");
             mockCreate(loan, expected);
 
             EntityWithMetadata<Loan> result = loanInteractor.createLoan(loan);
@@ -103,7 +97,7 @@ class LoanInteractorTest extends BaseInteractorTest<Loan> {
             assertMetadata(result, testEntityId);
             assertNotNull(loan.getCreatedAt());
             assertNotNull(loan.getUpdatedAt());
-            assertEntityServiceFindByBusinessIdCalled("LOAN-001", 1);
+            assertEntityServiceFindByBusinessIdOrNullCalled("LOAN-001", 1);
             assertEntityServiceCreateCalled(1);
         }
 
@@ -141,7 +135,7 @@ class LoanInteractorTest extends BaseInteractorTest<Loan> {
                     () -> loanInteractor.createLoan(loan)
             );
 
-            assertEquals("loanId is mandatory and cannot be null or empty", exception.getMessage());
+            assertEquals("loanId cannot be empty", exception.getMessage());
             assertEntityServiceCreateCalled(0);
         }
     }

@@ -3,6 +3,7 @@ package com.java_template.application.controller;
 import com.java_template.application.entity.settlement_quote.version_1.SettlementQuote;
 import com.java_template.application.interactor.SettlementQuoteInteractor;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.util.CyodaExceptionUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -49,7 +50,10 @@ public class SettlementQuoteController {
             return ResponseEntity.status(409).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating settlement quote", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -68,7 +72,7 @@ public class SettlementQuoteController {
 
     @Operation(summary = "Get settlement quote by business ID")
     @GetMapping("/business/{settlementQuoteId}")
-    public ResponseEntity<EntityWithMetadata<SettlementQuote>> getSettlementQuoteByBusinessId(
+    public ResponseEntity<?> getSettlementQuoteByBusinessId(
         @Parameter(description = "Business identifier", required = true) @PathVariable String settlementQuoteId) {
         try {
             EntityWithMetadata<SettlementQuote> response = settlementQuoteInteractor.getSettlementQuoteByBusinessId(settlementQuoteId);
@@ -77,7 +81,10 @@ public class SettlementQuoteController {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error getting settlement quote by business ID: {}", settlementQuoteId, e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -98,7 +105,7 @@ public class SettlementQuoteController {
 
     @Operation(summary = "Update settlement quote by technical ID")
     @PutMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<SettlementQuote>> updateSettlementQuote(
+    public ResponseEntity<?> updateSettlementQuote(
             @Parameter(description = "Technical UUID", required = true) @PathVariable UUID id,
             @Parameter(description = "Updated settlement quote", required = true) @RequestBody SettlementQuote settlementQuote,
             @Parameter(description = "Optional workflow transition") @RequestParam(required = false) String transition) {
@@ -107,19 +114,25 @@ public class SettlementQuoteController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating settlement quote", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     @Operation(summary = "Get all settlement quotes", description = "Retrieves all settlement quote entities")
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<SettlementQuote>>> getAllSettlementQuotes() {
+    public ResponseEntity<?> getAllSettlementQuotes() {
         try {
             List<EntityWithMetadata<SettlementQuote>> quotes = settlementQuoteInteractor.getAllSettlementQuotes();
             return ResponseEntity.ok(quotes);
         } catch (Exception e) {
             logger.error("Error getting all settlement quotes", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 }

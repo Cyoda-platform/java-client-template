@@ -3,6 +3,7 @@ package com.java_template.application.controller;
 import com.java_template.application.entity.payment_file.version_1.PaymentFile;
 import com.java_template.application.interactor.PaymentFileInteractor;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.util.CyodaExceptionUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -49,7 +50,10 @@ public class PaymentFileController {
             return ResponseEntity.status(409).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating payment file", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -77,7 +81,7 @@ public class PaymentFileController {
         @ApiResponse(responseCode = "404", description = "Payment file not found")
     })
     @GetMapping("/business/{paymentFileId}")
-    public ResponseEntity<EntityWithMetadata<PaymentFile>> getPaymentFileByBusinessId(
+    public ResponseEntity<?> getPaymentFileByBusinessId(
         @Parameter(description = "Business identifier of the payment file", required = true)
         @PathVariable String paymentFileId) {
         try {
@@ -87,7 +91,10 @@ public class PaymentFileController {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error getting payment file by business ID: {}", paymentFileId, e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -116,7 +123,7 @@ public class PaymentFileController {
         @ApiResponse(responseCode = "400", description = "Update failed")
     })
     @PutMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<PaymentFile>> updatePaymentFile(
+    public ResponseEntity<?> updatePaymentFile(
             @Parameter(description = "Technical UUID", required = true) @PathVariable UUID id,
             @Parameter(description = "Updated payment file", required = true) @RequestBody PaymentFile paymentFile,
             @Parameter(description = "Optional workflow transition") @RequestParam(required = false) String transition) {
@@ -125,7 +132,10 @@ public class PaymentFileController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating payment file", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -135,13 +145,16 @@ public class PaymentFileController {
         @ApiResponse(responseCode = "400", description = "Retrieval failed")
     })
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<PaymentFile>>> getAllPaymentFiles() {
+    public ResponseEntity<?> getAllPaymentFiles() {
         try {
             List<EntityWithMetadata<PaymentFile>> paymentFiles = paymentFileInteractor.getAllPaymentFiles();
             return ResponseEntity.ok(paymentFiles);
         } catch (Exception e) {
             logger.error("Error getting all payment files", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 }

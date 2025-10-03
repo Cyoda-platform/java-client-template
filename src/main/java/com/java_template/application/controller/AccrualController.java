@@ -3,6 +3,7 @@ package com.java_template.application.controller;
 import com.java_template.application.entity.accrual.version_1.Accrual;
 import com.java_template.application.interactor.AccrualInteractor;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.util.CyodaExceptionUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -49,7 +50,10 @@ public class AccrualController {
             return ResponseEntity.status(409).body(e.getMessage());
         } catch (Exception e) {
             logger.error("Error creating accrual", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -68,7 +72,7 @@ public class AccrualController {
 
     @Operation(summary = "Get accrual by business ID")
     @GetMapping("/business/{accrualId}")
-    public ResponseEntity<EntityWithMetadata<Accrual>> getAccrualByBusinessId(
+    public ResponseEntity<?> getAccrualByBusinessId(
         @Parameter(description = "Business identifier", required = true) @PathVariable String accrualId) {
         try {
             EntityWithMetadata<Accrual> response = accrualInteractor.getAccrualByBusinessId(accrualId);
@@ -77,7 +81,10 @@ public class AccrualController {
             return ResponseEntity.notFound().build();
         } catch (Exception e) {
             logger.error("Error getting accrual by business ID: {}", accrualId, e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
@@ -98,7 +105,7 @@ public class AccrualController {
 
     @Operation(summary = "Update accrual by technical ID")
     @PutMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Accrual>> updateAccrual(
+    public ResponseEntity<?> updateAccrual(
             @Parameter(description = "Technical UUID", required = true) @PathVariable UUID id,
             @Parameter(description = "Updated accrual", required = true) @RequestBody Accrual accrual,
             @Parameter(description = "Optional workflow transition") @RequestParam(required = false) String transition) {
@@ -107,19 +114,25 @@ public class AccrualController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating accrual", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 
     @Operation(summary = "Get all accruals", description = "Retrieves all accrual entities")
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<Accrual>>> getAllAccruals() {
+    public ResponseEntity<?> getAllAccruals() {
         try {
             List<EntityWithMetadata<Accrual>> accruals = accrualInteractor.getAllAccruals();
             return ResponseEntity.ok(accruals);
         } catch (Exception e) {
             logger.error("Error getting all accruals", e);
-            return ResponseEntity.badRequest().build();
+            
+            String errorMessage = CyodaExceptionUtil.extractErrorMessage(e);
+
+            return ResponseEntity.badRequest().body(errorMessage);
         }
     }
 }
