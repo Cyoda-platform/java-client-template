@@ -51,47 +51,47 @@ public class OrderValidationCriterion implements CyodaCriterion {
 
         // Check if order is null (structural validation)
         if (order == null) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Order entity is null");
+            return EvaluationOutcome.fail("Order entity is null",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Validate basic order fields
         if (order.getOrderId() == null || order.getOrderId().trim().isEmpty()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Order ID is required");
+            return EvaluationOutcome.fail("Order ID is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         if (order.getExternalRef() == null || order.getExternalRef().trim().isEmpty()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "External reference is required");
+            return EvaluationOutcome.fail("External reference is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         if (order.getChannel() == null || order.getChannel().trim().isEmpty()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Order channel is required");
+            return EvaluationOutcome.fail("Order channel is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Validate channel is one of allowed values
         if (!isValidChannel(order.getChannel())) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Invalid channel: " + order.getChannel() + ". Must be web, store, or marketplace");
+            return EvaluationOutcome.fail("Invalid channel: " + order.getChannel() + ". Must be web, store, or marketplace",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate customer information
         if (order.getCustomer() == null) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Customer information is required");
+            return EvaluationOutcome.fail("Customer information is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         if (!order.getCustomer().isValid()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Customer information is incomplete");
+            return EvaluationOutcome.fail("Customer information is incomplete",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate line items
         if (order.getLineItems() == null || order.getLineItems().isEmpty()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Order must have at least one line item");
+            return EvaluationOutcome.fail("Order must have at least one line item",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate each line item
