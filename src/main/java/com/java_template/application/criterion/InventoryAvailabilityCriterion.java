@@ -66,14 +66,14 @@ public class InventoryAvailabilityCriterion implements CyodaCriterion {
 
         // Check if order is null (structural validation)
         if (order == null) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Order entity is null");
+            return EvaluationOutcome.fail("Order entity is null",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Validate line items exist
         if (order.getLineItems() == null || order.getLineItems().isEmpty()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Order has no line items to check inventory for");
+            return EvaluationOutcome.fail("Order has no line items to check inventory for",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         try {
@@ -90,8 +90,8 @@ public class InventoryAvailabilityCriterion implements CyodaCriterion {
 
         } catch (Exception e) {
             logger.error("Error checking inventory availability for orderId: {}", order.getOrderId(), e);
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.EXTERNAL_DEPENDENCY_FAILURE, 
-                                        "Failed to check inventory availability: " + e.getMessage());
+            return EvaluationOutcome.fail("Failed to check inventory availability: " + e.getMessage(),
+                                        StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
     }
 

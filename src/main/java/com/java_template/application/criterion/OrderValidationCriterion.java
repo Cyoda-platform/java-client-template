@@ -98,33 +98,33 @@ public class OrderValidationCriterion implements CyodaCriterion {
         for (int i = 0; i < order.getLineItems().size(); i++) {
             Order.LineItem lineItem = order.getLineItems().get(i);
             if (!lineItem.isValid()) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                            "Line item " + (i + 1) + " is invalid");
+                return EvaluationOutcome.fail("Line item " + (i + 1) + " is invalid",
+                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
 
             // Validate line item has positive quantity and price
             if (lineItem.getQuantity() <= 0) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                            "Line item " + (i + 1) + " must have positive quantity");
+                return EvaluationOutcome.fail("Line item " + (i + 1) + " must have positive quantity",
+                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
 
             if (lineItem.getUnitPrice() < 0) {
-                return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                            "Line item " + (i + 1) + " cannot have negative unit price");
+                return EvaluationOutcome.fail("Line item " + (i + 1) + " cannot have negative unit price",
+                                            StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
             }
         }
 
         // Validate order total calculation
         Double calculatedTotal = order.getOrderTotal();
         if (calculatedTotal == null || calculatedTotal < 0) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.DATA_QUALITY_FAILURE, 
-                                        "Order total calculation is invalid");
+            return EvaluationOutcome.fail("Order total calculation is invalid",
+                                        StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
 
         // Validate order total is reasonable (not zero for non-free orders)
         if (calculatedTotal == 0 && !isFreeOrder(order)) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Order total cannot be zero unless it's a promotional order");
+            return EvaluationOutcome.fail("Order total cannot be zero unless it's a promotional order",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         logger.debug("Order validation passed for orderId: {}", order.getOrderId());

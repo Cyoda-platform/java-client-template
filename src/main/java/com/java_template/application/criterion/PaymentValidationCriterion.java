@@ -51,82 +51,82 @@ public class PaymentValidationCriterion implements CyodaCriterion {
 
         // Check if order is null (structural validation)
         if (order == null) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Order entity is null");
+            return EvaluationOutcome.fail("Order entity is null",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // Validate payment information exists
         if (order.getPayment() == null) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Payment information is required");
+            return EvaluationOutcome.fail("Payment information is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         Order.Payment payment = order.getPayment();
 
         // Validate payment method
         if (payment.getMethod() == null || payment.getMethod().trim().isEmpty()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Payment method is required");
+            return EvaluationOutcome.fail("Payment method is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         if (!isValidPaymentMethod(payment.getMethod())) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Invalid payment method: " + payment.getMethod());
+            return EvaluationOutcome.fail("Invalid payment method: " + payment.getMethod(),
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate payment amount
         if (payment.getAmount() == null) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Payment amount is required");
+            return EvaluationOutcome.fail("Payment amount is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         if (payment.getAmount() < 0) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Payment amount cannot be negative");
+            return EvaluationOutcome.fail("Payment amount cannot be negative",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate payment amount matches order total
         Double orderTotal = order.getOrderTotal();
         if (!payment.getAmount().equals(orderTotal)) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Payment amount (" + payment.getAmount() + 
-                                        ") does not match order total (" + orderTotal + ")");
+            return EvaluationOutcome.fail("Payment amount (" + payment.getAmount() +
+                                        ") does not match order total (" + orderTotal + ")",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate currency
         if (payment.getCurrency() == null || payment.getCurrency().trim().isEmpty()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Payment currency is required");
+            return EvaluationOutcome.fail("Payment currency is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         if (!isValidCurrency(payment.getCurrency())) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Invalid currency: " + payment.getCurrency());
+            return EvaluationOutcome.fail("Invalid currency: " + payment.getCurrency(),
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate payment status
         if (payment.getStatus() == null || payment.getStatus().trim().isEmpty()) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.STRUCTURAL_FAILURE, 
-                                        "Payment status is required");
+            return EvaluationOutcome.fail("Payment status is required",
+                                        StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
         // For payment processing, status should be pending or authorized
         if (!isValidPaymentStatus(payment.getStatus())) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Invalid payment status for processing: " + payment.getStatus());
+            return EvaluationOutcome.fail("Invalid payment status for processing: " + payment.getStatus(),
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // If payment is already failed, cannot proceed
         if ("failed".equals(payment.getStatus())) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Cannot process failed payment");
+            return EvaluationOutcome.fail("Cannot process failed payment",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate transaction reference if payment is authorized
-        if ("authorized".equals(payment.getStatus()) && 
+        if ("authorized".equals(payment.getStatus()) &&
             (payment.getTransactionRef() == null || payment.getTransactionRef().trim().isEmpty())) {
-            return EvaluationOutcome.fail(StandardEvalReasonCategories.BUSINESS_RULE_FAILURE, 
-                                        "Transaction reference is required for authorized payments");
+            return EvaluationOutcome.fail("Transaction reference is required for authorized payments",
+                                        StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         logger.debug("Payment validation passed for orderId: {}", order.getOrderId());
