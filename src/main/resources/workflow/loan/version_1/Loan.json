@@ -1,0 +1,244 @@
+{
+  "version": "1.0",
+  "name": "Loan",
+  "desc": "Loan lifecycle workflow from creation through settlement",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_loan",
+          "next": "draft",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateNewLoan",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "draft": {
+      "transitions": [
+        {
+          "name": "submit_for_approval",
+          "next": "approval_pending",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PrepareForApproval",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "update_loan",
+          "next": "draft",
+          "manual": true
+        }
+      ]
+    },
+    "approval_pending": {
+      "transitions": [
+        {
+          "name": "approve_loan",
+          "next": "approved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ApproveLoan",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_loan",
+          "next": "rejected",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RejectLoan",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "fund_loan",
+          "next": "funded",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SetInitialBalances",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "funded": {
+      "transitions": [
+        {
+          "name": "activate_loan",
+          "next": "active",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.fundingDate",
+            "operation": "LESS_THAN_OR_EQUAL",
+            "value": "TODAY"
+          }
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "process_payment",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ProcessLoanPayment",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "generate_settlement_quote",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "GenerateSettlementQuote",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "settle_early",
+          "next": "settled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ProcessEarlySettlement",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "mature_loan",
+          "next": "matured",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.maturityDate",
+            "operation": "LESS_THAN_OR_EQUAL",
+            "value": "TODAY"
+          }
+        }
+      ]
+    },
+    "matured": {
+      "transitions": [
+        {
+          "name": "final_payment",
+          "next": "settled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ProcessFinalPayment",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "settled": {
+      "transitions": [
+        {
+          "name": "close_loan",
+          "next": "closed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CloseLoan",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}

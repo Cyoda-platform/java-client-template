@@ -1,0 +1,142 @@
+{
+  "version": "1.0",
+  "name": "Payment",
+  "desc": "Payment processing workflow from capture through posting",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "capture_payment",
+          "next": "captured",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidatePayment",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "captured": {
+      "transitions": [
+        {
+          "name": "match_payment",
+          "next": "matched",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MatchPaymentToLoan",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "mark_unmatched",
+          "next": "unmatched",
+          "manual": true
+        }
+      ]
+    },
+    "matched": {
+      "transitions": [
+        {
+          "name": "allocate_payment",
+          "next": "allocated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AllocatePaymentFunds",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "allocated": {
+      "transitions": [
+        {
+          "name": "post_payment",
+          "next": "posted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PostPaymentEntries",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "unmatched": {
+      "transitions": [
+        {
+          "name": "manual_match",
+          "next": "matched",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ManualMatchPayment",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "return_payment",
+          "next": "returned",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReturnPayment",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "posted": {
+      "transitions": []
+    },
+    "returned": {
+      "transitions": []
+    }
+  }
+}

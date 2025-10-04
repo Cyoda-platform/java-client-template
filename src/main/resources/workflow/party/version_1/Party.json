@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "Party",
+  "desc": "Party lifecycle workflow for managing legal entities in the loan system",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_party",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateNewParty",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_party",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdatePartyDetails",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "deactivate_party",
+          "next": "inactive",
+          "manual": true
+        }
+      ]
+    },
+    "inactive": {
+      "transitions": [
+        {
+          "name": "reactivate_party",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
