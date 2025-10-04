@@ -1,0 +1,163 @@
+{
+  "version": "1.0",
+  "name": "GLBatch",
+  "desc": "Month-end GL batch workflow from preparation through posting",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "open_batch",
+          "next": "open",
+          "manual": false
+        }
+      ]
+    },
+    "open": {
+      "transitions": [
+        {
+          "name": "prepare_batch",
+          "next": "prepared",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SummarizePeriod",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "prepared": {
+      "transitions": [
+        {
+          "name": "approve_batch_maker",
+          "next": "maker_approved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ValidateBatchBalance",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_batch",
+          "next": "rejected",
+          "manual": true
+        }
+      ]
+    },
+    "maker_approved": {
+      "transitions": [
+        {
+          "name": "approve_batch_checker",
+          "next": "approved",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RecordCheckerApproval",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "export_batch",
+          "next": "exported",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ExportGLBatch",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 15000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "exported": {
+      "transitions": [
+        {
+          "name": "confirm_posting",
+          "next": "posted",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ConfirmGLPosting",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "handle_export_failure",
+          "next": "export_failed",
+          "manual": true
+        }
+      ]
+    },
+    "posted": {
+      "transitions": [
+        {
+          "name": "archive_batch",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "rejected": {
+      "transitions": [
+        {
+          "name": "reopen_batch",
+          "next": "open",
+          "manual": true
+        }
+      ]
+    },
+    "export_failed": {
+      "transitions": [
+        {
+          "name": "retry_export",
+          "next": "approved",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}

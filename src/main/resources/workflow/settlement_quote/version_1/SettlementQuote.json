@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "name": "SettlementQuote",
+  "desc": "Early settlement quote workflow from request through acceptance or expiration",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "request_quote",
+          "next": "calculating",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ValidateQuoteRequest",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "calculating": {
+      "transitions": [
+        {
+          "name": "calculate_settlement",
+          "next": "quoted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CalculateSettlementAmount",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "quoted": {
+      "transitions": [
+        {
+          "name": "accept_quote",
+          "next": "accepted",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AcceptSettlementQuote",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "expire_quote",
+          "next": "expired",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.expirationDate",
+            "operation": "LESS_THAN",
+            "value": "TODAY"
+          }
+        }
+      ]
+    },
+    "accepted": {
+      "transitions": []
+    },
+    "expired": {
+      "transitions": [
+        {
+          "name": "regenerate_quote",
+          "next": "calculating",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
