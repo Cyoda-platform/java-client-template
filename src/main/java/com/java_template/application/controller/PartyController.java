@@ -7,6 +7,7 @@ import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,7 +140,7 @@ public class PartyController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
             
-            List<SimpleCondition> conditions = new ArrayList<>();
+            List<QueryCondition> conditions = new ArrayList<>();
             
             if (status != null && !status.trim().isEmpty()) {
                 SimpleCondition statusCondition = new SimpleCondition()
