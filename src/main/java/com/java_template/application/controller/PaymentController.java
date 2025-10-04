@@ -7,6 +7,7 @@ import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -170,7 +171,7 @@ public class PaymentController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
             
-            List<SimpleCondition> conditions = new java.util.ArrayList<>();
+            List<QueryCondition> conditions = new java.util.ArrayList<>();
             
             if (loanId != null && !loanId.trim().isEmpty()) {
                 SimpleCondition loanCondition = new SimpleCondition()
