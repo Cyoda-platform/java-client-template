@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.repository.CrudRepository;
-import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
-import org.cyoda.cloud.api.event.common.condition.Operation;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Getter;
@@ -14,6 +12,8 @@ import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Collection;
 import java.util.Date;
@@ -781,9 +780,9 @@ class EntityServiceImplTest {
         assertNotNull(result);
         assertEquals(2, result.size());
         // Verify that entities are properly mapped
-        assertEntityMatches(result.get(0).entity(), testEntity);
+        assertEntityMatches(result.getFirst().entity(), testEntity);
         assertEntityMatches(result.get(1).entity(), testEntity2);
-        assertEquals(testEntityId, result.get(0).metadata().getId());
+        assertEquals(testEntityId, result.getFirst().metadata().getId());
         assertEquals(testEntityId2, result.get(1).metadata().getId());
         verify(repository).saveAll(createTestModelSpec(), entities);
     }
