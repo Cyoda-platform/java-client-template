@@ -16,9 +16,9 @@ import org.cyoda.cloud.api.event.common.condition.Operation;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -69,7 +69,7 @@ public class AllocatePaymentFunds implements CyodaProcessor {
         EntityWithMetadata<Payment> entityWithMetadata = context.entityResponse();
         Payment payment = entityWithMetadata.entity();
 
-        logger.debug("Allocating payment funds for payment: {} amount: {}", 
+        logger.debug("Allocating payment funds for payment: {} amount: {}",
                     payment.getPaymentId(), payment.getPaymentAmount());
 
         // Get the associated loan
@@ -117,8 +117,8 @@ public class AllocatePaymentFunds implements CyodaProcessor {
         // Update the loan balances
         updateLoanBalances(loan, allocation);
 
-        logger.info("Payment allocation completed for {}: Interest={}, Principal={}, Excess={}", 
-                   payment.getPaymentId(), allocation.getInterestAllocated(), 
+        logger.info("Payment allocation completed for {}: Interest={}, Principal={}, Excess={}",
+                   payment.getPaymentId(), allocation.getInterestAllocated(),
                    allocation.getPrincipalAllocated(), allocation.getExcessFunds());
 
         return entityWithMetadata;
@@ -128,7 +128,7 @@ public class AllocatePaymentFunds implements CyodaProcessor {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
             ObjectMapper objectMapper = new ObjectMapper();
-            
+
             SimpleCondition condition = new SimpleCondition()
                     .withJsonPath("$.loanId")
                     .withOperation(Operation.EQUALS)
@@ -145,7 +145,7 @@ public class AllocatePaymentFunds implements CyodaProcessor {
                 return null;
             }
 
-            return loans.get(0).entity();
+            return loans.getFirst().entity();
 
         } catch (Exception e) {
             logger.error("Error retrieving loan: {}", loanId, e);
@@ -166,7 +166,7 @@ public class AllocatePaymentFunds implements CyodaProcessor {
             // Find the loan entity and update it
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
             ObjectMapper objectMapper = new ObjectMapper();
-            
+
             SimpleCondition condition = new SimpleCondition()
                     .withJsonPath("$.loanId")
                     .withOperation(Operation.EQUALS)
@@ -179,11 +179,11 @@ public class AllocatePaymentFunds implements CyodaProcessor {
             List<EntityWithMetadata<Loan>> loans = entityService.search(modelSpec, groupCondition, Loan.class);
 
             if (!loans.isEmpty()) {
-                EntityWithMetadata<Loan> loanWithMetadata = loans.get(0);
+                EntityWithMetadata<Loan> loanWithMetadata = loans.getFirst();
                 // Update the loan without transition (loop back to same state)
                 entityService.update(loanWithMetadata.metadata().getId(), loan, null);
-                
-                logger.debug("Updated loan balances: AccruedInterest={}, OutstandingPrincipal={}", 
+
+                logger.debug("Updated loan balances: AccruedInterest={}, OutstandingPrincipal={}",
                            newAccruedInterest, newOutstandingPrincipal);
             }
 
