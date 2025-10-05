@@ -265,4 +265,68 @@ public class PartyController {
             return ResponseEntity.of(problemDetail).build();
         }
     }
+
+    /**
+     * Delete party by technical UUID
+     * DELETE /ui/parties/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteParty(@PathVariable UUID id) {
+        try {
+            entityService.deleteById(id);
+            logger.info("Party deleted with ID: {}", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete party with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete party by business identifier
+     * DELETE /ui/parties/business/{partyId}
+     */
+    @DeleteMapping("/business/{partyId}")
+    public ResponseEntity<Void> deletePartyByBusinessId(@PathVariable String partyId) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
+            boolean deleted = entityService.deleteByBusinessId(modelSpec, partyId, "partyId", Party.class);
+
+            if (!deleted) {
+                return ResponseEntity.notFound().build();
+            }
+
+            logger.info("Party deleted with business ID: {}", partyId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete party with business ID '%s': %s", partyId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete all parties (DANGEROUS - use with caution)
+     * DELETE /ui/parties
+     */
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllParties() {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
+            Integer deletedCount = entityService.deleteAll(modelSpec);
+            logger.warn("Deleted all Parties - count: {}", deletedCount);
+            return ResponseEntity.ok().body(String.format("Deleted %d parties", deletedCount));
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete all parties: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
 }

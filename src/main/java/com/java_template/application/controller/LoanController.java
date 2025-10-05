@@ -302,7 +302,7 @@ public class LoanController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
             EntityWithMetadata<Loan> current = entityService.getById(id, modelSpec, Loan.class);
-            
+
             // Note: In a real implementation, you would pass the settlement date to the processor
             EntityWithMetadata<Loan> response = entityService.update(id, current.entity(), "generate_settlement_quote");
             logger.info("Settlement quote generated for loan ID: {}", id);
@@ -311,6 +311,70 @@ public class LoanController {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 String.format("Failed to generate settlement quote for loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete loan by technical UUID
+     * DELETE /ui/loans/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteLoan(@PathVariable UUID id) {
+        try {
+            entityService.deleteById(id);
+            logger.info("Loan deleted with ID: {}", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete loan by business identifier
+     * DELETE /ui/loans/business/{loanId}
+     */
+    @DeleteMapping("/business/{loanId}")
+    public ResponseEntity<Void> deleteLoanByBusinessId(@PathVariable String loanId) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
+            boolean deleted = entityService.deleteByBusinessId(modelSpec, loanId, "loanId", Loan.class);
+
+            if (!deleted) {
+                return ResponseEntity.notFound().build();
+            }
+
+            logger.info("Loan deleted with business ID: {}", loanId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete loan with business ID '%s': %s", loanId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete all loans (DANGEROUS - use with caution)
+     * DELETE /ui/loans
+     */
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllLoans() {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
+            Integer deletedCount = entityService.deleteAll(modelSpec);
+            logger.warn("Deleted all Loans - count: {}", deletedCount);
+            return ResponseEntity.ok().body(String.format("Deleted %d loans", deletedCount));
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete all loans: %s", e.getMessage())
             );
             return ResponseEntity.of(problemDetail).build();
         }

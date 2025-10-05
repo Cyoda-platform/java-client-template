@@ -11,10 +11,10 @@
           "name": "create_loan",
           "next": "draft",
           "manual": false,
-          "processors": [
-            {
-              "name": "ValidateNewLoan",
-              "executionMode": "SYNC",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NewLoanValidationCriterion",
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
@@ -22,7 +22,7 @@
                 "retryPolicy": "FIXED"
               }
             }
-          ]
+          }
         }
       ]
     },

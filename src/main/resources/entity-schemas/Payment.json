@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://java-template.com/entity/Payment.json",
+  "title": "Payment",
+  "description": "This entity represents a single payment received from a borrower and details how the funds were allocated to interest, fees, and principal.",
+  "type": "object",
+  "javaType": "com.java_template.application.entity.payment.version_1.Payment",
+  "properties": {
+    "paymentId": {
+      "type": "string",
+      "description": "Required business identifier field"
+    },
+    "loanId": {
+      "type": "string",
+      "description": "Reference to the Loan entity"
+    },
+    "payerPartyId": {
+      "type": "string",
+      "description": "Reference to the payer Party"
+    },
+    "paymentAmount": {
+      "type": "number",
+      "javaType": "java.math.BigDecimal"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "valueDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when payment is effective for accounting",
+      "javaType": "java.time.LocalDate"
+    },
+    "receivedDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when payment was actually received",
+      "javaType": "java.time.LocalDate"
+    },
+    "paymentMethod": {
+      "type": "string",
+      "description": "Payment method (e.g., BANK_TRANSFER, CHEQUE, WIRE)"
+    },
+    "reference": {
+      "type": "string",
+      "description": "External reference (e.g., bank reference)"
+    },
+    "status": {
+      "type": "string",
+      "description": "Managed by workflow state machine"
+    },
+    "allocation": {
+      "$ref": "#/definitions/PaymentAllocation"
+    },
+    "subLedgerEntries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/PaymentSubLedgerEntry"
+      }
+    },
+    "audit": {
+      "$ref": "#/definitions/PaymentAudit"
+    }
+  },
+  "required": [
+    "paymentId",
+    "loanId",
+    "payerPartyId",
+    "paymentAmount",
+    "currency",
+    "valueDate",
+    "receivedDate"
+  ],
+  "definitions": {
+    "PaymentAllocation": {
+      "type": "object",
+      "description": "Nested class for payment allocation details",
+      "properties": {
+        "interestAllocated": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "feesAllocated": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "principalAllocated": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "excessFunds": {
+          "type": "number",
+          "description": "For overpayments",
+          "javaType": "java.math.BigDecimal"
+        }
+      }
+    },
+    "PaymentSubLedgerEntry": {
+      "type": "object",
+      "description": "Nested class for sub-ledger entries",
+      "properties": {
+        "entryId": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string",
+          "description": "Account name (e.g., Cash, Interest Receivable, Loan Principal)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Entry type (DEBIT or CREDIT)"
+        },
+        "amount": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        }
+      }
+    },
+    "PaymentAudit": {
+      "type": "object",
+      "description": "Nested class for audit information",
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "User who created the payment"
+        },
+        "postedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "postedBy": {
+          "type": "string",
+          "description": "User who posted the payment (may be system)"
+        },
+        "modifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "modifiedBy": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+

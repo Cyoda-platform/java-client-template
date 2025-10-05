@@ -11,10 +11,10 @@
           "name": "request_quote",
           "next": "calculating",
           "manual": false,
-          "processors": [
-            {
-              "name": "ValidateQuoteRequest",
-              "executionMode": "SYNC",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SettlementQuoteValidationCriterion",
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
@@ -22,7 +22,7 @@
                 "retryPolicy": "FIXED"
               }
             }
-          ]
+          }
         }
       ]
     },

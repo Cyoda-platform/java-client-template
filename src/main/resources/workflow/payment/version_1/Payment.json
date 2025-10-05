@@ -11,10 +11,10 @@
           "name": "capture_payment",
           "next": "captured",
           "manual": false,
-          "processors": [
-            {
-              "name": "ValidatePayment",
-              "executionMode": "SYNC",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "PaymentValidationCriterion",
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
@@ -22,7 +22,7 @@
                 "retryPolicy": "FIXED"
               }
             }
-          ]
+          }
         }
       ]
     },

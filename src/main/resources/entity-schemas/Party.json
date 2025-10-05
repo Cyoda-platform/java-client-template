@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://java-template.com/entity/Party.json",
+  "title": "Party",
+  "description": "This entity represents a legal entity (borrower, lender, agent) that can participate in loan agreements within the Commercial Loan Management System.",
+  "type": "object",
+  "javaType": "com.java_template.application.entity.party.version_1.Party",
+  "properties": {
+    "partyId": {
+      "type": "string",
+      "description": "Required business identifier field"
+    },
+    "legalName": {
+      "type": "string",
+      "description": "Legal name of the party"
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "Jurisdiction of the party"
+    },
+    "lei": {
+      "type": "string",
+      "description": "Legal Entity Identifier"
+    },
+    "role": {
+      "type": "string",
+      "description": "Role of the party (e.g., Borrower, Lender, Agent, Security Trustee)"
+    },
+    "status": {
+      "type": "string",
+      "description": "Status of the party (e.g., ACTIVE, INACTIVE)"
+    },
+    "contact": {
+      "$ref": "#/definitions/PartyContact"
+    },
+    "address": {
+      "$ref": "#/definitions/PartyAddress"
+    }
+  },
+  "required": [
+    "partyId",
+    "legalName",
+    "jurisdiction"
+  ],
+  "definitions": {
+    "PartyContact": {
+      "type": "object",
+      "description": "Nested class for contact information",
+      "properties": {
+        "contactName": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "fax": {
+          "type": "string"
+        }
+      }
+    },
+    "PartyAddress": {
+      "type": "object",
+      "description": "Nested class for address information",
+      "properties": {
+        "line1": {
+          "type": "string"
+        },
+        "line2": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "postcode": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+

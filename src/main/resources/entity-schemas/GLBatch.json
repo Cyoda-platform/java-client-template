@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://java-template.com/entity/GLBatch.json",
+  "title": "GLBatch",
+  "description": "This entity represents a batch of summarized accounting entries prepared at the end of a month for posting to the General Ledger system.",
+  "type": "object",
+  "javaType": "com.java_template.application.entity.gl_batch.version_1.GLBatch",
+  "properties": {
+    "batchId": {
+      "type": "string",
+      "description": "Required business identifier field"
+    },
+    "period": {
+      "type": "string",
+      "description": "Period (e.g., 2025-09 for September 2025)"
+    },
+    "exportFormat": {
+      "type": "string",
+      "description": "Export format (e.g., CSV, JSON, XML)"
+    },
+    "status": {
+      "type": "string",
+      "description": "Managed by workflow state machine"
+    },
+    "controlTotals": {
+      "$ref": "#/definitions/GLControlTotals"
+    },
+    "glLines": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/GLLine"
+      }
+    },
+    "export": {
+      "$ref": "#/definitions/GLExport"
+    },
+    "audit": {
+      "$ref": "#/definitions/GLBatchAudit"
+    }
+  },
+  "required": [
+    "batchId",
+    "period",
+    "exportFormat"
+  ],
+  "definitions": {
+    "GLControlTotals": {
+      "type": "object",
+      "description": "Nested class for control totals",
+      "properties": {
+        "totalDebits": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "totalCredits": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "lineItemCount": {
+          "type": "integer",
+          "javaType": "java.lang.Integer"
+        },
+        "isBalanced": {
+          "type": "boolean",
+          "description": "totalDebits == totalCredits",
+          "javaType": "java.lang.Boolean"
+        }
+      }
+    },
+    "GLLine": {
+      "type": "object",
+      "description": "Nested class for individual GL lines",
+      "properties": {
+        "glLineId": {
+          "type": "string"
+        },
+        "glAccount": {
+          "type": "string",
+          "description": "GL account (e.g., 1100-Interest-Receivable)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the entry"
+        },
+        "type": {
+          "type": "string",
+          "description": "Entry type (DEBIT or CREDIT)"
+        },
+        "amount": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "costCenter": {
+          "type": "string",
+          "description": "Optional cost center"
+        },
+        "product": {
+          "type": "string",
+          "description": "Optional product"
+        },
+        "reference": {
+          "type": "string",
+          "description": "Optional reference to source transactions"
+        }
+      }
+    },
+    "GLExport": {
+      "type": "object",
+      "description": "Nested class for export information",
+      "properties": {
+        "fileName": {
+          "type": "string"
+        },
+        "filePath": {
+          "type": "string"
+        },
+        "fileFormat": {
+          "type": "string"
+        },
+        "fileSizeBytes": {
+          "type": "integer",
+          "javaType": "java.lang.Long"
+        },
+        "checksum": {
+          "type": "string",
+          "description": "For file integrity verification"
+        },
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "exportedBy": {
+          "type": "string"
+        },
+        "destinationSystem": {
+          "type": "string",
+          "description": "Destination system (e.g., SAP, Oracle GL)"
+        },
+        "transmissionMethod": {
+          "type": "string",
+          "description": "Transmission method (e.g., SFTP, API, EMAIL)"
+        },
+        "transmissionStatus": {
+          "type": "string",
+          "description": "Transmission status (e.g., SENT, ACKNOWLEDGED, FAILED)"
+        }
+      }
+    },
+    "GLBatchAudit": {
+      "type": "object",
+      "description": "Nested class for audit information",
+      "properties": {
+        "preparedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "preparedBy": {
+          "type": "string"
+        },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GLApproval"
+          }
+        },
+        "exportedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "exportedBy": {
+          "type": "string"
+        },
+        "postedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When GL system confirms posting",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "archivedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        }
+      }
+    },
+    "GLApproval": {
+      "type": "object",
+      "description": "Nested class for approval tracking",
+      "properties": {
+        "approverUserId": {
+          "type": "string"
+        },
+        "approverName": {
+          "type": "string"
+        },
+        "approverRole": {
+          "type": "string",
+          "description": "Approver role (e.g., Finance Manager)"
+        },
+        "approvedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "approvalType": {
+          "type": "string",
+          "description": "Approval type (e.g., MAKER, CHECKER)"
+        },
+        "comments": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+

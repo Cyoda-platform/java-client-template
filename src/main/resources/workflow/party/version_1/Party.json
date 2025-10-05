@@ -11,10 +11,10 @@
           "name": "create_party",
           "next": "active",
           "manual": false,
-          "processors": [
-            {
-              "name": "ValidateNewParty",
-              "executionMode": "SYNC",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NewPartyValidationCriterion",
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
@@ -22,7 +22,7 @@
                 "retryPolicy": "FIXED"
               }
             }
-          ]
+          }
         }
       ]
     },

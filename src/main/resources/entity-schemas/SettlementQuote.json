@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://java-template.com/entity/SettlementQuote.json",
+  "title": "SettlementQuote",
+  "description": "This entity stores the details of a quote for an early loan settlement, including the total amount due and the quote's expiration date.",
+  "type": "object",
+  "javaType": "com.java_template.application.entity.settlement_quote.version_1.SettlementQuote",
+  "properties": {
+    "quoteId": {
+      "type": "string",
+      "description": "Required business identifier field"
+    },
+    "loanId": {
+      "type": "string",
+      "description": "Reference to the Loan entity"
+    },
+    "settlementDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Proposed settlement date",
+      "javaType": "java.time.LocalDate"
+    },
+    "expirationDate": {
+      "type": "string",
+      "format": "date",
+      "description": "When this quote expires",
+      "javaType": "java.time.LocalDate"
+    },
+    "requestedBy": {
+      "type": "string",
+      "description": "User who requested the quote"
+    },
+    "calculation": {
+      "$ref": "#/definitions/SettlementCalculation"
+    },
+    "totalAmountDue": {
+      "type": "number",
+      "javaType": "java.math.BigDecimal"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "description": "Managed by workflow state machine"
+    },
+    "audit": {
+      "$ref": "#/definitions/SettlementAudit"
+    }
+  },
+  "required": [
+    "quoteId",
+    "loanId",
+    "settlementDate",
+    "expirationDate",
+    "requestedBy",
+    "totalAmountDue",
+    "currency"
+  ],
+  "definitions": {
+    "SettlementCalculation": {
+      "type": "object",
+      "description": "Nested class for settlement calculation breakdown",
+      "properties": {
+        "outstandingPrincipal": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "accruedInterestToDate": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "projectedInterestToSettlement": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "fees": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "breakCosts": {
+          "type": "number",
+          "description": "If applicable",
+          "javaType": "java.math.BigDecimal"
+        },
+        "totalInterest": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "calculationMethod": {
+          "type": "string"
+        },
+        "dayCountBasis": {
+          "type": "string"
+        }
+      }
+    },
+    "SettlementAudit": {
+      "type": "object",
+      "description": "Nested class for audit information",
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "quotedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "quotedBy": {
+          "type": "string"
+        },
+        "acceptedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "acceptedBy": {
+          "type": "string"
+        },
+        "expiredAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        }
+      }
+    }
+  }
+}
+

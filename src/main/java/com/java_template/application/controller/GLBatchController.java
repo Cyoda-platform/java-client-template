@@ -134,4 +134,68 @@ public class GLBatchController {
             return ResponseEntity.of(problemDetail).build();
         }
     }
+
+    /**
+     * Delete GL batch by technical UUID
+     * DELETE /ui/gl-batches/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteGLBatch(@PathVariable UUID id) {
+        try {
+            entityService.deleteById(id);
+            logger.info("GLBatch deleted with ID: {}", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete GL batch with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete GL batch by business identifier
+     * DELETE /ui/gl-batches/business/{batchId}
+     */
+    @DeleteMapping("/business/{batchId}")
+    public ResponseEntity<Void> deleteGLBatchByBusinessId(@PathVariable String batchId) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(GLBatch.ENTITY_NAME).withVersion(GLBatch.ENTITY_VERSION);
+            boolean deleted = entityService.deleteByBusinessId(modelSpec, batchId, "batchId", GLBatch.class);
+
+            if (!deleted) {
+                return ResponseEntity.notFound().build();
+            }
+
+            logger.info("GLBatch deleted with business ID: {}", batchId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete GL batch with business ID '%s': %s", batchId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete all GL batches (DANGEROUS - use with caution)
+     * DELETE /ui/gl-batches
+     */
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllGLBatches() {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(GLBatch.ENTITY_NAME).withVersion(GLBatch.ENTITY_VERSION);
+            Integer deletedCount = entityService.deleteAll(modelSpec);
+            logger.warn("Deleted all GLBatches - count: {}", deletedCount);
+            return ResponseEntity.ok().body(String.format("Deleted %d GL batches", deletedCount));
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete all GL batches: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
 }

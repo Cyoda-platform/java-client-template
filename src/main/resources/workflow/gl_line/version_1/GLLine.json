@@ -11,10 +11,10 @@
           "name": "create_line",
           "next": "created",
           "manual": false,
-          "processors": [
-            {
-              "name": "ValidateGLLine",
-              "executionMode": "SYNC",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "GLLineValidationCriterion",
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
@@ -22,7 +22,7 @@
                 "retryPolicy": "FIXED"
               }
             }
-          ]
+          }
         }
       ]
     },

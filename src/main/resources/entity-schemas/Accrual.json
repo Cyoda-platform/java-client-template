@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://java-template.com/entity/Accrual.json",
+  "title": "Accrual",
+  "description": "This entity records the result of the daily interest calculation for each active loan, creating an immutable audit trail of interest accruals.",
+  "type": "object",
+  "javaType": "com.java_template.application.entity.accrual.version_1.Accrual",
+  "properties": {
+    "accrualId": {
+      "type": "string",
+      "description": "Required business identifier field"
+    },
+    "loanId": {
+      "type": "string",
+      "description": "Reference to the Loan entity"
+    },
+    "valueDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Date for which interest is being accrued",
+      "javaType": "java.time.LocalDate"
+    },
+    "principalBase": {
+      "type": "number",
+      "description": "Outstanding principal at start of day",
+      "javaType": "java.math.BigDecimal"
+    },
+    "effectiveRate": {
+      "type": "number",
+      "description": "APR used for calculation",
+      "javaType": "java.math.BigDecimal"
+    },
+    "dayCountBasis": {
+      "type": "string",
+      "description": "Day count basis (e.g., ACT/365, ACT/360, 30/360)"
+    },
+    "calculation": {
+      "$ref": "#/definitions/AccrualCalculation"
+    },
+    "accruedAmount": {
+      "type": "number",
+      "description": "Calculated interest amount (8 decimal precision)",
+      "javaType": "java.math.BigDecimal"
+    },
+    "subLedgerEntries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/AccrualSubLedgerEntry"
+      }
+    },
+    "audit": {
+      "$ref": "#/definitions/AccrualAudit"
+    }
+  },
+  "required": [
+    "accrualId",
+    "loanId",
+    "valueDate",
+    "principalBase",
+    "effectiveRate",
+    "dayCountBasis"
+  ],
+  "definitions": {
+    "AccrualCalculation": {
+      "type": "object",
+      "description": "Nested class for calculation details",
+      "properties": {
+        "formula": {
+          "type": "string",
+          "description": "Formula used (e.g., principalBase * effectiveRate * dcf)"
+        },
+        "dayCountFraction": {
+          "type": "number",
+          "description": "Fraction of year for this day",
+          "javaType": "java.math.BigDecimal"
+        },
+        "daysInYear": {
+          "type": "integer",
+          "description": "Days in year (365, 360, etc.)",
+          "javaType": "java.lang.Integer"
+        },
+        "actualDays": {
+          "type": "integer",
+          "description": "Actual days for ACT calculations",
+          "javaType": "java.lang.Integer"
+        }
+      }
+    },
+    "AccrualSubLedgerEntry": {
+      "type": "object",
+      "description": "Nested class for sub-ledger entries",
+      "properties": {
+        "entryId": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string",
+          "description": "Account name (e.g., Interest Receivable, Interest Income)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Entry type (DEBIT or CREDIT)"
+        },
+        "amount": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        }
+      }
+    },
+    "AccrualAudit": {
+      "type": "object",
+      "description": "Nested class for audit information",
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "Usually System/EOD_Processor"
+        },
+        "postedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "postedBy": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
+

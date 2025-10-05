@@ -267,7 +267,7 @@ public class PaymentController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
             EntityWithMetadata<Payment> current = entityService.getById(id, modelSpec, Payment.class);
-            
+
             EntityWithMetadata<Payment> response = entityService.update(id, current.entity(), "return_payment");
             logger.info("Payment returned with ID: {}", id);
             return ResponseEntity.ok(response);
@@ -275,6 +275,70 @@ public class PaymentController {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 String.format("Failed to return payment with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete payment by technical UUID
+     * DELETE /ui/payments/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletePayment(@PathVariable UUID id) {
+        try {
+            entityService.deleteById(id);
+            logger.info("Payment deleted with ID: {}", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete payment with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete payment by business identifier
+     * DELETE /ui/payments/business/{paymentId}
+     */
+    @DeleteMapping("/business/{paymentId}")
+    public ResponseEntity<Void> deletePaymentByBusinessId(@PathVariable String paymentId) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
+            boolean deleted = entityService.deleteByBusinessId(modelSpec, paymentId, "paymentId", Payment.class);
+
+            if (!deleted) {
+                return ResponseEntity.notFound().build();
+            }
+
+            logger.info("Payment deleted with business ID: {}", paymentId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete payment with business ID '%s': %s", paymentId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete all payments (DANGEROUS - use with caution)
+     * DELETE /ui/payments
+     */
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllPayments() {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
+            Integer deletedCount = entityService.deleteAll(modelSpec);
+            logger.warn("Deleted all Payments - count: {}", deletedCount);
+            return ResponseEntity.ok().body(String.format("Deleted %d payments", deletedCount));
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete all payments: %s", e.getMessage())
             );
             return ResponseEntity.of(problemDetail).build();
         }

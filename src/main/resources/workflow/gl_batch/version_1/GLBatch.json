@@ -41,10 +41,10 @@
           "name": "approve_batch_maker",
           "next": "maker_approved",
           "manual": true,
-          "processors": [
-            {
-              "name": "ValidateBatchBalance",
-              "executionMode": "SYNC",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "BatchBalanceValidationCriterion",
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
@@ -52,7 +52,7 @@
                 "retryPolicy": "FIXED"
               }
             }
-          ]
+          }
         },
         {
           "name": "reject_batch",

@@ -1,0 +1,547 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://java-template.com/entity/Loan.json",
+  "title": "Loan",
+  "description": "This entity represents a funded commercial loan under servicing, acting as the aggregate root for most financial activities in the LMS.",
+  "type": "object",
+  "javaType": "com.java_template.application.entity.loan.version_1.Loan",
+  "properties": {
+    "loanId": {
+      "type": "string",
+      "description": "Required business identifier field"
+    },
+    "agreementId": {
+      "type": "string"
+    },
+    "partyId": {
+      "type": "string",
+      "description": "Reference to borrower Party"
+    },
+    "principalAmount": {
+      "type": "number",
+      "javaType": "java.math.BigDecimal"
+    },
+    "apr": {
+      "type": "number",
+      "description": "Annual Percentage Rate",
+      "javaType": "java.math.BigDecimal"
+    },
+    "termMonths": {
+      "type": "integer",
+      "description": "Term in months (12, 24, or 36 months)",
+      "javaType": "java.lang.Integer"
+    },
+    "fundingDate": {
+      "type": "string",
+      "format": "date",
+      "javaType": "java.time.LocalDate"
+    },
+    "maturityDate": {
+      "type": "string",
+      "format": "date",
+      "javaType": "java.time.LocalDate"
+    },
+    "outstandingPrincipal": {
+      "type": "number",
+      "description": "Managed by system",
+      "javaType": "java.math.BigDecimal"
+    },
+    "accruedInterest": {
+      "type": "number",
+      "description": "Managed by system",
+      "javaType": "java.math.BigDecimal"
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Purpose (e.g., General corporate purposes)"
+    },
+    "governingLaw": {
+      "type": "string",
+      "description": "Governing law (e.g., England and Wales)"
+    },
+    "dayCountBasis": {
+      "type": "string",
+      "description": "Day count basis (e.g., ACT/365, ACT/360, 30/360)"
+    },
+    "currency": {
+      "type": "string",
+      "description": "Currency (e.g., GBP, USD)"
+    },
+    "parties": {
+      "type": "array",
+      "description": "All parties involved in the loan",
+      "items": {
+        "$ref": "#/definitions/LoanParty"
+      }
+    },
+    "facilities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/LoanFacility"
+      }
+    }
+  },
+  "required": [
+    "loanId",
+    "agreementId",
+    "partyId",
+    "principalAmount",
+    "apr",
+    "termMonths",
+    "fundingDate",
+    "maturityDate"
+  ],
+  "definitions": {
+    "LoanParty": {
+      "type": "object",
+      "description": "Nested class for loan parties (borrowers, lenders, agents)",
+      "properties": {
+        "partyId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "lei": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role (Borrower, Lender, Agent, Security Trustee)"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "commitmentAmount": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "commitmentCurrency": {
+          "type": "string"
+        }
+      }
+    },
+    "LoanFacility": {
+      "type": "object",
+      "description": "Nested class for loan facilities",
+      "properties": {
+        "facilityId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type (Revolver, Term Loan)"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "availability": {
+          "$ref": "#/definitions/LoanAvailability"
+        },
+        "tranches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LoanTranche"
+          }
+        },
+        "drawdowns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LoanDrawdown"
+          }
+        },
+        "repayments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LoanRepayment"
+          }
+        },
+        "prepayment": {
+          "$ref": "#/definitions/LoanPrepayment"
+        }
+      }
+    },
+    "LoanAvailability": {
+      "type": "object",
+      "description": "Nested class for facility availability",
+      "properties": {
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "javaType": "java.time.LocalDate"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date",
+          "javaType": "java.time.LocalDate"
+        },
+        "conditionsPrecedent": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "LoanTranche": {
+      "type": "object",
+      "description": "Nested class for loan tranches",
+      "properties": {
+        "trancheId": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "interest": {
+          "$ref": "#/definitions/LoanInterest"
+        },
+        "fees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LoanFee"
+          }
+        },
+        "amortization": {
+          "$ref": "#/definitions/LoanAmortization"
+        },
+        "covenants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LoanCovenant"
+          }
+        },
+        "collateral": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LoanCollateral"
+          }
+        }
+      }
+    },
+    "LoanInterest": {
+      "type": "object",
+      "description": "Nested class for interest configuration",
+      "properties": {
+        "index": {
+          "type": "string",
+          "description": "Index (SONIA, LIBOR)"
+        },
+        "tenor": {
+          "type": "string",
+          "description": "Tenor (1M, 3M)"
+        },
+        "spreadBps": {
+          "type": "integer",
+          "description": "Spread in basis points",
+          "javaType": "java.lang.Integer"
+        },
+        "floorRate": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "dayCount": {
+          "type": "string",
+          "description": "Day count (ACT/365F, ACT/360)"
+        },
+        "rateReset": {
+          "$ref": "#/definitions/LoanRateReset"
+        },
+        "compounding": {
+          "type": "string",
+          "description": "Compounding (Simple, Compound)"
+        }
+      }
+    },
+    "LoanRateReset": {
+      "type": "object",
+      "description": "Nested class for rate reset configuration",
+      "properties": {
+        "frequency": {
+          "type": "string",
+          "description": "Frequency (Monthly, Quarterly)"
+        },
+        "businessDayConvention": {
+          "type": "string",
+          "description": "Business day convention (ModifiedFollowing)"
+        }
+      }
+    },
+    "LoanFee": {
+      "type": "object",
+      "description": "Nested class for fees",
+      "properties": {
+        "feeId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type (Commitment, Arrangement)"
+        },
+        "basis": {
+          "type": "string",
+          "description": "Basis (Unused, Outstanding)"
+        },
+        "rateBps": {
+          "type": "integer",
+          "javaType": "java.lang.Integer"
+        },
+        "amount": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "accrualDayCount": {
+          "type": "string"
+        },
+        "payFrequency": {
+          "type": "string"
+        },
+        "payOn": {
+          "type": "string",
+          "description": "Pay on (Signing, Quarterly)"
+        }
+      }
+    },
+    "LoanAmortization": {
+      "type": "object",
+      "description": "Nested class for amortization",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Type (Bullet, Amortizing)"
+        },
+        "schedule": {
+          "type": "array",
+          "description": "Empty for bullet loans",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "LoanCovenant": {
+      "type": "object",
+      "description": "Nested class for covenants",
+      "properties": {
+        "covenantId": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category (Financial, Information)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name (e.g., Net Leverage)"
+        },
+        "definition": {
+          "type": "string",
+          "description": "Definition (e.g., NetDebt/EBITDA)"
+        },
+        "thresholdOperator": {
+          "type": "string",
+          "description": "Threshold operator (<=, >=)"
+        },
+        "thresholdValue": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "testFrequency": {
+          "type": "string",
+          "description": "Test frequency (Quarterly, Monthly)"
+        },
+        "cureRights": {
+          "$ref": "#/definitions/LoanCureRights"
+        }
+      }
+    },
+    "LoanCureRights": {
+      "type": "object",
+      "description": "Nested class for cure rights",
+      "properties": {
+        "allowed": {
+          "type": "boolean",
+          "javaType": "java.lang.Boolean"
+        },
+        "periodDays": {
+          "type": "integer",
+          "javaType": "java.lang.Integer"
+        }
+      }
+    },
+    "LoanCollateral": {
+      "type": "object",
+      "description": "Nested class for collateral",
+      "properties": {
+        "collateralId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type (Debenture, Pledge)"
+        },
+        "jurisdiction": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "LoanDrawdown": {
+      "type": "object",
+      "description": "Nested class for drawdowns",
+      "properties": {
+        "drawId": {
+          "type": "string"
+        },
+        "trancheId": {
+          "type": "string"
+        },
+        "requestDate": {
+          "type": "string",
+          "format": "date",
+          "javaType": "java.time.LocalDate"
+        },
+        "valueDate": {
+          "type": "string",
+          "format": "date",
+          "javaType": "java.time.LocalDate"
+        },
+        "amount": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "purpose": {
+          "type": "string"
+        },
+        "fx": {
+          "$ref": "#/definitions/LoanFx"
+        }
+      }
+    },
+    "LoanFx": {
+      "type": "object",
+      "description": "Nested class for FX information",
+      "properties": {
+        "tradeCcy": {
+          "type": "string"
+        },
+        "settleCcy": {
+          "type": "string"
+        },
+        "rate": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        }
+      }
+    },
+    "LoanRepayment": {
+      "type": "object",
+      "description": "Nested class for repayments",
+      "properties": {
+        "repaymentId": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type (Scheduled, Prepayment)"
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date",
+          "javaType": "java.time.LocalDate"
+        },
+        "amount": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "allocation": {
+          "$ref": "#/definitions/LoanAllocation"
+        }
+      }
+    },
+    "LoanAllocation": {
+      "type": "object",
+      "description": "Nested class for payment allocation",
+      "properties": {
+        "principal": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "interest": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "fees": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        }
+      }
+    },
+    "LoanPrepayment": {
+      "type": "object",
+      "description": "Nested class for prepayment terms",
+      "properties": {
+        "voluntary": {
+          "$ref": "#/definitions/LoanVoluntary"
+        },
+        "mandatory": {
+          "$ref": "#/definitions/LoanMandatory"
+        }
+      }
+    },
+    "LoanVoluntary": {
+      "type": "object",
+      "description": "Nested class for voluntary prepayment",
+      "properties": {
+        "noticeDays": {
+          "type": "integer",
+          "javaType": "java.lang.Integer"
+        },
+        "breakCostsApplicable": {
+          "type": "boolean",
+          "javaType": "java.lang.Boolean"
+        },
+        "minimumAmount": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "multipleAmount": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        }
+      }
+    },
+    "LoanMandatory": {
+      "type": "object",
+      "description": "Nested class for mandatory prepayment",
+      "properties": {
+        "events": {
+          "type": "array",
+          "description": "Events (Asset Sale, Insurance Proceeds)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "threshold": {
+          "type": "number",
+          "javaType": "java.math.BigDecimal"
+        },
+        "application": {
+          "type": "string",
+          "description": "Application (Pro Rata, Waterfall)"
+        }
+      }
+    }
+  }
+}
+

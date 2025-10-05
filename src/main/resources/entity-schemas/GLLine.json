@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://java-template.com/entity/GLLine.json",
+  "title": "GLLine",
+  "description": "This entity represents a single debit or credit line within a GL batch, containing the detailed journal entry information.",
+  "type": "object",
+  "javaType": "com.java_template.application.entity.gl_line.version_1.GLLine",
+  "properties": {
+    "glLineId": {
+      "type": "string",
+      "description": "Required business identifier field"
+    },
+    "batchId": {
+      "type": "string",
+      "description": "Reference to parent GLBatch"
+    },
+    "glAccount": {
+      "type": "string",
+      "description": "GL account (e.g., 1100-Interest-Receivable)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the entry"
+    },
+    "type": {
+      "type": "string",
+      "description": "Entry type (DEBIT or CREDIT)"
+    },
+    "amount": {
+      "type": "number",
+      "javaType": "java.math.BigDecimal"
+    },
+    "costCenter": {
+      "type": "string",
+      "description": "Optional cost center"
+    },
+    "product": {
+      "type": "string",
+      "description": "Optional product"
+    },
+    "department": {
+      "type": "string",
+      "description": "Optional department"
+    },
+    "reference": {
+      "type": "string",
+      "description": "Reference to source transactions"
+    },
+    "source": {
+      "$ref": "#/definitions/GLLineSource"
+    },
+    "audit": {
+      "$ref": "#/definitions/GLLineAudit"
+    }
+  },
+  "required": [
+    "glLineId",
+    "batchId",
+    "glAccount",
+    "description",
+    "type",
+    "amount"
+  ],
+  "definitions": {
+    "GLLineSource": {
+      "type": "object",
+      "description": "Nested class for source tracking",
+      "properties": {
+        "sourceType": {
+          "type": "string",
+          "description": "Source type (e.g., ACCRUAL, PAYMENT, ADJUSTMENT)"
+        },
+        "sourceEntityType": {
+          "type": "string",
+          "description": "Source entity type (e.g., Accrual, Payment)"
+        },
+        "sourceEntityId": {
+          "type": "string",
+          "description": "ID of the source entity"
+        },
+        "aggregationMethod": {
+          "type": "string",
+          "description": "Aggregation method (e.g., SUM, COUNT, AVERAGE)"
+        },
+        "sourceRecordCount": {
+          "type": "integer",
+          "description": "Number of source records aggregated",
+          "javaType": "java.lang.Integer"
+        },
+        "period": {
+          "type": "string",
+          "description": "Period covered by this line"
+        }
+      }
+    },
+    "GLLineAudit": {
+      "type": "object",
+      "description": "Nested class for audit information",
+      "properties": {
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "createdBy": {
+          "type": "string"
+        },
+        "modifiedAt": {
+          "type": "string",
+          "format": "date-time",
+          "javaType": "java.time.LocalDateTime"
+        },
+        "modifiedBy": {
+          "type": "string"
+        },
+        "creationReason": {
+          "type": "string",
+          "description": "Reason for creation (e.g., MONTH_END_ACCRUAL, PAYMENT_ALLOCATION)"
+        }
+      }
+    }
+  }
+}
+
