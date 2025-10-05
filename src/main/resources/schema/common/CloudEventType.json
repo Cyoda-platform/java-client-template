@@ -46,6 +46,10 @@
     "SnapshotGetRequest",
     "SnapshotGetStatusRequest",
 
-    "EntitySearchRequest"
+    "EntitySearchRequest",
+    "EntityStatsGetRequest",
+    "EntityStatsResponse",
+    "EntityStatsByStateGetRequest",
+    "EntityStatsByStateResponse"
   ]
 }

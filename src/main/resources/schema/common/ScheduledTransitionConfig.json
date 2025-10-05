@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/common/ScheduledTransitionConfig.json",
+  "title": "ScheduledTransitionConfig",
+  "description": "Configuration parameters for scheduled transition",
+  "type": "object",
+  "properties": {
+    "delayMs": {
+      "type": "integer",
+      "existingJavaType": "java.lang.Long",
+      "description": "Delay in milliseconds before executing the transition"
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "existingJavaType": "java.lang.Long",
+      "description": "Timeout in milliseconds for executing the transition task, after which it will be expired"
+    },
+    "transition": {
+      "type": "string",
+      "description": "The transition to execute after waiting delayMs"
+    }
+  },
+  "required": [
+    "delayMs",
+    "transition"
+  ],
+  "additionalProperties": true
+}

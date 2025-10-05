@@ -22,6 +22,16 @@
       "format": "date-time",
       "description": "The creation date of the entity."
     },
+    "lastUpdateTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The last time the entity was updated. Equals the creation date if the entity has not been updated."
+    },
+    "pointInTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional value for the as-at point-in-time for which the entity was retrieved."
+    },
     "transitionForLatestSave": {
       "type": "string",
       "description": "The transition applied of the entity when last saved."
@@ -30,6 +40,7 @@
   "required": [
     "id",
     "state",
-    "creationDate"
+    "creationDate",
+    "lastUpdateTime"
   ]
 }

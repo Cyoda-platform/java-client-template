@@ -38,7 +38,11 @@ public interface CrudRepository {
 
     CompletableFuture<DataPayload> findById(@NotNull UUID id);
 
+    CompletableFuture<DataPayload> findById(@NotNull UUID id, @Nullable Date pointInTime);
+
     CompletableFuture<Long> getEntityCount(@NotNull ModelSpec modelSpec);
+
+    CompletableFuture<Long> getEntityCount(@NotNull ModelSpec modelSpec, @Nullable Date pointInTime);
 
     CompletableFuture<List<DataPayload>> findAllByCriteria(
             @NotNull ModelSpec modelSpec,

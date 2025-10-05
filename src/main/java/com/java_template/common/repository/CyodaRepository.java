@@ -4,10 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Streams;
 import com.google.protobuf.InvalidProtocolBufferException;
-import com.java_template.common.auth.Authentication;
 import com.java_template.common.grpc.client.event_handling.CloudEventBuilder;
 import com.java_template.common.grpc.client.event_handling.CloudEventParser;
-import com.java_template.common.util.HttpUtils;
 import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
@@ -34,7 +32,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.java_template.common.config.Config.CYODA_API_URL;
 import static com.java_template.common.config.Config.GRPC_COMMUNICATION_DATA_FORMAT;
 
 
@@ -53,34 +50,35 @@ public class CyodaRepository implements CrudRepository {
     private final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub;
     private final CloudEventBuilder cloudEventBuilder;
     private final CloudEventParser cloudEventParser;
-    private final HttpUtils httpUtils;
-    private final Authentication authentication;
 
     public CyodaRepository(
             final ObjectMapper objectMapper,
             final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub,
             final CloudEventBuilder cloudEventBuilder,
-            final CloudEventParser cloudEventParser,
-            final HttpUtils httpUtils,
-            final Authentication authentication
+            final CloudEventParser cloudEventParser
     ) {
         this.objectMapper = objectMapper;
         this.cloudEventsServiceBlockingStub = cloudEventsServiceBlockingStub;
         this.cloudEventBuilder = cloudEventBuilder;
         this.cloudEventParser = cloudEventParser;
-        this.httpUtils = httpUtils;
-        this.authentication = authentication;
     }
 
     @Override
     public CompletableFuture<DataPayload> findById(final UUID id) {
-        return getById(id);
+        return getById(id, null);
     }
 
-    private CompletableFuture<DataPayload> getById(final UUID entityId) {
+    @Override
+    public CompletableFuture<DataPayload> findById(final UUID id, @Nullable final Date pointInTime) {
+        return getById(id, pointInTime);
+    }
+
+    private CompletableFuture<DataPayload> getById(final UUID entityId, @Nullable final Date pointInTime) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
-                new EntityGetRequest().withId(UUID.randomUUID().toString()).withEntityId(entityId),
+                new EntityGetRequest().withId(UUID.randomUUID().toString())
+                        .withEntityId(entityId)
+                        .withPointInTime(pointInTime),
                 EntityResponse.class
         ).thenApply(EntityResponse::getPayload);
     }
@@ -472,33 +470,28 @@ public class CyodaRepository implements CrudRepository {
 
     @Override
     public CompletableFuture<Long> getEntityCount(@NotNull final ModelSpec modelSpec) {
-        String token = authentication.getAccessToken().getTokenValue();
-        return httpUtils.sendGetRequest(token, CYODA_API_URL, "entity/stats")
-                .thenApply(response -> {
-                    JsonNode jsonNode = response.get("json");
-                    if (jsonNode == null || !jsonNode.isArray()) {
-                        logger.warn("Invalid response from /entity/stats: {}", response);
-                        return 0L;
-                    }
+        return getEntityCount(modelSpec, null);
+    }
 
-                    // Find the matching model in the stats array
-                    for (JsonNode stat : jsonNode) {
-                        String modelName = stat.path("modelName").asText();
-                        int modelVersion = stat.path("modelVersion").asInt();
-
-                        if (modelSpec.getName().equals(modelName) &&
-                            modelSpec.getVersion().equals(modelVersion)) {
-                            return stat.path("count").asLong(0L);
-                        }
-                    }
-
-                    // Model not found in stats, return 0
-                    return 0L;
-                })
-                .exceptionally(ex -> {
-                    logger.error("Failed to get entity count for model {}/{}: {}",
-                            modelSpec.getName(), modelSpec.getVersion(), ex.getMessage());
-                    return 0L;
-                });
+    @Override
+    public CompletableFuture<Long> getEntityCount(@NotNull final ModelSpec modelSpec, @Nullable final Date pointInTime) {
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entitySearchCollection,
+                new EntityStatsGetRequest()
+                        .withId(generateEventId())
+                        .withPointInTime(pointInTime)
+                        .withModel(modelSpec),
+                EntityStatsResponse.class
+        ).thenApply(statsStream -> statsStream
+                .filter(stat -> modelSpec.getName().equals(stat.getModelName()) &&
+                        modelSpec.getVersion().equals(stat.getModelVersion()))
+                .findFirst()
+                .map(EntityStatsResponse::getCount)
+                .orElse(0L)
+        ).exceptionally(ex -> {
+            logger.error("Failed to get entity count for model {}/{}: {}",
+                    modelSpec.getName(), modelSpec.getVersion(), ex.getMessage());
+            return 0L;
+        });
     }
 }

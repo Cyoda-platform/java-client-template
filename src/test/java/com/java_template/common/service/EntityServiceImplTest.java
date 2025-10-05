@@ -183,11 +183,11 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("getById should handle repository failure gracefully")
     void testGetByIdRepositoryFailure() {
-        when(repository.findById(testEntityId))
+        when(repository.findById(eq(testEntityId), isNull()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Repository error")));
 
         assertRepositoryFailure(() -> entityService.getById(testEntityId, createTestModelSpec(), TestEntity.class), "Repository error");
-        verify(repository).findById(testEntityId);
+        verify(repository).findById(eq(testEntityId), isNull());
     }
 
     @Test
@@ -228,7 +228,7 @@ class EntityServiceImplTest {
     @DisplayName("getById should return EntityWithMetadata when successful")
     void testGetByIdSuccess() {
         DataPayload dataPayload = createTestDataPayload(testEntity, testEntityId);
-        when(repository.findById(testEntityId))
+        when(repository.findById(eq(testEntityId), isNull()))
                 .thenReturn(CompletableFuture.completedFuture(dataPayload));
 
         EntityWithMetadata<TestEntity> result = entityService.getById(testEntityId, createTestModelSpec(), TestEntity.class);
@@ -238,7 +238,7 @@ class EntityServiceImplTest {
         assertNotNull(result.metadata());
         assertEntityMatches(result.entity(), testEntity);
         assertMetadata(result, testEntityId, testEntity.getStatus());
-        verify(repository).findById(testEntityId);
+        verify(repository).findById(eq(testEntityId), isNull());
     }
 
     @Test

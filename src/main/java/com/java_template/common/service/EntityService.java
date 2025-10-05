@@ -57,6 +57,22 @@ public interface EntityService {
     );
 
     /**
+     * Get entity by technical UUID at a specific point in time (FASTEST - use when you have the UUID)
+     *
+     * @param entityId Technical UUID from EntityWithMetadata.getMetadata().getId()
+     * @param modelSpec Model specification containing name and version
+     * @param entityClass Entity class type for deserialization
+     * @param pointInTime Point in time to retrieve the entity as-at (null for current state)
+     * @return EntityWithMetadata with entity and metadata
+     */
+    <T extends CyodaEntity> EntityWithMetadata<T> getById(
+            @NotNull UUID entityId,
+            @NotNull ModelSpec modelSpec,
+            @NotNull Class<T> entityClass,
+            @Nullable java.util.Date pointInTime
+    );
+
+    /**
      * Find entity by business identifier (MEDIUM SPEED - use for user-facing IDs)
      * Examples: cartId="CART-123", paymentId="PAY-456", orderId="ORD-789"
      *
@@ -145,6 +161,16 @@ public interface EntityService {
      * @return Total count of entities
      */
     long getEntityCount(@NotNull ModelSpec modelSpec);
+
+    /**
+     * Get total count of entities for a model at a specific point in time (FAST - for pagination metadata)
+     * Uses Cyoda's entity statistics API.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param pointInTime Point in time to retrieve entity count as-at (null for current state)
+     * @return Total count of entities
+     */
+    long getEntityCount(@NotNull ModelSpec modelSpec, @Nullable java.util.Date pointInTime);
 
     /**
      * Search entities with complex conditions (SLOWEST - most flexible)

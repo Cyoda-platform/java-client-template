@@ -67,6 +67,8 @@ service CloudEventsService {
    * Input: EntityGetAllRequest, Output: EntityResponse
    * Input: SnapshotGetRequest, Output: EntityResponse
    * Input: EntitySearchRequest, Output: EntityResponse
+   * Input: EntityStatsGetRequest, Output: EntityStatsResponse
+   * Input: EntityStatsByStateGetRequest, Output: EntityStatsByStateResponse
    */
   rpc entitySearchCollection(io.cloudevents.v1.CloudEvent) returns (stream io.cloudevents.v1.CloudEvent);
 

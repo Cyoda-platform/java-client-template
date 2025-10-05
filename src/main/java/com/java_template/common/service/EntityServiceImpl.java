@@ -56,7 +56,17 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final ModelSpec modelSpec,
             @NotNull final Class<T> entityClass
     ) {
-        DataPayload payload = repository.findById(entityId).join();
+        return getById(entityId, modelSpec, entityClass, null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> EntityWithMetadata<T> getById(
+            @NotNull final UUID entityId,
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final Class<T> entityClass,
+            @Nullable final Date pointInTime
+    ) {
+        DataPayload payload = repository.findById(entityId, pointInTime).join();
         return EntityWithMetadata.fromDataPayload(payload, entityClass, objectMapper);
     }
 
@@ -143,7 +153,12 @@ public class EntityServiceImpl implements EntityService {
 
     @Override
     public long getEntityCount(@NotNull final ModelSpec modelSpec) {
-        return repository.getEntityCount(modelSpec).join();
+        return getEntityCount(modelSpec, null);
+    }
+
+    @Override
+    public long getEntityCount(@NotNull final ModelSpec modelSpec, @Nullable final Date pointInTime) {
+        return repository.getEntityCount(modelSpec, pointInTime).join();
     }
 
     @Override
