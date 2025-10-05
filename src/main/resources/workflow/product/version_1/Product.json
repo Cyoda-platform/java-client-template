@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "name": "Product",
+  "desc": "Product catalog lifecycle workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_product",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_product",
+          "next": "active",
+          "manual": true
+        },
+        {
+          "name": "update_inventory",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdateProductInventoryProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "deactivate_product",
+          "next": "inactive",
+          "manual": true
+        }
+      ]
+    },
+    "inactive": {
+      "transitions": [
+        {
+          "name": "reactivate_product",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
