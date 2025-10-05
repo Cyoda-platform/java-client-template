@@ -11,11 +11,14 @@ import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,10 +70,20 @@ public class LoanController {
 
             EntityWithMetadata<Loan> response = entityService.create(loan);
             logger.info("Loan created with ID: {}", response.metadata().getId());
-            return ResponseEntity.ok(response);
+
+            URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.metadata().getId())
+                .toUri();
+
+            return ResponseEntity.created(location).body(response);
         } catch (Exception e) {
-            logger.error("Error creating Loan", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to create loan: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -85,7 +98,6 @@ public class LoanController {
             EntityWithMetadata<Loan> response = entityService.getById(id, modelSpec, Loan.class);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error getting Loan by ID: {}", id, e);
             return ResponseEntity.notFound().build();
         }
     }
@@ -106,8 +118,11 @@ public class LoanController {
             }
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error getting Loan by business ID: {}", loanId, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve loan with business ID '%s': %s", loanId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -125,24 +140,28 @@ public class LoanController {
             logger.info("Loan updated with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error updating Loan: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to update loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
-     * List all loans with optional filtering
-     * GET /ui/loans?state=ACTIVE&partyId=PARTY123
+     * List all loans with pagination and optional filtering
+     * GET /ui/loans?page=0&size=20&state=ACTIVE&partyId=PARTY123
      */
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<Loan>>> listLoans(
+    public ResponseEntity<?> listLoans(
+            Pageable pageable,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String partyId) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
-            
+
             List<QueryCondition> conditions = new ArrayList<>();
-            
+
             if (partyId != null && !partyId.trim().isEmpty()) {
                 SimpleCondition partyCondition = new SimpleCondition()
                         .withJsonPath("$.partyId")
@@ -151,27 +170,36 @@ public class LoanController {
                 conditions.add(partyCondition);
             }
 
-            List<EntityWithMetadata<Loan>> loans;
-            if (conditions.isEmpty()) {
-                loans = entityService.findAll(modelSpec, Loan.class);
+            if (conditions.isEmpty() && (state == null || state.trim().isEmpty())) {
+                // Use paginated findAll when no filters
+                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Loan.class));
             } else {
-                GroupCondition groupCondition = new GroupCondition()
-                        .withOperator(GroupCondition.Operator.AND)
-                        .withConditions(conditions);
-                loans = entityService.search(modelSpec, groupCondition, Loan.class);
-            }
+                // For filtered results, use search (returns all matching results, not paginated)
+                List<EntityWithMetadata<Loan>> loans;
+                if (conditions.isEmpty()) {
+                    loans = entityService.findAll(modelSpec, Loan.class);
+                } else {
+                    GroupCondition groupCondition = new GroupCondition()
+                            .withOperator(GroupCondition.Operator.AND)
+                            .withConditions(conditions);
+                    loans = entityService.search(modelSpec, groupCondition, Loan.class);
+                }
 
-            // Filter by state if provided (state is in metadata, not entity)
-            if (state != null && !state.trim().isEmpty()) {
-                loans = loans.stream()
-                        .filter(loan -> state.equals(loan.metadata().getState()))
-                        .toList();
-            }
+                // Filter by state if provided (state is in metadata, not entity)
+                if (state != null && !state.trim().isEmpty()) {
+                    loans = loans.stream()
+                            .filter(loan -> state.equals(loan.metadata().getState()))
+                            .toList();
+                }
 
-            return ResponseEntity.ok(loans);
+                return ResponseEntity.ok(loans);
+            }
         } catch (Exception e) {
-            logger.error("Error listing loans", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to list loans: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -189,8 +217,11 @@ public class LoanController {
             logger.info("Loan submitted for approval with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error submitting loan for approval: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to submit loan for approval with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -208,8 +239,11 @@ public class LoanController {
             logger.info("Loan approved with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error approving loan: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to approve loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -227,8 +261,11 @@ public class LoanController {
             logger.info("Loan rejected with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error rejecting loan: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to reject loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -246,8 +283,11 @@ public class LoanController {
             logger.info("Loan funded with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error funding loan: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to fund loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -268,8 +308,11 @@ public class LoanController {
             logger.info("Settlement quote generated for loan ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error generating settlement quote for loan: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to generate settlement quote for loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 }

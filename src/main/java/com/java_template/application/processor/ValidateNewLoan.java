@@ -16,9 +16,9 @@ import org.cyoda.cloud.api.event.common.condition.Operation;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -61,7 +61,8 @@ public class ValidateNewLoan implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Loan> entityWithMetadata) {
         Loan entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        boolean result = entity != null && entity.isValid() && technicalId != null;
+        return result;
     }
 
     private EntityWithMetadata<Loan> processBusinessLogic(
@@ -73,14 +74,14 @@ public class ValidateNewLoan implements CyodaProcessor {
         logger.debug("Validating new loan: {}", loan.getLoanId());
 
         // Validate term is one of allowed values
-        if (loan.getTermMonths() == null || 
+        if (loan.getTermMonths() == null ||
             (loan.getTermMonths() != 12 && loan.getTermMonths() != 24 && loan.getTermMonths() != 36)) {
             throw new IllegalArgumentException("Term must be 12, 24, or 36 months");
         }
 
         // Validate APR is within reasonable range (1% to 25%)
-        if (loan.getApr() == null || 
-            loan.getApr().compareTo(new BigDecimal("0.01")) < 0 || 
+        if (loan.getApr() == null ||
+            loan.getApr().compareTo(new BigDecimal("0.01")) < 0 ||
             loan.getApr().compareTo(new BigDecimal("0.25")) > 0) {
             throw new IllegalArgumentException("APR must be between 1% and 25%");
         }
@@ -126,35 +127,30 @@ public class ValidateNewLoan implements CyodaProcessor {
             throw new IllegalArgumentException("Party ID is required");
         }
 
-        try {
-            ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
-            ObjectMapper objectMapper = new ObjectMapper();
-            
-            SimpleCondition condition = new SimpleCondition()
-                    .withJsonPath("$.partyId")
-                    .withOperation(Operation.EQUALS)
-                    .withValue(objectMapper.valueToTree(partyId));
+        ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
+        ObjectMapper objectMapper = new ObjectMapper();
 
-            GroupCondition groupCondition = new GroupCondition()
-                    .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(List.of(condition));
+        SimpleCondition condition = new SimpleCondition()
+                .withJsonPath("$.partyId")
+                .withOperation(Operation.EQUALS)
+                .withValue(objectMapper.valueToTree(partyId));
 
-            List<EntityWithMetadata<Party>> parties = entityService.search(modelSpec, groupCondition, Party.class);
+        GroupCondition groupCondition = new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of(condition));
 
-            if (parties.isEmpty()) {
-                throw new IllegalArgumentException("Referenced party does not exist: " + partyId);
-            }
+        List<EntityWithMetadata<Party>> parties = entityService.search(modelSpec, groupCondition, Party.class);
 
-            Party party = parties.get(0).entity();
-            if (!"ACTIVE".equals(party.getStatus())) {
-                throw new IllegalArgumentException("Referenced party is not active: " + partyId);
-            }
-
-            logger.debug("Party validation successful for: {}", partyId);
-
-        } catch (Exception e) {
-            logger.error("Error validating party: {}", partyId, e);
-            throw new IllegalArgumentException("Error validating referenced party: " + partyId);
+        if (parties.isEmpty()) {
+            throw new IllegalArgumentException("Referenced party does not exist: " + partyId);
         }
+
+        EntityWithMetadata<Party> partyWithMetadata = parties.getFirst();
+        String partyState = partyWithMetadata.metadata().getState();
+        if (!"active".equals(partyState)) {
+            throw new IllegalArgumentException("Referenced party is not active: " + partyId + " (state: " + partyState + ")");
+        }
+
+        logger.debug("Party validation successful for: {}", partyId);
     }
 }

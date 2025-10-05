@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.repository.CrudRepository;
-
 import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +18,9 @@ import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -102,7 +104,36 @@ public class EntityServiceImpl implements EntityService {
         return getItems(entityClass, modelSpec, null, null, null);
     }
 
+    @Override
+    public <T extends CyodaEntity> Page<EntityWithMetadata<T>> findAll(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final Pageable pageable,
+            @NotNull final Class<T> entityClass
+    ) {
+        // Convert Spring's 0-based page number to Cyoda's 1-based page number
+        int cyodaPageNumber = pageable.getPageNumber() + 1;
+        int pageSize = pageable.getPageSize();
 
+        // Get the entities for the requested page
+        List<EntityWithMetadata<T>> entities = getItems(
+                entityClass,
+                modelSpec,
+                pageSize,
+                cyodaPageNumber,
+                null
+        );
+
+        // Get total count for pagination metadata
+        long totalElements = getEntityCount(modelSpec);
+
+        // Return Spring Page object
+        return new PageImpl<>(entities, pageable, totalElements);
+    }
+
+    @Override
+    public long getEntityCount(@NotNull final ModelSpec modelSpec) {
+        return repository.getEntityCount(modelSpec).join();
+    }
 
     @Override
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> search(

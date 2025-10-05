@@ -24,8 +24,7 @@ public class GLBatch implements CyodaEntity {
     // Required core business fields
     private String period; // e.g., "2025-09" for September 2025
     private String exportFormat; // e.g., "CSV", "JSON", "XML"
-    private String status; // Managed by workflow state machine
-    
+
     // Control totals for validation
     private GLControlTotals controlTotals;
     

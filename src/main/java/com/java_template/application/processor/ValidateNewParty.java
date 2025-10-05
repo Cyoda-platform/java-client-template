@@ -10,9 +10,9 @@ import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 /**
  * ABOUTME: This processor validates a new Party entity during creation,
@@ -73,11 +73,6 @@ public class ValidateNewParty implements CyodaProcessor {
 
         if (party.getJurisdiction() == null || party.getJurisdiction().trim().isEmpty()) {
             throw new IllegalArgumentException("Jurisdiction is required");
-        }
-
-        // Set default status if not provided
-        if (party.getStatus() == null || party.getStatus().trim().isEmpty()) {
-            party.setStatus("ACTIVE");
         }
 
         // Validate LEI format if provided (20 character alphanumeric)

@@ -11,11 +11,14 @@ import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -71,10 +74,20 @@ public class PaymentController {
 
             EntityWithMetadata<Payment> response = entityService.create(payment);
             logger.info("Payment recorded with ID: {}", response.metadata().getId());
-            return ResponseEntity.ok(response);
+
+            URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.metadata().getId())
+                .toUri();
+
+            return ResponseEntity.created(location).body(response);
         } catch (Exception e) {
-            logger.error("Error recording Payment", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to record payment: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -89,7 +102,6 @@ public class PaymentController {
             EntityWithMetadata<Payment> response = entityService.getById(id, modelSpec, Payment.class);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error getting Payment by ID: {}", id, e);
             return ResponseEntity.notFound().build();
         }
     }
@@ -110,8 +122,11 @@ public class PaymentController {
             }
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error getting Payment by business ID: {}", paymentId, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve payment with business ID '%s': %s", paymentId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -136,8 +151,11 @@ public class PaymentController {
             List<EntityWithMetadata<Payment>> payments = entityService.search(modelSpec, condition, Payment.class);
             return ResponseEntity.ok(payments);
         } catch (Exception e) {
-            logger.error("Error getting payments for loan: {}", loanId, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve payments for loan '%s': %s", loanId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -155,24 +173,28 @@ public class PaymentController {
             logger.info("Payment updated with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error updating Payment: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to update payment with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
-     * List all payments with optional filtering
-     * GET /ui/payments?loanId=LOAN123&status=POSTED
+     * List all payments with pagination and optional filtering
+     * GET /ui/payments?page=0&size=20&loanId=LOAN123&status=POSTED
      */
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<Payment>>> listPayments(
+    public ResponseEntity<?> listPayments(
+            Pageable pageable,
             @RequestParam(required = false) String loanId,
             @RequestParam(required = false) String status) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
-            
+
             List<QueryCondition> conditions = new java.util.ArrayList<>();
-            
+
             if (loanId != null && !loanId.trim().isEmpty()) {
                 SimpleCondition loanCondition = new SimpleCondition()
                         .withJsonPath("$.loanId")
@@ -181,27 +203,36 @@ public class PaymentController {
                 conditions.add(loanCondition);
             }
 
-            List<EntityWithMetadata<Payment>> payments;
-            if (conditions.isEmpty()) {
-                payments = entityService.findAll(modelSpec, Payment.class);
+            if (conditions.isEmpty() && (status == null || status.trim().isEmpty())) {
+                // Use paginated findAll when no filters
+                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Payment.class));
             } else {
-                GroupCondition groupCondition = new GroupCondition()
-                        .withOperator(GroupCondition.Operator.AND)
-                        .withConditions(conditions);
-                payments = entityService.search(modelSpec, groupCondition, Payment.class);
-            }
+                // For filtered results, use search (returns all matching results, not paginated)
+                List<EntityWithMetadata<Payment>> payments;
+                if (conditions.isEmpty()) {
+                    payments = entityService.findAll(modelSpec, Payment.class);
+                } else {
+                    GroupCondition groupCondition = new GroupCondition()
+                            .withOperator(GroupCondition.Operator.AND)
+                            .withConditions(conditions);
+                    payments = entityService.search(modelSpec, groupCondition, Payment.class);
+                }
 
-            // Filter by status if provided (status is in metadata, not entity)
-            if (status != null && !status.trim().isEmpty()) {
-                payments = payments.stream()
-                        .filter(payment -> status.equals(payment.metadata().getState()))
-                        .toList();
-            }
+                // Filter by status if provided (status is in metadata, not entity)
+                if (status != null && !status.trim().isEmpty()) {
+                    payments = payments.stream()
+                            .filter(payment -> status.equals(payment.metadata().getState()))
+                            .toList();
+                }
 
-            return ResponseEntity.ok(payments);
+                return ResponseEntity.ok(payments);
+            }
         } catch (Exception e) {
-            logger.error("Error listing payments", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to list payments: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -219,8 +250,11 @@ public class PaymentController {
             logger.info("Payment manually matched with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error manually matching payment: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to manually match payment with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -238,8 +272,11 @@ public class PaymentController {
             logger.info("Payment returned with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error returning payment: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to return payment with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 }

@@ -33,10 +33,7 @@ public class SettlementQuote implements CyodaEntity {
     // Total amount due
     private BigDecimal totalAmountDue;
     private String currency;
-    
-    // Quote status
-    private String status; // Managed by workflow state machine
-    
+
     // Audit information
     private SettlementAudit audit;
 

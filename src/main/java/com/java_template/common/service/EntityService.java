@@ -1,16 +1,17 @@
 package com.java_template.common.service;
 
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.workflow.CyodaEntity;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-
-import com.java_template.common.dto.EntityWithMetadata;
-import com.java_template.common.workflow.CyodaEntity;
-import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
-
-import jakarta.annotation.Nullable;
-import jakarta.validation.constraints.NotNull;
 
 /**
  * ABOUTME: Core entity service interface providing CRUD operations and search capabilities
@@ -101,6 +102,30 @@ public interface EntityService {
             @NotNull ModelSpec modelSpec,
             @NotNull Class<T> entityClass
     );
+
+    /**
+     * Get entities with pagination support (RECOMMENDED for large datasets)
+     * Uses Cyoda's native pagination API for efficient data retrieval.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param pageable Spring Pageable containing page number, size, and sort
+     * @param entityClass Entity class type for deserialization
+     * @return Page of EntityWithMetadata with entities, metadata, and pagination info
+     */
+    <T extends CyodaEntity> Page<EntityWithMetadata<T>> findAll(
+            @NotNull ModelSpec modelSpec,
+            @NotNull Pageable pageable,
+            @NotNull Class<T> entityClass
+    );
+
+    /**
+     * Get total count of entities for a model (FAST - for pagination metadata)
+     * Uses Cyoda's entity statistics API.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @return Total count of entities
+     */
+    long getEntityCount(@NotNull ModelSpec modelSpec);
 
     /**
      * Search entities with complex conditions (SLOWEST - most flexible)

@@ -43,6 +43,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web:3.5.3'
     implementation 'org.springframework.boot:spring-boot-starter' // Version managed by Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client' // Version managed by Spring Boot
+    implementation 'org.springframework.data:spring-data-commons' // For Page and Pageable
 
 
     implementation 'com.google.protobuf:protobuf-java:4.31.1'

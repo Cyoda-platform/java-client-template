@@ -24,7 +24,6 @@ public class Party implements CyodaEntity {
     // Optional fields for additional business data
     private String lei; // Legal Entity Identifier
     private String role; // e.g., "Borrower", "Lender", "Agent", "Security Trustee"
-    private String status; // e.g., "ACTIVE", "INACTIVE"
     private PartyContact contact;
     private PartyAddress address;
 

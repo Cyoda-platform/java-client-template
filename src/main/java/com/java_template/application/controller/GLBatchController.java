@@ -6,10 +6,14 @@ import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.util.List;
+import java.net.URI;
 import java.util.UUID;
 
 /**
@@ -37,10 +41,20 @@ public class GLBatchController {
         try {
             EntityWithMetadata<GLBatch> response = entityService.create(glBatch);
             logger.info("GLBatch created with ID: {}", response.metadata().getId());
-            return ResponseEntity.ok(response);
+
+            URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.metadata().getId())
+                .toUri();
+
+            return ResponseEntity.created(location).body(response);
         } catch (Exception e) {
-            logger.error("Error creating GLBatch", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to create GL batch: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -55,24 +69,25 @@ public class GLBatchController {
             EntityWithMetadata<GLBatch> response = entityService.getById(id, modelSpec, GLBatch.class);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error getting GLBatch by ID: {}", id, e);
             return ResponseEntity.notFound().build();
         }
     }
 
     /**
-     * List all GL batches
-     * GET /ui/gl-batches
+     * List all GL batches with pagination
+     * GET /ui/gl-batches?page=0&size=20
      */
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<GLBatch>>> listGLBatches() {
+    public ResponseEntity<?> listGLBatches(Pageable pageable) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(GLBatch.ENTITY_NAME).withVersion(GLBatch.ENTITY_VERSION);
-            List<EntityWithMetadata<GLBatch>> batches = entityService.findAll(modelSpec, GLBatch.class);
-            return ResponseEntity.ok(batches);
+            return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, GLBatch.class));
         } catch (Exception e) {
-            logger.error("Error listing GL batches", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to list GL batches: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -85,13 +100,16 @@ public class GLBatchController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(GLBatch.ENTITY_NAME).withVersion(GLBatch.ENTITY_VERSION);
             EntityWithMetadata<GLBatch> current = entityService.getById(id, modelSpec, GLBatch.class);
-            
+
             EntityWithMetadata<GLBatch> response = entityService.update(id, current.entity(), "prepare_batch");
             logger.info("GLBatch prepared with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error preparing GLBatch: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to prepare GL batch with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -104,13 +122,16 @@ public class GLBatchController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(GLBatch.ENTITY_NAME).withVersion(GLBatch.ENTITY_VERSION);
             EntityWithMetadata<GLBatch> current = entityService.getById(id, modelSpec, GLBatch.class);
-            
+
             EntityWithMetadata<GLBatch> response = entityService.update(id, current.entity(), "export_batch");
             logger.info("GLBatch exported with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error exporting GLBatch: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to export GL batch with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 }

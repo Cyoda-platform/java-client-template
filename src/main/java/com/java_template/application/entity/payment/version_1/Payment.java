@@ -33,8 +33,7 @@ public class Payment implements CyodaEntity {
     // Payment processing fields
     private String paymentMethod; // e.g., "BANK_TRANSFER", "CHEQUE", "WIRE"
     private String reference; // External reference (e.g., bank reference)
-    private String status; // Managed by workflow state machine
-    
+
     // Allocation details (populated after processing)
     private PaymentAllocation allocation;
     

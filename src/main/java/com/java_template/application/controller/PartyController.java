@@ -11,11 +11,14 @@ import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -59,17 +62,22 @@ public class PartyController {
                 return ResponseEntity.of(problemDetail).build();
             }
 
-            // Set default status if not provided
-            if (party.getStatus() == null || party.getStatus().trim().isEmpty()) {
-                party.setStatus("ACTIVE");
-            }
-
             EntityWithMetadata<Party> response = entityService.create(party);
             logger.info("Party created with ID: {}", response.metadata().getId());
-            return ResponseEntity.ok(response);
+
+            URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.metadata().getId())
+                .toUri();
+
+            return ResponseEntity.created(location).body(response);
         } catch (Exception e) {
-            logger.error("Error creating Party", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to create party: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -84,7 +92,6 @@ public class PartyController {
             EntityWithMetadata<Party> response = entityService.getById(id, modelSpec, Party.class);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error getting Party by ID: {}", id, e);
             return ResponseEntity.notFound().build();
         }
     }
@@ -105,8 +112,11 @@ public class PartyController {
             }
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error getting Party by business ID: {}", partyId, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve party with business ID '%s': %s", partyId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -124,24 +134,28 @@ public class PartyController {
             logger.info("Party updated with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error updating Party: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to update party with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
-     * List all parties with optional filtering
-     * GET /ui/parties?status=ACTIVE&jurisdiction=GB
+     * List all parties with pagination and optional filtering
+     * GET /ui/parties?page=0&size=20&status=ACTIVE&jurisdiction=GB
      */
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<Party>>> listParties(
+    public ResponseEntity<?> listParties(
+            Pageable pageable,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String jurisdiction) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
-            
+
             List<QueryCondition> conditions = new ArrayList<>();
-            
+
             if (status != null && !status.trim().isEmpty()) {
                 SimpleCondition statusCondition = new SimpleCondition()
                         .withJsonPath("$.status")
@@ -149,7 +163,7 @@ public class PartyController {
                         .withValue(objectMapper.valueToTree(status));
                 conditions.add(statusCondition);
             }
-            
+
             if (jurisdiction != null && !jurisdiction.trim().isEmpty()) {
                 SimpleCondition jurisdictionCondition = new SimpleCondition()
                         .withJsonPath("$.jurisdiction")
@@ -158,20 +172,23 @@ public class PartyController {
                 conditions.add(jurisdictionCondition);
             }
 
-            List<EntityWithMetadata<Party>> parties;
             if (conditions.isEmpty()) {
-                parties = entityService.findAll(modelSpec, Party.class);
+                // Use paginated findAll when no filters
+                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Party.class));
             } else {
+                // For filtered results, use search (returns all matching results, not paginated)
                 GroupCondition groupCondition = new GroupCondition()
                         .withOperator(GroupCondition.Operator.AND)
                         .withConditions(conditions);
-                parties = entityService.search(modelSpec, groupCondition, Party.class);
+                List<EntityWithMetadata<Party>> parties = entityService.search(modelSpec, groupCondition, Party.class);
+                return ResponseEntity.ok(parties);
             }
-
-            return ResponseEntity.ok(parties);
         } catch (Exception e) {
-            logger.error("Error listing parties", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to list parties: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -197,8 +214,11 @@ public class PartyController {
             List<EntityWithMetadata<Party>> parties = entityService.search(modelSpec, condition, Party.class);
             return ResponseEntity.ok(parties);
         } catch (Exception e) {
-            logger.error("Error searching parties by name: {}", name, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to search parties by name '%s': %s", name, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -209,19 +229,18 @@ public class PartyController {
     @PostMapping("/{id}/deactivate")
     public ResponseEntity<EntityWithMetadata<Party>> deactivateParty(@PathVariable UUID id) {
         try {
-            // Get current party
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
             EntityWithMetadata<Party> current = entityService.getById(id, modelSpec, Party.class);
-            
-            Party party = current.entity();
-            party.setStatus("INACTIVE");
-            
-            EntityWithMetadata<Party> response = entityService.update(id, party, "deactivate_party");
+
+            EntityWithMetadata<Party> response = entityService.update(id, current.entity(), "deactivate_party");
             logger.info("Party deactivated with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error deactivating Party: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to deactivate party with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -232,19 +251,18 @@ public class PartyController {
     @PostMapping("/{id}/reactivate")
     public ResponseEntity<EntityWithMetadata<Party>> reactivateParty(@PathVariable UUID id) {
         try {
-            // Get current party
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
             EntityWithMetadata<Party> current = entityService.getById(id, modelSpec, Party.class);
-            
-            Party party = current.entity();
-            party.setStatus("ACTIVE");
-            
-            EntityWithMetadata<Party> response = entityService.update(id, party, "reactivate_party");
+
+            EntityWithMetadata<Party> response = entityService.update(id, current.entity(), "reactivate_party");
             logger.info("Party reactivated with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error reactivating Party: {}", id, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to reactivate party with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 }

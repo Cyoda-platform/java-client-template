@@ -2,12 +2,6 @@ package com.java_template.common.repository;
 
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -15,6 +9,12 @@ import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
+
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 
 /**
@@ -37,6 +37,8 @@ public interface CrudRepository {
     );
 
     CompletableFuture<DataPayload> findById(@NotNull UUID id);
+
+    CompletableFuture<Long> getEntityCount(@NotNull ModelSpec modelSpec);
 
     CompletableFuture<List<DataPayload>> findAllByCriteria(
             @NotNull ModelSpec modelSpec,

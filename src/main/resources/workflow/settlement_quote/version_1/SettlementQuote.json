@@ -71,10 +71,16 @@
           "next": "expired",
           "manual": false,
           "criterion": {
-            "type": "simple",
-            "jsonPath": "$.expirationDate",
-            "operation": "LESS_THAN",
-            "value": "TODAY"
+            "type": "function",
+            "function": {
+              "name": "SettlementQuoteExpiredCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
           }
         }
       ]

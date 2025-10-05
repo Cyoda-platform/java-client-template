@@ -4,41 +4,21 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Streams;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.java_template.common.auth.Authentication;
 import com.java_template.common.grpc.client.event_handling.CloudEventBuilder;
 import com.java_template.common.grpc.client.event_handling.CloudEventParser;
+import com.java_template.common.util.HttpUtils;
 import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
-import org.cyoda.cloud.api.event.entity.EntityCreatePayload;
-import org.cyoda.cloud.api.event.entity.EntityCreateRequest;
-import org.cyoda.cloud.api.event.entity.EntityDeleteAllRequest;
-import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
-import org.cyoda.cloud.api.event.entity.EntityDeleteRequest;
-import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
-import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
-import org.cyoda.cloud.api.event.entity.EntityTransitionRequest;
-import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
-import org.cyoda.cloud.api.event.entity.EntityUpdateCollectionRequest;
-import org.cyoda.cloud.api.event.entity.EntityUpdatePayload;
-import org.cyoda.cloud.api.event.entity.EntityUpdateRequest;
-import org.cyoda.cloud.api.event.search.EntityGetAllRequest;
-import org.cyoda.cloud.api.event.search.EntityGetRequest;
-import org.cyoda.cloud.api.event.search.EntityResponse;
-import org.cyoda.cloud.api.event.search.EntitySearchRequest;
-import org.cyoda.cloud.api.event.search.EntitySnapshotSearchRequest;
-import org.cyoda.cloud.api.event.search.EntitySnapshotSearchResponse;
-import org.cyoda.cloud.api.event.search.SearchSnapshotStatus;
-import org.cyoda.cloud.api.event.search.SnapshotGetRequest;
-import org.cyoda.cloud.api.event.search.SnapshotGetStatusRequest;
+import org.cyoda.cloud.api.event.entity.*;
+import org.cyoda.cloud.api.event.search.*;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +30,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import static com.java_template.common.config.Config.CYODA_API_URL;
 import static com.java_template.common.config.Config.GRPC_COMMUNICATION_DATA_FORMAT;
 
 
@@ -69,17 +53,23 @@ public class CyodaRepository implements CrudRepository {
     private final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub;
     private final CloudEventBuilder cloudEventBuilder;
     private final CloudEventParser cloudEventParser;
+    private final HttpUtils httpUtils;
+    private final Authentication authentication;
 
     public CyodaRepository(
             final ObjectMapper objectMapper,
             final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub,
             final CloudEventBuilder cloudEventBuilder,
-            final CloudEventParser cloudEventParser
+            final CloudEventParser cloudEventParser,
+            final HttpUtils httpUtils,
+            final Authentication authentication
     ) {
         this.objectMapper = objectMapper;
         this.cloudEventsServiceBlockingStub = cloudEventsServiceBlockingStub;
         this.cloudEventBuilder = cloudEventBuilder;
         this.cloudEventParser = cloudEventParser;
+        this.httpUtils = httpUtils;
+        this.authentication = authentication;
     }
 
     @Override
@@ -461,5 +451,37 @@ public class CyodaRepository implements CrudRepository {
 
     private boolean isNotFound(final Throwable exception) {
         return exception instanceof StatusRuntimeException ex && ex.getStatus().getCode().equals(Status.Code.NOT_FOUND);
+    }
+
+    @Override
+    public CompletableFuture<Long> getEntityCount(@NotNull final ModelSpec modelSpec) {
+        String token = authentication.getAccessToken().getTokenValue();
+        return httpUtils.sendGetRequest(token, CYODA_API_URL, "entity/stats")
+                .thenApply(response -> {
+                    JsonNode jsonNode = response.get("json");
+                    if (jsonNode == null || !jsonNode.isArray()) {
+                        logger.warn("Invalid response from /entity/stats: {}", response);
+                        return 0L;
+                    }
+
+                    // Find the matching model in the stats array
+                    for (JsonNode stat : jsonNode) {
+                        String modelName = stat.path("modelName").asText();
+                        int modelVersion = stat.path("modelVersion").asInt();
+
+                        if (modelSpec.getName().equals(modelName) &&
+                            modelSpec.getVersion().equals(modelVersion)) {
+                            return stat.path("count").asLong(0L);
+                        }
+                    }
+
+                    // Model not found in stats, return 0
+                    return 0L;
+                })
+                .exceptionally(ex -> {
+                    logger.error("Failed to get entity count for model {}/{}: {}",
+                            modelSpec.getName(), modelSpec.getVersion(), ex.getMessage());
+                    return 0L;
+                });
     }
 }

@@ -118,10 +118,16 @@
           "next": "active",
           "manual": false,
           "criterion": {
-            "type": "simple",
-            "jsonPath": "$.fundingDate",
-            "operation": "LESS_THAN_OR_EQUAL",
-            "value": "TODAY"
+            "type": "function",
+            "function": {
+              "name": "LoanFundingDateReachedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
           }
         }
       ]
@@ -184,10 +190,16 @@
           "next": "matured",
           "manual": false,
           "criterion": {
-            "type": "simple",
-            "jsonPath": "$.maturityDate",
-            "operation": "LESS_THAN_OR_EQUAL",
-            "value": "TODAY"
+            "type": "function",
+            "function": {
+              "name": "LoanMaturityDateReachedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
           }
         }
       ]
