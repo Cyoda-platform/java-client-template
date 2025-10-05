@@ -74,6 +74,25 @@ public interface EntityService {
     );
 
     /**
+     * Find entity by business identifier at a specific point in time (MEDIUM SPEED - use for user-facing IDs)
+     * Examples: cartId="CART-123", paymentId="PAY-456", orderId="ORD-789"
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param businessId Business identifier value (e.g., "CART-123")
+     * @param businessIdField Field name containing the business ID (e.g., "cartId")
+     * @param entityClass Entity class type for deserialization
+     * @param pointInTime Point in time to retrieve the entity as-at (null for current state)
+     * @return EntityWithMetadata with entity and metadata, or null if not found
+     */
+    <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessId(
+            @NotNull ModelSpec modelSpec,
+            @NotNull String businessId,
+            @NotNull String businessIdField,
+            @NotNull Class<T> entityClass,
+            @Nullable java.util.Date pointInTime
+    );
+
+    /**
      * Find entity by business identifier, returning null on any exception (MEDIUM SPEED)
      * This method wraps findByBusinessId and catches all exceptions, returning null instead.
      * Use this when you want to check for entity existence without handling exceptions.
@@ -140,6 +159,23 @@ public interface EntityService {
             @NotNull ModelSpec modelSpec,
             @NotNull GroupCondition condition,
             @NotNull Class<T> entityClass
+    );
+
+    /**
+     * Search entities with complex conditions at a specific point in time (SLOWEST - most flexible)
+     * Use for advanced queries with multiple conditions, filtering, etc.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param condition Search condition (use SearchConditionBuilder.group())
+     * @param entityClass Entity class type for deserialization
+     * @param pointInTime Point in time to retrieve entities as-at (null for current state)
+     * @return List of EntityWithMetadata with entities and metadata
+     */
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
+            @NotNull ModelSpec modelSpec,
+            @NotNull GroupCondition condition,
+            @NotNull Class<T> entityClass,
+            @Nullable java.util.Date pointInTime
     );
 
     // ========================================

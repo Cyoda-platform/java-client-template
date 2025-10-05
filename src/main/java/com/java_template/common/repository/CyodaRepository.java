@@ -93,18 +93,31 @@ public class CyodaRepository implements CrudRepository {
             final int pageNumber,
             final boolean inMemory
     ) {
+        return findAllByCriteria(modelSpec, condition, pageSize, pageNumber, inMemory, null);
+    }
+
+    @Override
+    public CompletableFuture<List<DataPayload>> findAllByCriteria(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final GroupCondition condition,
+            final int pageSize,
+            final int pageNumber,
+            final boolean inMemory,
+            @Nullable final Date pointInTime
+    ) {
         return inMemory
-                ? findAllByConditionInMemory(modelSpec, pageSize, condition)
-                : findAllByCondition(modelSpec, pageSize, pageNumber, condition);
+                ? findAllByConditionInMemory(modelSpec, pageSize, condition, pointInTime)
+                : findAllByCondition(modelSpec, pageSize, pageNumber, condition, pointInTime);
     }
 
     private CompletableFuture<List<DataPayload>> findAllByCondition(
             @NotNull final ModelSpec modelSpec,
             final int pageSize,
             final int pageNumber,
-            @NotNull final GroupCondition condition
+            @NotNull final GroupCondition condition,
+            @Nullable final Date pointInTime
     ) {
-        return createSnapshotSearch(modelSpec, condition).thenComposeAsync(snapshotInfo -> {
+        return createSnapshotSearch(modelSpec, condition, pointInTime).thenComposeAsync(snapshotInfo -> {
                     if (snapshotInfo.getSnapshotId() == null) {
                         logger.error("Snapshot ID not found in response");
                         return CompletableFuture.completedFuture(null);
@@ -131,14 +144,16 @@ public class CyodaRepository implements CrudRepository {
     private CompletableFuture<List<DataPayload>> findAllByConditionInMemory(
             @NotNull final ModelSpec modelSpec,
             final int pageSize,
-            @NotNull final GroupCondition condition
+            @NotNull final GroupCondition condition,
+            @Nullable final Date pointInTime
     ) {
         return sendAndGetCollection(
                 cloudEventsServiceBlockingStub::entitySearchCollection,
                 new EntitySearchRequest().withId(generateEventId())
                         .withModel(modelSpec)
                         .withLimit(pageSize)
-                        .withCondition(condition),
+                        .withCondition(condition)
+                        .withPointInTime(pointInTime),
                 EntityResponse.class
         ).thenApply(entities -> entities.map(EntityResponse::getPayload).toList())
                 .exceptionally(this::handleNotFoundOrThrow);
@@ -356,13 +371,15 @@ public class CyodaRepository implements CrudRepository {
 
     private CompletableFuture<SearchSnapshotStatus> createSnapshotSearch(
             final ModelSpec modelSpec,
-            final GroupCondition condition
+            final GroupCondition condition,
+            @Nullable final Date pointInTime
     ) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entitySearch,
                 new EntitySnapshotSearchRequest().withId(generateEventId())
                         .withModel(modelSpec)
-                        .withCondition(condition),
+                        .withCondition(condition)
+                        .withPointInTime(pointInTime),
                 EntitySnapshotSearchResponse.class
         ).thenApply(EntitySnapshotSearchResponse::getStatus);
     }

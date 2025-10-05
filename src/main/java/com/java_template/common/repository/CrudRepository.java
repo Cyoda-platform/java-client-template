@@ -48,6 +48,15 @@ public interface CrudRepository {
             boolean inMemory
     );
 
+    CompletableFuture<List<DataPayload>> findAllByCriteria(
+            @NotNull ModelSpec modelSpec,
+            @NotNull GroupCondition criteria,
+            int pageSize,
+            int pageNumber,
+            boolean inMemory,
+            @Nullable Date pointInTime
+    );
+
     <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> save(
             @NotNull ModelSpec modelSpec,
             @NotNull ENTITY_TYPE entity

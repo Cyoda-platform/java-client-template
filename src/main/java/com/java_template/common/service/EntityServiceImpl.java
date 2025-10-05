@@ -67,6 +67,17 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final String businessIdField,
             @NotNull final Class<T> entityClass
     ) {
+        return findByBusinessId(modelSpec, businessId, businessIdField, entityClass, null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessId(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final String businessId,
+            @NotNull final String businessIdField,
+            @NotNull final Class<T> entityClass,
+            @Nullable final Date pointInTime
+    ) {
         SimpleCondition simpleCondition = new SimpleCondition()
             .withJsonPath("$." + businessIdField)
             .withOperation(Operation.EQUALS)
@@ -77,7 +88,7 @@ public class EntityServiceImpl implements EntityService {
             .withConditions(List.of(simpleCondition));
 
         Optional<EntityWithMetadata<T>> result = getFirstItemByCondition(
-                entityClass, modelSpec, condition, true);
+                entityClass, modelSpec, condition, true, pointInTime);
 
         return result.orElse(null);
     }
@@ -141,7 +152,17 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final GroupCondition condition,
             @NotNull final Class<T> entityClass
     ) {
-        return getItemsByCondition(entityClass, modelSpec, condition, true);
+        return search(modelSpec, condition, entityClass, null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final GroupCondition condition,
+            @NotNull final Class<T> entityClass,
+            @Nullable final Date pointInTime
+    ) {
+        return getItemsByCondition(entityClass, modelSpec, condition, true, pointInTime);
     }
 
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItems(
@@ -169,12 +190,23 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final GroupCondition condition,
             final boolean inMemory
     ) {
+        return getFirstItemByCondition(entityClass, modelSpec, condition, inMemory, null);
+    }
+
+    public <T extends CyodaEntity> Optional<EntityWithMetadata<T>> getFirstItemByCondition(
+            @NotNull final Class<T> entityClass,
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final GroupCondition condition,
+            final boolean inMemory,
+            @Nullable final Date pointInTime
+    ) {
         List<DataPayload> payloads = repository.findAllByCriteria(
                 modelSpec,
                 condition,
                 1,
                 1,
-                inMemory
+                inMemory,
+                pointInTime
         ).join();
 
         return payloads.isEmpty()
@@ -188,12 +220,23 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final GroupCondition condition,
             final boolean inMemory
     ) {
+        return getItemsByCondition(entityClass, modelSpec, condition, inMemory, null);
+    }
+
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItemsByCondition(
+            @NotNull final Class<T> entityClass,
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final GroupCondition condition,
+            final boolean inMemory,
+            @Nullable final Date pointInTime
+    ) {
         List<DataPayload> payloads = repository.findAllByCriteria(
                 modelSpec,
                 condition,
                 DEFAULT_PAGE_SIZE,
                 FIRST_PAGE,
-                inMemory
+                inMemory,
+                pointInTime
         ).join();
 
         return payloads.stream()
