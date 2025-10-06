@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.repository.CrudRepository;
-
 import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +18,9 @@ import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -54,7 +56,17 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final ModelSpec modelSpec,
             @NotNull final Class<T> entityClass
     ) {
-        DataPayload payload = repository.findById(entityId).join();
+        return getById(entityId, modelSpec, entityClass, null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> EntityWithMetadata<T> getById(
+            @NotNull final UUID entityId,
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final Class<T> entityClass,
+            @Nullable final Date pointInTime
+    ) {
+        DataPayload payload = repository.findById(entityId, pointInTime).join();
         return EntityWithMetadata.fromDataPayload(payload, entityClass, objectMapper);
     }
 
@@ -64,6 +76,17 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final String businessId,
             @NotNull final String businessIdField,
             @NotNull final Class<T> entityClass
+    ) {
+        return findByBusinessId(modelSpec, businessId, businessIdField, entityClass, null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> EntityWithMetadata<T> findByBusinessId(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final String businessId,
+            @NotNull final String businessIdField,
+            @NotNull final Class<T> entityClass,
+            @Nullable final Date pointInTime
     ) {
         SimpleCondition simpleCondition = new SimpleCondition()
             .withJsonPath("$." + businessIdField)
@@ -75,7 +98,7 @@ public class EntityServiceImpl implements EntityService {
             .withConditions(List.of(simpleCondition));
 
         Optional<EntityWithMetadata<T>> result = getFirstItemByCondition(
-                entityClass, modelSpec, condition, true);
+                entityClass, modelSpec, condition, true, pointInTime);
 
         return result.orElse(null);
     }
@@ -99,10 +122,63 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final ModelSpec modelSpec,
             @NotNull final Class<T> entityClass
     ) {
-        return getItems(entityClass, modelSpec, null, null, null);
+        return findAll(modelSpec, entityClass, null);
     }
 
+    @Override
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final Class<T> entityClass,
+            @Nullable final Date pointInTime
+    ) {
+        return getItems(entityClass, modelSpec, null, null, pointInTime);
+    }
 
+    @Override
+    public <T extends CyodaEntity> Page<EntityWithMetadata<T>> findAll(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final Pageable pageable,
+            @NotNull final Class<T> entityClass
+    ) {
+        return findAll(modelSpec, pageable, entityClass, null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> Page<EntityWithMetadata<T>> findAll(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final Pageable pageable,
+            @NotNull final Class<T> entityClass,
+            @Nullable final Date pointInTime
+    ) {
+        // Convert Spring's 0-based page number to Cyoda's 1-based page number
+        int cyodaPageNumber = pageable.getPageNumber() + 1;
+        int pageSize = pageable.getPageSize();
+
+        // Get the entities for the requested page
+        List<EntityWithMetadata<T>> entities = getItems(
+                entityClass,
+                modelSpec,
+                pageSize,
+                cyodaPageNumber,
+                pointInTime
+        );
+
+        // Get total count for pagination metadata
+        long totalElements = getEntityCount(modelSpec, pointInTime);
+
+        // Return Spring Page object
+        return new PageImpl<>(entities, pageable, totalElements);
+    }
+
+    @Override
+    public long getEntityCount(@NotNull final ModelSpec modelSpec) {
+        return getEntityCount(modelSpec, null);
+    }
+
+    @Override
+    public long getEntityCount(@NotNull final ModelSpec modelSpec, @Nullable final Date pointInTime) {
+        return repository.getEntityCount(modelSpec, pointInTime).join();
+    }
 
     @Override
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
@@ -110,7 +186,17 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final GroupCondition condition,
             @NotNull final Class<T> entityClass
     ) {
-        return getItemsByCondition(entityClass, modelSpec, condition, true);
+        return search(modelSpec, condition, entityClass, null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final GroupCondition condition,
+            @NotNull final Class<T> entityClass,
+            @Nullable final Date pointInTime
+    ) {
+        return getItemsByCondition(entityClass, modelSpec, condition, true, pointInTime);
     }
 
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItems(
@@ -138,12 +224,23 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final GroupCondition condition,
             final boolean inMemory
     ) {
+        return getFirstItemByCondition(entityClass, modelSpec, condition, inMemory, null);
+    }
+
+    public <T extends CyodaEntity> Optional<EntityWithMetadata<T>> getFirstItemByCondition(
+            @NotNull final Class<T> entityClass,
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final GroupCondition condition,
+            final boolean inMemory,
+            @Nullable final Date pointInTime
+    ) {
         List<DataPayload> payloads = repository.findAllByCriteria(
                 modelSpec,
                 condition,
                 1,
                 1,
-                inMemory
+                inMemory,
+                pointInTime
         ).join();
 
         return payloads.isEmpty()
@@ -157,12 +254,23 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final GroupCondition condition,
             final boolean inMemory
     ) {
+        return getItemsByCondition(entityClass, modelSpec, condition, inMemory, null);
+    }
+
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItemsByCondition(
+            @NotNull final Class<T> entityClass,
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final GroupCondition condition,
+            final boolean inMemory,
+            @Nullable final Date pointInTime
+    ) {
         List<DataPayload> payloads = repository.findAllByCriteria(
                 modelSpec,
                 condition,
                 DEFAULT_PAGE_SIZE,
                 FIRST_PAGE,
-                inMemory
+                inMemory,
+                pointInTime
         ).join();
 
         return payloads.stream()
@@ -309,5 +417,26 @@ public class EntityServiceImpl implements EntityService {
         return EntityWithMetadata.fromTransactionResponseList(responses, entities, objectMapper);
     }
 
+    // ========================================
+    // METADATA OPERATIONS IMPLEMENTATION
+    // ========================================
+
+    @Override
+    public List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(@NotNull final UUID entityId) {
+        return getEntityChangesMetadata(entityId, null);
+    }
+
+    @Override
+    public List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(
+            @NotNull final UUID entityId,
+            @Nullable final Date pointInTime
+    ) {
+        try {
+            return repository.getEntityChangesMetadata(entityId, pointInTime).join();
+        } catch (Exception e) {
+            // Let the exception propagate - it will be handled by the controller
+            throw e;
+        }
+    }
 
 }

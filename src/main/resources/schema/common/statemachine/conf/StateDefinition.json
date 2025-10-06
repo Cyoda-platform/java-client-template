@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/common/statemachine/conf/StateDefinition.json",
+  "title": "StateDefinition",
+  "description": "Definition of a workflow state",
+  "type": "object",
+  "properties": {
+    "transitions": {
+      "type": "array",
+      "description": "List of possible transitions from this state",
+      "items": {
+        "$ref": "TransitionDefinition.json"
+      }
+    }
+  },
+  "required": [
+  ],
+  "additionalProperties": false
+}

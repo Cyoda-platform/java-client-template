@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/common/statemachine/conf/WorkflowConfiguration.json",
+  "title": "WorkflowConfiguration",
+  "description": "Workflow configuration schema version 1.0. Supports workflow-level and transition-level criterion using QueryCondition types: 'group', 'simple', and 'function'. Function conditions enable externalized integration for external processing and validation logic.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Version of the workflow configuration schema",
+      "default": "1.0"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of the workflow"
+    },
+    "desc": {
+      "type": "string",
+      "description": "Description of the workflow"
+    },
+    "initialState": {
+      "type": "string",
+      "description": "Initial state for entities in this workflow"
+    },
+    "active": {
+      "type": "boolean",
+      "description": "Flag indicating if the workflow is active"
+    },
+    "criterion": {
+      "$ref": "../../condition/QueryCondition.json",
+      "description": "Optional criterion to determine if this workflow applicable to an entity. Supported condition types in workflows: 'group', 'simple', and 'function'."
+    },
+    "states": {
+      "type": "object",
+      "description": "Map of state codes to state definitions. State names must start with a letter and contain only letters, numbers, underscores, and hyphens.",
+      "existingJavaType": "java.util.Map<java.lang.String, org.cyoda.cloud.api.event.common.statemachine.conf.StateDefinition>",
+      "additionalProperties": {
+        "$ref": "StateDefinition.json"
+      },
+      "minProperties": 1
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "initialState",
+    "states"
+  ]
+}
