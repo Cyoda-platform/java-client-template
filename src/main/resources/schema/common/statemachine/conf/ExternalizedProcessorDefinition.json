@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/common/statemachine/conf/ExternalizedProcessorDefinition.json",
+  "extends": {
+    "$ref": "./ProcessorDefinition.json"
+  },
+  "allOf": [
+    {
+      "$ref": "./ProcessorDefinition.json"
+    }
+  ],
+  "title": "ExternalizedProcessorDefinition",
+  "description": "Definition of a externalized processor for state transition logic",
+  "type": "object",
+  "properties": {
+    "executionMode": {
+      "type": "string",
+      "description": "Execution mode of the processor",
+      "enum": [
+        "SYNC",
+        "ASYNC_SAME_TX",
+        "ASYNC_NEW_TX"
+      ],
+      "default": "ASYNC_NEW_TX"
+    },
+    "config": {
+      "$ref": "../../ExternalizedFunctionConfig.json"
+    }
+  },
+  "required": [
+  ]
+}
