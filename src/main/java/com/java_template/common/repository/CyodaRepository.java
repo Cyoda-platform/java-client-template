@@ -494,4 +494,22 @@ public class CyodaRepository implements CrudRepository {
             return 0L;
         });
     }
+
+    @Override
+    public CompletableFuture<List<org.cyoda.cloud.api.event.common.EntityChangeMeta>> getEntityChangesMetadata(
+            @NotNull final UUID entityId,
+            @Nullable final Date pointInTime
+    ) {
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entitySearchCollection,
+                new EntityChangesMetadataGetRequest()
+                        .withId(generateEventId())
+                        .withEntityId(entityId)
+                        .withPointInTime(pointInTime),
+                EntityChangesMetadataResponse.class
+        ).thenApply(responseStream -> responseStream
+                .map(EntityChangesMetadataResponse::getChangeMeta)
+                .toList()
+        );
+    }
 }

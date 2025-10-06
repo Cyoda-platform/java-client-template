@@ -50,6 +50,8 @@
     "EntityStatsGetRequest",
     "EntityStatsResponse",
     "EntityStatsByStateGetRequest",
-    "EntityStatsByStateResponse"
+    "EntityStatsByStateResponse",
+    "EntityChangesMetadataGetRequest",
+    "EntityChangesMetadataResponse"
   ]
 }

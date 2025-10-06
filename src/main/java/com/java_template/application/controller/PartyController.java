@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.party.version_1.Party;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.CyodaExceptionUtil;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -19,7 +20,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -83,13 +86,18 @@ public class PartyController {
 
     /**
      * Get party by technical UUID
-     * GET /ui/parties/{id}
+     * GET /ui/parties/{id}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Party>> getPartyById(@PathVariable UUID id) {
+    public ResponseEntity<EntityWithMetadata<Party>> getPartyById(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
-            EntityWithMetadata<Party> response = entityService.getById(id, modelSpec, Party.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Party> response = entityService.getById(id, modelSpec, Party.class, pointInTimeDate);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
@@ -98,14 +106,19 @@ public class PartyController {
 
     /**
      * Get party by business identifier
-     * GET /ui/parties/business/{partyId}
+     * GET /ui/parties/business/{partyId}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/business/{partyId}")
-    public ResponseEntity<EntityWithMetadata<Party>> getPartyByBusinessId(@PathVariable String partyId) {
+    public ResponseEntity<EntityWithMetadata<Party>> getPartyByBusinessId(
+            @PathVariable String partyId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
-            EntityWithMetadata<Party> response = entityService.findByBusinessIdOrNull(
-                    modelSpec, partyId, "partyId", Party.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Party> response = entityService.findByBusinessId(
+                    modelSpec, partyId, "partyId", Party.class, pointInTimeDate);
 
             if (response == null) {
                 return ResponseEntity.notFound().build();
@@ -115,6 +128,34 @@ public class PartyController {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 String.format("Failed to retrieve party with business ID '%s': %s", partyId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Get party change history metadata
+     * GET /ui/parties/{id}/changes?pointInTime=2025-10-03T10:15:30Z
+     */
+    @GetMapping("/{id}/changes")
+    public ResponseEntity<?> getPartyChangesMetadata(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
+        try {
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes =
+                    entityService.getEntityChangesMetadata(id, pointInTimeDate);
+            return ResponseEntity.ok(changes);
+        } catch (Exception e) {
+            // Check if it's a NOT_FOUND error (entity doesn't exist)
+            if (CyodaExceptionUtil.isNotFound(e)) {
+                return ResponseEntity.notFound().build();
+            }
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve change history for party with ID '%s': %s", id, e.getMessage())
             );
             return ResponseEntity.of(problemDetail).build();
         }
@@ -144,15 +185,19 @@ public class PartyController {
 
     /**
      * List all parties with pagination and optional filtering
-     * GET /ui/parties?page=0&size=20&status=ACTIVE&jurisdiction=GB
+     * GET /ui/parties?page=0&size=20&status=ACTIVE&jurisdiction=GB&pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping
     public ResponseEntity<?> listParties(
             Pageable pageable,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String jurisdiction) {
+            @RequestParam(required = false) String jurisdiction,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
 
             List<QueryCondition> conditions = new ArrayList<>();
 
@@ -174,13 +219,13 @@ public class PartyController {
 
             if (conditions.isEmpty()) {
                 // Use paginated findAll when no filters
-                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Party.class));
+                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Party.class, pointInTimeDate));
             } else {
                 // For filtered results, use search (returns all matching results, not paginated)
                 GroupCondition groupCondition = new GroupCondition()
                         .withOperator(GroupCondition.Operator.AND)
                         .withConditions(conditions);
-                List<EntityWithMetadata<Party>> parties = entityService.search(modelSpec, groupCondition, Party.class);
+                List<EntityWithMetadata<Party>> parties = entityService.search(modelSpec, groupCondition, Party.class, pointInTimeDate);
                 return ResponseEntity.ok(parties);
             }
         } catch (Exception e) {
@@ -194,13 +239,17 @@ public class PartyController {
 
     /**
      * Search parties by name
-     * GET /ui/parties/search?name=searchTerm
+     * GET /ui/parties/search?name=searchTerm&pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/search")
     public ResponseEntity<List<EntityWithMetadata<Party>>> searchPartiesByName(
-            @RequestParam String name) {
+            @RequestParam String name,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
 
             SimpleCondition nameCondition = new SimpleCondition()
                     .withJsonPath("$.legalName")
@@ -211,7 +260,7 @@ public class PartyController {
                     .withOperator(GroupCondition.Operator.AND)
                     .withConditions(List.of(nameCondition));
 
-            List<EntityWithMetadata<Party>> parties = entityService.search(modelSpec, condition, Party.class);
+            List<EntityWithMetadata<Party>> parties = entityService.search(modelSpec, condition, Party.class, pointInTimeDate);
             return ResponseEntity.ok(parties);
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(

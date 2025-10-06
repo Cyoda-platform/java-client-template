@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.payment.version_1.Payment;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.CyodaExceptionUtil;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -20,6 +21,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -93,13 +96,18 @@ public class PaymentController {
 
     /**
      * Get payment by technical UUID
-     * GET /ui/payments/{id}
+     * GET /ui/payments/{id}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Payment>> getPaymentById(@PathVariable UUID id) {
+    public ResponseEntity<EntityWithMetadata<Payment>> getPaymentById(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
-            EntityWithMetadata<Payment> response = entityService.getById(id, modelSpec, Payment.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Payment> response = entityService.getById(id, modelSpec, Payment.class, pointInTimeDate);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
@@ -108,14 +116,19 @@ public class PaymentController {
 
     /**
      * Get payment by business identifier
-     * GET /ui/payments/business/{paymentId}
+     * GET /ui/payments/business/{paymentId}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/business/{paymentId}")
-    public ResponseEntity<EntityWithMetadata<Payment>> getPaymentByBusinessId(@PathVariable String paymentId) {
+    public ResponseEntity<EntityWithMetadata<Payment>> getPaymentByBusinessId(
+            @PathVariable String paymentId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
-            EntityWithMetadata<Payment> response = entityService.findByBusinessIdOrNull(
-                    modelSpec, paymentId, "paymentId", Payment.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Payment> response = entityService.findByBusinessId(
+                    modelSpec, paymentId, "paymentId", Payment.class, pointInTimeDate);
 
             if (response == null) {
                 return ResponseEntity.notFound().build();
@@ -131,13 +144,46 @@ public class PaymentController {
     }
 
     /**
+     * Get payment change history metadata
+     * GET /ui/payments/{id}/changes?pointInTime=2025-10-03T10:15:30Z
+     */
+    @GetMapping("/{id}/changes")
+    public ResponseEntity<?> getPaymentChangesMetadata(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
+        try {
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes =
+                    entityService.getEntityChangesMetadata(id, pointInTimeDate);
+            return ResponseEntity.ok(changes);
+        } catch (Exception e) {
+            // Check if it's a NOT_FOUND error (entity doesn't exist)
+            if (CyodaExceptionUtil.isNotFound(e)) {
+                return ResponseEntity.notFound().build();
+            }
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve change history for payment with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
      * Get payments for a specific loan
-     * GET /ui/payments/loan/{loanId}
+     * GET /ui/payments/loan/{loanId}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/loan/{loanId}")
-    public ResponseEntity<List<EntityWithMetadata<Payment>>> getPaymentsForLoan(@PathVariable String loanId) {
+    public ResponseEntity<List<EntityWithMetadata<Payment>>> getPaymentsForLoan(
+            @PathVariable String loanId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
 
             SimpleCondition loanCondition = new SimpleCondition()
                     .withJsonPath("$.loanId")
@@ -148,7 +194,7 @@ public class PaymentController {
                     .withOperator(GroupCondition.Operator.AND)
                     .withConditions(List.of(loanCondition));
 
-            List<EntityWithMetadata<Payment>> payments = entityService.search(modelSpec, condition, Payment.class);
+            List<EntityWithMetadata<Payment>> payments = entityService.search(modelSpec, condition, Payment.class, pointInTimeDate);
             return ResponseEntity.ok(payments);
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
@@ -183,15 +229,19 @@ public class PaymentController {
 
     /**
      * List all payments with pagination and optional filtering
-     * GET /ui/payments?page=0&size=20&loanId=LOAN123&status=POSTED
+     * GET /ui/payments?page=0&size=20&loanId=LOAN123&status=POSTED&pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping
     public ResponseEntity<?> listPayments(
             Pageable pageable,
             @RequestParam(required = false) String loanId,
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
 
             List<QueryCondition> conditions = new java.util.ArrayList<>();
 
@@ -205,17 +255,17 @@ public class PaymentController {
 
             if (conditions.isEmpty() && (status == null || status.trim().isEmpty())) {
                 // Use paginated findAll when no filters
-                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Payment.class));
+                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Payment.class, pointInTimeDate));
             } else {
                 // For filtered results, use search (returns all matching results, not paginated)
                 List<EntityWithMetadata<Payment>> payments;
                 if (conditions.isEmpty()) {
-                    payments = entityService.findAll(modelSpec, Payment.class);
+                    payments = entityService.findAll(modelSpec, Payment.class, pointInTimeDate);
                 } else {
                     GroupCondition groupCondition = new GroupCondition()
                             .withOperator(GroupCondition.Operator.AND)
                             .withConditions(conditions);
-                    payments = entityService.search(modelSpec, groupCondition, Payment.class);
+                    payments = entityService.search(modelSpec, groupCondition, Payment.class, pointInTimeDate);
                 }
 
                 // Filter by status if provided (status is in metadata, not entity)

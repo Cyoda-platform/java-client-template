@@ -44,6 +44,11 @@ public interface CrudRepository {
 
     CompletableFuture<Long> getEntityCount(@NotNull ModelSpec modelSpec, @Nullable Date pointInTime);
 
+    CompletableFuture<List<org.cyoda.cloud.api.event.common.EntityChangeMeta>> getEntityChangesMetadata(
+            @NotNull UUID entityId,
+            @Nullable Date pointInTime
+    );
+
     CompletableFuture<List<DataPayload>> findAllByCriteria(
             @NotNull ModelSpec modelSpec,
             @NotNull GroupCondition criteria,

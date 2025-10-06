@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.accrual.version_1.Accrual;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.CyodaExceptionUtil;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -20,7 +21,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -88,13 +91,18 @@ public class AccrualController {
 
     /**
      * Get accrual by technical UUID
-     * GET /ui/accruals/{id}
+     * GET /ui/accruals/{id}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Accrual>> getAccrualById(@PathVariable UUID id) {
+    public ResponseEntity<EntityWithMetadata<Accrual>> getAccrualById(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
-            EntityWithMetadata<Accrual> response = entityService.getById(id, modelSpec, Accrual.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Accrual> response = entityService.getById(id, modelSpec, Accrual.class, pointInTimeDate);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
@@ -103,14 +111,19 @@ public class AccrualController {
 
     /**
      * Get accrual by business identifier
-     * GET /ui/accruals/business/{accrualId}
+     * GET /ui/accruals/business/{accrualId}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/business/{accrualId}")
-    public ResponseEntity<EntityWithMetadata<Accrual>> getAccrualByBusinessId(@PathVariable String accrualId) {
+    public ResponseEntity<EntityWithMetadata<Accrual>> getAccrualByBusinessId(
+            @PathVariable String accrualId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
-            EntityWithMetadata<Accrual> response = entityService.findByBusinessIdOrNull(
-                    modelSpec, accrualId, "accrualId", Accrual.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Accrual> response = entityService.findByBusinessId(
+                    modelSpec, accrualId, "accrualId", Accrual.class, pointInTimeDate);
 
             if (response == null) {
                 return ResponseEntity.notFound().build();
@@ -120,6 +133,34 @@ public class AccrualController {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 String.format("Failed to retrieve accrual with business ID '%s': %s", accrualId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Get accrual change history metadata
+     * GET /ui/accruals/{id}/changes?pointInTime=2025-10-03T10:15:30Z
+     */
+    @GetMapping("/{id}/changes")
+    public ResponseEntity<?> getAccrualChangesMetadata(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
+        try {
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes =
+                    entityService.getEntityChangesMetadata(id, pointInTimeDate);
+            return ResponseEntity.ok(changes);
+        } catch (Exception e) {
+            // Check if it's a NOT_FOUND error (entity doesn't exist)
+            if (CyodaExceptionUtil.isNotFound(e)) {
+                return ResponseEntity.notFound().build();
+            }
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve change history for accrual with ID '%s': %s", id, e.getMessage())
             );
             return ResponseEntity.of(problemDetail).build();
         }
@@ -149,8 +190,8 @@ public class AccrualController {
 
     /**
      * List all accruals with pagination and optional filtering
-     * GET /ui/accruals?page=0&size=20&state=POSTED&loanId=LOAN123&valueDate=2025-10-03
-     * 
+     * GET /ui/accruals?page=0&size=20&state=POSTED&loanId=LOAN123&valueDate=2025-10-03&pointInTime=2025-10-03T10:15:30Z
+     *
      * This endpoint supports the "View Interest Accrual History" user story,
      * allowing finance users to view accrual records for specific loans.
      */
@@ -159,9 +200,13 @@ public class AccrualController {
             Pageable pageable,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String loanId,
-            @RequestParam(required = false) LocalDate valueDate) {
+            @RequestParam(required = false) LocalDate valueDate,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
 
             List<QueryCondition> conditions = new ArrayList<>();
 
@@ -183,17 +228,17 @@ public class AccrualController {
 
             if (conditions.isEmpty() && (state == null || state.trim().isEmpty())) {
                 // Use paginated findAll when no filters
-                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Accrual.class));
+                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Accrual.class, pointInTimeDate));
             } else {
                 // For filtered results, use search (returns all matching results, not paginated)
                 List<EntityWithMetadata<Accrual>> accruals;
                 if (conditions.isEmpty()) {
-                    accruals = entityService.findAll(modelSpec, Accrual.class);
+                    accruals = entityService.findAll(modelSpec, Accrual.class, pointInTimeDate);
                 } else {
                     GroupCondition groupCondition = new GroupCondition()
                             .withOperator(GroupCondition.Operator.AND)
                             .withConditions(conditions);
-                    accruals = entityService.search(modelSpec, groupCondition, Accrual.class);
+                    accruals = entityService.search(modelSpec, groupCondition, Accrual.class, pointInTimeDate);
                 }
 
                 // Filter by state if provided (state is in metadata, not entity)

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.entity.loan.version_1.Loan;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.CyodaExceptionUtil;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -20,7 +22,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -89,13 +93,18 @@ public class LoanController {
 
     /**
      * Get loan by technical UUID
-     * GET /ui/loans/{id}
+     * GET /ui/loans/{id}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<Loan>> getLoanById(@PathVariable UUID id) {
+    public ResponseEntity<EntityWithMetadata<Loan>> getLoanById(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
-            EntityWithMetadata<Loan> response = entityService.getById(id, modelSpec, Loan.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Loan> response = entityService.getById(id, modelSpec, Loan.class, pointInTimeDate);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
@@ -104,14 +113,19 @@ public class LoanController {
 
     /**
      * Get loan by business identifier
-     * GET /ui/loans/business/{loanId}
+     * GET /ui/loans/business/{loanId}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/business/{loanId}")
-    public ResponseEntity<EntityWithMetadata<Loan>> getLoanByBusinessId(@PathVariable String loanId) {
+    public ResponseEntity<EntityWithMetadata<Loan>> getLoanByBusinessId(
+            @PathVariable String loanId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
-            EntityWithMetadata<Loan> response = entityService.findByBusinessIdOrNull(
-                    modelSpec, loanId, "loanId", Loan.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Loan> response = entityService.findByBusinessId(
+                    modelSpec, loanId, "loanId", Loan.class, pointInTimeDate);
 
             if (response == null) {
                 return ResponseEntity.notFound().build();
@@ -121,6 +135,34 @@ public class LoanController {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 String.format("Failed to retrieve loan with business ID '%s': %s", loanId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Get loan change history metadata
+     * GET /ui/loans/{id}/changes?pointInTime=2025-10-03T10:15:30Z
+     */
+    @GetMapping("/{id}/changes")
+    public ResponseEntity<?> getLoanChangesMetadata(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
+        try {
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes =
+                    entityService.getEntityChangesMetadata(id, pointInTimeDate);
+            return ResponseEntity.ok(changes);
+        } catch (Exception e) {
+            // Check if it's a NOT_FOUND error (entity doesn't exist)
+            if (CyodaExceptionUtil.isNotFound(e)) {
+                return ResponseEntity.notFound().build();
+            }
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve change history for loan with ID '%s': %s", id, e.getMessage())
             );
             return ResponseEntity.of(problemDetail).build();
         }
@@ -150,15 +192,19 @@ public class LoanController {
 
     /**
      * List all loans with pagination and optional filtering
-     * GET /ui/loans?page=0&size=20&state=ACTIVE&partyId=PARTY123
+     * GET /ui/loans?page=0&size=20&state=ACTIVE&partyId=PARTY123&pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping
     public ResponseEntity<?> listLoans(
             Pageable pageable,
             @RequestParam(required = false) String state,
-            @RequestParam(required = false) String partyId) {
+            @RequestParam(required = false) String partyId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
 
             List<QueryCondition> conditions = new ArrayList<>();
 
@@ -172,17 +218,17 @@ public class LoanController {
 
             if (conditions.isEmpty() && (state == null || state.trim().isEmpty())) {
                 // Use paginated findAll when no filters
-                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Loan.class));
+                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Loan.class, pointInTimeDate));
             } else {
                 // For filtered results, use search (returns all matching results, not paginated)
                 List<EntityWithMetadata<Loan>> loans;
                 if (conditions.isEmpty()) {
-                    loans = entityService.findAll(modelSpec, Loan.class);
+                    loans = entityService.findAll(modelSpec, Loan.class, pointInTimeDate);
                 } else {
                     GroupCondition groupCondition = new GroupCondition()
                             .withOperator(GroupCondition.Operator.AND)
                             .withConditions(conditions);
-                    loans = entityService.search(modelSpec, groupCondition, Loan.class);
+                    loans = entityService.search(modelSpec, groupCondition, Loan.class, pointInTimeDate);
                 }
 
                 // Filter by state if provided (state is in metadata, not entity)

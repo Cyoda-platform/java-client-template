@@ -3,6 +3,7 @@ package com.java_template.application.controller;
 import com.java_template.application.entity.gl_batch.version_1.GLBatch;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
+import com.java_template.common.util.CyodaExceptionUtil;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +15,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.time.OffsetDateTime;
+import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -60,13 +64,18 @@ public class GLBatchController {
 
     /**
      * Get GL batch by technical UUID
-     * GET /ui/gl-batches/{id}
+     * GET /ui/gl-batches/{id}?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<GLBatch>> getGLBatchById(@PathVariable UUID id) {
+    public ResponseEntity<EntityWithMetadata<GLBatch>> getGLBatchById(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(GLBatch.ENTITY_NAME).withVersion(GLBatch.ENTITY_VERSION);
-            EntityWithMetadata<GLBatch> response = entityService.getById(id, modelSpec, GLBatch.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<GLBatch> response = entityService.getById(id, modelSpec, GLBatch.class, pointInTimeDate);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
@@ -74,14 +83,47 @@ public class GLBatchController {
     }
 
     /**
+     * Get GL batch change history metadata
+     * GET /ui/gl-batches/{id}/changes?pointInTime=2025-10-03T10:15:30Z
+     */
+    @GetMapping("/{id}/changes")
+    public ResponseEntity<?> getGLBatchChangesMetadata(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
+        try {
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes =
+                    entityService.getEntityChangesMetadata(id, pointInTimeDate);
+            return ResponseEntity.ok(changes);
+        } catch (Exception e) {
+            // Check if it's a NOT_FOUND error (entity doesn't exist)
+            if (CyodaExceptionUtil.isNotFound(e)) {
+                return ResponseEntity.notFound().build();
+            }
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve change history for GL batch with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
      * List all GL batches with pagination
-     * GET /ui/gl-batches?page=0&size=20
+     * GET /ui/gl-batches?page=0&size=20&pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping
-    public ResponseEntity<?> listGLBatches(Pageable pageable) {
+    public ResponseEntity<?> listGLBatches(
+            Pageable pageable,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(GLBatch.ENTITY_NAME).withVersion(GLBatch.ENTITY_VERSION);
-            return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, GLBatch.class));
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, GLBatch.class, pointInTimeDate));
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,

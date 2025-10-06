@@ -9,16 +9,23 @@ import lombok.Setter;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,12 +33,17 @@ import java.util.UUID;
  * Golden Example Controller - Template for creating new controllers
  * <p>
  * This is a generified example controller that demonstrates:
- * - Proper REST controller implementation
+ * - Proper REST controller implementation with Spring Boot
  * - EntityService integration patterns
  * - CRUD operations with EntityWithMetadata
  * - Performance-optimized EntityService methods
- * - Error handling and logging
- * - Request/Response DTOs
+ * - Point-in-time query support for temporal data access
+ * - Pagination support for large datasets
+ * - Business identifier duplicate checking
+ * - Workflow transition support
+ * - Error handling with ProblemDetail (RFC 7807)
+ * - Logging best practices
+ * - Location header for created resources
  * <p>
  * To create a new controller:
  * 1. Copy this file to your controller package
@@ -40,8 +52,9 @@ import java.util.UUID;
  * 4. Update @RequestMapping path from "/ui/example" to your path
  * 5. Update ModelSpec entity name from "ExampleEntity" to your entity name
  * 6. Update business ID field name in findByBusinessId calls
- * 7. Add custom endpoints as needed
- * 8. Update request/response DTOs for your specific use cases
+ * 7. Add custom workflow transition endpoints as needed
+ * 8. Add custom search/filter parameters as needed
+ * 9. Update request/response DTOs for your specific use cases
  */
 @RestController
 @RequestMapping("/ui/example")
@@ -64,6 +77,8 @@ public class ExampleEntityController {
      * IMPORTANT: This endpoint checks for duplicate business identifiers before creating.
      * Since Cyoda does not enforce uniqueness of business identifiers, this must be
      * done at the application level. Returns 409 Conflict if entity already exists.
+     * <p>
+     * Returns 201 Created with Location header pointing to the new resource.
      */
     @PostMapping
     public ResponseEntity<?> createEntity(@RequestBody ExampleEntity entity) {
@@ -77,75 +92,97 @@ public class ExampleEntityController {
                 logger.warn("ExampleEntity with business ID {} already exists", entity.getExampleId());
                 ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                     HttpStatus.CONFLICT,
-                    String.format(
-                        "Entity already exists for model '%s' version '%s' with business identifier '%s'. Is has technical ID: %s",
-                        ExampleEntity.ENTITY_NAME,
-                        ExampleEntity.ENTITY_VERSION,
-                        entity.getExampleId(),
-                        existing.getId()
-                    )
+                    String.format("ExampleEntity already exists with ID: %s", entity.getExampleId())
                 );
                 return ResponseEntity.of(problemDetail).build();
             }
 
-            // Set creation timestamp
+            // Set creation timestamp (if your entity has these fields)
             entity.setCreatedAt(LocalDateTime.now());
             entity.setUpdatedAt(LocalDateTime.now());
 
-            // CRITICAL: Pass entity directly - it IS the payload
             EntityWithMetadata<ExampleEntity> response = entityService.create(entity);
             logger.info("ExampleEntity created with ID: {}", response.metadata().getId());
-            return ResponseEntity.ok(response);
+
+            // Build Location header for the created resource
+            URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.metadata().getId())
+                .toUri();
+
+            return ResponseEntity.created(location).body(response);
         } catch (Exception e) {
-            logger.error("Error creating ExampleEntity", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to create entity: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
      * Get entity by technical UUID (FASTEST method)
-     * GET /ui/example/{id}
+     * GET /ui/example/{id}?pointInTime=2025-10-03T10:15:30Z
+     * <p>
+     * Supports point-in-time queries to retrieve historical entity state.
+     * Point-in-time parameter is optional - omit for current state.
      */
     @GetMapping("/{id}")
-    public ResponseEntity<EntityWithMetadata<ExampleEntity>> getEntityById(@PathVariable UUID id) {
+    public ResponseEntity<EntityWithMetadata<ExampleEntity>> getEntityById(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
-            // Use getById() for technical UUID (FASTEST)
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
-            EntityWithMetadata<ExampleEntity> response = entityService.getById(id, modelSpec, ExampleEntity.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<ExampleEntity> response = entityService.getById(id, modelSpec, ExampleEntity.class, pointInTimeDate);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error getting ExampleEntity by ID: {}", id, e);
             return ResponseEntity.notFound().build();
         }
     }
 
     /**
      * Get entity by business identifier (MEDIUM SPEED)
-     * GET /ui/example/business/{exampleId}
+     * GET /ui/example/business/{exampleId}?pointInTime=2025-10-03T10:15:30Z
+     * <p>
+     * Supports point-in-time queries to retrieve historical entity state.
+     * Point-in-time parameter is optional - omit for current state.
      */
     @GetMapping("/business/{exampleId}")
-    public ResponseEntity<EntityWithMetadata<ExampleEntity>> getEntityByBusinessId(@PathVariable String exampleId) {
+    public ResponseEntity<EntityWithMetadata<ExampleEntity>> getEntityByBusinessId(
+            @PathVariable String exampleId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
-            // Use findByBusinessId() for business identifiers (MEDIUM SPEED)
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
-            // We use findByBusinessIdOrNull() to handle cases where the model might
-            // not yet contain the business ID field yet (bootrapping phase)
-            EntityWithMetadata<ExampleEntity> response = entityService.findByBusinessIdOrNull(
-                    modelSpec, exampleId, "exampleId", ExampleEntity.class);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<ExampleEntity> response = entityService.findByBusinessId(
+                    modelSpec, exampleId, "exampleId", ExampleEntity.class, pointInTimeDate);
 
             if (response == null) {
                 return ResponseEntity.notFound().build();
             }
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error getting ExampleEntity by business ID: {}", exampleId, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve entity with business ID '%s': %s", exampleId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
      * Update entity with optional workflow transition
      * PUT /ui/example/{id}?transition=TRANSITION_NAME
+     * <p>
+     * The transition parameter is optional. If provided, it triggers a workflow
+     * transition after updating the entity data. The transition name must match
+     * a transition defined in the entity's workflow configuration.
      */
     @PutMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<ExampleEntity>> updateEntity(
@@ -153,92 +190,142 @@ public class ExampleEntityController {
             @RequestBody ExampleEntity entity,
             @RequestParam(required = false) String transition) {
         try {
-            // Set update timestamp
+            // Set update timestamp (if your entity has this field)
             entity.setUpdatedAt(LocalDateTime.now());
 
-            // CRITICAL: Pass entity directly - no payload manipulation needed
             EntityWithMetadata<ExampleEntity> response = entityService.update(id, entity, transition);
             logger.info("ExampleEntity updated with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            logger.error("Error updating ExampleEntity", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to update entity with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
-     * Delete entity by technical UUID
-     * DELETE /ui/example/{id}
-     */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteEntity(@PathVariable UUID id) {
-        try {
-            entityService.deleteById(id);
-            logger.info("ExampleEntity deleted with ID: {}", id);
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            logger.error("Error deleting ExampleEntity", e);
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
-    /**
-     * Get all entities (USE SPARINGLY - can be slow for large datasets)
-     * GET /ui/example
+     * List all entities with pagination and optional filtering
+     * GET /ui/example?page=0&size=20&state=ACTIVE&category=EXAMPLE&pointInTime=2025-10-03T10:15:30Z
+     * <p>
+     * Supports pagination, filtering by entity fields, filtering by metadata state,
+     * and point-in-time queries. All parameters are optional.
+     * <p>
+     * When no filters are applied, uses paginated findAll for efficiency.
+     * When filters are applied, uses search (returns all matching results, not paginated).
      */
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> getAllEntities() {
+    public ResponseEntity<?> listEntities(
+            Pageable pageable,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
-            // Use findAll() sparingly - can be slow for large datasets
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
-            List<EntityWithMetadata<ExampleEntity>> entities = entityService.findAll(modelSpec, ExampleEntity.class);
-            return ResponseEntity.ok(entities);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+
+            List<QueryCondition> conditions = new ArrayList<>();
+
+            // Add entity field filters (these are in the entity data, not metadata)
+            if (category != null && !category.trim().isEmpty()) {
+                SimpleCondition categoryCondition = new SimpleCondition()
+                        .withJsonPath("$.category")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(category));
+                conditions.add(categoryCondition);
+            }
+
+            if (conditions.isEmpty() && (state == null || state.trim().isEmpty())) {
+                // Use paginated findAll when no filters
+                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, ExampleEntity.class, pointInTimeDate));
+            } else {
+                // For filtered results, use search (returns all matching results, not paginated)
+                List<EntityWithMetadata<ExampleEntity>> entities;
+                if (conditions.isEmpty()) {
+                    entities = entityService.findAll(modelSpec, ExampleEntity.class, pointInTimeDate);
+                } else {
+                    GroupCondition groupCondition = new GroupCondition()
+                            .withOperator(GroupCondition.Operator.AND)
+                            .withConditions(conditions);
+                    entities = entityService.search(modelSpec, groupCondition, ExampleEntity.class, pointInTimeDate);
+                }
+
+                // Filter by state if provided (state is in metadata, not entity)
+                if (state != null && !state.trim().isEmpty()) {
+                    entities = entities.stream()
+                            .filter(entity -> state.equals(entity.metadata().getState()))
+                            .toList();
+                }
+
+                return ResponseEntity.ok(entities);
+            }
         } catch (Exception e) {
-            logger.error("Error getting all ExampleEntities", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to list entities: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
-     * Search entities by description (example of search functionality)
-     * GET /ui/example/search?description=text
+     * Search entities by description (example of custom search endpoint)
+     * GET /ui/example/search?description=text&pointInTime=2025-10-03T10:15:30Z
+     * <p>
+     * Example of a custom search endpoint for a specific use case.
+     * Supports point-in-time queries.
      */
     @GetMapping("/search")
     public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> searchEntitiesByDescription(
-            @RequestParam String description) {
+            @RequestParam String description,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
 
-            // Create search condition using generated classes directly
             SimpleCondition simpleCondition = new SimpleCondition()
                     .withJsonPath("$.description")
-                    .withOperation(Operation.EQUALS)
+                    .withOperation(Operation.CONTAINS)
                     .withValue(objectMapper.valueToTree(description));
 
             GroupCondition condition = new GroupCondition()
                     .withOperator(GroupCondition.Operator.AND)
                     .withConditions(List.of(simpleCondition));
 
-            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class);
+            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class, pointInTimeDate);
             return ResponseEntity.ok(entities);
         } catch (Exception e) {
-            logger.error("Error searching ExampleEntities by description: {}", description, e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to search entities by description '%s': %s", description, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
-     * Get entities by name pattern (example of complex search)
+     * Advanced search with multiple criteria (example of complex search)
      * POST /ui/example/search/advanced
+     * <p>
+     * Example of a complex search endpoint that accepts multiple search criteria
+     * in the request body. Useful when you have many optional search parameters.
      */
     @PostMapping("/search/advanced")
     public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> advancedSearch(
             @RequestBody SearchRequest searchRequest) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            Date pointInTimeDate = searchRequest.getPointInTime() != null
+                ? Date.from(searchRequest.getPointInTime().toInstant())
+                : null;
 
-            // Build complex search condition using generated classes directly
-            List<SimpleCondition> conditions = new ArrayList<>();
+            // Build complex search condition using generated classes
+            List<QueryCondition> conditions = new ArrayList<>();
 
             if (searchRequest.getName() != null && !searchRequest.getName().trim().isEmpty()) {
                 conditions.add(new SimpleCondition()
@@ -261,19 +348,121 @@ public class ExampleEntityController {
                         .withValue(objectMapper.valueToTree(searchRequest.getMaxAmount())));
             }
 
-            // Create GroupCondition with all conditions
+            if (conditions.isEmpty()) {
+                // No search criteria provided - return all entities
+                return ResponseEntity.ok(entityService.findAll(modelSpec, ExampleEntity.class, pointInTimeDate));
+            }
+
             GroupCondition condition = new GroupCondition()
                     .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(new ArrayList<>(conditions));
-            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class);
+                    .withConditions(conditions);
+            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class, pointInTimeDate);
             return ResponseEntity.ok(entities);
         } catch (Exception e) {
-            logger.error("Error performing advanced search", e);
-            return ResponseEntity.badRequest().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to perform advanced search: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
+    /**
+     * Example workflow transition endpoint
+     * POST /ui/example/{id}/approve
+     * <p>
+     * Example of a custom endpoint that triggers a workflow transition.
+     * This pattern is useful for business actions that should be exposed
+     * as explicit REST operations rather than generic PUT with transition parameter.
+     */
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<EntityWithMetadata<ExampleEntity>> approveEntity(@PathVariable UUID id) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            EntityWithMetadata<ExampleEntity> current = entityService.getById(id, modelSpec, ExampleEntity.class);
+
+            EntityWithMetadata<ExampleEntity> response = entityService.update(id, current.entity(), "approve");
+            logger.info("ExampleEntity approved with ID: {}", id);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to approve entity with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete entity by technical UUID
+     * DELETE /ui/example/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteEntity(@PathVariable UUID id) {
+        try {
+            entityService.deleteById(id);
+            logger.info("ExampleEntity deleted with ID: {}", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete entity with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete entity by business identifier
+     * DELETE /ui/example/business/{exampleId}
+     */
+    @DeleteMapping("/business/{exampleId}")
+    public ResponseEntity<Void> deleteEntityByBusinessId(@PathVariable String exampleId) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            boolean deleted = entityService.deleteByBusinessId(modelSpec, exampleId, "exampleId", ExampleEntity.class);
+
+            if (!deleted) {
+                return ResponseEntity.notFound().build();
+            }
+
+            logger.info("ExampleEntity deleted with business ID: {}", exampleId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete entity with business ID '%s': %s", exampleId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete all entities (DANGEROUS - use with caution)
+     * DELETE /ui/example
+     * <p>
+     * WARNING: This deletes ALL entities of this type. Use with extreme caution.
+     * Consider requiring additional authorization or confirmation for this endpoint.
+     */
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllEntities() {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            Integer deletedCount = entityService.deleteAll(modelSpec);
+            logger.warn("Deleted all ExampleEntities - count: {}", deletedCount);
+            return ResponseEntity.ok().body(String.format("Deleted %d entities", deletedCount));
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete all entities: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    // ========================================
     // Request DTOs for specific operations
+    // ========================================
 
     /**
      * DTO for advanced search requests
@@ -284,5 +473,6 @@ public class ExampleEntityController {
         private String name;
         private Double minAmount;
         private Double maxAmount;
+        private OffsetDateTime pointInTime;
     }
 }

@@ -139,6 +139,20 @@ public interface EntityService {
     );
 
     /**
+     * Get all entities of a type at a specific point in time (SLOW - use sparingly)
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param entityClass Entity class type for deserialization
+     * @param pointInTime Point in time to retrieve entities as-at (null for current state)
+     * @return List of EntityWithMetadata with entities and metadata
+     */
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(
+            @NotNull ModelSpec modelSpec,
+            @NotNull Class<T> entityClass,
+            @Nullable java.util.Date pointInTime
+    );
+
+    /**
      * Get entities with pagination support (RECOMMENDED for large datasets)
      * Uses Cyoda's native pagination API for efficient data retrieval.
      *
@@ -151,6 +165,23 @@ public interface EntityService {
             @NotNull ModelSpec modelSpec,
             @NotNull Pageable pageable,
             @NotNull Class<T> entityClass
+    );
+
+    /**
+     * Get entities with pagination support at a specific point in time (RECOMMENDED for large datasets)
+     * Uses Cyoda's native pagination API for efficient data retrieval.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param pageable Spring Pageable containing page number, size, and sort
+     * @param entityClass Entity class type for deserialization
+     * @param pointInTime Point in time to retrieve entities as-at (null for current state)
+     * @return Page of EntityWithMetadata with entities, metadata, and pagination info
+     */
+    <T extends CyodaEntity> Page<EntityWithMetadata<T>> findAll(
+            @NotNull ModelSpec modelSpec,
+            @NotNull Pageable pageable,
+            @NotNull Class<T> entityClass,
+            @Nullable java.util.Date pointInTime
     );
 
     /**
@@ -287,5 +318,31 @@ public interface EntityService {
      * @return Number of entities deleted
      */
     <T extends CyodaEntity> Integer deleteAll(@NotNull ModelSpec modelSpec);
+
+    // ========================================
+    // METADATA OPERATIONS
+    // ========================================
+
+    /**
+     * Get entity change history metadata
+     * Retrieves metadata about all changes made to an entity over time.
+     *
+     * @param entityId Technical UUID of the entity
+     * @return List of EntityChangeMeta with change history information
+     */
+    List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(@NotNull UUID entityId);
+
+    /**
+     * Get entity change history metadata at a specific point in time
+     * Retrieves metadata about all changes made to an entity up to a specific point in time.
+     *
+     * @param entityId Technical UUID of the entity
+     * @param pointInTime Point in time to retrieve changes up to (null for all changes)
+     * @return List of EntityChangeMeta with change history information
+     */
+    List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(
+            @NotNull UUID entityId,
+            @Nullable java.util.Date pointInTime
+    );
 
 }
