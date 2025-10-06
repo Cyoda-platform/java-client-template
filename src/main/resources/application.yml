@@ -6,6 +6,11 @@ server:
   port: 8080
   forward-headers-strategy: framework
 
+spring:
+  mvc:
+    problemdetails:
+      enabled: true
+
 springdoc:
   swagger-ui:
     use-root-path: true
