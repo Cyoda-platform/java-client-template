@@ -51,7 +51,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @DirtiesContext
 @CucumberContextConfiguration
-@SpringBootTest(classes = {Application.class, E2eTestConfig.class})
+@SpringBootTest(classes = { Application.class, E2eTestConfig.class })
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")
@@ -59,13 +59,12 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 public class GherkinE2eTest {
 
     @Autowired
-    private EntityService entityService; // Your service interface
+    private EntityService entityService;
     @Autowired
     private ObjectMapper objectMapper;
     @Autowired
     private PrizeTestProcessor prizeTestProcessor;
 
-    // --- State variables to hold data between steps ---
     private PrizeEntity prizeToCreate;
     private List<PrizeEntity> prizeDefinitions;
     private Exception capturedException;
@@ -83,23 +82,20 @@ public class GherkinE2eTest {
 
     @Given("I have a prize:")
     public void i_have_a_new_prize_definition(DataTable dataTable) {
-        // Convert the Gherkin data table to a Map
         final var data = dataTable.asMaps().getFirst();
         this.prizeToCreate = new PrizeEntity(
                 data.get("year"),
                 data.get("category"),
-                data.get("comment")
-        );
+                data.get("comment"));
     }
 
-    @Given("I have a list of prizes")
+    @Given("I have a list of prizes:")
     public void i_have_a_list_of_prizes(DataTable dataTable) {
         this.prizeDefinitions = dataTable.asMaps(String.class, String.class).stream()
                 .map(row -> new PrizeEntity(
                         row.get("year"),
                         row.get("category"),
-                        row.get("comment")
-                ))
+                        row.get("comment")))
                 .collect(Collectors.toList());
     }
 
@@ -116,8 +112,8 @@ public class GherkinE2eTest {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode())
-                ).body(JsonNode.class)
+                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode()))
+                .body(JsonNode.class)
                 .get("access_token")
                 .asText();
     }
@@ -127,15 +123,13 @@ public class GherkinE2eTest {
             final String workflowFileName,
             final String modelName,
             final Integer modelVersion,
-            final String token
-    ) throws URISyntaxException, IOException {
+            final String token) throws URISyntaxException, IOException {
 
         final var workflowJson = objectMapper.readTree(
                 Arrays.stream(new File(this.getClass().getResource("/workflows").toURI()).listFiles())
                         .filter(it -> it.getName().equals(workflowFileName))
                         .findFirst()
-                        .get()
-        );
+                        .get());
 
         client.post()
                 .uri(URI.create(CYODA_API_URL + "/model/" + modelName + "/" + modelVersion + "/workflow/import"))
@@ -146,13 +140,13 @@ public class GherkinE2eTest {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode())
-                ).body(String.class);
+                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode()))
+                .body(String.class);
     }
 
     @When("I import workflow from file {string} for model {string} version {int}")
-    public void i_have_a_workflow_in_file(String workflowFileName, String modelName, Integer modelVersion) throws
-            URISyntaxException,
+    public void i_have_a_workflow_in_file(String workflowFileName, String modelName, Integer modelVersion)
+            throws URISyntaxException,
             IOException {
         final var client = RestClient.create();
         final var token = login(client, CYODA_CLIENT_ID, CYODA_CLIENT_SECRET);
@@ -170,7 +164,12 @@ public class GherkinE2eTest {
         final var modelSpec = new ModelSpec();
         modelSpec.setName("nobel-prize");
         modelSpec.setVersion(1);
-        this.retrievedPrizes = List.of(entityService.getById(createdPrizeIds.getFirst(), modelSpec, PrizeEntity.class));
+
+        try {
+            this.retrievedPrizes = List.of(entityService.getById(createdPrizeIds.getFirst(), modelSpec, PrizeEntity.class));
+        } catch (Exception e) {
+            this.capturedException = e;
+        }
     }
 
     @Then("Workflow imported successfully")
@@ -204,14 +203,6 @@ public class GherkinE2eTest {
 
     @Then("the update should be successful")
     public void the_update_should_be_successful() {
-        // This step is mainly for readability in the Gherkin file.
-        // A success is implied if the previous step didn't throw an exception.
-    }
-
-    @When("I get the prize by its ID again")
-    public void i_get_the_prize_by_its_id_again() throws Exception {
-        // This step reuses the same logic as "I get the prize by its ID"
-        i_get_the_prize_by_its_id();
     }
 
     @When("I delete the prize by its ID")
@@ -221,23 +212,11 @@ public class GherkinE2eTest {
 
     @Then("the deletion should be successful")
     public void the_deletion_should_be_successful() {
-        // Also mainly for readability.
-    }
-
-    @When("I try to get the prize by its ID")
-    public void i_try_to_get_the_prize_by_its_id() {
-        try {
-            final var modelSpec = new ModelSpec();
-            modelSpec.setName("nobel-prize");
-            modelSpec.setVersion(1);
-            entityService.getById(createdPrizeIds.getFirst(), modelSpec, PrizeEntity.class);
-        } catch (Exception e) {
-            this.capturedException = e;
-        }
     }
 
     @When("I fetching of models {string} version {int} by condition:")
-    public void i_fetching_by_condition(String modelName, Integer modelVersion, String conditionJson) throws JsonProcessingException {
+    public void i_fetching_by_condition(String modelName, Integer modelVersion, String conditionJson)
+            throws JsonProcessingException {
         final var condition = objectMapper.readValue(conditionJson, GroupCondition.class);
         final var modelSpec = new ModelSpec();
         modelSpec.setName(modelName);
@@ -249,8 +228,6 @@ public class GherkinE2eTest {
     public void i_create_the_prizes_in_bulk() throws Exception {
         this.createdPrizeIds = entityService.save(prizeDefinitions).stream().map(EntityWithMetadata::getId).toList();
     }
-
-
 
     @Then("{int} prizes should be created successfully")
     public void prizes_should_be_created_successfully(Integer expectedCount) {
@@ -265,8 +242,7 @@ public class GherkinE2eTest {
         modelSpec.setVersion(modelVersion);
         this.retrievedPrizes = entityService.findAll(
                 modelSpec,
-                PrizeEntity.class
-        );
+                PrizeEntity.class);
     }
 
     @When("I delete all of model {string} version {int}")
@@ -291,16 +267,12 @@ public class GherkinE2eTest {
     @Then("the prize is not found")
     public void the_prize_is_not_found() {
         assertNotNull(capturedException, "An exception was expected but not thrown.");
-        // The actual exception will be wrapped in an ExecutionException by the CompletableFuture
         assertInstanceOf(CompletionException.class, capturedException, "Exception should be from a future.");
 
-        // Check the underlying cause (e.g., your service might throw a specific exception)
-        // For a gRPC service, this would likely be a StatusRuntimeException
-        // For a JPA service, this might be an EntityNotFoundException
-        // We'll check the general case that the cause is not null.
         assertNotNull(capturedException.getCause(), "The ExecutionException should have a cause.");
-        System.out.println("Successfully verified that getting a deleted item fails with: " + capturedException.getCause()
-                .getClass()
-                .getSimpleName());
+        System.out
+                .println("Successfully verified that getting a deleted item fails with: " + capturedException.getCause()
+                        .getClass()
+                        .getSimpleName());
     }
 }
