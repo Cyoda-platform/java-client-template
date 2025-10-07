@@ -512,6 +512,59 @@ All items from Step 5 are complete. No open items.
 
 ---
 
+## Step 11: GL Aggregation and Reporting Logic - COMPLETED ✅
+
+### GLAggregationService
+**Priority: N/A - All items completed**
+
+- [x] **GL-001**: Implement GLAggregationKey class ✅
+- [x] **GL-002**: Implement GLAggregationEntry class ✅
+- [x] **GL-003**: Implement GLMonthlyReport class ✅
+- [x] **GL-004**: Implement GLAggregationService with aggregateMonthlyJournals() ✅
+- [x] **GL-005**: Implement exportReportToCSV() method ✅
+- [x] **GL-006**: Implement exportReportToJSON() method ✅
+- [x] **GL-007**: Implement validateReportBalance() method ✅
+- [x] **GL-008**: Create comprehensive unit tests (8 tests) ✅
+
+**Notes**:
+- All acceptance criteria met
+- All tests passing
+- Code compiles successfully
+- Ready for production use
+
+**Future Enhancements** (Optional):
+- [ ] **GL-FUTURE-001**: Add integration test with real Accrual entities
+  - **Current**: Only unit tests with mocked data
+  - **Required**: End-to-end test with actual entity persistence
+  - **Impact**: Increased confidence in production behavior
+  - **Effort**: Small
+
+- [ ] **GL-FUTURE-002**: Add pagination for large month queries
+  - **Current**: Loads all accruals for month into memory
+  - **Required**: Stream processing for very large datasets
+  - **Impact**: Better performance for high-volume months
+  - **Effort**: Medium
+
+- [ ] **GL-FUTURE-003**: Add Excel (XLSX) export format
+  - **Current**: Only CSV and JSON exports
+  - **Required**: Excel export for business users
+  - **Impact**: Better user experience for finance teams
+  - **Effort**: Small
+
+- [ ] **GL-FUTURE-004**: Add PDF report generation
+  - **Current**: Only CSV and JSON exports
+  - **Required**: Formatted PDF reports for distribution
+  - **Impact**: Professional reporting capability
+  - **Effort**: Medium
+
+- [ ] **GL-FUTURE-005**: Create workflow processor to trigger GL aggregation
+  - **Current**: Manual invocation via service
+  - **Required**: Automatic month-end GL report generation
+  - **Impact**: Automated reporting workflow
+  - **Effort**: Small
+
+---
+
 ## Cross-Cutting Concerns
 
 ### Documentation
@@ -579,6 +632,6 @@ All items from Step 5 are complete. No open items.
 
 ---
 
-**Last Updated**: 2025-10-07 (Step 10 completion - REST API Controllers implemented!)
+**Last Updated**: 2025-10-07 (Step 11 completion - GL Aggregation and Reporting Logic implemented!)
 **Next Review**: Before workflow import and integration testing
 

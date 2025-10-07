@@ -379,7 +379,7 @@ The API exposes **entity save** (create/patch) and **fetch** endpoints. There ar
 
 ## 9. Audit & History
 
-- **Entity history** records: timestamp, actor, from → to state, attempted transition, criterion outcome, processors launched, and **entry‑level effects** (entry ids, account, direction, amount, kind).
+- **Entity history** records: Full entity history is captured by Cyoda’s built‑in capabilities.
 - **Supersedence chain**: traverse `supersedesAccrualId` to reconstruct prior versions.
 - **Traceability**: `entryId` is unique; `adjustsEntryId` links reversals to originals (possibly across accruals).
 
