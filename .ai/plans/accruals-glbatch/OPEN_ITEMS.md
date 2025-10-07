@@ -261,25 +261,54 @@ All items from Step 2 are complete. No open items.
 
 ---
 
-## Step 5: Workflow Configuration - NOT STARTED ⏳
-
-- [ ] **WF-001**: Create workflow JSON configuration
-- [ ] **WF-002**: Define state transitions
-- [ ] **WF-003**: Map criteria to transitions
-- [ ] **WF-004**: Map processors to transitions
-- [ ] **WF-005**: Import workflow to Cyoda
-- [ ] **WF-006**: Test workflow execution
+## Step 5: EODAccrualBatch Domain Entity - COMPLETED ✅
+All items from Step 5 are complete. No open items.
 
 ---
 
-## Step 6: EOD Orchestration - NOT STARTED ⏳
+## Step 6: EODAccrualBatch Workflow Criteria Functions - NOT STARTED ⏳
 
-- [ ] **EOD-001**: Design EOD orchestration service
-- [ ] **EOD-002**: Implement loan query logic
-- [ ] **EOD-003**: Implement accrual creation logic
-- [ ] **EOD-004**: Implement batch processing
-- [ ] **EOD-005**: Implement error handling and recovery
-- [ ] **EOD-006**: Implement monitoring and alerting
+- [ ] **CRIT-EOD-001**: Implement NoActiveBatchForDateCriterion
+- [ ] **CRIT-EOD-002**: Implement UserHasPermissionCriterion
+- [ ] **CRIT-EOD-003**: Implement AllAccrualsPostedCriterion
+- [ ] **CRIT-EOD-004**: Implement IsBackDatedRunCriterion
+- [ ] **CRIT-EOD-005**: Implement IsTodayRunCriterion
+- [ ] **CRIT-EOD-006**: Implement CascadeSettledCriterion
+- [ ] **CRIT-EOD-007**: Implement BatchBalancedCriterion
+- [ ] **TEST-EOD-001**: Create unit tests for all EOD batch criteria
+
+---
+
+## Step 7: EODAccrualBatch Workflow Processors - NOT STARTED ⏳
+
+- [ ] **PROC-EOD-001**: Implement CaptureEffectiveDatedSnapshotsProcessor
+- [ ] **PROC-EOD-002**: Implement ResolvePeriodStatusProcessor
+- [ ] **PROC-EOD-003**: Implement SpawnAccrualsForEligibleLoansProcessor
+- [ ] **PROC-EOD-004**: Implement SpawnCascadeRecalcProcessor
+- [ ] **PROC-EOD-005**: Implement ProduceReconciliationReportProcessor
+- [ ] **TEST-EOD-002**: Create unit tests for all EOD batch processors
+
+---
+
+## Step 8: Accrual Workflow Configuration - NOT STARTED ⏳
+
+- [ ] **WF-001**: Create Accrual workflow JSON configuration
+- [ ] **WF-002**: Define Accrual state transitions
+- [ ] **WF-003**: Map Accrual criteria to transitions
+- [ ] **WF-004**: Map Accrual processors to transitions
+- [ ] **WF-005**: Import Accrual workflow to Cyoda
+- [ ] **WF-006**: Test Accrual workflow execution
+
+---
+
+## Step 9: EODAccrualBatch Workflow Configuration - NOT STARTED ⏳
+
+- [ ] **WF-EOD-001**: Create EODAccrualBatch workflow JSON configuration
+- [ ] **WF-EOD-002**: Define EODAccrualBatch state transitions
+- [ ] **WF-EOD-003**: Map EODAccrualBatch criteria to transitions
+- [ ] **WF-EOD-004**: Map EODAccrualBatch processors to transitions
+- [ ] **WF-EOD-005**: Import EODAccrualBatch workflow to Cyoda
+- [ ] **WF-EOD-006**: Test EODAccrualBatch workflow execution
 
 ---
 
@@ -350,6 +379,6 @@ All items from Step 2 are complete. No open items.
 
 ---
 
-**Last Updated**: 2025-10-07 (Step 3 completion)
-**Next Review**: After Step 4 completion
+**Last Updated**: 2025-10-06 (Step 5 completion)
+**Next Review**: After Step 6 completion
 
