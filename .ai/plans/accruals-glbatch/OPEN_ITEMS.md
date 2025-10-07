@@ -468,6 +468,50 @@ All items from Step 5 are complete. No open items.
 
 ---
 
+## Step 10: REST API Controllers and Endpoints - COMPLETED ✅ (with TODOs)
+
+### AccrualController & EODAccrualBatchController
+**Priority: High**
+
+- [ ] **TEST-CONTROLLER-001**: Fix Spring Boot test configuration
+  - **Current**: Tests fail with IllegalStateException during context loading
+  - **Required**: Configure test application context properly for @SpringBootTest
+  - **Impact**: Cannot verify controller behavior via automated tests
+  - **Effort**: Small (test configuration)
+
+- [ ] **ENGINE-001**: Integrate engineOptions with EntityService
+  - **Current**: EngineOptions DTO accepted in API but not passed to workflow engine
+  - **Required**: Update EntityService.update() signature to accept EngineOptions
+  - **Impact**: Cannot use simulate mode or maxSteps limiting features
+  - **Effort**: Medium (requires EntityService and CyodaRepository changes)
+  - **Location**: TODO comments in AccrualController.java:134 and EODAccrualBatchController.java:134
+
+- [ ] **TRANSITION-001**: Store transition comments in audit trail
+  - **Current**: TransitionRequest.comment is logged but not persisted to Cyoda
+  - **Required**: Pass comment to Cyoda metadata for audit trail
+  - **Impact**: Lose audit context for why transitions were triggered
+  - **Effort**: Small (depends on ENGINE-001)
+
+- [ ] **MANUAL-TEST-001**: Perform manual endpoint testing
+  - **Current**: No manual testing performed
+  - **Required**: Start application with `./gradlew bootRun` and test all endpoints
+  - **Impact**: Unknown if endpoints work correctly in real environment
+  - **Effort**: Small (manual testing session)
+
+- [ ] **POSTMAN-001**: Create Postman/Insomnia collection for API testing
+  - **Current**: No API testing collection exists
+  - **Required**: Create collection with example requests for all endpoints
+  - **Impact**: Harder to test and demonstrate API functionality
+  - **Effort**: Small
+
+- [ ] **API-DOC-001**: Generate OpenAPI/Swagger documentation
+  - **Current**: No API documentation generated
+  - **Required**: Add Swagger annotations and generate API docs
+  - **Impact**: No formal API documentation for consumers
+  - **Effort**: Small
+
+---
+
 ## Cross-Cutting Concerns
 
 ### Documentation
@@ -535,6 +579,6 @@ All items from Step 5 are complete. No open items.
 
 ---
 
-**Last Updated**: 2025-10-06 (Step 9 completion - All implementation steps complete!)
+**Last Updated**: 2025-10-07 (Step 10 completion - REST API Controllers implemented!)
 **Next Review**: Before workflow import and integration testing
 

@@ -10,7 +10,7 @@
 
 **Action Items:**
 1. Review API interaction model in section 7 of cyoda-eod-accrual-workflows.md
-2. Review example controller implementations in `llm_example/code/application/controller/`
+2. Review current controller implementations in `src/main/java/com/java_template/application/controller/`
 3. Create `TransitionRequest.java` DTO class with fields: name (String), comment (String)
 4. Create `EngineOptions.java` DTO class with fields: simulate (boolean), maxSteps (int)
 5. Create `AccrualController.java` in `src/main/java/com/java_template/application/controller/`
