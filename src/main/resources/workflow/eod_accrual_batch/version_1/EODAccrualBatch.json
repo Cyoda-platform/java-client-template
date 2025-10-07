@@ -1,0 +1,248 @@
+{
+  "version": "1.0",
+  "name": "EOD Accrual Batch",
+  "desc": "End-of-day accrual batch orchestration workflow for commercial loans with support for backdated runs",
+  "initialState": "REQUESTED",
+  "active": true,
+  "states": {
+    "REQUESTED": {
+      "transitions": [
+        {
+          "name": "START",
+          "next": "VALIDATED",
+          "manual": true,
+          "criterion": {
+            "type": "group",
+            "operator": "AND",
+            "conditions": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "IsBusinessDay",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 3000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              },
+              {
+                "type": "function",
+                "function": {
+                  "name": "NoActiveBatchForDate",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 3000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              },
+              {
+                "type": "function",
+                "function": {
+                  "name": "UserHasPermission",
+                  "config": {
+                    "attachEntity": true,
+                    "context": "backdated_eod_execute",
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 3000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "TAKE_SNAPSHOT",
+          "next": "SNAPSHOT_TAKEN",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CaptureEffectiveDatedSnapshots",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "accruals",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "ResolvePeriodStatus",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SNAPSHOT_TAKEN": {
+      "transitions": [
+        {
+          "name": "GENERATE_ACCRUALS",
+          "next": "GENERATING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SpawnAccrualsForEligibleLoans",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "accruals",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "GENERATING": {
+      "transitions": [
+        {
+          "name": "AWAIT_POSTED",
+          "next": "POSTING_COMPLETE",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AllAccrualsPosted",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "POSTING_COMPLETE": {
+      "transitions": [
+        {
+          "name": "CASCADE_RECALC_IF_BACKDATED",
+          "next": "CASCADING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsBackDatedRun",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "SpawnCascadeRecalc",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "recalc",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "SKIP_CASCADE_FOR_TODAY",
+          "next": "RECONCILING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "IsTodayRun",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CASCADING": {
+      "transitions": [
+        {
+          "name": "CASCADE_COMPLETE",
+          "next": "RECONCILING",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "CascadeSettled",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "RECONCILING": {
+      "transitions": [
+        {
+          "name": "FINALIZE",
+          "next": "COMPLETED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "BatchBalanced",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "ProduceReconciliationReport",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "ledger",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "COMPLETED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "CANCELED": {
+      "transitions": []
+    }
+  }
+}
+
