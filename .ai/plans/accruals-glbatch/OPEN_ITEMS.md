@@ -297,14 +297,103 @@ All items from Step 5 are complete. No open items.
 
 ---
 
-## Step 7: EODAccrualBatch Workflow Processors - NOT STARTED ⏳
+## Step 7: EODAccrualBatch Workflow Processors - COMPLETED ✅ (with TODOs)
 
-- [ ] **PROC-EOD-001**: Implement CaptureEffectiveDatedSnapshotsProcessor
-- [ ] **PROC-EOD-002**: Implement ResolvePeriodStatusProcessor
-- [ ] **PROC-EOD-003**: Implement SpawnAccrualsForEligibleLoansProcessor
-- [ ] **PROC-EOD-004**: Implement SpawnCascadeRecalcProcessor
-- [ ] **PROC-EOD-005**: Implement ProduceReconciliationReportProcessor
-- [ ] **TEST-EOD-002**: Create unit tests for all EOD batch processors
+### ResolvePeriodStatusProcessor
+**Priority: High**
+
+- [ ] **GL-001**: Integrate with actual GL calendar service
+  - **Current**: Uses simple current month = OPEN rule
+  - **Required**: Integration with GL calendar service to determine period status
+  - **Impact**: Cannot handle complex GL period rules
+  - **Effort**: Medium (requires GL calendar service design/integration)
+
+### CaptureEffectiveDatedSnapshotsProcessor
+**Priority: High**
+
+- [ ] **SNAPSHOT-001**: Implement point-in-time queries with asOfDate
+  - **Current**: Queries current state of loans
+  - **Required**: Query loans as they existed on asOfDate
+  - **Impact**: Incorrect snapshot data for historical dates
+  - **Effort**: Large (requires temporal query support)
+
+- [ ] **SNAPSHOT-002**: Store snapshots in separate collection/entity
+  - **Current**: Snapshots not persisted
+  - **Required**: Store snapshots for audit and debugging
+  - **Impact**: Cannot audit snapshot data
+  - **Effort**: Medium (requires snapshot entity design)
+
+- [ ] **SNAPSHOT-003**: Cache snapshots for use by accrual processors
+  - **Current**: Snapshots not cached
+  - **Required**: Cache snapshots to avoid repeated queries
+  - **Impact**: Performance degradation
+  - **Effort**: Small
+
+### SpawnAccrualsForEligibleLoansProcessor
+**Priority: High**
+
+- [ ] **LOAN-002**: Add productCode field to Loan entity
+  - **Current**: Loan entity lacks productCode field
+  - **Required**: Add field for product filtering
+  - **Impact**: Cannot filter by product code
+  - **Effort**: Small (entity field addition)
+
+- [ ] **LOAN-003**: Add dayCountConvention field to Loan entity
+  - **Current**: Loan entity lacks dayCountConvention field
+  - **Required**: Add field for day count convention
+  - **Impact**: Cannot determine day count convention from loan
+  - **Effort**: Small (entity field addition)
+
+### SpawnCascadeRecalcProcessor
+**Priority: High**
+
+- [ ] **CASCADE-002**: Implement actual cascade recalculation logic
+  - **Current**: Only identifies affected loans and date range
+  - **Required**: Create new accruals that supersede old ones
+  - **Impact**: Cascade recalculation not functional
+  - **Effort**: Large (requires cascade logic design)
+
+- [ ] **CASCADE-003**: Trigger workflow to recalculate superseding accruals
+  - **Current**: No workflow triggering
+  - **Required**: Trigger accrual workflow for cascade dates
+  - **Impact**: Cascade accruals not processed
+  - **Effort**: Medium
+
+### ProduceReconciliationReportProcessor
+**Priority: Medium**
+
+- [ ] **REPORT-001**: Generate actual report file (CSV or JSON format)
+  - **Current**: Only generates report ID
+  - **Required**: Generate actual report file with reconciliation data
+  - **Impact**: No report file for users
+  - **Effort**: Medium
+
+- [ ] **REPORT-002**: Store report file in S3, file system, or document store
+  - **Current**: No file storage
+  - **Required**: Store report file for retrieval
+  - **Impact**: Cannot retrieve report
+  - **Effort**: Medium (depends on storage solution)
+
+- [ ] **REPORT-003**: Return file reference/URL instead of just UUID
+  - **Current**: Returns UUID only
+  - **Required**: Return URL or file path for report access
+  - **Impact**: Cannot access report file
+  - **Effort**: Small (depends on REPORT-002)
+
+### General EOD Batch Processor TODOs
+**Priority: High**
+
+- [ ] **TEST-EOD-002**: Add comprehensive integration tests
+  - **Current**: Only basic supports() tests
+  - **Required**: Full processing logic tests with mock EntityService
+  - **Impact**: Limited test coverage
+  - **Effort**: Large
+
+- [ ] **TEST-EOD-003**: Add end-to-end workflow tests
+  - **Current**: No workflow tests
+  - **Required**: Test complete batch workflow execution
+  - **Impact**: Cannot verify workflow integration
+  - **Effort**: Large
 
 ---
 
@@ -397,6 +486,6 @@ All items from Step 5 are complete. No open items.
 
 ---
 
-**Last Updated**: 2025-10-06 (Step 6 completion)
-**Next Review**: After Step 7 completion
+**Last Updated**: 2025-10-06 (Step 7 completion)
+**Next Review**: After Step 8 completion
 
