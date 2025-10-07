@@ -73,7 +73,7 @@ public class CreateReplacementAccrualProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Accrual> entityWithMetadata) {
         Accrual entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**
@@ -104,8 +104,6 @@ public class CreateReplacementAccrualProcessor implements CyodaProcessor {
         replacementAccrual.setRunId(currentAccrual.getRunId());
         replacementAccrual.setPriorPeriodFlag(currentAccrual.getPriorPeriodFlag());
 
-        // Set initial state - the new accrual will go through the workflow
-        replacementAccrual.setState(AccrualState.NEW);
 
         // Copy principal snapshot (will be recalculated if needed)
         replacementAccrual.setPrincipalSnapshot(currentAccrual.getPrincipalSnapshot());

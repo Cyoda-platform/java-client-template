@@ -71,7 +71,7 @@ public class CaptureEffectiveDatedSnapshotsProcessor implements CyodaProcessor {
      */
     private boolean isValidEntityWithMetadata(EntityWithMetadata<EODAccrualBatch> entityWithMetadata) {
         EODAccrualBatch batch = entityWithMetadata.entity();
-        return batch != null && batch.isValid() && entityWithMetadata.metadata().getId() != null;
+        return batch != null && batch.isValid(entityWithMetadata.metadata()) && entityWithMetadata.metadata().getId() != null;
     }
 
     /**
@@ -99,7 +99,7 @@ public class CaptureEffectiveDatedSnapshotsProcessor implements CyodaProcessor {
             throw new IllegalStateException("AsOfDate is required to capture snapshots");
         }
 
-        logger.debug("Capturing snapshots for batch: {} with asOfDate: {}", 
+        logger.debug("Capturing snapshots for batch: {} with asOfDate: {}",
             batch.getBatchId(), asOfDate);
 
         // Query loans effective as of asOfDate
@@ -137,7 +137,7 @@ public class CaptureEffectiveDatedSnapshotsProcessor implements CyodaProcessor {
 
         // TODO: Use point-in-time query with asOfDate
         // For now, query all loans and filter in memory
-        List<EntityWithMetadata<Loan>> loansWithMetadata = 
+        List<EntityWithMetadata<Loan>> loansWithMetadata =
             entityService.findAll(loanModelSpec, Loan.class);
 
         List<Loan> loans = loansWithMetadata.stream()
@@ -195,14 +195,14 @@ public class CaptureEffectiveDatedSnapshotsProcessor implements CyodaProcessor {
      */
     private Map<String, Object> captureSnapshotData(List<Loan> loans, LocalDate asOfDate) {
         Map<String, Object> snapshotData = new HashMap<>();
-        
+
         int loanCount = 0;
         for (Loan loan : loans) {
             // Capture principal balance
             // Capture APR
             // Capture policy configuration
             // TODO: Store individual loan snapshots
-            
+
             loanCount++;
         }
 

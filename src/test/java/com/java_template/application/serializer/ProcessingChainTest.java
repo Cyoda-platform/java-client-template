@@ -10,6 +10,7 @@ import com.java_template.common.serializer.jackson.JacksonProcessorSerializer;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
@@ -65,7 +66,7 @@ class ProcessingChainTest {
         }
 
         @Override
-        public boolean isValid() {
+        public boolean isValid(EntityMetadata metadata) {
             return id != null && name != null && !name.trim().isEmpty();
         }
     }

@@ -37,7 +37,7 @@ public class ApproveLoan implements CyodaProcessor {
     }
 
     private boolean isValid(EntityWithMetadata<Loan> entityWithMetadata) {
-        return entityWithMetadata.entity() != null && entityWithMetadata.entity().isValid();
+        return entityWithMetadata.entity() != null && entityWithMetadata.entity().isValid(entityWithMetadata.metadata());
     }
 
     private EntityWithMetadata<Loan> process(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Loan> context) {

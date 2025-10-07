@@ -74,7 +74,7 @@ public class SpawnCascadeRecalcProcessor implements CyodaProcessor {
      */
     private boolean isValidEntityWithMetadata(EntityWithMetadata<EODAccrualBatch> entityWithMetadata) {
         EODAccrualBatch batch = entityWithMetadata.entity();
-        return batch != null && batch.isValid() && entityWithMetadata.metadata().getId() != null;
+        return batch != null && batch.isValid(entityWithMetadata.metadata()) && entityWithMetadata.metadata().getId() != null;
     }
 
     /**
@@ -152,7 +152,7 @@ public class SpawnCascadeRecalcProcessor implements CyodaProcessor {
             .withVersion(Accrual.ENTITY_VERSION);
 
         // Query all accruals with this runId
-        List<EntityWithMetadata<Accrual>> accrualsWithMetadata = 
+        List<EntityWithMetadata<Accrual>> accrualsWithMetadata =
             entityService.findAll(accrualModelSpec, Accrual.class);
 
         Set<String> affectedLoanIds = new HashSet<>();

@@ -3,6 +3,7 @@ package com.java_template.application.entity.payment.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.math.BigDecimal;
@@ -21,7 +22,7 @@ public class Payment implements CyodaEntity {
 
     // Required business identifier field
     private String paymentId;
-    
+
     // Required core business fields
     private String loanId; // Reference to the Loan entity
     private String payerPartyId; // Reference to the payer Party
@@ -29,17 +30,17 @@ public class Payment implements CyodaEntity {
     private String currency;
     private LocalDate valueDate; // Date when payment is effective for accounting
     private LocalDate receivedDate; // Date when payment was actually received
-    
+
     // Payment processing fields
     private String paymentMethod; // e.g., "BANK_TRANSFER", "CHEQUE", "WIRE"
     private String reference; // External reference (e.g., bank reference)
 
     // Allocation details (populated after processing)
     private PaymentAllocation allocation;
-    
+
     // Sub-ledger entries (populated after posting)
     private List<PaymentSubLedgerEntry> subLedgerEntries;
-    
+
     // Audit information
     private PaymentAudit audit;
 
@@ -52,7 +53,7 @@ public class Payment implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         // Validate required fields
         return paymentId != null && !paymentId.trim().isEmpty() &&
                loanId != null && !loanId.trim().isEmpty() &&

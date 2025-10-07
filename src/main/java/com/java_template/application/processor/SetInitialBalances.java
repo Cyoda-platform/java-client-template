@@ -50,7 +50,7 @@ public class SetInitialBalances implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Loan> entityWithMetadata) {
         Loan entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     private EntityWithMetadata<Loan> processBusinessLogic(
@@ -73,7 +73,7 @@ public class SetInitialBalances implements CyodaProcessor {
         loan.setAccruedInterest(BigDecimal.ZERO);
         logger.debug("Set accrued interest to: {}", loan.getAccruedInterest());
 
-        logger.info("Initial balances set for loan {}: Principal={}, AccruedInterest={}", 
+        logger.info("Initial balances set for loan {}: Principal={}, AccruedInterest={}",
                    loan.getLoanId(), loan.getOutstandingPrincipal(), loan.getAccruedInterest());
 
         return entityWithMetadata;

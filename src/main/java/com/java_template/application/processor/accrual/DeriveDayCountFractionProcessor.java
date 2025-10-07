@@ -21,15 +21,15 @@ import java.time.temporal.ChronoUnit;
 
 /**
  * Processor to compute day-count fraction per product convention.
- * 
+ *
  * Supports three day count conventions:
  * - ACT_360: Actual days / 360
  * - ACT_365: Actual days / 365
  * - THIRTY_360: 30/360 (assumes 30 days per month, 360 days per year)
- * 
+ *
  * The day count fraction is used in interest calculation:
  * interestAmount = principal × APR × dayCountFraction
- * 
+ *
  * This processor runs in SYNC mode and updates the accrual entity with the calculated fraction.
  */
 @Component
@@ -66,7 +66,7 @@ public class DeriveDayCountFractionProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Accrual> entityWithMetadata) {
         Accrual entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**
@@ -122,10 +122,10 @@ public class DeriveDayCountFractionProcessor implements CyodaProcessor {
         long actualDays = ChronoUnit.DAYS.between(startDate, endDate);
         BigDecimal days = BigDecimal.valueOf(actualDays);
         BigDecimal divisor = BigDecimal.valueOf(360);
-        
+
         // Use high precision for the fraction
         BigDecimal fraction = days.divide(divisor, 10, RoundingMode.HALF_UP);
-        
+
         logger.debug("ACT/360: {} days / 360 = {}", actualDays, fraction);
         return fraction;
     }
@@ -138,10 +138,10 @@ public class DeriveDayCountFractionProcessor implements CyodaProcessor {
         long actualDays = ChronoUnit.DAYS.between(startDate, endDate);
         BigDecimal days = BigDecimal.valueOf(actualDays);
         BigDecimal divisor = BigDecimal.valueOf(365);
-        
+
         // Use high precision for the fraction
         BigDecimal fraction = days.divide(divisor, 10, RoundingMode.HALF_UP);
-        
+
         logger.debug("ACT/365: {} days / 365 = {}", actualDays, fraction);
         return fraction;
     }
@@ -149,7 +149,7 @@ public class DeriveDayCountFractionProcessor implements CyodaProcessor {
     /**
      * Calculates day count fraction using 30/360 convention.
      * Formula: ((Y2-Y1)*360 + (M2-M1)*30 + (D2-D1)) / 360
-     * 
+     *
      * This is a simplified implementation. Production systems may need to handle
      * various 30/360 variants (US, European, etc.)
      */
@@ -157,31 +157,31 @@ public class DeriveDayCountFractionProcessor implements CyodaProcessor {
         int y1 = startDate.getYear();
         int m1 = startDate.getMonthValue();
         int d1 = startDate.getDayOfMonth();
-        
+
         int y2 = endDate.getYear();
         int m2 = endDate.getMonthValue();
         int d2 = endDate.getDayOfMonth();
-        
+
         // Adjust day values according to 30/360 rules
         // If D1 is 31, change to 30
         if (d1 == 31) {
             d1 = 30;
         }
-        
+
         // If D2 is 31 and D1 is 30 or 31, change D2 to 30
         if (d2 == 31 && d1 >= 30) {
             d2 = 30;
         }
-        
+
         // Calculate the number of days using 30/360 formula
         int days = (y2 - y1) * 360 + (m2 - m1) * 30 + (d2 - d1);
-        
+
         BigDecimal daysBD = BigDecimal.valueOf(days);
         BigDecimal divisor = BigDecimal.valueOf(360);
-        
+
         // Use high precision for the fraction
         BigDecimal fraction = daysBD.divide(divisor, 10, RoundingMode.HALF_UP);
-        
+
         logger.debug("30/360: {} days / 360 = {}", days, fraction);
         return fraction;
     }

@@ -1,6 +1,7 @@
 package com.java_template.application.entity.accrual.version_1;
 
 import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -21,8 +22,11 @@ class AccrualTest {
     private PrincipalSnapshot principalSnapshot;
     private List<JournalEntry> balancedEntries;
 
+    private final EntityMetadata postedStateMetadata = new EntityMetadata();
     @BeforeEach
     void setUp() {
+        postedStateMetadata.setState(AccrualState.POSTED.name());
+
         // Create a valid principal snapshot
         principalSnapshot = new PrincipalSnapshot();
         principalSnapshot.setAmount(new BigDecimal("100000.00"));
@@ -60,7 +64,6 @@ class AccrualTest {
         validAccrual.setInterestAmount(new BigDecimal("27.40"));
         validAccrual.setPriorPeriodFlag(false);
         validAccrual.setVersion(1);
-        validAccrual.setState(AccrualState.CALCULATED);
         validAccrual.setJournalEntries(new ArrayList<>());
     }
 
@@ -78,43 +81,43 @@ class AccrualTest {
 
     @Test
     void testIsValid_withValidAccrual_returnsTrue() {
-        assertTrue(validAccrual.isValid());
+        assertTrue(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withNullLoanId_returnsFalse() {
         validAccrual.setLoanId(null);
-        assertFalse(validAccrual.isValid());
+        assertFalse(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withEmptyLoanId_returnsFalse() {
         validAccrual.setLoanId("   ");
-        assertFalse(validAccrual.isValid());
+        assertFalse(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withNullAsOfDate_returnsFalse() {
         validAccrual.setAsOfDate(null);
-        assertFalse(validAccrual.isValid());
+        assertFalse(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withNullCurrency_returnsFalse() {
         validAccrual.setCurrency(null);
-        assertFalse(validAccrual.isValid());
+        assertFalse(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withEmptyCurrency_returnsFalse() {
         validAccrual.setCurrency("");
-        assertFalse(validAccrual.isValid());
+        assertFalse(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withInvalidCurrencyCode_returnsFalse() {
         validAccrual.setCurrency("INVALID");
-        assertFalse(validAccrual.isValid());
+        assertFalse(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
@@ -124,23 +127,20 @@ class AccrualTest {
 
         for (String currency : validCurrencies) {
             validAccrual.setCurrency(currency);
-            assertTrue(validAccrual.isValid(), "Currency " + currency + " should be valid");
+            assertTrue(validAccrual.isValid(postedStateMetadata), "Currency " + currency + " should be valid");
         }
     }
 
     @Test
     void testIsValid_withPostedStateAndBalancedEntries_returnsTrue() {
-        validAccrual.setState(AccrualState.POSTED);
         validAccrual.setJournalEntries(balancedEntries);
         validAccrual.setPostingTimestamp(OffsetDateTime.now());
 
-        assertTrue(validAccrual.isValid());
+        assertTrue(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withPostedStateAndUnbalancedEntries_returnsFalse() {
-        validAccrual.setState(AccrualState.POSTED);
-
         // Create unbalanced entries (DR > CR)
         List<JournalEntry> unbalancedEntries = new ArrayList<>();
 
@@ -162,18 +162,17 @@ class AccrualTest {
 
         validAccrual.setJournalEntries(unbalancedEntries);
 
-        assertFalse(validAccrual.isValid());
+        assertFalse(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withPostedStateAndNoEntries_returnsTrue() {
         // Edge case: POSTED with no entries should still be valid
         // (balance of zero equals zero)
-        validAccrual.setState(AccrualState.POSTED);
         validAccrual.setJournalEntries(new ArrayList<>());
         validAccrual.setPostingTimestamp(OffsetDateTime.now());
 
-        assertTrue(validAccrual.isValid());
+        assertTrue(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
@@ -192,12 +191,11 @@ class AccrualTest {
 
         validAccrual.setJournalEntries(entries);
 
-        assertFalse(validAccrual.isValid());
+        assertFalse(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withMultipleBalancedEntries_returnsTrue() {
-        validAccrual.setState(AccrualState.POSTED);
 
         // Create multiple balanced entries (2 DR + 2 CR = balanced)
         List<JournalEntry> multipleEntries = new ArrayList<>();
@@ -236,13 +234,12 @@ class AccrualTest {
 
         validAccrual.setJournalEntries(multipleEntries);
 
-        assertTrue(validAccrual.isValid());
+        assertTrue(validAccrual.isValid(postedStateMetadata));
     }
 
     @Test
     void testIsValid_withNonPostedStateAndUnbalancedEntries_returnsTrue() {
         // For non-POSTED states, balance check should not apply
-        validAccrual.setState(AccrualState.CALCULATED);
 
         List<JournalEntry> unbalancedEntries = new ArrayList<>();
         JournalEntry debitEntry = new JournalEntry();
@@ -255,7 +252,9 @@ class AccrualTest {
 
         validAccrual.setJournalEntries(unbalancedEntries);
 
-        assertTrue(validAccrual.isValid());
+        EntityMetadata metadata = new EntityMetadata();
+        metadata.setState(AccrualState.CALCULATED.name());
+        assertTrue(validAccrual.isValid(metadata));
     }
 }
 

@@ -37,7 +37,7 @@ public class LoanValidationCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking Loan validation criteria for request: {}", request.getId());
-        
+
         return serializer.withRequest(request)
             .evaluateEntity(Loan.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -58,7 +58,7 @@ public class LoanValidationCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Loan entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        if (!loan.isValid()) {
+        if (!loan.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("Loan entity is not valid: {}", loan.getLoanId());
             return EvaluationOutcome.fail("Loan entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
@@ -70,7 +70,7 @@ public class LoanValidationCriterion implements CyodaCriterion {
         }
 
         // Business rule: Maturity date should be after funding date
-        if (loan.getFundingDate() != null && loan.getMaturityDate() != null && 
+        if (loan.getFundingDate() != null && loan.getMaturityDate() != null &&
             loan.getMaturityDate().isBefore(loan.getFundingDate())) {
             logger.warn("Loan maturity date is before funding date");
             return EvaluationOutcome.fail("Maturity date must be after funding date", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
@@ -83,7 +83,7 @@ public class LoanValidationCriterion implements CyodaCriterion {
         }
 
         // Business rule: APR should be within reasonable range (1% to 25%)
-        if (loan.getApr() != null && 
+        if (loan.getApr() != null &&
             (loan.getApr().compareTo(new BigDecimal("0.01")) < 0 || loan.getApr().compareTo(new BigDecimal("0.25")) > 0)) {
             logger.warn("Loan APR is outside acceptable range: {}", loan.getApr());
             return EvaluationOutcome.fail("APR must be between 1% and 25%", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);

@@ -24,18 +24,18 @@ import java.util.UUID;
 
 /**
  * Processor to append equal-and-opposite REVERSAL journal entries.
- * 
+ *
  * This processor is used during the supersedence workflow when a POSTED accrual
  * needs to be corrected. It:
  * 1. Queries EntityService for the prior accrual using supersedesAccrualId
  * 2. For each ORIGINAL entry in the prior accrual, creates a REVERSAL entry with opposite direction
  * 3. Sets adjustsEntryId to reference the original entryId
  * 4. Appends the REVERSAL entries to the current accrual's journalEntries
- * 
+ *
  * The REVERSAL entries effectively undo the accounting effect of the prior accrual.
  * They are followed by REPLACEMENT entries (created by CreateReplacementAccrualProcessor)
  * that post the corrected amounts.
- * 
+ *
  * This processor runs in ASYNC_NEW_TX mode on ledger nodes.
  */
 @Component
@@ -74,7 +74,7 @@ public class ReversePriorJournalsProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Accrual> entityWithMetadata) {
         Accrual entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**
@@ -93,7 +93,7 @@ public class ReversePriorJournalsProcessor implements CyodaProcessor {
         // Validate that this accrual is superseding another
         if (supersedesAccrualId == null || supersedesAccrualId.trim().isEmpty()) {
             logger.error("SupersedesAccrualId is null or empty for accrual: {}. " +
-                "This processor should only run during supersedence workflow.", 
+                "This processor should only run during supersedence workflow.",
                 currentAccrual.getAccrualId());
             throw new IllegalStateException("SupersedesAccrualId is required for reversal processing");
         }
@@ -112,13 +112,13 @@ public class ReversePriorJournalsProcessor implements CyodaProcessor {
                 Accrual.class
             );
         } catch (Exception e) {
-            logger.error("Error retrieving prior accrual {} for current accrual {}: {}", 
+            logger.error("Error retrieving prior accrual {} for current accrual {}: {}",
                 supersedesAccrualId, currentAccrual.getAccrualId(), e.getMessage());
             throw new IllegalStateException("Failed to retrieve prior accrual: " + supersedesAccrualId, e);
         }
 
         if (priorAccrualWithMetadata == null) {
-            logger.error("Prior accrual {} not found for current accrual: {}", 
+            logger.error("Prior accrual {} not found for current accrual: {}",
                 supersedesAccrualId, currentAccrual.getAccrualId());
             throw new IllegalStateException("Prior accrual not found: " + supersedesAccrualId);
         }
@@ -127,7 +127,7 @@ public class ReversePriorJournalsProcessor implements CyodaProcessor {
         List<JournalEntry> priorEntries = priorAccrual.getJournalEntries();
 
         if (priorEntries == null || priorEntries.isEmpty()) {
-            logger.warn("No journal entries found in prior accrual {}. Nothing to reverse.", 
+            logger.warn("No journal entries found in prior accrual {}. Nothing to reverse.",
                 supersedesAccrualId);
             return entityWithMetadata;
         }
@@ -156,14 +156,14 @@ public class ReversePriorJournalsProcessor implements CyodaProcessor {
             reversalEntry.setAmount(priorEntry.getAmount());
             reversalEntry.setKind(JournalEntryKind.REVERSAL);
             reversalEntry.setAdjustsEntryId(priorEntry.getEntryId()); // Link to original entry
-            reversalEntry.setMemo("Reversal of entry " + priorEntry.getEntryId() + 
+            reversalEntry.setMemo("Reversal of entry " + priorEntry.getEntryId() +
                 " from accrual " + supersedesAccrualId);
 
             currentEntries.add(reversalEntry);
             reversalCount++;
 
             logger.debug("Created REVERSAL entry {} for original entry {} (account: {}, direction: {} -> {})",
-                reversalEntry.getEntryId(), priorEntry.getEntryId(), 
+                reversalEntry.getEntryId(), priorEntry.getEntryId(),
                 priorEntry.getAccount(), priorEntry.getDirection(), reversalEntry.getDirection());
         }
 
@@ -177,7 +177,7 @@ public class ReversePriorJournalsProcessor implements CyodaProcessor {
      * Returns the opposite direction for a journal entry.
      */
     private JournalEntryDirection getOppositeDirection(JournalEntryDirection direction) {
-        return direction == JournalEntryDirection.DR ? 
+        return direction == JournalEntryDirection.DR ?
             JournalEntryDirection.CR : JournalEntryDirection.DR;
     }
 }

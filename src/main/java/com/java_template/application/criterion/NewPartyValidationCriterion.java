@@ -34,7 +34,7 @@ public class NewPartyValidationCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking new Party validation criteria for request: {}", request.getId());
-        
+
         return serializer.withRequest(request)
             .evaluateEntity(Party.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -55,7 +55,7 @@ public class NewPartyValidationCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Party entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        if (!party.isValid()) {
+        if (!party.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("Party entity is not valid: {}", party.getPartyId());
             return EvaluationOutcome.fail("Party entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }

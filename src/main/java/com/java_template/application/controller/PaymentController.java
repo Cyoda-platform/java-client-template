@@ -108,9 +108,16 @@ public class PaymentController {
                 ? Date.from(pointInTime.toInstant())
                 : null;
             EntityWithMetadata<Payment> response = entityService.getById(id, modelSpec, Payment.class, pointInTimeDate);
+            if (response == null) {
+                return ResponseEntity.notFound().build();
+            }
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.notFound().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.BAD_REQUEST,
+                    String.format("Failed to retrieve loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -295,7 +302,7 @@ public class PaymentController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
             EntityWithMetadata<Payment> current = entityService.getById(id, modelSpec, Payment.class);
-            
+
             EntityWithMetadata<Payment> response = entityService.update(id, current.entity(), "manual_match");
             logger.info("Payment manually matched with ID: {}", id);
             return ResponseEntity.ok(response);
