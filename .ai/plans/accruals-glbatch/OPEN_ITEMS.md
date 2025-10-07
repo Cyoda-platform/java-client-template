@@ -397,14 +397,22 @@ All items from Step 5 are complete. No open items.
 
 ---
 
-## Step 8: Accrual Workflow Configuration - NOT STARTED ⏳
+## Step 8: Accrual Workflow Configuration - COMPLETED ✅ (with TODOs)
 
-- [ ] **WF-001**: Create Accrual workflow JSON configuration
-- [ ] **WF-002**: Define Accrual state transitions
-- [ ] **WF-003**: Map Accrual criteria to transitions
-- [ ] **WF-004**: Map Accrual processors to transitions
+### Workflow Import and Testing
+**Priority: High**
+
 - [ ] **WF-005**: Import Accrual workflow to Cyoda
+  - **Current**: Workflow JSON file created and validated locally
+  - **Required**: Import workflow to Cyoda environment
+  - **Impact**: Workflow not available in Cyoda runtime
+  - **Effort**: Small (requires Cyoda environment access)
+
 - [ ] **WF-006**: Test Accrual workflow execution
+  - **Current**: No end-to-end workflow tests
+  - **Required**: Test complete workflow execution in Cyoda
+  - **Impact**: Cannot verify workflow behavior
+  - **Effort**: Large (requires test data and Cyoda environment)
 
 ---
 
@@ -486,6 +494,6 @@ All items from Step 5 are complete. No open items.
 
 ---
 
-**Last Updated**: 2025-10-06 (Step 7 completion)
-**Next Review**: After Step 8 completion
+**Last Updated**: 2025-10-06 (Step 8 completion)
+**Next Review**: After Step 9 completion
 

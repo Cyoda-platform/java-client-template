@@ -1,0 +1,206 @@
+{
+  "version": "1.0",
+  "name": "Accrual Workflow",
+  "desc": "Daily interest accrual workflow for commercial loans with embedded journal entries",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "VALIDATE",
+          "next": "ELIGIBLE",
+          "manual": false,
+          "criterion": {
+            "type": "group",
+            "operator": "AND",
+            "conditions": [
+              {
+                "type": "function",
+                "function": {
+                  "name": "IsBusinessDay",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 3000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              },
+              {
+                "type": "function",
+                "function": {
+                  "name": "LoanActiveOnDate",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 3000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              },
+              {
+                "type": "function",
+                "function": {
+                  "name": "NotDuplicateAccrual",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 3000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              },
+              {
+                "type": "simple",
+                "jsonPath": "$.principalSnapshot.amount",
+                "operatorType": "GREATER_THAN",
+                "value": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "ELIGIBLE": {
+      "transitions": [
+        {
+          "name": "CALCULATE",
+          "next": "CALCULATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DeriveDayCountFraction",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "CalculateAccrualAmount",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "accruals",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "REJECT",
+          "next": "FAILED",
+          "manual": true
+        }
+      ]
+    },
+    "CALCULATED": {
+      "transitions": [
+        {
+          "name": "WRITE_JOURNALS",
+          "next": "POSTED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "SubledgerAvailable",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "WriteAccrualJournalEntries",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "targetPath": "$.journalEntries",
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "UpdateLoanAccruedInterest",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "sourcePath": "$.journalEntries",
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "CANCEL",
+          "next": "CANCELED",
+          "manual": true
+        }
+      ]
+    },
+    "POSTED": {
+      "transitions": [
+        {
+          "name": "SUPERSEDE_AND_REBOOK",
+          "next": "SUPERSEDED",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "RequiresRebook",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "ReversePriorJournals",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "targetPath": "$.journalEntries",
+                "calculationNodesTags": "accruals",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "CreateReplacementAccrual",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "accruals",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUPERSEDED": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "CANCELED": {
+      "transitions": []
+    }
+  }
+}
+
