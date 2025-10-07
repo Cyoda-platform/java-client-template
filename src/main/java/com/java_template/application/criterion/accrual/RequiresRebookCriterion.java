@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 /**
  * Criterion to determine if a POSTED accrual requires rebooking due to underlying data changes.
@@ -76,6 +77,7 @@ public class RequiresRebookCriterion implements CyodaCriterion {
      */
     private EvaluationOutcome validateRequiresRebook(CriterionSerializer.CriterionEntityEvaluationContext<Accrual> context) {
         Accrual accrual = context.entityWithMetadata().entity();
+        AccrualState state = AccrualState.valueOf(context.entityWithMetadata().metadata().getState());
 
         // Check if entity is null (structural validation)
         if (accrual == null) {
@@ -84,11 +86,11 @@ public class RequiresRebookCriterion implements CyodaCriterion {
         }
 
         // Only POSTED accruals can be rebooked
-        if (accrual.getState() != AccrualState.POSTED) {
+        if (state != AccrualState.POSTED) {
             logger.debug("Accrual {} is not in POSTED state (current: {}), rebook not applicable",
-                accrual.getAccrualId(), accrual.getState());
+                accrual.getAccrualId(), state);
             return EvaluationOutcome.fail(
-                String.format("Accrual is not in POSTED state (current: %s)", accrual.getState()),
+                String.format("Accrual is not in POSTED state (current: %s)", state),
                 StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
             );
         }

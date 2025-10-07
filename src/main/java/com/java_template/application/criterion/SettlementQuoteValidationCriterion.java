@@ -37,7 +37,7 @@ public class SettlementQuoteValidationCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking SettlementQuote validation criteria for request: {}", request.getId());
-        
+
         return serializer.withRequest(request)
             .evaluateEntity(SettlementQuote.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -58,7 +58,7 @@ public class SettlementQuoteValidationCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("SettlementQuote entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        if (!quote.isValid()) {
+        if (!quote.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("SettlementQuote entity is not valid: {}", quote.getQuoteId());
             return EvaluationOutcome.fail("SettlementQuote entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
@@ -93,21 +93,21 @@ public class SettlementQuoteValidationCriterion implements CyodaCriterion {
 
         // Validate expiration date is after settlement date
         if (quote.getExpirationDate().isBefore(quote.getSettlementDate())) {
-            logger.warn("Expiration date {} is before settlement date {} for quote: {}", 
+            logger.warn("Expiration date {} is before settlement date {} for quote: {}",
                 quote.getExpirationDate(), quote.getSettlementDate(), quote.getQuoteId());
             return EvaluationOutcome.fail("Expiration date must be after settlement date", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate settlement date is not in the past
         if (quote.getSettlementDate().isBefore(LocalDate.now())) {
-            logger.warn("Settlement date {} is in the past for quote: {}", 
+            logger.warn("Settlement date {} is in the past for quote: {}",
                 quote.getSettlementDate(), quote.getQuoteId());
             return EvaluationOutcome.fail("Settlement date cannot be in the past", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Validate total amount due is positive
         if (quote.getTotalAmountDue() == null || quote.getTotalAmountDue().compareTo(BigDecimal.ZERO) <= 0) {
-            logger.warn("Invalid total amount due for quote {}: {}", 
+            logger.warn("Invalid total amount due for quote {}: {}",
                 quote.getQuoteId(), quote.getTotalAmountDue());
             return EvaluationOutcome.fail("Total amount due must be positive", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }

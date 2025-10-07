@@ -97,15 +97,11 @@ public class NoActiveBatchForDateCriterion implements CyodaCriterion {
             List<EntityWithMetadata<EODAccrualBatch>> existingBatchesWithMetadata =
                 entityService.findAll(batchModelSpec, EODAccrualBatch.class);
 
-            List<EODAccrualBatch> existingBatches = existingBatchesWithMetadata.stream()
-                .map(EntityWithMetadata::entity)
-                .toList();
-
             // Filter for batches with same asOfDate and non-terminal states
-            long activeBatchCount = existingBatches.stream()
-                .filter(b -> asOfDate.equals(b.getAsOfDate()))
-                .filter(b -> !batch.getBatchId().equals(b.getBatchId())) // Exclude current batch
-                .filter(b -> !TERMINAL_STATES.contains(b.getState()))
+            long activeBatchCount = existingBatchesWithMetadata.stream()
+                .filter(b -> asOfDate.equals(b.entity().getAsOfDate()))
+                .filter(b -> !batch.getBatchId().equals(b.entity().getBatchId())) // Exclude current batch
+                .filter(b -> !TERMINAL_STATES.contains(EODAccrualBatchState.valueOf(b.getState())))
                 .count();
 
             if (activeBatchCount > 0) {

@@ -3,6 +3,7 @@ package com.java_template.application.entity.settlement_quote.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.math.BigDecimal;
@@ -20,16 +21,16 @@ public class SettlementQuote implements CyodaEntity {
 
     // Required business identifier field
     private String quoteId;
-    
+
     // Required core business fields
     private String loanId; // Reference to the Loan entity
     private LocalDate settlementDate; // Proposed settlement date
     private LocalDate expirationDate; // When this quote expires
     private String requestedBy; // User who requested the quote
-    
+
     // Quote calculation details
     private SettlementCalculation calculation;
-    
+
     // Total amount due
     private BigDecimal totalAmountDue;
     private String currency;
@@ -46,7 +47,7 @@ public class SettlementQuote implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         // Validate required fields
         return quoteId != null && !quoteId.trim().isEmpty() &&
                loanId != null && !loanId.trim().isEmpty() &&

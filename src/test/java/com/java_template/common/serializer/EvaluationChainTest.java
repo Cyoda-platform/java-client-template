@@ -7,6 +7,7 @@ import com.java_template.common.serializer.jackson.JacksonCriterionSerializer;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
@@ -66,7 +67,7 @@ class EvaluationChainTest {
         }
 
         @Override
-        public boolean isValid() {
+        public boolean isValid(EntityMetadata metadata) {
             return id != null && name != null && !name.trim().isEmpty();
         }
     }
@@ -210,7 +211,7 @@ class EvaluationChainTest {
             assertEquals("Fluffy", entity.getName());
 
             // Check if entity is valid and available
-            return entity.isValid() && "available".equals(entity.getStatus())
+            return entity.isValid(context.entityWithMetadata().metadata()) && "available".equals(entity.getStatus())
                 ? EvaluationOutcome.success()
                 : EvaluationOutcome.Fail.structuralFailure("Entity validation failed");
         };

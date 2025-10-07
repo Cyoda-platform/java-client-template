@@ -46,7 +46,6 @@ class EODAccrualBatchTest {
         validBatch.setLoanFilter(loanFilter);
         validBatch.setPeriodStatus(PeriodStatus.OPEN);
         validBatch.setMetrics(metrics);
-        validBatch.setState(EODAccrualBatchState.REQUESTED);
     }
 
     @Test
@@ -63,65 +62,65 @@ class EODAccrualBatchTest {
 
     @Test
     void testIsValid_withValidBatch_returnsTrue() {
-        assertTrue(validBatch.isValid());
+        assertTrue(validBatch.isValid(null));
     }
 
     @Test
     void testIsValid_withNullAsOfDate_returnsFalse() {
         validBatch.setAsOfDate(null);
-        assertFalse(validBatch.isValid());
+        assertFalse(validBatch.isValid(null));
     }
 
     @Test
     void testIsValid_withNullMode_returnsFalse() {
         validBatch.setMode(null);
-        assertFalse(validBatch.isValid());
+        assertFalse(validBatch.isValid(null));
     }
 
     @Test
     void testIsValid_withNullInitiatedBy_returnsFalse() {
         validBatch.setInitiatedBy(null);
-        assertFalse(validBatch.isValid());
+        assertFalse(validBatch.isValid(null));
     }
 
     @Test
     void testIsValid_withEmptyInitiatedBy_returnsFalse() {
         validBatch.setInitiatedBy("   ");
-        assertFalse(validBatch.isValid());
+        assertFalse(validBatch.isValid(null));
     }
 
     @Test
     void testIsValid_withNullMetrics_returnsFalse() {
         validBatch.setMetrics(null);
-        assertFalse(validBatch.isValid());
+        assertFalse(validBatch.isValid(null));
     }
 
     @Test
     void testIsValid_withBackdatedModeAndReasonCode_returnsTrue() {
         validBatch.setMode(BatchMode.BACKDATED);
         validBatch.setReasonCode("DATA_CORRECTION");
-        assertTrue(validBatch.isValid());
+        assertTrue(validBatch.isValid(null));
     }
 
     @Test
     void testIsValid_withBackdatedModeAndNullReasonCode_returnsFalse() {
         validBatch.setMode(BatchMode.BACKDATED);
         validBatch.setReasonCode(null);
-        assertFalse(validBatch.isValid());
+        assertFalse(validBatch.isValid(null));
     }
 
     @Test
     void testIsValid_withBackdatedModeAndEmptyReasonCode_returnsFalse() {
         validBatch.setMode(BatchMode.BACKDATED);
         validBatch.setReasonCode("   ");
-        assertFalse(validBatch.isValid());
+        assertFalse(validBatch.isValid(null));
     }
 
     @Test
     void testIsValid_withTodayModeAndNullReasonCode_returnsTrue() {
         validBatch.setMode(BatchMode.TODAY);
         validBatch.setReasonCode(null);
-        assertTrue(validBatch.isValid());
+        assertTrue(validBatch.isValid(null));
     }
 
     @Test
@@ -129,7 +128,7 @@ class EODAccrualBatchTest {
         // ReasonCode is optional for TODAY mode
         validBatch.setMode(BatchMode.TODAY);
         validBatch.setReasonCode("OPTIONAL_REASON");
-        assertTrue(validBatch.isValid());
+        assertTrue(validBatch.isValid(null));
     }
 
     @Test
@@ -139,8 +138,8 @@ class EODAccrualBatchTest {
         batch.setMode(BatchMode.TODAY);
         batch.setInitiatedBy("user456");
         batch.setMetrics(new BatchMetrics());
-        
-        assertTrue(batch.isValid());
+
+        assertTrue(batch.isValid(null));
     }
 
     @Test
@@ -149,8 +148,8 @@ class EODAccrualBatchTest {
         validBatch.setReasonCode("PRINCIPAL_CORRECTION");
         validBatch.setCascadeFromDate(LocalDate.of(2025, 10, 8));
         validBatch.setPeriodStatus(PeriodStatus.CLOSED);
-        
-        assertTrue(validBatch.isValid());
+
+        assertTrue(validBatch.isValid(null));
     }
 
     @Test
@@ -161,8 +160,8 @@ class EODAccrualBatchTest {
         validBatch.setCascadeFromDate(null);
         validBatch.setReportId(null);
         validBatch.setReasonCode(null);
-        
-        assertTrue(validBatch.isValid());
+
+        assertTrue(validBatch.isValid(null));
     }
 
     @Test
@@ -177,8 +176,8 @@ class EODAccrualBatchTest {
         testMetrics.setImbalances(0);
 
         validBatch.setMetrics(testMetrics);
-        
-        assertTrue(validBatch.isValid());
+
+        assertTrue(validBatch.isValid(null));
         assertEquals(100, validBatch.getMetrics().getEligibleLoans());
         assertEquals(95, validBatch.getMetrics().getProcessedLoans());
     }
@@ -189,10 +188,10 @@ class EODAccrualBatchTest {
         filter.setLoanIds(new ArrayList<>());
         filter.getLoanIds().add(UUID.randomUUID());
         filter.getLoanIds().add(UUID.randomUUID());
-        
+
         validBatch.setLoanFilter(filter);
-        
-        assertTrue(validBatch.isValid());
+
+        assertTrue(validBatch.isValid(null));
         assertEquals(2, validBatch.getLoanFilter().getLoanIds().size());
     }
 
@@ -202,43 +201,33 @@ class EODAccrualBatchTest {
         filter.setProductCodes(new ArrayList<>());
         filter.getProductCodes().add("COMMERCIAL_LOAN");
         filter.getProductCodes().add("TERM_LOAN");
-        
+
         validBatch.setLoanFilter(filter);
-        
-        assertTrue(validBatch.isValid());
+
+        assertTrue(validBatch.isValid(null));
         assertEquals(2, validBatch.getLoanFilter().getProductCodes().size());
     }
 
-    @Test
-    void testStateTransitions() {
-        // Test that batch can be in different states
-        EODAccrualBatchState[] states = EODAccrualBatchState.values();
-        
-        for (EODAccrualBatchState state : states) {
-            validBatch.setState(state);
-            assertTrue(validBatch.isValid(), "Batch should be valid in state: " + state);
-        }
-    }
 
     @Test
     void testPeriodStatus_values() {
         // Test both period status values
         validBatch.setPeriodStatus(PeriodStatus.OPEN);
-        assertTrue(validBatch.isValid());
-        
+        assertTrue(validBatch.isValid(null));
+
         validBatch.setPeriodStatus(PeriodStatus.CLOSED);
-        assertTrue(validBatch.isValid());
+        assertTrue(validBatch.isValid(null));
     }
 
     @Test
     void testBatchMode_values() {
         // Test both batch mode values
         validBatch.setMode(BatchMode.TODAY);
-        assertTrue(validBatch.isValid());
-        
+        assertTrue(validBatch.isValid(null));
+
         validBatch.setMode(BatchMode.BACKDATED);
         validBatch.setReasonCode("REQUIRED_FOR_BACKDATED");
-        assertTrue(validBatch.isValid());
+        assertTrue(validBatch.isValid(null));
     }
 }
 

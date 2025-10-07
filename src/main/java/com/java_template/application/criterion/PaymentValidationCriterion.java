@@ -36,7 +36,7 @@ public class PaymentValidationCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking Payment validation criteria for request: {}", request.getId());
-        
+
         return serializer.withRequest(request)
             .evaluateEntity(Payment.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -57,7 +57,7 @@ public class PaymentValidationCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Payment entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        if (!payment.isValid()) {
+        if (!payment.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("Payment entity is not valid: {}", payment.getPaymentId());
             return EvaluationOutcome.fail("Payment entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }

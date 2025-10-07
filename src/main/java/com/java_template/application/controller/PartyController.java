@@ -98,9 +98,16 @@ public class PartyController {
                 ? Date.from(pointInTime.toInstant())
                 : null;
             EntityWithMetadata<Party> response = entityService.getById(id, modelSpec, Party.class, pointInTimeDate);
+            if (response == null) {
+                return ResponseEntity.notFound().build();
+            }
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.notFound().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.BAD_REQUEST,
+                    String.format("Failed to retrieve loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 

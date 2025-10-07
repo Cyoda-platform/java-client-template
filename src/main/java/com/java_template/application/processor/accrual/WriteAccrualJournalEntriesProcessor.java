@@ -65,7 +65,7 @@ public class WriteAccrualJournalEntriesProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Accrual> entityWithMetadata) {
         Accrual entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**

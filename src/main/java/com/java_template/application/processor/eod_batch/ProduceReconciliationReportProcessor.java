@@ -74,7 +74,7 @@ public class ProduceReconciliationReportProcessor implements CyodaProcessor {
      */
     private boolean isValidEntityWithMetadata(EntityWithMetadata<EODAccrualBatch> entityWithMetadata) {
         EODAccrualBatch batch = entityWithMetadata.entity();
-        return batch != null && batch.isValid() && entityWithMetadata.metadata().getId() != null;
+        return batch != null && batch.isValid(entityWithMetadata.metadata()) && entityWithMetadata.metadata().getId() != null;
     }
 
     /**
@@ -129,7 +129,7 @@ public class ProduceReconciliationReportProcessor implements CyodaProcessor {
             .withName(Accrual.ENTITY_NAME)
             .withVersion(Accrual.ENTITY_VERSION);
 
-        List<EntityWithMetadata<Accrual>> accrualsWithMetadata = 
+        List<EntityWithMetadata<Accrual>> accrualsWithMetadata =
             entityService.findAll(accrualModelSpec, Accrual.class);
 
         // Filter for accruals with matching runId

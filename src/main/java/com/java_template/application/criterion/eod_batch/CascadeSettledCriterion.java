@@ -108,17 +108,13 @@ public class CascadeSettledCriterion implements CyodaCriterion {
             List<EntityWithMetadata<Accrual>> allAccrualsWithMetadata =
                 entityService.findAll(accrualModelSpec, Accrual.class);
 
-            List<Accrual> allAccruals = allAccrualsWithMetadata.stream()
-                .map(EntityWithMetadata::entity)
-                .toList();
-
             // Filter for accruals in the cascade date range that are related to this batch
             // TODO: In production, this should be optimized with a more specific query
             // For now, we check accruals with asOfDate >= cascadeFromDate
-            List<Accrual> cascadeAccruals = allAccruals.stream()
-                .filter(a -> a.getAsOfDate() != null)
-                .filter(a -> !a.getAsOfDate().isBefore(cascadeFromDate))
-                .filter(a -> batchId.toString().equals(a.getRunId()) || isRelatedToCascade(a, batchId))
+            List<EntityWithMetadata<Accrual>> cascadeAccruals = allAccrualsWithMetadata.stream()
+                .filter(a -> a.entity().getAsOfDate() != null)
+                .filter(a -> !a.entity().getAsOfDate().isBefore(cascadeFromDate))
+                .filter(a -> batchId.toString().equals(a.entity().getRunId()) || isRelatedToCascade(a.entity(), batchId))
                 .toList();
 
             if (cascadeAccruals.isEmpty()) {
@@ -133,7 +129,7 @@ public class CascadeSettledCriterion implements CyodaCriterion {
             // Check if all cascade accruals are in terminal states
             long totalCascadeAccruals = cascadeAccruals.size();
             long settledCascadeAccruals = cascadeAccruals.stream()
-                .filter(a -> TERMINAL_STATES.contains(a.getState()))
+                .filter(a -> TERMINAL_STATES.contains(AccrualState.valueOf(a.getState())))
                 .count();
 
             if (settledCascadeAccruals < totalCascadeAccruals) {
@@ -141,7 +137,7 @@ public class CascadeSettledCriterion implements CyodaCriterion {
                 logger.debug("Batch {} has {} pending cascade accruals out of {} total",
                     batchId, pendingCascadeAccruals, totalCascadeAccruals);
                 return EvaluationOutcome.fail(
-                    String.format("%d of %d cascade accruals are still processing", 
+                    String.format("%d of %d cascade accruals are still processing",
                         pendingCascadeAccruals, totalCascadeAccruals),
                     StandardEvalReasonCategories.BUSINESS_RULE_FAILURE
                 );

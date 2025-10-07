@@ -84,7 +84,7 @@ public class SpawnAccrualsForEligibleLoansProcessor implements CyodaProcessor {
      */
     private boolean isValidEntityWithMetadata(EntityWithMetadata<EODAccrualBatch> entityWithMetadata) {
         EODAccrualBatch batch = entityWithMetadata.entity();
-        return batch != null && batch.isValid() && entityWithMetadata.metadata().getId() != null;
+        return batch != null && batch.isValid(entityWithMetadata.metadata()) && entityWithMetadata.metadata().getId() != null;
     }
 
     /**
@@ -163,7 +163,7 @@ public class SpawnAccrualsForEligibleLoansProcessor implements CyodaProcessor {
             .withVersion(Loan.ENTITY_VERSION);
 
         // Query all loans
-        List<EntityWithMetadata<Loan>> loansWithMetadata = 
+        List<EntityWithMetadata<Loan>> loansWithMetadata =
             entityService.findAll(loanModelSpec, Loan.class);
 
         List<Loan> loans = loansWithMetadata.stream()
@@ -257,9 +257,6 @@ public class SpawnAccrualsForEligibleLoansProcessor implements CyodaProcessor {
         // Initialize with zero amounts (will be calculated by workflow processors)
         accrual.setDayCountFraction(BigDecimal.ZERO);
         accrual.setInterestAmount(BigDecimal.ZERO);
-
-        // Set initial state
-        accrual.setState(AccrualState.NEW);
 
         // Create the accrual entity
         ModelSpec accrualModelSpec = new ModelSpec()

@@ -135,7 +135,7 @@ public class NotDuplicateAccrualCriterion implements CyodaCriterion {
             }
 
             Accrual existingAccrual = existingAccrualWithMetadata.entity();
-            AccrualState existingState = existingAccrual.getState();
+            AccrualState existingState = AccrualState.valueOf(existingAccrualWithMetadata.metadata().getState());
 
             // Skip terminal states (these are effectively "deleted" for duplicate purposes)
             if (existingState == AccrualState.SUPERSEDED ||

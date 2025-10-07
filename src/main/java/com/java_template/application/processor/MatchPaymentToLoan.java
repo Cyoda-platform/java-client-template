@@ -37,7 +37,7 @@ public class MatchPaymentToLoan implements CyodaProcessor {
     }
 
     private boolean isValid(EntityWithMetadata<Payment> entityWithMetadata) {
-        return entityWithMetadata.entity() != null && entityWithMetadata.entity().isValid();
+        return entityWithMetadata.entity() != null && entityWithMetadata.entity().isValid(entityWithMetadata.metadata());
     }
 
     private EntityWithMetadata<Payment> process(ProcessorSerializer.ProcessorEntityResponseExecutionContext<Payment> context) {

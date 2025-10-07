@@ -171,7 +171,7 @@ class EntityServiceImplTest {
         }
 
         @Override
-        public boolean isValid() {
+        public boolean isValid(EntityMetadata metadata) {
             return id != null && name != null && !name.trim().isEmpty();
         }
     }

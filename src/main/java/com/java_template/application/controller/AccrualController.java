@@ -1,12 +1,11 @@
 package com.java_template.application.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.application.controller.dto.EngineOptions;
-import com.java_template.application.controller.dto.TransitionRequest;
 import com.java_template.application.entity.accrual.version_1.Accrual;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
-import lombok.Data;
+import com.java_template.common.util.CyodaExceptionUtil;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -14,6 +13,9 @@ import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -22,30 +24,18 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * REST controller for Accrual entity operations.
- * 
- * <p>Provides CRUD endpoints for managing daily interest accruals on loans.
- * Supports workflow transitions for accrual lifecycle management.</p>
- * 
- * <p>Endpoints:</p>
- * <ul>
- *   <li>POST /accruals - Create new accrual with optional workflow transition</li>
- *   <li>GET /accruals/{accrualId} - Retrieve accrual by technical UUID</li>
- *   <li>PATCH /accruals/{accrualId} - Update accrual with optional workflow transition</li>
- *   <li>GET /accruals - Query accruals with filters (loanId, asOfDate, state, runId)</li>
- * </ul>
- * 
- * @see Accrual
- * @see TransitionRequest
- * @see EngineOptions
+ * ABOUTME: REST controller for Accrual entity operations, providing CRUD endpoints
+ * for managing daily interest accruals on loans throughout their lifecycle.
  */
 @RestController
-@RequestMapping("/accruals")
+@RequestMapping("/ui/accruals")
 @CrossOrigin(origins = "*")
 public class AccrualController {
 
@@ -60,53 +50,15 @@ public class AccrualController {
 
     /**
      * Create a new accrual
-     * POST /accruals
-     * 
-     * <p>Request body supports:</p>
-     * <ul>
-     *   <li>accrual - The accrual entity data (required)</li>
-     *   <li>transitionRequest - Optional workflow transition to trigger after creation</li>
-     *   <li>engineOptions - Optional engine execution options (simulate, maxSteps)</li>
-     * </ul>
-     * 
-     * <p>Example request:</p>
-     * <pre>
-     * {
-     *   "accrual": {
-     *     "accrualId": "ACC-2025-001",
-     *     "loanId": "LOAN-123",
-     *     "asOfDate": "2025-10-07",
-     *     "currency": "USD"
-     *   },
-     *   "transitionRequest": { "name": "CALCULATE", "comment": "Auto-calculate" },
-     *   "engineOptions": { "simulate": false, "maxSteps": 50 }
-     * }
-     * </pre>
-     * 
-     * @param request The create accrual request containing accrual data and optional transition
-     * @return 201 Created with Location header and created accrual with metadata
+     * POST /ui/accruals
      */
     @PostMapping
-    public ResponseEntity<?> createAccrual(@RequestBody CreateAccrualRequest request) {
+    public ResponseEntity<?> createAccrual(@RequestBody Accrual accrual) {
         try {
-            // Validate request
-            if (request.getAccrual() == null) {
-                ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                    HttpStatus.BAD_REQUEST,
-                    "Accrual data is required"
-                );
-                return ResponseEntity.of(problemDetail).build();
-            }
-
-            Accrual accrual = request.getAccrual();
-            
             // Check for duplicate business identifier
-            ModelSpec modelSpec = new ModelSpec()
-                .withName(Accrual.ENTITY_NAME)
-                .withVersion(Accrual.ENTITY_VERSION);
-            
+            ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
             EntityWithMetadata<Accrual> existing = entityService.findByBusinessIdOrNull(
-                modelSpec, accrual.getAccrualId(), "accrualId", Accrual.class);
+                    modelSpec, accrual.getAccrualId(), "accrualId", Accrual.class);
 
             if (existing != null) {
                 logger.warn("Accrual with business ID {} already exists", accrual.getAccrualId());
@@ -117,28 +69,9 @@ public class AccrualController {
                 return ResponseEntity.of(problemDetail).build();
             }
 
-            // Create the accrual
             EntityWithMetadata<Accrual> response = entityService.create(accrual);
             logger.info("Accrual created with ID: {}", response.metadata().getId());
 
-            // Apply transition if requested
-            if (request.getTransitionRequest() != null && request.getTransitionRequest().getName() != null) {
-                String transitionName = request.getTransitionRequest().getName();
-                String comment = request.getTransitionRequest().getComment();
-                
-                logger.info("Applying transition '{}' to accrual {}. Comment: {}", 
-                    transitionName, response.metadata().getId(), comment);
-                
-                // TODO: Pass engineOptions to EntityService when framework supports it
-                // Currently only transition name is supported
-                response = entityService.update(
-                    response.metadata().getId(), 
-                    response.entity(), 
-                    transitionName
-                );
-            }
-
-            // Build Location header for the created resource
             URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
@@ -146,9 +79,7 @@ public class AccrualController {
                 .toUri();
 
             return ResponseEntity.created(location).body(response);
-            
         } catch (Exception e) {
-            logger.error("Failed to create accrual", e);
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
                 String.format("Failed to create accrual: %s", e.getMessage())
@@ -159,187 +90,257 @@ public class AccrualController {
 
     /**
      * Get accrual by technical UUID
-     * GET /accruals/{accrualId}
-     * 
-     * @param accrualId Technical UUID of the accrual
-     * @return 200 OK with accrual and metadata, or 404 Not Found
+     * GET /ui/accruals/{id}?pointInTime=2025-10-03T10:15:30Z
      */
-    @GetMapping("/{accrualId}")
-    public ResponseEntity<?> getAccrualById(@PathVariable UUID accrualId) {
+    @GetMapping("/{id}")
+    public ResponseEntity<EntityWithMetadata<Accrual>> getAccrualById(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
-            ModelSpec modelSpec = new ModelSpec()
-                .withName(Accrual.ENTITY_NAME)
-                .withVersion(Accrual.ENTITY_VERSION);
-            
-            EntityWithMetadata<Accrual> response = entityService.getById(
-                accrualId, modelSpec, Accrual.class, null);
-            
+            ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Accrual> response = entityService.getById(id, modelSpec, Accrual.class, pointInTimeDate);
+            if (response == null) {
+                return ResponseEntity.notFound().build();
+            }
             return ResponseEntity.ok(response);
-            
         } catch (Exception e) {
-            logger.error("Failed to retrieve accrual with ID: {}", accrualId, e);
-            return ResponseEntity.notFound().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.BAD_REQUEST,
+                    String.format("Failed to retrieve accrual with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Get accrual by business identifier
+     * GET /ui/accruals/business/{accrualId}?pointInTime=2025-10-03T10:15:30Z
+     */
+    @GetMapping("/business/{accrualId}")
+    public ResponseEntity<EntityWithMetadata<Accrual>> getAccrualByBusinessId(
+            @PathVariable String accrualId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            EntityWithMetadata<Accrual> response = entityService.findByBusinessId(
+                    modelSpec, accrualId, "accrualId", Accrual.class, pointInTimeDate);
+
+            if (response == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve accrual with business ID '%s': %s", accrualId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Get accrual change history metadata
+     * GET /ui/accruals/{id}/changes?pointInTime=2025-10-03T10:15:30Z
+     */
+    @GetMapping("/{id}/changes")
+    public ResponseEntity<?> getAccrualChangesMetadata(
+            @PathVariable UUID id,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
+        try {
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+            List<EntityChangeMeta> changes =
+                    entityService.getEntityChangesMetadata(id, pointInTimeDate);
+            return ResponseEntity.ok(changes);
+        } catch (Exception e) {
+            // Check if it's a NOT_FOUND error (entity doesn't exist)
+            if (CyodaExceptionUtil.isNotFound(e)) {
+                return ResponseEntity.notFound().build();
+            }
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve change history for accrual with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
      * Update accrual with optional workflow transition
-     * PATCH /accruals/{accrualId}
-     * 
-     * <p>Request body supports:</p>
-     * <ul>
-     *   <li>accrual - Partial or full accrual entity data (required)</li>
-     *   <li>transitionRequest - Optional workflow transition to trigger after update</li>
-     *   <li>engineOptions - Optional engine execution options (simulate, maxSteps)</li>
-     * </ul>
-     * 
-     * @param accrualId Technical UUID of the accrual to update
-     * @param request The update request containing accrual data and optional transition
-     * @return 200 OK with updated accrual and metadata
+     * PUT /ui/accruals/{id}?transition=TRANSITION_NAME
      */
-    @PatchMapping("/{accrualId}")
-    public ResponseEntity<?> updateAccrual(
-            @PathVariable UUID accrualId,
-            @RequestBody UpdateAccrualRequest request) {
+    @PutMapping("/{id}")
+    public ResponseEntity<EntityWithMetadata<Accrual>> updateAccrual(
+            @PathVariable UUID id,
+            @RequestBody Accrual accrual,
+            @RequestParam(required = false) String transition) {
         try {
-            // Validate request
-            if (request.getAccrual() == null) {
-                ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                    HttpStatus.BAD_REQUEST,
-                    "Accrual data is required"
-                );
-                return ResponseEntity.of(problemDetail).build();
-            }
-
-            Accrual accrual = request.getAccrual();
-            String transitionName = null;
-            
-            if (request.getTransitionRequest() != null && request.getTransitionRequest().getName() != null) {
-                transitionName = request.getTransitionRequest().getName();
-                String comment = request.getTransitionRequest().getComment();
-                
-                logger.info("Updating accrual {} with transition '{}'. Comment: {}", 
-                    accrualId, transitionName, comment);
-            }
-            
-            // TODO: Pass engineOptions to EntityService when framework supports it
-            EntityWithMetadata<Accrual> response = entityService.update(
-                accrualId, accrual, transitionName);
-            
-            logger.info("Accrual updated with ID: {}", accrualId);
+            EntityWithMetadata<Accrual> response = entityService.update(id, accrual, transition);
+            logger.info("Accrual updated with ID: {}", id);
             return ResponseEntity.ok(response);
-            
         } catch (Exception e) {
-            logger.error("Failed to update accrual with ID: {}", accrualId, e);
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
-                String.format("Failed to update accrual with ID '%s': %s", accrualId, e.getMessage())
+                String.format("Failed to update accrual with ID '%s': %s", id, e.getMessage())
             );
             return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
-     * Query accruals with optional filters
-     * GET /accruals?loanId=LOAN-123&asOfDate=2025-10-07&state=POSTED&runId=RUN-001
-     * 
-     * <p>All query parameters are optional. Returns all accruals if no filters provided.</p>
-     * 
-     * @param loanId Optional filter by loan ID
-     * @param asOfDate Optional filter by as-of date
-     * @param state Optional filter by workflow state
-     * @param runId Optional filter by batch run ID
-     * @return 200 OK with list of matching accruals
+     * List all accruals with pagination and optional filtering
+     * GET /ui/accruals?page=0&size=20&state=POSTED&loanId=LOAN-123&asOfDate=2025-10-07&runId=RUN-001&pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping
-    public ResponseEntity<?> queryAccruals(
+    public ResponseEntity<Page<EntityWithMetadata<Accrual>>> listAccruals(
+            Pageable pageable,
+            @RequestParam(required = false) String state,
             @RequestParam(required = false) String loanId,
             @RequestParam(required = false) LocalDate asOfDate,
-            @RequestParam(required = false) String state,
-            @RequestParam(required = false) String runId) {
+            @RequestParam(required = false) String runId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
-            ModelSpec modelSpec = new ModelSpec()
-                .withName(Accrual.ENTITY_NAME)
-                .withVersion(Accrual.ENTITY_VERSION);
+            ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
 
             List<QueryCondition> conditions = new ArrayList<>();
 
-            // Add entity field filters
             if (loanId != null && !loanId.trim().isEmpty()) {
-                conditions.add(new SimpleCondition()
-                    .withJsonPath("$.loanId")
-                    .withOperation(Operation.EQUALS)
-                    .withValue(objectMapper.valueToTree(loanId)));
+                SimpleCondition loanCondition = new SimpleCondition()
+                        .withJsonPath("$.loanId")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(loanId));
+                conditions.add(loanCondition);
             }
 
             if (asOfDate != null) {
-                conditions.add(new SimpleCondition()
-                    .withJsonPath("$.asOfDate")
-                    .withOperation(Operation.EQUALS)
-                    .withValue(objectMapper.valueToTree(asOfDate)));
+                SimpleCondition dateCondition = new SimpleCondition()
+                        .withJsonPath("$.asOfDate")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(asOfDate));
+                conditions.add(dateCondition);
             }
 
             if (runId != null && !runId.trim().isEmpty()) {
-                conditions.add(new SimpleCondition()
-                    .withJsonPath("$.runId")
-                    .withOperation(Operation.EQUALS)
-                    .withValue(objectMapper.valueToTree(runId)));
+                SimpleCondition runCondition = new SimpleCondition()
+                        .withJsonPath("$.runId")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(runId));
+                conditions.add(runCondition);
             }
 
-            List<EntityWithMetadata<Accrual>> accruals;
-            
-            if (conditions.isEmpty()) {
-                // No entity field filters - use findAll
-                accruals = entityService.findAll(modelSpec, Accrual.class, null);
+            if (conditions.isEmpty() && (state == null || state.trim().isEmpty())) {
+                // Use paginated findAll when no filters
+                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Accrual.class, pointInTimeDate));
             } else {
-                // Apply entity field filters via search
-                GroupCondition groupCondition = new GroupCondition()
-                    .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(conditions);
-                accruals = entityService.search(modelSpec, groupCondition, Accrual.class, null);
-            }
+                // For filtered results, get all matching results then manually paginate
+                List<EntityWithMetadata<Accrual>> accruals;
+                if (conditions.isEmpty()) {
+                    accruals = entityService.findAll(modelSpec, Accrual.class, pointInTimeDate);
+                } else {
+                    GroupCondition groupCondition = new GroupCondition()
+                            .withOperator(GroupCondition.Operator.AND)
+                            .withConditions(conditions);
+                    accruals = entityService.search(modelSpec, groupCondition, Accrual.class, pointInTimeDate);
+                }
 
-            // Filter by state if provided (state is in metadata, not entity)
-            if (state != null && !state.trim().isEmpty()) {
-                accruals = accruals.stream()
-                    .filter(accrual -> state.equals(accrual.metadata().getState()))
-                    .toList();
-            }
+                // Filter by state if provided (state is in metadata, not entity)
+                if (state != null && !state.trim().isEmpty()) {
+                    accruals = accruals.stream()
+                            .filter(accrual -> state.equals(accrual.metadata().getState()))
+                            .toList();
+                }
 
-            return ResponseEntity.ok(accruals);
-            
+                // Manually paginate the filtered results
+                int start = (int) pageable.getOffset();
+                int end = Math.min(start + pageable.getPageSize(), accruals.size());
+                List<EntityWithMetadata<Accrual>> pageContent = start < accruals.size()
+                    ? accruals.subList(start, end)
+                    : new ArrayList<>();
+
+                Page<EntityWithMetadata<Accrual>> page = new PageImpl<>(pageContent, pageable, accruals.size());
+                return ResponseEntity.ok(page);
+            }
         } catch (Exception e) {
-            logger.error("Failed to query accruals", e);
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
-                String.format("Failed to query accruals: %s", e.getMessage())
+                String.format("Failed to list accruals: %s", e.getMessage())
             );
             return ResponseEntity.of(problemDetail).build();
         }
     }
 
-    // ========================================
-    // Request DTOs
-    // ========================================
-
     /**
-     * DTO for create accrual requests
+     * Delete accrual by technical UUID
+     * DELETE /ui/accruals/{id}
      */
-    @Data
-    public static class CreateAccrualRequest {
-        private Accrual accrual;
-        private TransitionRequest transitionRequest;
-        private EngineOptions engineOptions;
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteAccrual(@PathVariable UUID id) {
+        try {
+            entityService.deleteById(id);
+            logger.info("Accrual deleted with ID: {}", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete accrual with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
     }
 
     /**
-     * DTO for update accrual requests
+     * Delete accrual by business identifier
+     * DELETE /ui/accruals/business/{accrualId}
      */
-    @Data
-    public static class UpdateAccrualRequest {
-        private Accrual accrual;
-        private TransitionRequest transitionRequest;
-        private EngineOptions engineOptions;
+    @DeleteMapping("/business/{accrualId}")
+    public ResponseEntity<Void> deleteAccrualByBusinessId(@PathVariable String accrualId) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
+            boolean deleted = entityService.deleteByBusinessId(modelSpec, accrualId, "accrualId", Accrual.class);
+
+            if (!deleted) {
+                return ResponseEntity.notFound().build();
+            }
+
+            logger.info("Accrual deleted with business ID: {}", accrualId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete accrual with business ID '%s': %s", accrualId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete all accruals (DANGEROUS - use with caution)
+     * DELETE /ui/accruals
+     */
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllAccruals() {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
+            Integer deletedCount = entityService.deleteAll(modelSpec);
+            logger.warn("Deleted all Accruals - count: {}", deletedCount);
+            return ResponseEntity.ok().body(String.format("Deleted %d accruals", deletedCount));
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete all accruals: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
     }
 }
 

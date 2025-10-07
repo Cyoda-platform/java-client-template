@@ -1,11 +1,10 @@
 package com.java_template.application.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.application.controller.dto.EngineOptions;
-import com.java_template.application.controller.dto.TransitionRequest;
 import com.java_template.application.entity.accrual.version_1.*;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -13,14 +12,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.config.EnableSpringDataWebSupport;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,20 +33,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Integration tests for EODAccrualBatchController
+ * Unit tests for EODAccrualBatchController
  */
-@SpringBootTest
-@AutoConfigureMockMvc
+@WebMvcTest(controllers = EODAccrualBatchController.class,
+            excludeAutoConfiguration = org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class)
+@EnableSpringDataWebSupport
 class EODAccrualBatchControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
-
     @MockBean
     private EntityService entityService;
+
+    private ObjectMapper objectMapper;
 
     private EODAccrualBatch testBatch;
     private EntityWithMetadata<EODAccrualBatch> testBatchWithMetadata;
@@ -51,6 +54,10 @@ class EODAccrualBatchControllerTest {
 
     @BeforeEach
     void setUp() {
+        objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+        objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
         testTechnicalId = UUID.randomUUID();
 
         // Create test batch
@@ -60,7 +67,6 @@ class EODAccrualBatchControllerTest {
         testBatch.setMode(BatchMode.BACKDATED);
         testBatch.setInitiatedBy("user@example.com");
         testBatch.setReasonCode("DATA_CORRECTION");
-        testBatch.setState(EODAccrualBatchState.REQUESTED);
 
         // Create metrics
         BatchMetrics metrics = new BatchMetrics();
@@ -79,119 +85,93 @@ class EODAccrualBatchControllerTest {
     }
 
     @Test
-    @DisplayName("POST /eod-batches should create a new batch")
+    @DisplayName("POST /ui/eod-batches should create a new batch")
     void testCreateBatch() throws Exception {
         // Given
         when(entityService.create(any(EODAccrualBatch.class))).thenReturn(testBatchWithMetadata);
 
-        EODAccrualBatchController.CreateBatchRequest request = new EODAccrualBatchController.CreateBatchRequest();
-        request.setBatch(testBatch);
-
         // When/Then
-        mockMvc.perform(post("/eod-batches")
+        mockMvc.perform(post("/ui/eod-batches")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .content(objectMapper.writeValueAsString(testBatch)))
                 .andExpect(status().isCreated())
                 .andExpect(header().exists("Location"))
                 .andExpect(jsonPath("$.entity.asOfDate").value("2025-08-15"))
                 .andExpect(jsonPath("$.entity.mode").value("BACKDATED"))
                 .andExpect(jsonPath("$.entity.reasonCode").value("DATA_CORRECTION"))
-                .andExpect(jsonPath("$.metadata.id").value(testTechnicalId.toString()));
+                .andExpect(jsonPath("$.meta.id").value(testTechnicalId.toString()));
     }
 
     @Test
-    @DisplayName("POST /eod-batches with START transition should create and start batch (section 7.1 example)")
-    void testCreateBatchWithStartTransition() throws Exception {
-        // Given - This is the example from section 7.1 of the requirements
-        EntityMetadata runningMetadata = new EntityMetadata();
-        runningMetadata.setId(testTechnicalId);
-        runningMetadata.setState("GENERATING");
-        runningMetadata.setCreationDate(new java.util.Date());
-
-        EODAccrualBatch runningBatch = new EODAccrualBatch();
-        runningBatch.setBatchId(testBatch.getBatchId());
-        runningBatch.setAsOfDate(LocalDate.of(2025, 8, 15));
-        runningBatch.setMode(BatchMode.BACKDATED);
-        runningBatch.setReasonCode("DATA_CORRECTION");
-        runningBatch.setState(EODAccrualBatchState.GENERATING);
-
-        BatchMetrics metrics = new BatchMetrics();
-        metrics.setEligibleLoans(100);
-        metrics.setProcessedLoans(0);
-        metrics.setAccrualsCreated(0);
-        runningBatch.setMetrics(metrics);
-
-        EntityWithMetadata<EODAccrualBatch> runningWithMetadata =
-            new EntityWithMetadata<>(runningBatch, runningMetadata);
-
-        when(entityService.create(any(EODAccrualBatch.class))).thenReturn(testBatchWithMetadata);
-        when(entityService.update(eq(testTechnicalId), any(EODAccrualBatch.class), eq("START")))
-            .thenReturn(runningWithMetadata);
-
-        EODAccrualBatchController.CreateBatchRequest request = new EODAccrualBatchController.CreateBatchRequest();
-        request.setBatch(testBatch);
-
-        TransitionRequest transitionRequest = new TransitionRequest();
-        transitionRequest.setName("START");
-        request.setTransitionRequest(transitionRequest);
-
-        EngineOptions engineOptions = new EngineOptions();
-        engineOptions.setSimulate(false);
-        engineOptions.setMaxSteps(50);
-        request.setEngineOptions(engineOptions);
-
-        // When/Then
-        mockMvc.perform(post("/eod-batches")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.metadata.state").value("GENERATING"))
-                .andExpect(jsonPath("$.entity.metrics.eligibleLoans").value(100));
-    }
-
-    @Test
-    @DisplayName("POST /eod-batches should return 400 if batch data is missing")
-    void testCreateBatchMissingData() throws Exception {
-        // Given
-        EODAccrualBatchController.CreateBatchRequest request = new EODAccrualBatchController.CreateBatchRequest();
-        request.setBatch(null);
-
-        // When/Then
-        mockMvc.perform(post("/eod-batches")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @DisplayName("GET /eod-batches/{batchId} should retrieve batch by ID")
+    @DisplayName("GET /ui/eod-batches/{id} should retrieve batch by ID")
     void testGetBatchById() throws Exception {
         // Given
         when(entityService.getById(eq(testTechnicalId), any(ModelSpec.class),
             eq(EODAccrualBatch.class), isNull())).thenReturn(testBatchWithMetadata);
 
         // When/Then
-        mockMvc.perform(get("/eod-batches/{batchId}", testTechnicalId))
+        mockMvc.perform(get("/ui/eod-batches/{id}", testTechnicalId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.entity.asOfDate").value("2025-08-15"))
                 .andExpect(jsonPath("$.entity.mode").value("BACKDATED"))
-                .andExpect(jsonPath("$.metadata.id").value(testTechnicalId.toString()));
+                .andExpect(jsonPath("$.meta.id").value(testTechnicalId.toString()));
     }
 
     @Test
-    @DisplayName("GET /eod-batches/{batchId} should return 404 if not found")
+    @DisplayName("GET /ui/eod-batches/{id}?pointInTime should retrieve batch at point in time")
+    void testGetBatchByIdWithPointInTime() throws Exception {
+        // Given
+        when(entityService.getById(eq(testTechnicalId), any(ModelSpec.class),
+            eq(EODAccrualBatch.class), any(Date.class))).thenReturn(testBatchWithMetadata);
+
+        // When/Then
+        mockMvc.perform(get("/ui/eod-batches/{id}", testTechnicalId)
+                .param("pointInTime", "2025-10-03T10:15:30Z"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entity.asOfDate").value("2025-08-15"));
+    }
+
+    @Test
+    @DisplayName("GET /ui/eod-batches/{id} should return 404 if not found")
     void testGetBatchByIdNotFound() throws Exception {
         // Given
         when(entityService.getById(eq(testTechnicalId), any(ModelSpec.class),
-            eq(EODAccrualBatch.class), isNull())).thenThrow(new RuntimeException("Not found"));
+            eq(EODAccrualBatch.class), any(Date.class))).thenThrow(new RuntimeException("Not found"));
 
         // When/Then
-        mockMvc.perform(get("/eod-batches/{batchId}", testTechnicalId))
+        mockMvc.perform(get("/ui/eod-batches/{id}", testTechnicalId))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    @DisplayName("PATCH /eod-batches/{batchId} should update batch")
+    @DisplayName("GET /ui/eod-batches/business/{batchId} should retrieve batch by business ID")
+    void testGetBatchByBusinessId() throws Exception {
+        // Given
+        when(entityService.findByBusinessId(any(ModelSpec.class), anyString(), eq("batchId"),
+            eq(EODAccrualBatch.class), isNull())).thenReturn(testBatchWithMetadata);
+
+        // When/Then
+        mockMvc.perform(get("/ui/eod-batches/business/{batchId}", testBatch.getBatchId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entity.asOfDate").value("2025-08-15"));
+    }
+
+    @Test
+    @DisplayName("GET /ui/eod-batches/{id}/changes should retrieve change history")
+    void testGetBatchChangesMetadata() throws Exception {
+        // Given
+        List<EntityChangeMeta> changes = List.of();
+        when(entityService.getEntityChangesMetadata(eq(testTechnicalId), isNull()))
+            .thenReturn(changes);
+
+        // When/Then
+        mockMvc.perform(get("/ui/eod-batches/{id}/changes", testTechnicalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray());
+    }
+
+    @Test
+    @DisplayName("PUT /ui/eod-batches/{id} should update batch")
     void testUpdateBatch() throws Exception {
         // Given
         EODAccrualBatch updatedBatch = new EODAccrualBatch();
@@ -215,25 +195,21 @@ class EODAccrualBatchControllerTest {
         when(entityService.update(eq(testTechnicalId), any(EODAccrualBatch.class), isNull()))
             .thenReturn(updatedWithMetadata);
 
-        EODAccrualBatchController.UpdateBatchRequest request = new EODAccrualBatchController.UpdateBatchRequest();
-        request.setBatch(updatedBatch);
-
         // When/Then
-        mockMvc.perform(patch("/eod-batches/{batchId}", testTechnicalId)
+        mockMvc.perform(put("/ui/eod-batches/{id}", testTechnicalId)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .content(objectMapper.writeValueAsString(updatedBatch)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.entity.metrics.processedLoans").value(50))
-                .andExpect(jsonPath("$.metadata.state").value("GENERATING"));
+                .andExpect(jsonPath("$.meta.state").value("GENERATING"));
     }
 
     @Test
-    @DisplayName("PATCH /eod-batches/{batchId} with transition should update and trigger transition")
+    @DisplayName("PUT /ui/eod-batches/{id}?transition should update and trigger transition")
     void testUpdateBatchWithTransition() throws Exception {
         // Given
         EODAccrualBatch canceledBatch = new EODAccrualBatch();
         canceledBatch.setBatchId(testBatch.getBatchId());
-        canceledBatch.setState(EODAccrualBatchState.CANCELED);
 
         EntityMetadata canceledMetadata = new EntityMetadata();
         canceledMetadata.setId(testTechnicalId);
@@ -245,25 +221,36 @@ class EODAccrualBatchControllerTest {
         when(entityService.update(eq(testTechnicalId), any(EODAccrualBatch.class), eq("CANCEL")))
             .thenReturn(canceledWithMetadata);
 
-        EODAccrualBatchController.UpdateBatchRequest request = new EODAccrualBatchController.UpdateBatchRequest();
-        request.setBatch(testBatch);
-
-        TransitionRequest transitionRequest = new TransitionRequest();
-        transitionRequest.setName("CANCEL");
-        transitionRequest.setComment("Canceling due to data issue");
-        request.setTransitionRequest(transitionRequest);
-
         // When/Then
-        mockMvc.perform(patch("/eod-batches/{batchId}", testTechnicalId)
+        mockMvc.perform(put("/ui/eod-batches/{id}", testTechnicalId)
+                .param("transition", "CANCEL")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
+                .content(objectMapper.writeValueAsString(testBatch)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.metadata.state").value("CANCELED"));
+                .andExpect(jsonPath("$.meta.state").value("CANCELED"));
     }
 
     @Test
-    @DisplayName("GET /eod-batches should query batches with filters")
-    void testQueryBatchesWithFilters() throws Exception {
+    @DisplayName("GET /ui/eod-batches should list batches with pagination when no filters")
+    void testListBatchesWithPagination() throws Exception {
+        // Given
+        List<EntityWithMetadata<EODAccrualBatch>> batches = List.of(testBatchWithMetadata);
+        Page<EntityWithMetadata<EODAccrualBatch>> page = new PageImpl<>(batches);
+
+        when(entityService.findAll(any(ModelSpec.class), any(Pageable.class),
+            eq(EODAccrualBatch.class), isNull())).thenReturn(page);
+
+        // When/Then
+        mockMvc.perform(get("/ui/eod-batches")
+                .param("page", "0")
+                .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].entity.asOfDate").value("2025-08-15"));
+    }
+
+    @Test
+    @DisplayName("GET /ui/eod-batches with filters should query batches")
+    void testListBatchesWithFilters() throws Exception {
         // Given
         List<EntityWithMetadata<EODAccrualBatch>> batches = List.of(testBatchWithMetadata);
 
@@ -271,7 +258,7 @@ class EODAccrualBatchControllerTest {
             eq(EODAccrualBatch.class), isNull())).thenReturn(batches);
 
         // When/Then
-        mockMvc.perform(get("/eod-batches")
+        mockMvc.perform(get("/ui/eod-batches")
                 .param("asOfDate", "2025-08-15")
                 .param("mode", "BACKDATED"))
                 .andExpect(status().isOk())
@@ -280,8 +267,8 @@ class EODAccrualBatchControllerTest {
     }
 
     @Test
-    @DisplayName("GET /eod-batches should return all batches when no filters")
-    void testQueryBatchesNoFilters() throws Exception {
+    @DisplayName("GET /ui/eod-batches with state filter should filter by metadata state")
+    void testListBatchesWithStateFilter() throws Exception {
         // Given
         List<EntityWithMetadata<EODAccrualBatch>> batches = List.of(testBatchWithMetadata);
 
@@ -289,25 +276,31 @@ class EODAccrualBatchControllerTest {
             .thenReturn(batches);
 
         // When/Then
-        mockMvc.perform(get("/eod-batches"))
+        mockMvc.perform(get("/ui/eod-batches")
+                .param("state", "REQUESTED"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].entity.asOfDate").value("2025-08-15"));
+                .andDo(it -> System.out.println(it.getResponse().getContentAsString()))
+                .andExpect(jsonPath("$[0].meta.state").value("REQUESTED"));
     }
 
     @Test
-    @DisplayName("GET /eod-batches with state filter should filter by metadata state")
-    void testQueryBatchesWithStateFilter() throws Exception {
-        // Given
-        List<EntityWithMetadata<EODAccrualBatch>> batches = List.of(testBatchWithMetadata);
+    @DisplayName("DELETE /ui/eod-batches/{id} should delete batch")
+    void testDeleteBatch() throws Exception {
+        // When/Then
+        mockMvc.perform(delete("/ui/eod-batches/{id}", testTechnicalId))
+                .andExpect(status().isNoContent());
+    }
 
-        when(entityService.findAll(any(ModelSpec.class), eq(EODAccrualBatch.class), isNull()))
-            .thenReturn(batches);
+    @Test
+    @DisplayName("DELETE /ui/eod-batches/business/{batchId} should delete batch by business ID")
+    void testDeleteBatchByBusinessId() throws Exception {
+        // Given
+        when(entityService.deleteByBusinessId(any(ModelSpec.class), anyString(), eq("batchId"),
+            eq(EODAccrualBatch.class))).thenReturn(true);
 
         // When/Then
-        mockMvc.perform(get("/eod-batches")
-                .param("state", "REQUESTED"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].metadata.state").value("REQUESTED"));
+        mockMvc.perform(delete("/ui/eod-batches/business/{batchId}", testBatch.getBatchId()))
+                .andExpect(status().isNoContent());
     }
 }
 

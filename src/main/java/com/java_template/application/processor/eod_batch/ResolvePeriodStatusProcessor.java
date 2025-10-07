@@ -62,7 +62,7 @@ public class ResolvePeriodStatusProcessor implements CyodaProcessor {
      */
     private boolean isValidEntityWithMetadata(EntityWithMetadata<EODAccrualBatch> entityWithMetadata) {
         EODAccrualBatch batch = entityWithMetadata.entity();
-        return batch != null && batch.isValid() && entityWithMetadata.metadata().getId() != null;
+        return batch != null && batch.isValid(entityWithMetadata.metadata()) && entityWithMetadata.metadata().getId() != null;
     }
 
     /**
@@ -87,7 +87,7 @@ public class ResolvePeriodStatusProcessor implements CyodaProcessor {
             throw new IllegalStateException("AsOfDate is required to resolve period status");
         }
 
-        logger.debug("Resolving period status for batch: {} with asOfDate: {}", 
+        logger.debug("Resolving period status for batch: {} with asOfDate: {}",
             batch.getBatchId(), asOfDate);
 
         // Determine period status

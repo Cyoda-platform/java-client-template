@@ -6,6 +6,7 @@ import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -183,7 +184,7 @@ class JacksonProcessorSerializerTest {
         public void setStatus(String status) { this.status = status; }
 
         @Override
-        public boolean isValid() { return true; }
+        public boolean isValid(EntityMetadata metadata) { return true; }
 
         @Override
         public OperationSpecification getModelKey() {

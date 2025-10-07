@@ -70,7 +70,7 @@ public class NewLoanValidationCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Loan entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        if (!loan.isValid()) {
+        if (!loan.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("Loan entity is not valid: {}", loan.getLoanId());
             return EvaluationOutcome.fail("Loan entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }

@@ -105,9 +105,16 @@ public class LoanController {
                 ? Date.from(pointInTime.toInstant())
                 : null;
             EntityWithMetadata<Loan> response = entityService.getById(id, modelSpec, Loan.class, pointInTimeDate);
+            if (response == null) {
+                return ResponseEntity.notFound().build();
+            }
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.notFound().build();
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to retrieve loan with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
         }
     }
 
@@ -258,7 +265,7 @@ public class LoanController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
             EntityWithMetadata<Loan> current = entityService.getById(id, modelSpec, Loan.class);
-            
+
             EntityWithMetadata<Loan> response = entityService.update(id, current.entity(), "submit_for_approval");
             logger.info("Loan submitted for approval with ID: {}", id);
             return ResponseEntity.ok(response);
@@ -280,7 +287,7 @@ public class LoanController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
             EntityWithMetadata<Loan> current = entityService.getById(id, modelSpec, Loan.class);
-            
+
             EntityWithMetadata<Loan> response = entityService.update(id, current.entity(), "approve_loan");
             logger.info("Loan approved with ID: {}", id);
             return ResponseEntity.ok(response);
@@ -302,7 +309,7 @@ public class LoanController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
             EntityWithMetadata<Loan> current = entityService.getById(id, modelSpec, Loan.class);
-            
+
             EntityWithMetadata<Loan> response = entityService.update(id, current.entity(), "reject_loan");
             logger.info("Loan rejected with ID: {}", id);
             return ResponseEntity.ok(response);
@@ -324,7 +331,7 @@ public class LoanController {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Loan.ENTITY_NAME).withVersion(Loan.ENTITY_VERSION);
             EntityWithMetadata<Loan> current = entityService.getById(id, modelSpec, Loan.class);
-            
+
             EntityWithMetadata<Loan> response = entityService.update(id, current.entity(), "fund_loan");
             logger.info("Loan funded with ID: {}", id);
             return ResponseEntity.ok(response);

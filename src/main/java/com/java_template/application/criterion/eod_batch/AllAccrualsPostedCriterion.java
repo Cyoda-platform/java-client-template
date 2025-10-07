@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -39,11 +40,11 @@ public class AllAccrualsPostedCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
     private final EntityService entityService;
 
-    private static final Set<AccrualState> TERMINAL_STATES = Set.of(
-        AccrualState.POSTED,
-        AccrualState.FAILED,
-        AccrualState.CANCELED,
-        AccrualState.SUPERSEDED
+    private static final Set<String> TERMINAL_STATES = Set.of(
+        AccrualState.POSTED.name(),
+        AccrualState.FAILED.name(),
+        AccrualState.CANCELED.name(),
+        AccrualState.SUPERSEDED.name()
     );
 
     public AllAccrualsPostedCriterion(SerializerFactory serializerFactory, EntityService entityService) {
@@ -119,7 +120,7 @@ public class AllAccrualsPostedCriterion implements CyodaCriterion {
 
             // Check if all accruals are in terminal states
             long totalAccruals = relevantAccruals.size();
-            long terminalAccruals = relevantAccruals.stream()
+            long terminalAccruals = batchAccrualsWithMetadata.stream()
                 .filter(a -> TERMINAL_STATES.contains(a.getState()))
                 .count();
 
@@ -134,10 +135,10 @@ public class AllAccrualsPostedCriterion implements CyodaCriterion {
             }
 
             // Count by state for logging
-            long posted = relevantAccruals.stream().filter(a -> a.getState() == AccrualState.POSTED).count();
-            long failed = relevantAccruals.stream().filter(a -> a.getState() == AccrualState.FAILED).count();
-            long canceled = relevantAccruals.stream().filter(a -> a.getState() == AccrualState.CANCELED).count();
-            long superseded = relevantAccruals.stream().filter(a -> a.getState() == AccrualState.SUPERSEDED).count();
+            long posted = batchAccrualsWithMetadata.stream().filter(a -> AccrualState.valueOf(a.getState()) == AccrualState.POSTED).count();
+            long failed = batchAccrualsWithMetadata.stream().filter(a -> AccrualState.valueOf(a.getState()) == AccrualState.FAILED).count();
+            long canceled = batchAccrualsWithMetadata.stream().filter(a -> AccrualState.valueOf(a.getState()) == AccrualState.CANCELED).count();
+            long superseded = batchAccrualsWithMetadata.stream().filter(a -> AccrualState.valueOf(a.getState()) == AccrualState.SUPERSEDED).count();
 
             logger.info("All {} accruals for batch {} are complete: {} posted, {} failed, {} canceled, {} superseded",
                 totalAccruals, batchId, posted, failed, canceled, superseded);

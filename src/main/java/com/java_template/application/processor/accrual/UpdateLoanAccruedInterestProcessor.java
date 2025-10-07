@@ -24,20 +24,20 @@ import java.util.List;
 
 /**
  * Processor to update the loan's accruedInterest balance from the net delta of journal entries.
- * 
+ *
  * This processor:
  * 1. Reads the current loan entity using EntityService
  * 2. Calculates the net delta from journal entries (considering REVERSAL and REPLACEMENT kinds)
  * 3. Updates the loan's accruedInterest balance
  * 4. Saves the updated loan entity using EntityService
- * 
+ *
  * CRITICAL: This processor updates OTHER entities (Loan), NOT the current accrual entity.
- * 
+ *
  * Net delta calculation:
  * - ORIGINAL entries: Add to balance (DR increases receivable, CR decreases)
  * - REVERSAL entries: Reverse the effect (opposite of original)
  * - REPLACEMENT entries: Add to balance (like ORIGINAL)
- * 
+ *
  * This processor runs in ASYNC_NEW_TX mode on ledger nodes.
  */
 @Component
@@ -76,7 +76,7 @@ public class UpdateLoanAccruedInterestProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Accrual> entityWithMetadata) {
         Accrual entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**
@@ -100,7 +100,7 @@ public class UpdateLoanAccruedInterestProcessor implements CyodaProcessor {
         }
 
         if (journalEntries == null || journalEntries.isEmpty()) {
-            logger.warn("No journal entries found for accrual: {}. Skipping loan update.", 
+            logger.warn("No journal entries found for accrual: {}. Skipping loan update.",
                 accrual.getAccrualId());
             return entityWithMetadata;
         }
@@ -124,7 +124,7 @@ public class UpdateLoanAccruedInterestProcessor implements CyodaProcessor {
                 Loan.class
             );
         } catch (Exception e) {
-            logger.error("Error retrieving loan {} for accrual {}: {}", 
+            logger.error("Error retrieving loan {} for accrual {}: {}",
                 loanId, accrual.getAccrualId(), e.getMessage());
             throw new IllegalStateException("Failed to retrieve loan: " + loanId, e);
         }
@@ -135,7 +135,7 @@ public class UpdateLoanAccruedInterestProcessor implements CyodaProcessor {
         }
 
         Loan loan = loanWithMetadata.entity();
-        BigDecimal currentAccruedInterest = loan.getAccruedInterest() != null ? 
+        BigDecimal currentAccruedInterest = loan.getAccruedInterest() != null ?
             loan.getAccruedInterest() : BigDecimal.ZERO;
 
         // Calculate new accrued interest balance
@@ -150,7 +150,7 @@ public class UpdateLoanAccruedInterestProcessor implements CyodaProcessor {
             logger.info("Loan {} accrued interest updated: {} -> {} (delta: {})",
                 loanId, currentAccruedInterest, newAccruedInterest, netDelta);
         } catch (Exception e) {
-            logger.error("Error updating loan {} for accrual {}: {}", 
+            logger.error("Error updating loan {} for accrual {}: {}",
                 loanId, accrual.getAccrualId(), e.getMessage());
             throw new IllegalStateException("Failed to update loan: " + loanId, e);
         }
@@ -160,7 +160,7 @@ public class UpdateLoanAccruedInterestProcessor implements CyodaProcessor {
 
     /**
      * Calculates the net delta from journal entries.
-     * 
+     *
      * Logic:
      * - ORIGINAL DR entries: Add amount (increases receivable)
      * - ORIGINAL CR entries: Subtract amount (decreases receivable)

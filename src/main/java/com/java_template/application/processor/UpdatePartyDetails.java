@@ -48,7 +48,7 @@ public class UpdatePartyDetails implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Party> entityWithMetadata) {
         Party entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     private EntityWithMetadata<Party> processBusinessLogic(
