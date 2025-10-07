@@ -29,11 +29,11 @@ import java.util.UUID;
 
 /**
  * REST controller for EODAccrualBatch entity operations.
- * 
+ *
  * <p>Provides CRUD endpoints for managing end-of-day accrual batch runs.
  * Supports workflow transitions for batch lifecycle management including
  * starting batch runs, monitoring progress, and handling failures.</p>
- * 
+ *
  * <p>Endpoints:</p>
  * <ul>
  *   <li>POST /eod-batches - Create new batch with optional workflow transition (e.g., START)</li>
@@ -41,13 +41,13 @@ import java.util.UUID;
  *   <li>PATCH /eod-batches/{batchId} - Update batch with optional workflow transition</li>
  *   <li>GET /eod-batches - Query batches with filters (asOfDate, mode, state)</li>
  * </ul>
- * 
+ *
  * @see EODAccrualBatch
  * @see TransitionRequest
  * @see EngineOptions
  */
 @RestController
-@RequestMapping("/eod-batches")
+@RequestMapping("/ui/eod-batches")
 @CrossOrigin(origins = "*")
 public class EODAccrualBatchController {
 
@@ -63,14 +63,14 @@ public class EODAccrualBatchController {
     /**
      * Create a new EOD accrual batch
      * POST /eod-batches
-     * 
+     *
      * <p>Request body supports:</p>
      * <ul>
      *   <li>batch - The batch entity data (required)</li>
      *   <li>transitionRequest - Optional workflow transition to trigger after creation (e.g., "START")</li>
      *   <li>engineOptions - Optional engine execution options (simulate, maxSteps)</li>
      * </ul>
-     * 
+     *
      * <p>Example request (from section 7.1 of requirements):</p>
      * <pre>
      * {
@@ -83,7 +83,7 @@ public class EODAccrualBatchController {
      *   "engineOptions": { "simulate": false, "maxSteps": 50 }
      * }
      * </pre>
-     * 
+     *
      * @param request The create batch request containing batch data and optional transition
      * @return 201 Created with Location header and created batch with metadata
      */
@@ -100,11 +100,11 @@ public class EODAccrualBatchController {
             }
 
             EODAccrualBatch batch = request.getBatch();
-            
+
             // Note: EODAccrualBatch uses UUID batchId, not a business identifier string
             // So we don't check for duplicates the same way as Accrual
             // The batchId will be auto-generated if not provided
-            
+
             // Create the batch
             EntityWithMetadata<EODAccrualBatch> response = entityService.create(batch);
             logger.info("EODAccrualBatch created with ID: {}", response.metadata().getId());
@@ -113,15 +113,15 @@ public class EODAccrualBatchController {
             if (request.getTransitionRequest() != null && request.getTransitionRequest().getName() != null) {
                 String transitionName = request.getTransitionRequest().getName();
                 String comment = request.getTransitionRequest().getComment();
-                
-                logger.info("Applying transition '{}' to batch {}. Comment: {}", 
+
+                logger.info("Applying transition '{}' to batch {}. Comment: {}",
                     transitionName, response.metadata().getId(), comment);
-                
+
                 // TODO: Pass engineOptions to EntityService when framework supports it
                 // Currently only transition name is supported
                 response = entityService.update(
-                    response.metadata().getId(), 
-                    response.entity(), 
+                    response.metadata().getId(),
+                    response.entity(),
                     transitionName
                 );
             }
@@ -134,7 +134,7 @@ public class EODAccrualBatchController {
                 .toUri();
 
             return ResponseEntity.created(location).body(response);
-            
+
         } catch (Exception e) {
             logger.error("Failed to create EODAccrualBatch", e);
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
@@ -148,14 +148,14 @@ public class EODAccrualBatchController {
     /**
      * Get batch by technical UUID
      * GET /eod-batches/{batchId}
-     * 
+     *
      * <p>Returns the batch with current state and metrics including:</p>
      * <ul>
      *   <li>Current workflow state</li>
      *   <li>Progress metrics (eligible loans, processed, failed)</li>
      *   <li>Reconciliation report ID (if completed)</li>
      * </ul>
-     * 
+     *
      * @param batchId Technical UUID of the batch
      * @return 200 OK with batch and metadata, or 404 Not Found
      */
@@ -165,12 +165,12 @@ public class EODAccrualBatchController {
             ModelSpec modelSpec = new ModelSpec()
                 .withName(EODAccrualBatch.ENTITY_NAME)
                 .withVersion(EODAccrualBatch.ENTITY_VERSION);
-            
+
             EntityWithMetadata<EODAccrualBatch> response = entityService.getById(
                 batchId, modelSpec, EODAccrualBatch.class, null);
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             logger.error("Failed to retrieve batch with ID: {}", batchId, e);
             return ResponseEntity.notFound().build();
@@ -180,21 +180,21 @@ public class EODAccrualBatchController {
     /**
      * Update batch with optional workflow transition
      * PATCH /eod-batches/{batchId}
-     * 
+     *
      * <p>Request body supports:</p>
      * <ul>
      *   <li>batch - Partial or full batch entity data (required)</li>
      *   <li>transitionRequest - Optional workflow transition to trigger after update</li>
      *   <li>engineOptions - Optional engine execution options (simulate, maxSteps)</li>
      * </ul>
-     * 
+     *
      * <p>Common transitions:</p>
      * <ul>
      *   <li>START - Begin batch processing</li>
      *   <li>CANCEL - Cancel a running batch</li>
      *   <li>RETRY - Retry failed accruals</li>
      * </ul>
-     * 
+     *
      * @param batchId Technical UUID of the batch to update
      * @param request The update request containing batch data and optional transition
      * @return 200 OK with updated batch and metadata
@@ -215,22 +215,22 @@ public class EODAccrualBatchController {
 
             EODAccrualBatch batch = request.getBatch();
             String transitionName = null;
-            
+
             if (request.getTransitionRequest() != null && request.getTransitionRequest().getName() != null) {
                 transitionName = request.getTransitionRequest().getName();
                 String comment = request.getTransitionRequest().getComment();
-                
-                logger.info("Updating batch {} with transition '{}'. Comment: {}", 
+
+                logger.info("Updating batch {} with transition '{}'. Comment: {}",
                     batchId, transitionName, comment);
             }
-            
+
             // TODO: Pass engineOptions to EntityService when framework supports it
             EntityWithMetadata<EODAccrualBatch> response = entityService.update(
                 batchId, batch, transitionName);
-            
+
             logger.info("EODAccrualBatch updated with ID: {}", batchId);
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             logger.error("Failed to update batch with ID: {}", batchId, e);
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
@@ -244,9 +244,9 @@ public class EODAccrualBatchController {
     /**
      * Query batches with optional filters
      * GET /eod-batches?asOfDate=2025-10-07&mode=TODAY&state=COMPLETED
-     * 
+     *
      * <p>All query parameters are optional. Returns all batches if no filters provided.</p>
-     * 
+     *
      * @param asOfDate Optional filter by as-of date
      * @param mode Optional filter by batch mode (TODAY or BACKDATED)
      * @param state Optional filter by workflow state
@@ -280,7 +280,7 @@ public class EODAccrualBatchController {
             }
 
             List<EntityWithMetadata<EODAccrualBatch>> batches;
-            
+
             if (conditions.isEmpty()) {
                 // No entity field filters - use findAll
                 batches = entityService.findAll(modelSpec, EODAccrualBatch.class, null);
@@ -300,7 +300,7 @@ public class EODAccrualBatchController {
             }
 
             return ResponseEntity.ok(batches);
-            
+
         } catch (Exception e) {
             logger.error("Failed to query batches", e);
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(

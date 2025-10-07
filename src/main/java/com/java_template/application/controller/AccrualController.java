@@ -28,10 +28,10 @@ import java.util.UUID;
 
 /**
  * REST controller for Accrual entity operations.
- * 
+ *
  * <p>Provides CRUD endpoints for managing daily interest accruals on loans.
  * Supports workflow transitions for accrual lifecycle management.</p>
- * 
+ *
  * <p>Endpoints:</p>
  * <ul>
  *   <li>POST /accruals - Create new accrual with optional workflow transition</li>
@@ -39,13 +39,13 @@ import java.util.UUID;
  *   <li>PATCH /accruals/{accrualId} - Update accrual with optional workflow transition</li>
  *   <li>GET /accruals - Query accruals with filters (loanId, asOfDate, state, runId)</li>
  * </ul>
- * 
+ *
  * @see Accrual
  * @see TransitionRequest
  * @see EngineOptions
  */
 @RestController
-@RequestMapping("/accruals")
+@RequestMapping("/ui/accruals")
 @CrossOrigin(origins = "*")
 public class AccrualController {
 
@@ -61,14 +61,14 @@ public class AccrualController {
     /**
      * Create a new accrual
      * POST /accruals
-     * 
+     *
      * <p>Request body supports:</p>
      * <ul>
      *   <li>accrual - The accrual entity data (required)</li>
      *   <li>transitionRequest - Optional workflow transition to trigger after creation</li>
      *   <li>engineOptions - Optional engine execution options (simulate, maxSteps)</li>
      * </ul>
-     * 
+     *
      * <p>Example request:</p>
      * <pre>
      * {
@@ -82,7 +82,7 @@ public class AccrualController {
      *   "engineOptions": { "simulate": false, "maxSteps": 50 }
      * }
      * </pre>
-     * 
+     *
      * @param request The create accrual request containing accrual data and optional transition
      * @return 201 Created with Location header and created accrual with metadata
      */
@@ -99,12 +99,12 @@ public class AccrualController {
             }
 
             Accrual accrual = request.getAccrual();
-            
+
             // Check for duplicate business identifier
             ModelSpec modelSpec = new ModelSpec()
                 .withName(Accrual.ENTITY_NAME)
                 .withVersion(Accrual.ENTITY_VERSION);
-            
+
             EntityWithMetadata<Accrual> existing = entityService.findByBusinessIdOrNull(
                 modelSpec, accrual.getAccrualId(), "accrualId", Accrual.class);
 
@@ -125,15 +125,15 @@ public class AccrualController {
             if (request.getTransitionRequest() != null && request.getTransitionRequest().getName() != null) {
                 String transitionName = request.getTransitionRequest().getName();
                 String comment = request.getTransitionRequest().getComment();
-                
-                logger.info("Applying transition '{}' to accrual {}. Comment: {}", 
+
+                logger.info("Applying transition '{}' to accrual {}. Comment: {}",
                     transitionName, response.metadata().getId(), comment);
-                
+
                 // TODO: Pass engineOptions to EntityService when framework supports it
                 // Currently only transition name is supported
                 response = entityService.update(
-                    response.metadata().getId(), 
-                    response.entity(), 
+                    response.metadata().getId(),
+                    response.entity(),
                     transitionName
                 );
             }
@@ -146,7 +146,7 @@ public class AccrualController {
                 .toUri();
 
             return ResponseEntity.created(location).body(response);
-            
+
         } catch (Exception e) {
             logger.error("Failed to create accrual", e);
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
@@ -160,7 +160,7 @@ public class AccrualController {
     /**
      * Get accrual by technical UUID
      * GET /accruals/{accrualId}
-     * 
+     *
      * @param accrualId Technical UUID of the accrual
      * @return 200 OK with accrual and metadata, or 404 Not Found
      */
@@ -170,12 +170,12 @@ public class AccrualController {
             ModelSpec modelSpec = new ModelSpec()
                 .withName(Accrual.ENTITY_NAME)
                 .withVersion(Accrual.ENTITY_VERSION);
-            
+
             EntityWithMetadata<Accrual> response = entityService.getById(
                 accrualId, modelSpec, Accrual.class, null);
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             logger.error("Failed to retrieve accrual with ID: {}", accrualId, e);
             return ResponseEntity.notFound().build();
@@ -185,14 +185,14 @@ public class AccrualController {
     /**
      * Update accrual with optional workflow transition
      * PATCH /accruals/{accrualId}
-     * 
+     *
      * <p>Request body supports:</p>
      * <ul>
      *   <li>accrual - Partial or full accrual entity data (required)</li>
      *   <li>transitionRequest - Optional workflow transition to trigger after update</li>
      *   <li>engineOptions - Optional engine execution options (simulate, maxSteps)</li>
      * </ul>
-     * 
+     *
      * @param accrualId Technical UUID of the accrual to update
      * @param request The update request containing accrual data and optional transition
      * @return 200 OK with updated accrual and metadata
@@ -213,22 +213,22 @@ public class AccrualController {
 
             Accrual accrual = request.getAccrual();
             String transitionName = null;
-            
+
             if (request.getTransitionRequest() != null && request.getTransitionRequest().getName() != null) {
                 transitionName = request.getTransitionRequest().getName();
                 String comment = request.getTransitionRequest().getComment();
-                
-                logger.info("Updating accrual {} with transition '{}'. Comment: {}", 
+
+                logger.info("Updating accrual {} with transition '{}'. Comment: {}",
                     accrualId, transitionName, comment);
             }
-            
+
             // TODO: Pass engineOptions to EntityService when framework supports it
             EntityWithMetadata<Accrual> response = entityService.update(
                 accrualId, accrual, transitionName);
-            
+
             logger.info("Accrual updated with ID: {}", accrualId);
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             logger.error("Failed to update accrual with ID: {}", accrualId, e);
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
@@ -242,9 +242,9 @@ public class AccrualController {
     /**
      * Query accruals with optional filters
      * GET /accruals?loanId=LOAN-123&asOfDate=2025-10-07&state=POSTED&runId=RUN-001
-     * 
+     *
      * <p>All query parameters are optional. Returns all accruals if no filters provided.</p>
-     * 
+     *
      * @param loanId Optional filter by loan ID
      * @param asOfDate Optional filter by as-of date
      * @param state Optional filter by workflow state
@@ -287,7 +287,7 @@ public class AccrualController {
             }
 
             List<EntityWithMetadata<Accrual>> accruals;
-            
+
             if (conditions.isEmpty()) {
                 // No entity field filters - use findAll
                 accruals = entityService.findAll(modelSpec, Accrual.class, null);
@@ -307,7 +307,7 @@ public class AccrualController {
             }
 
             return ResponseEntity.ok(accruals);
-            
+
         } catch (Exception e) {
             logger.error("Failed to query accruals", e);
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
