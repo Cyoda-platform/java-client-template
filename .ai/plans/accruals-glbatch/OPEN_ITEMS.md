@@ -266,16 +266,34 @@ All items from Step 5 are complete. No open items.
 
 ---
 
-## Step 6: EODAccrualBatch Workflow Criteria Functions - NOT STARTED ⏳
+## Step 6: EODAccrualBatch Workflow Criteria Functions - COMPLETED ✅ (with TODOs)
 
-- [ ] **CRIT-EOD-001**: Implement NoActiveBatchForDateCriterion
-- [ ] **CRIT-EOD-002**: Implement UserHasPermissionCriterion
-- [ ] **CRIT-EOD-003**: Implement AllAccrualsPostedCriterion
-- [ ] **CRIT-EOD-004**: Implement IsBackDatedRunCriterion
-- [ ] **CRIT-EOD-005**: Implement IsTodayRunCriterion
-- [ ] **CRIT-EOD-006**: Implement CascadeSettledCriterion
-- [ ] **CRIT-EOD-007**: Implement BatchBalancedCriterion
-- [ ] **TEST-EOD-001**: Create unit tests for all EOD batch criteria
+### UserHasPermissionCriterion
+**Priority: High**
+
+- [ ] **PERM-001**: Integrate with actual permission/authorization service
+  - **Current**: Placeholder permission check (always returns true)
+  - **Required**: Integration with real permission service
+  - **Impact**: Cannot enforce permission-based access control
+  - **Effort**: Medium (requires permission service design/integration)
+
+### CascadeSettledCriterion
+**Priority: Medium**
+
+- [ ] **CASCADE-001**: Implement proper cascade relationship tracking
+  - **Current**: Simple date-based filtering (asOfDate >= cascadeFromDate)
+  - **Required**: Track actual cascade relationships between batches
+  - **Impact**: May incorrectly determine cascade completion
+  - **Effort**: Medium (requires cascade tracking design)
+
+### General EOD Batch Criteria TODOs
+**Priority: Medium**
+
+- [ ] **TEST-EOD-001**: Add integration tests for all EOD batch criteria
+  - **Current**: Only basic supports() tests
+  - **Required**: Full evaluation logic tests with mock EntityService
+  - **Impact**: Limited test coverage
+  - **Effort**: Large
 
 ---
 
@@ -379,6 +397,6 @@ All items from Step 5 are complete. No open items.
 
 ---
 
-**Last Updated**: 2025-10-06 (Step 5 completion)
-**Next Review**: After Step 6 completion
+**Last Updated**: 2025-10-06 (Step 6 completion)
+**Next Review**: After Step 7 completion
 
