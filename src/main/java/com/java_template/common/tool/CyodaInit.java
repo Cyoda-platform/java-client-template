@@ -171,8 +171,13 @@ public class CyodaInit {
                     String fileName = path.getFileName().toString().toLowerCase();
                     String entityNameLower = entityName.toLowerCase();
 
+                    // Remove .json extension from filename
+                    String fileNameWithoutExtension = fileName.endsWith(".json")
+                        ? fileName.substring(0, fileName.length() - 5)
+                        : fileName;
+
                     // Match by entity name and version directory
-                    return (fileName.startsWith(entityNameLower) || fileName.contains(entityNameLower)) &&
+                    return fileNameWithoutExtension.equals(entityNameLower) &&
                            (pathStr.contains("version_" + version) || pathStr.contains("v" + version));
                 })
                 .findFirst()
