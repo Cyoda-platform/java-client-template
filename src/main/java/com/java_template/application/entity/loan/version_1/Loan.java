@@ -57,12 +57,10 @@ public class Loan implements CyodaEntity {
     private Integer termMonths; // 12, 24, or 36 months
 
     @NotNull(message = "Funding date is required")
-    @PastOrPresent(message = "Funding date cannot be in the future")
     @JsonProperty("fundingDate")
     private LocalDate fundingDate;
 
     @NotNull(message = "Maturity date is required")
-    @Future(message = "Maturity date must be in the future")
     @JsonProperty("maturityDate")
     private LocalDate maturityDate;
 

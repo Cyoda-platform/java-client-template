@@ -96,12 +96,6 @@ public class NewLoanValidationCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Principal amount must be positive", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
-        // Validate funding date is not in the past
-        if (loan.getFundingDate() != null && loan.getFundingDate().isBefore(LocalDate.now())) {
-            logger.warn("Funding date is in the past for loan {}: {}", loan.getLoanId(), loan.getFundingDate());
-            return EvaluationOutcome.fail("Funding date cannot be in the past", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-
         // Validate that the referenced party exists and is active
         EvaluationOutcome partyValidation = validatePartyExists(loan.getPartyId());
         if (partyValidation.isFailure()) {
