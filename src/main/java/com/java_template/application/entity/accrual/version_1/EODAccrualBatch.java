@@ -109,6 +109,12 @@ public class EODAccrualBatch implements CyodaEntity {
     @JsonProperty("reportId")
     private UUID reportId;
 
+    /**
+     * Validation error tracking
+     */
+    @JsonProperty("validationErrorReason")
+    private String validationErrorReason;
+
     @Override
     public OperationSpecification getModelKey() {
         ModelSpec modelSpec = new ModelSpec();

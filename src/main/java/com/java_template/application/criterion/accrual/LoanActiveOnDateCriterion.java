@@ -66,7 +66,7 @@ public class LoanActiveOnDateCriterion implements CyodaCriterion {
      * @param context The criterion evaluation context containing the accrual
      * @return EvaluationOutcome.success() if loan was active, otherwise failure with reason
      */
-    private EvaluationOutcome validateLoanActive(CriterionSerializer.CriterionEntityEvaluationContext<Accrual> context) {
+    public EvaluationOutcome validateLoanActive(CriterionSerializer.CriterionEntityEvaluationContext<Accrual> context) {
         Accrual accrual = context.entityWithMetadata().entity();
 
         // Check if entity is null (structural validation)

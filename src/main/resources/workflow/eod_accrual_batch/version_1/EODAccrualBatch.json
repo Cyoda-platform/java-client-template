@@ -12,48 +12,67 @@
           "next": "VALIDATED",
           "manual": true,
           "criterion": {
-            "type": "group",
-            "operator": "AND",
-            "conditions": [
-              {
-                "type": "function",
-                "function": {
-                  "name": "IsBusinessDay",
-                  "config": {
-                    "attachEntity": true,
-                    "calculationNodesTags": "cyoda_application",
-                    "responseTimeoutMs": 3000,
-                    "retryPolicy": "FIXED"
-                  }
-                }
-              },
-              {
-                "type": "function",
-                "function": {
-                  "name": "NoActiveBatchForDate",
-                  "config": {
-                    "attachEntity": true,
-                    "calculationNodesTags": "cyoda_application",
-                    "responseTimeoutMs": 3000,
-                    "retryPolicy": "FIXED"
-                  }
-                }
-              },
-              {
-                "type": "function",
-                "function": {
-                  "name": "UserHasPermission",
-                  "config": {
-                    "attachEntity": true,
-                    "context": "backdated_eod_execute",
-                    "calculationNodesTags": "cyoda_application",
-                    "responseTimeoutMs": 3000,
-                    "retryPolicy": "FIXED"
-                  }
-                }
+            "type": "function",
+            "function": {
+              "name": "EODAccrualBatchValidationCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
               }
-            ]
+            }
           }
+        },
+        {
+          "name": "VALIDATION_FAILED",
+          "next": "VALIDATION_ERROR",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "EODAccrualBatchValidationFailedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "AttachEODAccrualBatchValidationErrorProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION_ERROR": {
+      "transitions": [
+        {
+          "name": "FIX",
+          "next": "REQUESTED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ClearValidationErrorReasonProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
         }
       ]
     },
@@ -80,7 +99,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -101,7 +120,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "accruals",
-                "responseTimeoutMs": 30000,
+                "responseTimeoutMs": 100000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -122,7 +141,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 5000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -143,7 +162,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -155,7 +174,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "recalc",
-                "responseTimeoutMs": 30000,
+                "responseTimeoutMs": 100000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -172,7 +191,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -193,7 +212,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 5000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -214,7 +233,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }

@@ -61,7 +61,7 @@ public class NewLoanValidationCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Loan> context) {
+    public EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Loan> context) {
         Loan loan = context.entityWithMetadata().entity();
 
         // Check if entity is null (structural validation)

@@ -18,11 +18,61 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
           }
+        },
+        {
+          "name": "validation_failed",
+          "next": "validation_error",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "NewPartyValidationFailedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "AttachNewPartyValidationErrorProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validation_error": {
+      "transitions": [
+        {
+          "name": "FIX",
+          "next": "initial",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ClearValidationErrorReasonProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
         }
       ]
     },
@@ -30,7 +80,7 @@
       "transitions": [
         {
           "name": "update_party",
-          "next": "active",
+          "next": "initial",
           "manual": true,
           "processors": [
             {
@@ -39,7 +89,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }

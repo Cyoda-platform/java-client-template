@@ -28,6 +28,9 @@ public class Party implements CyodaEntity {
     private PartyContact contact;
     private PartyAddress address;
 
+    // Validation error tracking
+    private String validationErrorReason;
+
     @Override
     public OperationSpecification getModelKey() {
         ModelSpec modelSpec = new ModelSpec();

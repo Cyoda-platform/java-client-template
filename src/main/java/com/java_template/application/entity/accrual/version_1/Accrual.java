@@ -135,6 +135,12 @@ public class Accrual implements CyodaEntity {
     @JsonProperty("error")
     private AccrualError error;
 
+    /**
+     * Validation error tracking
+     */
+    @JsonProperty("validationErrorReason")
+    private String validationErrorReason;
+
     @Override
     public OperationSpecification getModelKey() {
         ModelSpec modelSpec = new ModelSpec();

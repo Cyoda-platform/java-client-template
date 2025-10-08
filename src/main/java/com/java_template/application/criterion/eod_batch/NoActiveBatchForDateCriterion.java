@@ -71,7 +71,7 @@ public class NoActiveBatchForDateCriterion implements CyodaCriterion {
      * @param context The criterion evaluation context containing the batch
      * @return EvaluationOutcome.success() if no active batch exists, otherwise failure with reason
      */
-    private EvaluationOutcome validateNoActiveBatch(CriterionSerializer.CriterionEntityEvaluationContext<EODAccrualBatch> context) {
+    EvaluationOutcome validateNoActiveBatch(CriterionSerializer.CriterionEntityEvaluationContext<EODAccrualBatch> context) {
         EODAccrualBatch batch = context.entityWithMetadata().entity();
 
         // Check if entity is null (structural validation)

@@ -76,7 +76,7 @@ public class IsBusinessDayCriterion implements CyodaCriterion {
      * @param context The criterion evaluation context containing the accrual
      * @return EvaluationOutcome.success() if valid business day, otherwise failure with reason
      */
-    private EvaluationOutcome validateBusinessDay(CriterionSerializer.CriterionEntityEvaluationContext<Accrual> context) {
+    public EvaluationOutcome validateBusinessDay(CriterionSerializer.CriterionEntityEvaluationContext<Accrual> context) {
         Accrual accrual = context.entityWithMetadata().entity();
 
         // Check if entity is null (structural validation)

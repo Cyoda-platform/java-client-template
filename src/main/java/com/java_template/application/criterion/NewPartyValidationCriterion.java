@@ -46,7 +46,7 @@ public class NewPartyValidationCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Party> context) {
+    public EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Party> context) {
         Party party = context.entityWithMetadata().entity();
 
         // Check if entity is null (structural validation)

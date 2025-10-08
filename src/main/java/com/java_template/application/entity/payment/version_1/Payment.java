@@ -44,6 +44,9 @@ public class Payment implements CyodaEntity {
     // Audit information
     private PaymentAudit audit;
 
+    // Validation error tracking
+    private String validationErrorReason;
+
     @Override
     public OperationSpecification getModelKey() {
         ModelSpec modelSpec = new ModelSpec();

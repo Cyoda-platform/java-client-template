@@ -48,7 +48,7 @@ public class PaymentValidationCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Payment> context) {
+    public EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<Payment> context) {
         Payment payment = context.entityWithMetadata().entity();
 
         // Check if entity is null (structural validation)

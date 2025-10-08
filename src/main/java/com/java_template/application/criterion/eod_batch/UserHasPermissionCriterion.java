@@ -58,7 +58,7 @@ public class UserHasPermissionCriterion implements CyodaCriterion {
      * @param context The criterion evaluation context containing the batch
      * @return EvaluationOutcome.success() if user has permission, otherwise failure with reason
      */
-    private EvaluationOutcome validateUserPermission(CriterionSerializer.CriterionEntityEvaluationContext<EODAccrualBatch> context) {
+    EvaluationOutcome validateUserPermission(CriterionSerializer.CriterionEntityEvaluationContext<EODAccrualBatch> context) {
         EODAccrualBatch batch = context.entityWithMetadata().entity();
 
         // Check if entity is null (structural validation)

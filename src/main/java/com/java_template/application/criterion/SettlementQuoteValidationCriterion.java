@@ -49,7 +49,7 @@ public class SettlementQuoteValidationCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<SettlementQuote> context) {
+    public EvaluationOutcome validateEntity(CriterionSerializer.CriterionEntityEvaluationContext<SettlementQuote> context) {
         SettlementQuote quote = context.entityWithMetadata().entity();
 
         // Check if entity is null (structural validation)

@@ -70,7 +70,7 @@ public class NotDuplicateAccrualCriterion implements CyodaCriterion {
      * @param context The criterion evaluation context containing the accrual
      * @return EvaluationOutcome.success() if not a duplicate, otherwise failure with reason
      */
-    private EvaluationOutcome validateNotDuplicate(CriterionSerializer.CriterionEntityEvaluationContext<Accrual> context) {
+    public EvaluationOutcome validateNotDuplicate(CriterionSerializer.CriterionEntityEvaluationContext<Accrual> context) {
         Accrual accrual = context.entityWithMetadata().entity();
         String currentAccrualId = context.entityWithMetadata().metadata().getId().toString();
 

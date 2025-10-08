@@ -12,53 +12,67 @@
           "next": "ELIGIBLE",
           "manual": false,
           "criterion": {
-            "type": "group",
-            "operator": "AND",
-            "conditions": [
-              {
-                "type": "function",
-                "function": {
-                  "name": "IsBusinessDay",
-                  "config": {
-                    "attachEntity": true,
-                    "calculationNodesTags": "cyoda_application",
-                    "responseTimeoutMs": 3000,
-                    "retryPolicy": "FIXED"
-                  }
-                }
-              },
-              {
-                "type": "function",
-                "function": {
-                  "name": "LoanActiveOnDate",
-                  "config": {
-                    "attachEntity": true,
-                    "calculationNodesTags": "cyoda_application",
-                    "responseTimeoutMs": 3000,
-                    "retryPolicy": "FIXED"
-                  }
-                }
-              },
-              {
-                "type": "function",
-                "function": {
-                  "name": "NotDuplicateAccrual",
-                  "config": {
-                    "attachEntity": true,
-                    "calculationNodesTags": "cyoda_application",
-                    "responseTimeoutMs": 3000,
-                    "retryPolicy": "FIXED"
-                  }
-                }
-              },
-              {
-                "type": "simple",
-                "jsonPath": "$.principalSnapshot.amount",
-                "operatorType": "GREATER_THAN",
-                "value": 0
+            "type": "function",
+            "function": {
+              "name": "AccrualValidationCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
               }
-            ]
+            }
           }
+        },
+        {
+          "name": "VALIDATION_FAILED",
+          "next": "VALIDATION_ERROR",
+          "manual": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "AccrualValidationFailedCriterion",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          },
+          "processors": [
+            {
+              "name": "AttachAccrualValidationErrorProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATION_ERROR": {
+      "transitions": [
+        {
+          "name": "FIX",
+          "next": "NEW",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ClearValidationErrorReasonProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
         }
       ]
     },
@@ -75,7 +89,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             },
@@ -85,7 +99,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "accruals",
-                "responseTimeoutMs": 5000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -111,7 +125,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -124,7 +138,7 @@
                 "attachEntity": true,
                 "targetPath": "$.journalEntries",
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 5000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             },
@@ -135,7 +149,7 @@
                 "attachEntity": true,
                 "sourcePath": "$.journalEntries",
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 5000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -161,7 +175,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 3000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }
@@ -174,7 +188,7 @@
                 "attachEntity": true,
                 "targetPath": "$.journalEntries",
                 "calculationNodesTags": "accruals",
-                "responseTimeoutMs": 5000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             },
@@ -184,7 +198,7 @@
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "accruals",
-                "responseTimeoutMs": 5000,
+                "responseTimeoutMs": 10000,
                 "retryPolicy": "FIXED"
               }
             }

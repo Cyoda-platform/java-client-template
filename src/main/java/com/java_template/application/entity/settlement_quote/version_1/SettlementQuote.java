@@ -38,6 +38,9 @@ public class SettlementQuote implements CyodaEntity {
     // Audit information
     private SettlementAudit audit;
 
+    // Validation error tracking
+    private String validationErrorReason;
+
     @Override
     public OperationSpecification getModelKey() {
         ModelSpec modelSpec = new ModelSpec();

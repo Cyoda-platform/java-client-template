@@ -94,6 +94,10 @@ public class Loan implements CyodaEntity {
     @JsonProperty("facilities")
     private List<LoanFacility> facilities;
 
+    // Validation error tracking
+    @JsonProperty("validationErrorReason")
+    private String validationErrorReason;
+
     @Override
     public OperationSpecification getModelKey() {
         ModelSpec modelSpec = new ModelSpec();
