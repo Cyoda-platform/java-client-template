@@ -68,12 +68,6 @@ public class PaymentValidationCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Payment amount must be positive", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
-        // Business rule: Value date should not be in the future
-        if (payment.getValueDate() != null && payment.getValueDate().isAfter(java.time.LocalDate.now())) {
-            logger.warn("Payment value date is in the future: {}", payment.getValueDate());
-            return EvaluationOutcome.fail("Value date cannot be in the future", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
-        }
-
         return EvaluationOutcome.success();
     }
 }
