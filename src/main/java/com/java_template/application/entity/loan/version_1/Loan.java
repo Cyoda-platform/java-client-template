@@ -1,7 +1,10 @@
 package com.java_template.application.entity.loan.version_1;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
@@ -20,27 +23,77 @@ public class Loan implements CyodaEntity {
     public static final Integer ENTITY_VERSION = 1;
 
     // Required business identifier field
+    @NotNull(message = "Loan ID is required")
+    @NotBlank(message = "Loan ID cannot be blank")
+    @JsonProperty("loanId")
     private String loanId;
 
     // Required core business fields
+    @NotNull(message = "Agreement ID is required")
+    @NotBlank(message = "Agreement ID cannot be blank")
+    @JsonProperty("agreementId")
     private String agreementId;
+
+    @NotNull(message = "Party ID is required")
+    @NotBlank(message = "Party ID cannot be blank")
+    @JsonProperty("partyId")
     private String partyId; // Reference to borrower Party
+
+    @NotNull(message = "Principal amount is required")
+    @Positive(message = "Principal amount must be positive")
+    @JsonProperty("principalAmount")
     private BigDecimal principalAmount;
+
+    @NotNull(message = "APR is required")
+    @Positive(message = "APR must be positive")
+    @DecimalMax(value = "100.0", message = "APR cannot exceed 100%")
+    @JsonProperty("apr")
     private BigDecimal apr; // Annual Percentage Rate
+
+    @NotNull(message = "Term in months is required")
+    @Min(value = 1, message = "Term must be at least 1 month")
+    @Max(value = 360, message = "Term cannot exceed 360 months")
+    @JsonProperty("termMonths")
     private Integer termMonths; // 12, 24, or 36 months
+
+    @NotNull(message = "Funding date is required")
+    @PastOrPresent(message = "Funding date cannot be in the future")
+    @JsonProperty("fundingDate")
     private LocalDate fundingDate;
+
+    @NotNull(message = "Maturity date is required")
+    @Future(message = "Maturity date must be in the future")
+    @JsonProperty("maturityDate")
     private LocalDate maturityDate;
 
     // Financial balances (managed by system)
+    @PositiveOrZero(message = "Outstanding principal cannot be negative")
+    @JsonProperty("outstandingPrincipal")
     private BigDecimal outstandingPrincipal;
+
+    @JsonProperty("accruedInterest")
     private BigDecimal accruedInterest;
 
     // Optional fields for additional business data
+    @JsonProperty("purpose")
     private String purpose; // e.g., "General corporate purposes"
+
+    @JsonProperty("governingLaw")
     private String governingLaw; // e.g., "England and Wales"
+
+    @JsonProperty("dayCountBasis")
     private String dayCountBasis; // e.g., "ACT/365", "ACT/360", "30/360"
+
+    @Size(min = 3, max = 3, message = "Currency must be a 3-letter ISO code")
+    @JsonProperty("currency")
     private String currency; // e.g., "GBP", "USD"
+
+    @Valid
+    @JsonProperty("parties")
     private List<LoanParty> parties; // All parties involved in the loan
+
+    @Valid
+    @JsonProperty("facilities")
     private List<LoanFacility> facilities;
 
     @Override

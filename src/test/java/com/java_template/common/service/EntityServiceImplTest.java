@@ -9,6 +9,7 @@ import com.java_template.common.workflow.OperationSpecification;
 import lombok.Getter;
 import lombok.Setter;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -95,6 +96,7 @@ class EntityServiceImplTest {
         EntityTransactionResponse response = new EntityTransactionResponse();
         EntityTransactionInfo transactionInfo = new EntityTransactionInfo();
         transactionInfo.setEntityIds(List.of(entityId));
+        transactionInfo.setTransactionId(UUID.randomUUID());
         response.setTransactionInfo(transactionInfo);
         return response;
     }
@@ -248,6 +250,14 @@ class EntityServiceImplTest {
         EntityTransactionResponse transactionResponse = createTransactionResponse(savedEntityId);
         when(repository.save(eq(createTestModelSpec()), any()))
                 .thenReturn(CompletableFuture.completedFuture(transactionResponse));
+        when(repository.findById(eq(savedEntityId), any()))
+                .thenReturn(CompletableFuture.completedFuture(createTestDataPayload(testEntity, savedEntityId)));
+        when(repository.getEntityChangesMetadata(eq(savedEntityId), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(List.of(
+                        new EntityChangeMeta()
+                                .withTransactionId(transactionResponse.getTransactionInfo().getTransactionId())
+                                .withTimeOfChange(new Date())
+                )));
 
         EntityWithMetadata<TestEntity> result = entityService.create(testEntity);
 
@@ -314,6 +324,14 @@ class EntityServiceImplTest {
         EntityTransactionResponse response = createTransactionResponse(testEntityId);
         when(repository.update(eq(testEntityId), any(), isNull()))
                 .thenReturn(CompletableFuture.completedFuture(response));
+        when(repository.findById(eq(testEntityId), any()))
+                .thenReturn(CompletableFuture.completedFuture(createTestDataPayload(testEntity, testEntityId)));
+        when(repository.getEntityChangesMetadata(eq(testEntityId), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(List.of(
+                        new EntityChangeMeta()
+                                .withTransactionId(response.getTransactionInfo().getTransactionId())
+                                .withTimeOfChange(new Date())
+                )));
 
         EntityWithMetadata<TestEntity> result = entityService.update(testEntityId, testEntity, null);
 
@@ -331,6 +349,14 @@ class EntityServiceImplTest {
         EntityTransactionResponse response = createTransactionResponse(testEntityId);
         when(repository.update(eq(testEntityId), any(), eq(TRANSITION_ACTIVATE)))
                 .thenReturn(CompletableFuture.completedFuture(response));
+        when(repository.findById(eq(testEntityId), any()))
+                .thenReturn(CompletableFuture.completedFuture(createTestDataPayload(testEntity, testEntityId)));
+        when(repository.getEntityChangesMetadata(eq(testEntityId), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(List.of(
+                        new EntityChangeMeta()
+                                .withTransactionId(response.getTransactionInfo().getTransactionId())
+                                .withTimeOfChange(new Date())
+                )));
 
         EntityWithMetadata<TestEntity> result = entityService.update(testEntityId, testEntity, TRANSITION_ACTIVATE);
 
@@ -388,6 +414,15 @@ class EntityServiceImplTest {
         List<EntityTransactionResponse> responses = List.of(createTransactionResponse(testEntityId));
         when(repository.updateAll(any(), isNull()))
                 .thenReturn(CompletableFuture.completedFuture(responses));
+
+        when(repository.findById(eq(testEntityId), any()))
+                .thenReturn(CompletableFuture.completedFuture(createTestDataPayload(testEntity, testEntityId)));
+        when(repository.getEntityChangesMetadata(eq(testEntityId), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(List.of(
+                        new EntityChangeMeta()
+                                .withTransactionId(responses.getFirst().getTransactionInfo().getTransactionId())
+                                .withTimeOfChange(new Date())
+                )));
 
         List<EntityWithMetadata<TestEntity>> result = entityService.updateAll(entities, null);
 
@@ -708,6 +743,15 @@ class EntityServiceImplTest {
         when(repository.update(eq(existingEntityTechnicalId), any(), eq(TRANSITION_ACTIVATE)))
                 .thenReturn(CompletableFuture.completedFuture(updateResponse));
 
+        when(repository.findById(eq(existingEntityTechnicalId), any()))
+                .thenReturn(CompletableFuture.completedFuture(foundPayload));
+        when(repository.getEntityChangesMetadata(eq(existingEntityTechnicalId), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(List.of(
+                        new EntityChangeMeta()
+                                .withTransactionId(updateResponse.getTransactionInfo().getTransactionId())
+                                .withTimeOfChange(new Date())
+                )));
+
         EntityWithMetadata<TestEntity> result = entityService.updateByBusinessId(testEntity, BUSINESS_ID_FIELD, TRANSITION_ACTIVATE);
 
         assertNotNull(result);
@@ -770,10 +814,30 @@ class EntityServiceImplTest {
         Collection<TestEntity> entities = List.of(testEntity, testEntity2);
         EntityTransactionInfo transactionInfo = new EntityTransactionInfo();
         transactionInfo.setEntityIds(List.of(testEntityId, testEntityId2));
+        transactionInfo.setTransactionId(UUID.randomUUID());
         EntityTransactionResponse transactionResponse = new EntityTransactionResponse();
         transactionResponse.setTransactionInfo(transactionInfo);
+
         when(repository.saveAll(createTestModelSpec(), entities))
                 .thenReturn(CompletableFuture.completedFuture(transactionResponse));
+
+        when(repository.findById(eq(testEntityId), any()))
+                .thenReturn(CompletableFuture.completedFuture(createTestDataPayload(testEntity, testEntityId)));
+        when(repository.getEntityChangesMetadata(eq(testEntityId), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(List.of(
+                        new EntityChangeMeta()
+                                .withTransactionId(transactionResponse.getTransactionInfo().getTransactionId())
+                                .withTimeOfChange(new Date())
+                )));
+
+        when(repository.findById(eq(testEntityId2), any()))
+                .thenReturn(CompletableFuture.completedFuture(createTestDataPayload(testEntity2, testEntityId2)));
+        when(repository.getEntityChangesMetadata(eq(testEntityId2), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(List.of(
+                        new EntityChangeMeta()
+                                .withTransactionId(transactionResponse.getTransactionInfo().getTransactionId())
+                                .withTimeOfChange(new Date())
+                )));
 
         List<EntityWithMetadata<TestEntity>> result = entityService.save(entities);
 

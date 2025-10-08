@@ -5,6 +5,7 @@ import com.java_template.application.entity.party.version_1.Party;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.CyodaExceptionUtil;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -12,6 +13,8 @@ import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -49,7 +52,7 @@ public class PartyController {
      * POST /ui/parties
      */
     @PostMapping
-    public ResponseEntity<?> createParty(@RequestBody Party party) {
+    public ResponseEntity<EntityWithMetadata<Party>> createParty(@RequestBody Party party) {
         try {
             // Check for duplicate business identifier
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
@@ -145,7 +148,7 @@ public class PartyController {
      * GET /ui/parties/{id}/changes?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/{id}/changes")
-    public ResponseEntity<?> getPartyChangesMetadata(
+    public ResponseEntity<List<EntityChangeMeta>> getPartyChangesMetadata(
             @PathVariable UUID id,
             @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
@@ -195,7 +198,7 @@ public class PartyController {
      * GET /ui/parties?page=0&size=20&status=ACTIVE&jurisdiction=GB&pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping
-    public ResponseEntity<?> listParties(
+    public ResponseEntity<Page<EntityWithMetadata<Party>>> listParties(
             Pageable pageable,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String jurisdiction,
@@ -228,12 +231,21 @@ public class PartyController {
                 // Use paginated findAll when no filters
                 return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Party.class, pointInTimeDate));
             } else {
-                // For filtered results, use search (returns all matching results, not paginated)
+                // For filtered results, get all matching results then manually paginate
                 GroupCondition groupCondition = new GroupCondition()
                         .withOperator(GroupCondition.Operator.AND)
                         .withConditions(conditions);
                 List<EntityWithMetadata<Party>> parties = entityService.search(modelSpec, groupCondition, Party.class, pointInTimeDate);
-                return ResponseEntity.ok(parties);
+
+                // Manually paginate the filtered results
+                int start = (int) pageable.getOffset();
+                int end = Math.min(start + pageable.getPageSize(), parties.size());
+                List<EntityWithMetadata<Party>> pageContent = start < parties.size()
+                    ? parties.subList(start, end)
+                    : new ArrayList<>();
+
+                Page<EntityWithMetadata<Party>> page = new PageImpl<>(pageContent, pageable, parties.size());
+                return ResponseEntity.ok(page);
             }
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
@@ -371,7 +383,7 @@ public class PartyController {
      * DELETE /ui/parties
      */
     @DeleteMapping
-    public ResponseEntity<?> deleteAllParties() {
+    public ResponseEntity<String> deleteAllParties() {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Party.ENTITY_NAME).withVersion(Party.ENTITY_VERSION);
             Integer deletedCount = entityService.deleteAll(modelSpec);

@@ -53,7 +53,7 @@ public class AccrualController {
      * POST /ui/accruals
      */
     @PostMapping
-    public ResponseEntity<?> createAccrual(@RequestBody Accrual accrual) {
+    public ResponseEntity<EntityWithMetadata<Accrual>> createAccrual(@RequestBody Accrual accrual) {
         try {
             // Check for duplicate business identifier
             ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
@@ -149,7 +149,7 @@ public class AccrualController {
      * GET /ui/accruals/{id}/changes?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/{id}/changes")
-    public ResponseEntity<?> getAccrualChangesMetadata(
+    public ResponseEntity<List<EntityChangeMeta>> getAccrualChangesMetadata(
             @PathVariable UUID id,
             @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
@@ -328,7 +328,7 @@ public class AccrualController {
      * DELETE /ui/accruals
      */
     @DeleteMapping
-    public ResponseEntity<?> deleteAllAccruals() {
+    public ResponseEntity<String> deleteAllAccruals() {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Accrual.ENTITY_NAME).withVersion(Accrual.ENTITY_VERSION);
             Integer deletedCount = entityService.deleteAll(modelSpec);

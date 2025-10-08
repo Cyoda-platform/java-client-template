@@ -5,6 +5,7 @@ import com.java_template.application.entity.payment.version_1.Payment;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.CyodaExceptionUtil;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -12,6 +13,8 @@ import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -22,6 +25,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -49,7 +53,7 @@ public class PaymentController {
      * POST /ui/payments
      */
     @PostMapping
-    public ResponseEntity<?> recordPayment(@RequestBody Payment payment) {
+    public ResponseEntity<EntityWithMetadata<Payment>> recordPayment(@RequestBody Payment payment) {
         try {
             // Check for duplicate business identifier
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
@@ -155,7 +159,7 @@ public class PaymentController {
      * GET /ui/payments/{id}/changes?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/{id}/changes")
-    public ResponseEntity<?> getPaymentChangesMetadata(
+    public ResponseEntity<List<EntityChangeMeta>> getPaymentChangesMetadata(
             @PathVariable UUID id,
             @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
@@ -239,7 +243,7 @@ public class PaymentController {
      * GET /ui/payments?page=0&size=20&loanId=LOAN123&status=POSTED&pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping
-    public ResponseEntity<?> listPayments(
+    public ResponseEntity<Page<EntityWithMetadata<Payment>>> listPayments(
             Pageable pageable,
             @RequestParam(required = false) String loanId,
             @RequestParam(required = false) String status,
@@ -264,7 +268,7 @@ public class PaymentController {
                 // Use paginated findAll when no filters
                 return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, Payment.class, pointInTimeDate));
             } else {
-                // For filtered results, use search (returns all matching results, not paginated)
+                // For filtered results, get all matching results then manually paginate
                 List<EntityWithMetadata<Payment>> payments;
                 if (conditions.isEmpty()) {
                     payments = entityService.findAll(modelSpec, Payment.class, pointInTimeDate);
@@ -282,7 +286,15 @@ public class PaymentController {
                             .toList();
                 }
 
-                return ResponseEntity.ok(payments);
+                // Manually paginate the filtered results
+                int start = (int) pageable.getOffset();
+                int end = Math.min(start + pageable.getPageSize(), payments.size());
+                List<EntityWithMetadata<Payment>> pageContent = start < payments.size()
+                    ? payments.subList(start, end)
+                    : new ArrayList<>();
+
+                Page<EntityWithMetadata<Payment>> page = new PageImpl<>(pageContent, pageable, payments.size());
+                return ResponseEntity.ok(page);
             }
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
@@ -386,7 +398,7 @@ public class PaymentController {
      * DELETE /ui/payments
      */
     @DeleteMapping
-    public ResponseEntity<?> deleteAllPayments() {
+    public ResponseEntity<String> deleteAllPayments() {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(Payment.ENTITY_NAME).withVersion(Payment.ENTITY_VERSION);
             Integer deletedCount = entityService.deleteAll(modelSpec);

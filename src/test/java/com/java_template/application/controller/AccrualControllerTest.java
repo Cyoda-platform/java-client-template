@@ -93,6 +93,7 @@ class AccrualControllerTest {
         when(entityService.findByBusinessIdOrNull(any(ModelSpec.class), eq("ACC-2025-001"),
             eq("accrualId"), eq(Accrual.class))).thenReturn(null);
         when(entityService.create(any(Accrual.class))).thenReturn(testAccrualWithMetadata);
+        when(entityService.getById(any(), any(), eq(Accrual.class))).thenReturn(testAccrualWithMetadata);
 
         // When/Then
         mockMvc.perform(post("/ui/accruals")
@@ -272,8 +273,9 @@ class AccrualControllerTest {
                 .param("loanId", "LOAN-123")
                 .param("asOfDate", "2025-10-07"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].entity.accrualId").value("ACC-2025-001"))
-                .andExpect(jsonPath("$[0].entity.loanId").value("LOAN-123"));
+                .andDo(it -> System.out.println(it.getResponse().getContentAsString()))
+                .andExpect(jsonPath("$.content[0].entity.accrualId").value("ACC-2025-001"))
+                .andExpect(jsonPath("$.content[0].entity.loanId").value("LOAN-123"));
     }
 
     @Test
@@ -289,7 +291,7 @@ class AccrualControllerTest {
         mockMvc.perform(get("/ui/accruals")
                 .param("state", "NEW"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].meta.state").value("NEW"));
+                .andExpect(jsonPath("$.content[0].meta.state").value("NEW"));
     }
 
     @Test

@@ -89,6 +89,7 @@ class EODAccrualBatchControllerTest {
     void testCreateBatch() throws Exception {
         // Given
         when(entityService.create(any(EODAccrualBatch.class))).thenReturn(testBatchWithMetadata);
+        when(entityService.getById(any(), any(), eq(EODAccrualBatch.class))).thenReturn(testBatchWithMetadata);
 
         // When/Then
         mockMvc.perform(post("/ui/eod-batches")
@@ -262,8 +263,8 @@ class EODAccrualBatchControllerTest {
                 .param("asOfDate", "2025-08-15")
                 .param("mode", "BACKDATED"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].entity.asOfDate").value("2025-08-15"))
-                .andExpect(jsonPath("$[0].entity.mode").value("BACKDATED"));
+                .andExpect(jsonPath("$.content[0].entity.asOfDate").value("2025-08-15"))
+                .andExpect(jsonPath("$.content[0].entity.mode").value("BACKDATED"));
     }
 
     @Test
@@ -280,7 +281,7 @@ class EODAccrualBatchControllerTest {
                 .param("state", "REQUESTED"))
                 .andExpect(status().isOk())
                 .andDo(it -> System.out.println(it.getResponse().getContentAsString()))
-                .andExpect(jsonPath("$[0].meta.state").value("REQUESTED"));
+                .andExpect(jsonPath("$.content[0].meta.state").value("REQUESTED"));
     }
 
     @Test

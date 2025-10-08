@@ -82,7 +82,7 @@ public class DashboardController {
      * @return ResponseEntity with DashboardSummaryDTO containing all aggregated metrics
      */
     @GetMapping("/summary")
-    public ResponseEntity<?> getDashboardSummary() {
+    public ResponseEntity<DashboardSummaryDTO> getDashboardSummary() {
         logger.info("GET /ui/dashboard/summary - Retrieving dashboard summary");
 
         // Defensive check for service availability

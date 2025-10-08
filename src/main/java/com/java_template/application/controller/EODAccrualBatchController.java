@@ -1,6 +1,7 @@
 package com.java_template.application.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.java_template.application.entity.accrual.version_1.Accrual;
 import com.java_template.application.entity.accrual.version_1.BatchMode;
 import com.java_template.application.entity.accrual.version_1.EODAccrualBatch;
 import com.java_template.common.dto.EntityWithMetadata;
@@ -14,6 +15,8 @@ import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -52,7 +55,7 @@ public class EODAccrualBatchController {
      * POST /ui/eod-batches
      */
     @PostMapping
-    public ResponseEntity<?> createBatch(@RequestBody EODAccrualBatch batch) {
+    public ResponseEntity<EntityWithMetadata<EODAccrualBatch>> createBatch(@RequestBody EODAccrualBatch batch) {
         try {
             // Note: EODAccrualBatch uses UUID batchId which is auto-generated
             // No duplicate check needed as UUID is unique
@@ -137,7 +140,7 @@ public class EODAccrualBatchController {
      * GET /ui/eod-batches/{id}/changes?pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping("/{id}/changes")
-    public ResponseEntity<?> getBatchChangesMetadata(
+    public ResponseEntity<List<EntityChangeMeta>> getBatchChangesMetadata(
             @PathVariable UUID id,
             @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
@@ -187,7 +190,7 @@ public class EODAccrualBatchController {
      * GET /ui/eod-batches?page=0&size=20&state=COMPLETED&asOfDate=2025-10-07&mode=TODAY&pointInTime=2025-10-03T10:15:30Z
      */
     @GetMapping
-    public ResponseEntity<?> listBatches(
+    public ResponseEntity<Page<EntityWithMetadata<EODAccrualBatch>>> listBatches(
             Pageable pageable,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) LocalDate asOfDate,
@@ -221,7 +224,7 @@ public class EODAccrualBatchController {
                 // Use paginated findAll when no filters
                 return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, EODAccrualBatch.class, pointInTimeDate));
             } else {
-                // For filtered results, use search (returns all matching results, not paginated)
+                // For filtered results, get all matching results then manually paginate
                 List<EntityWithMetadata<EODAccrualBatch>> batches;
                 if (conditions.isEmpty()) {
                     batches = entityService.findAll(modelSpec, EODAccrualBatch.class, pointInTimeDate);
@@ -239,7 +242,15 @@ public class EODAccrualBatchController {
                             .toList();
                 }
 
-                return ResponseEntity.ok(batches);
+                // Manually paginate the filtered results
+                int start = (int) pageable.getOffset();
+                int end = Math.min(start + pageable.getPageSize(), batches.size());
+                List<EntityWithMetadata<EODAccrualBatch>> pageContent = start < batches.size()
+                    ? batches.subList(start, end)
+                    : new ArrayList<>();
+
+                Page<EntityWithMetadata<EODAccrualBatch>> page = new PageImpl<>(pageContent, pageable, batches.size());
+                return ResponseEntity.ok(page);
             }
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
@@ -299,7 +310,7 @@ public class EODAccrualBatchController {
      * DELETE /ui/eod-batches
      */
     @DeleteMapping
-    public ResponseEntity<?> deleteAllBatches() {
+    public ResponseEntity<String> deleteAllBatches() {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(EODAccrualBatch.ENTITY_NAME).withVersion(EODAccrualBatch.ENTITY_VERSION);
             Integer deletedCount = entityService.deleteAll(modelSpec);
