@@ -47,7 +47,6 @@ class EntityServiceImplTest {
     private static final String MODEL_NAME = "test-entity";
     private static final int MODEL_VERSION = 1;
     private static final String BUSINESS_ID_FIELD = "name";
-    private static final String TRANSITION_UPDATE = "UPDATE";
     private static final String TRANSITION_ACTIVATE = "ACTIVATE";
 
     @Mock

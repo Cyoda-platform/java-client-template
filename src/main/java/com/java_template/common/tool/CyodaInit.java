@@ -15,19 +15,20 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.CYODA_API_URL;
 
 
 /**
  * ABOUTME: Initialization tool for setting up Cyoda platform configuration
  * including workflow definitions, entity models, and system bootstrapping.
- *
+ *<p>
  * This tool dynamically discovers entities and uses their getModelKey() method
  * to get the correct entity name and version instead of parsing file paths.
  */
@@ -158,6 +159,7 @@ public class CyodaInit {
     /**
      * Find workflow file for the given entity name and version
      */
+    @SuppressWarnings("SameParameterValue")
     private Path findWorkflowFile(Path workflowDir, String entityName, Integer version) {
         if (!Files.exists(workflowDir)) {
             return null;

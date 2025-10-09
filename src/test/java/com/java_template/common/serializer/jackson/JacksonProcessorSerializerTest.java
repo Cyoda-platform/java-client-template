@@ -98,9 +98,7 @@ class JacksonProcessorSerializerTest {
         request.setPayload(payload);
 
         // When & Then - Should propagate the exception instead of catching it
-        assertThrows(RuntimeException.class, () -> {
-            serializer.extractEntityWithMetadata(request, TestEntity.class);
-        });
+        assertThrows(RuntimeException.class, () -> serializer.extractEntityWithMetadata(request, TestEntity.class));
     }
 
     @Test
@@ -112,9 +110,7 @@ class JacksonProcessorSerializerTest {
         request.setPayload(null);
 
         // When & Then - Should throw exception for null payload
-        assertThrows(Exception.class, () -> {
-            serializer.extractEntityWithMetadata(request, TestEntity.class);
-        });
+        assertThrows(Exception.class, () -> serializer.extractEntityWithMetadata(request, TestEntity.class));
     }
 
     private EntityProcessorCalculationRequest createRequestWithMetadata() {
@@ -161,18 +157,13 @@ class JacksonProcessorSerializerTest {
     }
 
     // Test entity class
+    @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed"})
     static class TestEntity implements CyodaEntity {
         private Long id;
         private String name;
         private String status;
 
         public TestEntity() {}
-
-        public TestEntity(Long id, String name, String status) {
-            this.id = id;
-            this.name = name;
-            this.status = status;
-        }
 
         public Long getId() { return id; }
         public void setId(Long id) { this.id = id; }

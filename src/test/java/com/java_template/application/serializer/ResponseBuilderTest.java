@@ -179,6 +179,7 @@ class ResponseBuilderTest {
     }
 
     // Test entity class
+    @SuppressWarnings({"ClassCanBeRecord", "LombokGetterMayBeUsed"})
     private static class TestEntity implements CyodaEntity {
         private final String id;
         private final String name;
