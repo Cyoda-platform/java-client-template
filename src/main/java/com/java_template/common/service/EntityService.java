@@ -16,7 +16,7 @@ import java.util.UUID;
 /**
  * ABOUTME: Core entity service interface providing CRUD operations and search capabilities
  * for Cyoda entities with performance-optimized method selection guidance.
- *
+
  * METHOD SELECTION GUIDE:
 
  * FOR RETRIEVAL:
@@ -281,7 +281,7 @@ public interface EntityService {
      * @param entityId Technical UUID to delete
      * @return UUID of deleted entity
      */
-    <T extends CyodaEntity> UUID deleteById(@NotNull UUID entityId);
+    UUID deleteById(@NotNull UUID entityId);
 
     /**
      * Delete entity by business identifier (MEDIUM SPEED)

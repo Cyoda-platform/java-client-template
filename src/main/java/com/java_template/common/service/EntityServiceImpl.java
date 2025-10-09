@@ -10,6 +10,7 @@ import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -294,10 +295,10 @@ public class EntityServiceImpl implements EntityService {
         UUID transactionId = response.getTransactionInfo().getTransactionId();
 
         // Get entity changes metadata to find the exact timeOfChange for this transaction
-        List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
+        List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
 
         // Find the change metadata for this specific transaction
-        org.cyoda.cloud.api.event.common.EntityChangeMeta changeMeta = changes.stream()
+        EntityChangeMeta changeMeta = changes.stream()
                 .filter(meta -> transactionId.equals(meta.getTransactionId()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
@@ -404,10 +405,10 @@ public class EntityServiceImpl implements EntityService {
         return entityIds.stream()
                 .map(entityId -> {
                     // Get entity changes metadata to find the exact timeOfChange for this transaction
-                    List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
+                    List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
 
                     // Find the change metadata for this specific transaction
-                    org.cyoda.cloud.api.event.common.EntityChangeMeta changeMeta = changes.stream()
+                    EntityChangeMeta changeMeta = changes.stream()
                             .filter(meta -> transactionId.equals(meta.getTransactionId()))
                             .findFirst()
                             .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
@@ -453,10 +454,10 @@ public class EntityServiceImpl implements EntityService {
         UUID transactionId = response.getTransactionInfo().getTransactionId();
 
         // Get entity changes metadata to find the exact timeOfChange for this transaction
-        List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
+        List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
 
         // Find the change metadata for this specific transaction
-        org.cyoda.cloud.api.event.common.EntityChangeMeta changeMeta = changes.stream()
+        EntityChangeMeta changeMeta = changes.stream()
                 .filter(meta -> transactionId.equals(meta.getTransactionId()))
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
@@ -491,10 +492,10 @@ public class EntityServiceImpl implements EntityService {
                     return entityIds.stream()
                             .map(entityId -> {
                                 // Get entity changes metadata to find the exact timeOfChange for this transaction
-                                List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
+                                List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
 
                                 // Find the change metadata for this specific transaction
-                                org.cyoda.cloud.api.event.common.EntityChangeMeta changeMeta = changes.stream()
+                                EntityChangeMeta changeMeta = changes.stream()
                                         .filter(meta -> transactionId.equals(meta.getTransactionId()))
                                         .findFirst()
                                         .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
@@ -511,21 +512,16 @@ public class EntityServiceImpl implements EntityService {
     // ========================================
 
     @Override
-    public List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(@NotNull final UUID entityId) {
+    public List<EntityChangeMeta> getEntityChangesMetadata(@NotNull final UUID entityId) {
         return getEntityChangesMetadata(entityId, null);
     }
 
     @Override
-    public List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(
+    public List<EntityChangeMeta> getEntityChangesMetadata(
             @NotNull final UUID entityId,
             @Nullable final Date pointInTime
     ) {
-        try {
-            return repository.getEntityChangesMetadata(entityId, pointInTime).join();
-        } catch (Exception e) {
-            // Let the exception propagate - it will be handled by the controller
-            throw e;
-        }
+        return repository.getEntityChangesMetadata(entityId, pointInTime).join();
     }
 
 }
