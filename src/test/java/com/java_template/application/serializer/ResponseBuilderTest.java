@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.serializer.ResponseBuilder;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
@@ -54,8 +55,8 @@ class ResponseBuilderTest {
 
         // When
         EntityCriteriaCalculationResponse response = builder
-            .withMatch()
-            .build();
+                .withMatch()
+                .build();
 
         // Then
         assertNotNull(response);
@@ -74,8 +75,8 @@ class ResponseBuilderTest {
 
         // When
         EntityCriteriaCalculationResponse response = builder
-            .withNonMatch()
-            .build();
+                .withNonMatch()
+                .build();
 
         // Then
         assertNotNull(response);
@@ -91,8 +92,8 @@ class ResponseBuilderTest {
 
         // When
         EntityCriteriaCalculationResponse response = builder
-            .withError("TEST_ERROR", "Test error message")
-            .build();
+                .withError("TEST_ERROR", "Test error message")
+                .build();
 
         // Then
         assertNotNull(response);
@@ -110,8 +111,8 @@ class ResponseBuilderTest {
 
         // When
         EntityProcessorCalculationResponse response = builder
-            .withSuccess(testData)
-            .build();
+                .withSuccess(testData)
+                .build();
 
         // Then
         assertNotNull(response);
@@ -129,8 +130,8 @@ class ResponseBuilderTest {
 
         // When
         EntityProcessorCalculationResponse response = builder
-            .withSuccess(entity, this::convertEntityToJson)
-            .build();
+                .withSuccess(entity, this::convertEntityToJson)
+                .build();
 
         // Then
         assertNotNull(response);
@@ -146,9 +147,9 @@ class ResponseBuilderTest {
 
         // When
         EntityProcessorCalculationResponse response = builder
-            .withError("PROC_ERROR", "Processing failed")
-            .withAdditionalErrorDetails("Additional context")
-            .build();
+                .withError("PROC_ERROR", "Processing failed")
+                .withAdditionalErrorDetails("Additional context")
+                .build();
 
         // Then
         assertNotNull(response);
@@ -191,7 +192,7 @@ class ResponseBuilderTest {
         public String getName() { return name; }
 
         @Override
-        public boolean isValid() { return true; }
+        public boolean isValid(EntityMetadata metadata) { return true; }
 
         @Override
         public OperationSpecification getModelKey() {

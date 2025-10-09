@@ -7,6 +7,7 @@ import com.java_template.common.serializer.jackson.JacksonCriterionSerializer;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
@@ -66,7 +67,7 @@ class EvaluationChainTest {
         }
 
         @Override
-        public boolean isValid() {
+        public boolean isValid(EntityMetadata metadata) {
             return id != null && name != null && !name.trim().isEmpty();
         }
     }
@@ -118,8 +119,8 @@ class EvaluationChainTest {
 
             // Check if pet is available
             return payload.get("status").asText().equals("available")
-                ? EvaluationOutcome.success()
-                : EvaluationOutcome.Fail.businessRuleFailure("Pet not available");
+                    ? EvaluationOutcome.success()
+                    : EvaluationOutcome.Fail.businessRuleFailure("Pet not available");
         };
 
         // When
@@ -142,8 +143,8 @@ class EvaluationChainTest {
 
             // Check if pet is a dog (it's not)
             return payload.get("category").asText().equals("dog")
-                ? EvaluationOutcome.success()
-                : EvaluationOutcome.Fail.businessRuleFailure("Not a dog");
+                    ? EvaluationOutcome.success()
+                    : EvaluationOutcome.Fail.businessRuleFailure("Not a dog");
         };
 
         // When
@@ -181,7 +182,7 @@ class EvaluationChainTest {
     void testCustomErrorHandler() {
         // Given
         BiFunction<Throwable, JsonNode, ErrorInfo> customErrorHandler =
-            (error, payload) -> new ErrorInfo("CUSTOM_EVAL_ERROR", "Custom: " + error.getMessage());
+                (error, payload) -> new ErrorInfo("CUSTOM_EVAL_ERROR", "Custom: " + error.getMessage());
 
         Function<CriterionSerializer.CriterionEvaluationContext, EvaluationOutcome> faultyEvaluator = context -> {
             throw new RuntimeException("Evaluation failed");
@@ -210,9 +211,9 @@ class EvaluationChainTest {
             assertEquals("Fluffy", entity.getName());
 
             // Check if entity is valid and available
-            return entity.isValid() && "available".equals(entity.getStatus())
-                ? EvaluationOutcome.success()
-                : EvaluationOutcome.Fail.structuralFailure("Entity validation failed");
+            return entity.isValid(context.entityWithMetadata().metadata()) && "available".equals(entity.getStatus())
+                    ? EvaluationOutcome.success()
+                    : EvaluationOutcome.Fail.structuralFailure("Entity validation failed");
         };
 
         // When
@@ -289,7 +290,7 @@ class EvaluationChainTest {
     void testFluentChaining() {
         // Given
         BiFunction<Throwable, JsonNode, ErrorInfo> customErrorHandler =
-            (error, payload) -> new ErrorInfo("CHAIN_ERROR", "Chained error");
+                (error, payload) -> new ErrorInfo("CHAIN_ERROR", "Chained error");
 
         ReasonAttachmentStrategy customStrategy = ReasonAttachmentStrategy.none();
 
@@ -458,10 +459,10 @@ class EvaluationChainTest {
     void testMultipleErrorHandlers() {
         // Given
         BiFunction<Throwable, JsonNode, ErrorInfo> firstHandler =
-            (error, payload) -> new ErrorInfo("FIRST_ERROR", "First handler");
+                (error, payload) -> new ErrorInfo("FIRST_ERROR", "First handler");
 
         BiFunction<Throwable, JsonNode, ErrorInfo> secondHandler =
-            (error, payload) -> new ErrorInfo("SECOND_ERROR", "Second handler: " + error.getMessage());
+                (error, payload) -> new ErrorInfo("SECOND_ERROR", "Second handler: " + error.getMessage());
 
         Function<CriterionSerializer.CriterionEvaluationContext, EvaluationOutcome> faultyEvaluator = context -> {
             throw new RuntimeException("Test error");
@@ -681,12 +682,12 @@ class EvaluationChainTest {
     void testCustomErrorHandlerWhenNoEvaluationPerformed() {
         // Given - This test specifically covers line 202: ErrorInfo errorInfo = errorHandler.apply(...)
         BiFunction<Throwable, JsonNode, ErrorInfo> customErrorHandler =
-            (error, payload) -> {
-                // Verify this is called with the expected error
-                assertInstanceOf(IllegalStateException.class, error);
-                assertEquals("No evaluation was performed", error.getMessage());
-                return new ErrorInfo("NO_EVALUATION_CUSTOM", "Custom: " + error.getMessage());
-            };
+                (error, payload) -> {
+                    // Verify this is called with the expected error
+                    assertInstanceOf(IllegalStateException.class, error);
+                    assertEquals("No evaluation was performed", error.getMessage());
+                    return new ErrorInfo("NO_EVALUATION_CUSTOM", "Custom: " + error.getMessage());
+                };
 
         // When - Complete without calling any evaluate methods
         EntityCriteriaCalculationResponse response = serializer.withRequest(request)
