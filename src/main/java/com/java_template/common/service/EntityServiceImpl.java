@@ -10,6 +10,7 @@ import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -89,13 +90,13 @@ public class EntityServiceImpl implements EntityService {
             @Nullable final Date pointInTime
     ) {
         SimpleCondition simpleCondition = new SimpleCondition()
-            .withJsonPath("$." + businessIdField)
-            .withOperation(Operation.EQUALS)
-            .withValue(objectMapper.valueToTree(businessId));
+                .withJsonPath("$." + businessIdField)
+                .withOperation(Operation.EQUALS)
+                .withValue(objectMapper.valueToTree(businessId));
 
         GroupCondition condition = new GroupCondition()
-            .withOperator(GroupCondition.Operator.AND)
-            .withConditions(List.of(simpleCondition));
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of(simpleCondition));
 
         Optional<EntityWithMetadata<T>> result = getFirstItemByCondition(
                 entityClass, modelSpec, condition, true, pointInTime);
@@ -288,7 +289,24 @@ public class EntityServiceImpl implements EntityService {
         ModelSpec modelSpec = entity.getModelKey().modelKey();
 
         EntityTransactionResponse response = repository.save(modelSpec, objectMapper.valueToTree(entity)).join();
-        return EntityWithMetadata.fromTransactionResponse(response, entity, objectMapper);
+
+        // Extract entity ID and transaction ID from response
+        UUID entityId = response.getTransactionInfo().getEntityIds().getFirst();
+        UUID transactionId = response.getTransactionInfo().getTransactionId();
+
+        // Get entity changes metadata to find the exact timeOfChange for this transaction
+        List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
+
+        // Find the change metadata for this specific transaction
+        EntityChangeMeta changeMeta = changes.stream()
+                .filter(meta -> transactionId.equals(meta.getTransactionId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
+
+        // Reload entity at the exact point in time when it was saved
+        @SuppressWarnings("unchecked")
+        Class<T> entityClass = (Class<T>) entity.getClass();
+        return getById(entityId, modelSpec, entityClass, changeMeta.getTimeOfChange());
     }
 
     @Override
@@ -349,7 +367,7 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> Integer deleteAll(@NotNull final ModelSpec modelSpec) {
+    public Integer deleteAll(@NotNull final ModelSpec modelSpec) {
         List<EntityDeleteAllResponse> results = repository.deleteAll(modelSpec).join();
         return results.stream()
                 .map(EntityDeleteAllResponse::getNumDeleted)
@@ -373,7 +391,32 @@ public class EntityServiceImpl implements EntityService {
         ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
 
         EntityTransactionResponse response = repository.saveAll(modelSpec, entities).join();
-        return EntityWithMetadata.fromTransactionResponseList(response, entities, objectMapper);
+
+        // Extract entity IDs and transaction ID from response
+        List<UUID> entityIds = response.getTransactionInfo() != null
+                ? response.getTransactionInfo().getEntityIds()
+                : List.of();
+        UUID transactionId = response.getTransactionInfo().getTransactionId();
+
+        @SuppressWarnings("unchecked")
+        Class<T> entityClass = (Class<T>) firstEntity.getClass();
+
+        // For each entity, get its change metadata and reload at the exact point in time
+        return entityIds.stream()
+                .map(entityId -> {
+                    // Get entity changes metadata to find the exact timeOfChange for this transaction
+                    List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
+
+                    // Find the change metadata for this specific transaction
+                    EntityChangeMeta changeMeta = changes.stream()
+                            .filter(meta -> transactionId.equals(meta.getTransactionId()))
+                            .findFirst()
+                            .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
+
+                    // Reload entity at the exact point in time when it was saved
+                    return getById(entityId, modelSpec, entityClass, changeMeta.getTimeOfChange());
+                })
+                .toList();
     }
 
     public <T extends CyodaEntity> EntityTransactionInfo saveAllAndReturnTransactionInfo(@NotNull final Collection<T> entities) {
@@ -385,7 +428,7 @@ public class EntityServiceImpl implements EntityService {
         ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
 
         Collection<JsonNode> entity = entities.stream().map(it -> {
-            JsonNode jsonNode = objectMapper.valueToTree(it);
+            @SuppressWarnings("UnnecessaryLocalVariable") JsonNode jsonNode = objectMapper.valueToTree(it);
             return jsonNode;
         }).toList();
 
@@ -403,8 +446,26 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final T entity,
             @Nullable final String transition
     ) {
+        ModelSpec modelSpec = entity.getModelKey().modelKey();
+
         EntityTransactionResponse response = repository.update(entityId, objectMapper.valueToTree(entity), transition).join();
-        return EntityWithMetadata.fromTransactionResponse(response, entity, objectMapper);
+
+        // Extract transaction ID from response
+        UUID transactionId = response.getTransactionInfo().getTransactionId();
+
+        // Get entity changes metadata to find the exact timeOfChange for this transaction
+        List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
+
+        // Find the change metadata for this specific transaction
+        EntityChangeMeta changeMeta = changes.stream()
+                .filter(meta -> transactionId.equals(meta.getTransactionId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
+
+        // Reload entity at the exact point in time when it was updated
+        @SuppressWarnings("unchecked")
+        Class<T> entityClass = (Class<T>) entity.getClass();
+        return getById(entityId, modelSpec, entityClass, changeMeta.getTimeOfChange());
     }
 
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> updateAll(@NotNull final Collection<T> entities, @Nullable final String transition) {
@@ -412,9 +473,38 @@ public class EntityServiceImpl implements EntityService {
             return List.of();
         }
 
+        T firstEntity = entities.iterator().next();
+        ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
+
         List<EntityTransactionResponse> responses = repository.updateAll(objectMapper.convertValue(entities, new TypeReference<>() {
         }), transition).join();
-        return EntityWithMetadata.fromTransactionResponseList(responses, entities, objectMapper);
+
+        @SuppressWarnings("unchecked")
+        Class<T> entityClass = (Class<T>) firstEntity.getClass();
+
+        // For each response, extract entity IDs and transaction ID, then reload at exact point in time
+        return responses.stream()
+                .filter(response -> response.getTransactionInfo() != null)
+                .flatMap(response -> {
+                    UUID transactionId = response.getTransactionInfo().getTransactionId();
+                    List<UUID> entityIds = response.getTransactionInfo().getEntityIds();
+
+                    return entityIds.stream()
+                            .map(entityId -> {
+                                // Get entity changes metadata to find the exact timeOfChange for this transaction
+                                List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
+
+                                // Find the change metadata for this specific transaction
+                                EntityChangeMeta changeMeta = changes.stream()
+                                        .filter(meta -> transactionId.equals(meta.getTransactionId()))
+                                        .findFirst()
+                                        .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
+
+                                // Reload entity at the exact point in time when it was updated
+                                return getById(entityId, modelSpec, entityClass, changeMeta.getTimeOfChange());
+                            });
+                })
+                .toList();
     }
 
     // ========================================
@@ -422,21 +512,16 @@ public class EntityServiceImpl implements EntityService {
     // ========================================
 
     @Override
-    public List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(@NotNull final UUID entityId) {
+    public List<EntityChangeMeta> getEntityChangesMetadata(@NotNull final UUID entityId) {
         return getEntityChangesMetadata(entityId, null);
     }
 
     @Override
-    public List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(
+    public List<EntityChangeMeta> getEntityChangesMetadata(
             @NotNull final UUID entityId,
             @Nullable final Date pointInTime
     ) {
-        try {
-            return repository.getEntityChangesMetadata(entityId, pointInTime).join();
-        } catch (Exception e) {
-            // Let the exception propagate - it will be handled by the controller
-            throw e;
-        }
+        return repository.getEntityChangesMetadata(entityId, pointInTime).join();
     }
 
 }
