@@ -32,7 +32,7 @@ class EvaluationChainTest {
     private ObjectNode testPayload;
 
     // Test entity for evaluation chain tests
-    @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed"}) // Not here
+    @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed", "unused"}) // Not here
     static class TestEntity implements CyodaEntity {
         private Long id;
         private String name;
@@ -43,8 +43,11 @@ class EvaluationChainTest {
         public TestEntity() {}
 
         public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
         public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
         public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
         public String getCategory() { return category; }
         public void setCategory(String category) { this.category = category; }
 

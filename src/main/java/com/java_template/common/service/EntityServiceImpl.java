@@ -366,7 +366,7 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> Integer deleteAll(@NotNull final ModelSpec modelSpec) {
+    public Integer deleteAll(@NotNull final ModelSpec modelSpec) {
         List<EntityDeleteAllResponse> results = repository.deleteAll(modelSpec).join();
         return results.stream()
                 .map(EntityDeleteAllResponse::getNumDeleted)
@@ -427,7 +427,7 @@ public class EntityServiceImpl implements EntityService {
         ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
 
         Collection<JsonNode> entity = entities.stream().map(it -> {
-            JsonNode jsonNode = objectMapper.valueToTree(it);
+            @SuppressWarnings("UnnecessaryLocalVariable") JsonNode jsonNode = objectMapper.valueToTree(it);
             return jsonNode;
         }).toList();
 

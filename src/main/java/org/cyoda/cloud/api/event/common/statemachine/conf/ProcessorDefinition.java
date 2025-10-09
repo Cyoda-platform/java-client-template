@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.*;
  * jsonschema2pojo doesn't support the generation of discriminator-related annotations, so this is the workaround
  * and we just using 'existingJavaType' in json-schema to declare inheritance.
  */
+@SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed"})
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({
         "type",

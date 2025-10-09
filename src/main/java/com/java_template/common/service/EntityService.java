@@ -317,7 +317,7 @@ public interface EntityService {
      * @param modelSpec Model specification containing name and version
      * @return Number of entities deleted
      */
-    <T extends CyodaEntity> Integer deleteAll(@NotNull ModelSpec modelSpec);
+    Integer deleteAll(@NotNull ModelSpec modelSpec);
 
     // ========================================
     // METADATA OPERATIONS

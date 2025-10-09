@@ -35,7 +35,7 @@ class ProcessingChainTest {
     private ObjectNode testPayload;
 
     // Test entity for processing chain tests
-    @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed"}) // not here.
+    @SuppressWarnings({"LombokGetterMayBeUsed"}) // not here.
     static class TestEntity implements CyodaEntity {
         private Long id;
         private String name;
@@ -407,15 +407,6 @@ class ProcessingChainTest {
             return new EntityWithMetadata<>(transformedEntity, entityResponse.metadata());
         };
 
-        Function<EntityWithMetadata<TestEntity>, JsonNode> customConverter = entityResponse -> {
-            TestEntity entity = entityResponse.entity();
-            ObjectNode result = objectMapper.createObjectNode();
-            result.put("customId", entity.getId());
-            result.put("customName", "Custom: " + entity.getName());
-            result.put("customStatus", entity.getStatus());
-            result.put("customProcessed", true);
-            return result;
-        };
 
         // When
         EntityProcessorCalculationResponse response = serializer.withRequest(request)

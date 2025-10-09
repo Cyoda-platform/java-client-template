@@ -157,7 +157,7 @@ class JacksonProcessorSerializerTest {
     }
 
     // Test entity class
-    @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed"})
+    @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed", "unused"})
     static class TestEntity implements CyodaEntity {
         private Long id;
         private String name;
