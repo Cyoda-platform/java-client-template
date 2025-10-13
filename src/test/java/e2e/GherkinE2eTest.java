@@ -51,7 +51,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @DirtiesContext
 @CucumberContextConfiguration
-@SpringBootTest(classes = { Application.class, E2eTestConfig.class })
+@SpringBootTest(classes = {Application.class, E2eTestConfig.class})
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")
@@ -86,7 +86,8 @@ public class GherkinE2eTest {
         this.prizeToCreate = new PrizeEntity(
                 data.get("year"),
                 data.get("category"),
-                data.get("comment"));
+                data.get("comment")
+        );
     }
 
     @Given("I have a list of prizes:")
@@ -95,7 +96,8 @@ public class GherkinE2eTest {
                 .map(row -> new PrizeEntity(
                         row.get("year"),
                         row.get("category"),
-                        row.get("comment")))
+                        row.get("comment")
+                ))
                 .collect(Collectors.toList());
     }
 
@@ -112,7 +114,8 @@ public class GherkinE2eTest {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode()))
+                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode())
+                )
                 .body(JsonNode.class)
                 .get("access_token")
                 .asText();
@@ -123,7 +126,8 @@ public class GherkinE2eTest {
             final String workflowFileName,
             final String modelName,
             final Integer modelVersion,
-            final String token) throws URISyntaxException, IOException {
+            final String token
+    ) throws URISyntaxException, IOException {
 
         final var workflowJson = objectMapper.readTree(
                 Arrays.stream(new File(this.getClass().getResource("/workflows").toURI()).listFiles())
@@ -140,7 +144,8 @@ public class GherkinE2eTest {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode()))
+                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode())
+                )
                 .body(String.class);
     }
 
@@ -166,7 +171,11 @@ public class GherkinE2eTest {
         modelSpec.setVersion(1);
 
         try {
-            this.retrievedPrizes = List.of(entityService.getById(createdPrizeIds.getFirst(), modelSpec, PrizeEntity.class));
+            this.retrievedPrizes = List.of(entityService.getById(
+                    createdPrizeIds.getFirst(),
+                    modelSpec,
+                    PrizeEntity.class
+            ));
         } catch (Exception e) {
             this.capturedException = e;
         }
@@ -225,7 +234,7 @@ public class GherkinE2eTest {
     }
 
     @When("I create the prizes in bulk")
-    public void i_create_the_prizes_in_bulk() throws Exception {
+    public void i_create_the_prizes_in_bulk() {
         this.createdPrizeIds = entityService.save(prizeDefinitions).stream().map(EntityWithMetadata::getId).toList();
     }
 
@@ -236,13 +245,14 @@ public class GherkinE2eTest {
     }
 
     @When("I get all of model {string} version {int}")
-    public void i_get_all_prizes_for_the_model(String modelName, Integer modelVersion) throws Exception {
+    public void i_get_all_prizes_for_the_model(String modelName, Integer modelVersion) {
         final var modelSpec = new ModelSpec();
         modelSpec.setName(modelName);
         modelSpec.setVersion(modelVersion);
         this.retrievedPrizes = entityService.findAll(
                 modelSpec,
-                PrizeEntity.class);
+                PrizeEntity.class
+        );
     }
 
     @When("I delete all of model {string} version {int}")
@@ -267,12 +277,11 @@ public class GherkinE2eTest {
     @Then("the prize is not found")
     public void the_prize_is_not_found() {
         assertNotNull(capturedException, "An exception was expected but not thrown.");
-        assertInstanceOf(CompletionException.class, capturedException, "Exception should be from a future.");
-
+        assertInstanceOf(
+                CompletionException.class,
+                capturedException,
+                "Exception should be from a future."
+        );
         assertNotNull(capturedException.getCause(), "The ExecutionException should have a cause.");
-        System.out
-                .println("Successfully verified that getting a deleted item fails with: " + capturedException.getCause()
-                        .getClass()
-                        .getSimpleName());
     }
 }
