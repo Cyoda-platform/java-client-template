@@ -280,3 +280,83 @@ public class PetController {
             return ResponseEntity.of(problemDetail).build();
         }
     }
+
+    /**
+     * Reserve pet
+     * POST /ui/pet/{id}/reserve
+     */
+    @PostMapping("/{id}/reserve")
+    public ResponseEntity<EntityWithMetadata<Pet>> reservePet(@PathVariable UUID id) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Pet.ENTITY_NAME).withVersion(Pet.ENTITY_VERSION);
+            EntityWithMetadata<Pet> current = entityService.getById(id, modelSpec, Pet.class);
+
+            EntityWithMetadata<Pet> response = entityService.update(id, current.entity(), "reserve_pet");
+            logger.info("Pet reserved with ID: {}", id);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to reserve pet with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Complete pet sale
+     * POST /ui/pet/{id}/sell
+     */
+    @PostMapping("/{id}/sell")
+    public ResponseEntity<EntityWithMetadata<Pet>> sellPet(@PathVariable UUID id) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Pet.ENTITY_NAME).withVersion(Pet.ENTITY_VERSION);
+            EntityWithMetadata<Pet> current = entityService.getById(id, modelSpec, Pet.class);
+
+            EntityWithMetadata<Pet> response = entityService.update(id, current.entity(), "complete_sale");
+            logger.info("Pet sold with ID: {}", id);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to sell pet with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Cancel pet reservation
+     * POST /ui/pet/{id}/cancel-reservation
+     */
+    @PostMapping("/{id}/cancel-reservation")
+    public ResponseEntity<EntityWithMetadata<Pet>> cancelPetReservation(@PathVariable UUID id) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Pet.ENTITY_NAME).withVersion(Pet.ENTITY_VERSION);
+            EntityWithMetadata<Pet> current = entityService.getById(id, modelSpec, Pet.class);
+
+            EntityWithMetadata<Pet> response = entityService.update(id, current.entity(), "cancel_reservation");
+            logger.info("Pet reservation cancelled with ID: {}", id);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to cancel pet reservation with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * DTO for advanced search requests
+     */
+    @Getter
+    @Setter
+    public static class PetSearchRequest {
+        private String name;
+        private String breed;
+        private Double minPrice;
+        private Double maxPrice;
+        private OffsetDateTime pointInTime;
+    }
+}
