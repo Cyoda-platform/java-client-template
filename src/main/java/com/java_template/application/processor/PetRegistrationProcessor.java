@@ -53,7 +53,7 @@ public class PetRegistrationProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Pet> entityWithMetadata) {
         Pet pet = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return pet != null && pet.isValid() && technicalId != null;
+        return pet != null && pet.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**

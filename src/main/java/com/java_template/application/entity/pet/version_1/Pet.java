@@ -48,7 +48,7 @@ public class Pet implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(org.cyoda.cloud.api.event.common.EntityMetadata metadata) {
         // Validate required fields
         return petId != null && !petId.trim().isEmpty() &&
                name != null && !name.trim().isEmpty() &&

@@ -61,7 +61,7 @@ public class PetSaleEligibilityCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        if (!pet.isValid()) {
+        if (!pet.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("Pet entity is not valid");
             return EvaluationOutcome.fail("Pet entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }

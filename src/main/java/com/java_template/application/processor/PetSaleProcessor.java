@@ -54,7 +54,7 @@ public class PetSaleProcessor implements CyodaProcessor {
         Pet pet = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
         String currentState = entityWithMetadata.metadata().getState();
-        return pet != null && pet.isValid() && technicalId != null && "pending".equals(currentState);
+        return pet != null && pet.isValid(entityWithMetadata.metadata()) && technicalId != null && "pending".equals(currentState);
     }
 
     /**
