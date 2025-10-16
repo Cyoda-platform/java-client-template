@@ -27,18 +27,17 @@ public class PetSaleEligibilityCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public PetSaleEligibilityCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
-    public EntityCriterionCalculationResponse check(CyodaEventContext<EntityCriterionCalculationRequest> context) {
-        EntityCriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking pet sale eligibility for request: {}", request.getId());
 
         return serializer.withRequest(request)
-                .toEntityWithMetadata(Pet.class)
-                .validate(this::isValidEntityWithMetadata, "Invalid pet entity wrapper")
-                .evaluate(this::evaluateSaleEligibility)
+                .evaluateEntity(Pet.class, this::validatePetSaleEligibility)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
                 .complete();
     }
 
@@ -48,37 +47,38 @@ public class PetSaleEligibilityCriterion implements CyodaCriterion {
     }
 
     /**
-     * Validates the EntityWithMetadata wrapper
+     * Validates if the pet sale can be completed
      */
-    private boolean isValidEntityWithMetadata(com.java_template.common.dto.EntityWithMetadata<Pet> entityWithMetadata) {
-        Pet pet = entityWithMetadata.entity();
-        java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return pet != null && pet.isValid() && technicalId != null;
-    }
-
-    /**
-     * Evaluates if the pet sale can be completed
-     */
-    private boolean evaluateSaleEligibility(
-            CriterionSerializer.CriterionEntityResponseExecutionContext<Pet> context) {
-
-        com.java_template.common.dto.EntityWithMetadata<Pet> entityWithMetadata = context.entityResponse();
-        Pet pet = entityWithMetadata.entity();
-        String currentState = entityWithMetadata.metadata().getState();
+    private EvaluationOutcome validatePetSaleEligibility(CriterionSerializer.CriterionEntityEvaluationContext<Pet> context) {
+        Pet pet = context.entityWithMetadata().entity();
+        String currentState = context.entityWithMetadata().metadata().getState();
 
         logger.debug("Evaluating sale eligibility for pet: {} in state: {}", pet.getPetId(), currentState);
 
+        // Check if entity is null (structural validation)
+        if (pet == null) {
+            logger.warn("Pet entity is null");
+            return EvaluationOutcome.fail("Pet entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
+        }
+
+        if (!pet.isValid()) {
+            logger.warn("Pet entity is not valid");
+            return EvaluationOutcome.fail("Pet entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
+
         // Pet must be in pending state (reserved)
-        boolean isPending = "pending".equals(currentState);
+        if (!"pending".equals(currentState)) {
+            logger.warn("Pet {} is not in pending state: {}", pet.getPetId(), currentState);
+            return EvaluationOutcome.fail("Pet must be in pending state to complete sale", StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
+        }
 
-        // Additional business rules can be added here
-        // For example: check if payment is processed, documentation is complete, etc.
-        boolean hasValidData = pet.getName() != null && !pet.getName().trim().isEmpty();
-        boolean hasPhotos = pet.getPhotoUrls() != null && !pet.getPhotoUrls().isEmpty();
+        // Check if pet has required photos
+        if (pet.getPhotoUrls() == null || pet.getPhotoUrls().isEmpty()) {
+            logger.warn("Pet {} does not have required photos", pet.getPetId());
+            return EvaluationOutcome.fail("Pet must have at least one photo", StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
+        }
 
-        boolean result = isPending && hasValidData && hasPhotos;
-
-        logger.debug("Pet {} sale eligibility check result: {}", pet.getPetId(), result);
-        return result;
+        logger.debug("Pet {} sale eligibility check passed", pet.getPetId());
+        return EvaluationOutcome.success();
     }
 }
