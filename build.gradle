@@ -7,6 +7,7 @@ plugins {
     id "org.jsonschema2pojo" version "1.2.1"
     id 'com.google.protobuf' version '0.9.4'
     id 'se.thinkcode.cucumber-runner' version '0.0.11'
+    id 'jacoco'
 }
 
 java {
@@ -20,6 +21,29 @@ java {
 tasks.withType(JavaCompile).configureEach {
     // Increase maximum number of diagnostics shown by javac
     options.compilerArgs += ['-Xmaxerrs', '1000', '-Xmaxwarns', '1000']
+}
+
+task cucumberTest(type: Test) {
+  include '**/GherkinE2eTest.class'
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  useJUnitPlatform()
+  finalizedBy jacocoTestReport
+  testLogging {
+    events "passed", "skipped", "failed"
+    showStandardStreams = true // This is the most important line!
+  }
+}
+
+jacocoTestReport {
+  dependsOn cucumberTest
+  executionData.from = files("$buildDir/jacoco/cucumberTest.exec")
+  reports.xml.required = true
+}
+
+jacoco {
+  toolVersion = '0.8.13'
+  reportsDirectory = layout.buildDirectory.dir('test-report')
 }
 
 
@@ -80,6 +104,8 @@ dependencies {
 }
 
 test {
+    exclude '**/GherkinE2eTest.class'
+
     useJUnitPlatform()
 
     // Pass system properties to tests (needed for conditional test execution)
