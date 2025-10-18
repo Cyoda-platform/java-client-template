@@ -299,6 +299,62 @@ public class CartController {
         }
     }
 
+    /**
+     * Update guest contact for checkout
+     * POST /ui/cart/{cartId}/checkout
+     */
+    @PostMapping("/{cartId}/checkout")
+    public ResponseEntity<EntityWithMetadata<Cart>> updateGuestContact(
+            @PathVariable String cartId,
+            @Valid @RequestBody GuestContactRequest request) {
+        try {
+            ModelSpec modelSpec = new ModelSpec()
+                    .withName(Cart.ENTITY_NAME)
+                    .withVersion(Cart.ENTITY_VERSION);
+
+            EntityWithMetadata<Cart> cartWithMetadata = entityService.findByBusinessId(
+                    modelSpec, cartId, "cartId", Cart.class);
+
+            if (cartWithMetadata == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Cart cart = cartWithMetadata.entity();
+
+            // Set guest contact information
+            Cart.GuestContact guestContact = new Cart.GuestContact();
+            guestContact.setName(request.getGuestContact().getName());
+            guestContact.setEmail(request.getGuestContact().getEmail());
+            guestContact.setPhone(request.getGuestContact().getPhone());
+
+            if (request.getGuestContact().getAddress() != null) {
+                Cart.GuestAddress address = new Cart.GuestAddress();
+                address.setLine1(request.getGuestContact().getAddress().getLine1());
+                address.setCity(request.getGuestContact().getAddress().getCity());
+                address.setPostcode(request.getGuestContact().getAddress().getPostcode());
+                address.setCountry(request.getGuestContact().getAddress().getCountry());
+                guestContact.setAddress(address);
+            }
+
+            cart.setGuestContact(guestContact);
+
+            // Update cart without transition (stay in same state)
+            EntityWithMetadata<Cart> response = entityService.update(
+                    cartWithMetadata.metadata().getId(), cart, null);
+
+            logger.info("Updated guest contact for cart: {}", cartId);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Failed to update guest contact for cart: {}", cartId, e);
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                    HttpStatus.BAD_REQUEST,
+                    String.format("Failed to update guest contact: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
     // Request DTOs
     @Data
     public static class AddItemRequest {
@@ -310,5 +366,26 @@ public class CartController {
     public static class UpdateItemRequest {
         private String sku;
         private Integer qty;
+    }
+
+    @Data
+    public static class GuestContactRequest {
+        private GuestContactDto guestContact;
+    }
+
+    @Data
+    public static class GuestContactDto {
+        private String name;
+        private String email;
+        private String phone;
+        private GuestAddressDto address;
+    }
+
+    @Data
+    public static class GuestAddressDto {
+        private String line1;
+        private String city;
+        private String postcode;
+        private String country;
     }
 }
