@@ -57,7 +57,7 @@ public class UpdateProductProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Product> entityWithMetadata) {
         Product product = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return product != null && product.isValid() && technicalId != null;
+        return product != null && product.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**
