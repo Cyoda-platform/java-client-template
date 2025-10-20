@@ -1,0 +1,100 @@
+{
+  "version": "1.0",
+  "name": "Payment",
+  "desc": "Payment processing workflow for dummy payment provider",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "start_dummy_payment",
+          "next": "initiated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "StartDummyPaymentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "initiated": {
+      "transitions": [
+        {
+          "name": "auto_mark_paid",
+          "next": "paid",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoMarkPaidProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "mark_failed",
+          "next": "failed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "MarkPaymentFailedProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_payment",
+          "next": "canceled",
+          "manual": true
+        }
+      ]
+    },
+    "paid": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_payment",
+          "next": "initiated",
+          "manual": true,
+          "processors": [
+            {
+              "name": "StartDummyPaymentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "canceled": {
+      "transitions": []
+    }
+  }
+}
