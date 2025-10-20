@@ -1,0 +1,101 @@
+{
+  "version": "1.0",
+  "name": "Shipment",
+  "desc": "Shipment tracking workflow for shipping lifecycle management",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_shipment",
+          "next": "picking",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CreateShipmentProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "picking": {
+      "transitions": [
+        {
+          "name": "update_picking_progress",
+          "next": "picking",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UpdatePickingProgressProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "complete_picking",
+          "next": "waiting_to_send",
+          "manual": true
+        }
+      ]
+    },
+    "waiting_to_send": {
+      "transitions": [
+        {
+          "name": "ship_package",
+          "next": "sent",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ShipPackageProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "sent": {
+      "transitions": [
+        {
+          "name": "confirm_delivery",
+          "next": "delivered",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ConfirmDeliveryProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "delivered": {
+      "transitions": []
+    }
+  }
+}
