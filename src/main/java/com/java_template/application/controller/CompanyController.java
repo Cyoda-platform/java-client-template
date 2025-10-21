@@ -221,7 +221,8 @@ public class CompanyController {
     @PostMapping("/{id}/archive")
     public ResponseEntity<EntityWithMetadata<Company>> archiveCompany(@PathVariable UUID id) {
         try {
-            EntityWithMetadata<Company> company = entityService.findById(id, Company.class);
+            ModelSpec modelSpec = new ModelSpec().withName(Company.ENTITY_NAME).withVersion(Company.ENTITY_VERSION);
+            EntityWithMetadata<Company> company = entityService.getById(id, modelSpec, Company.class);
             EntityWithMetadata<Company> response = entityService.update(id, company.entity(), "archive_company");
             logger.info("Company archived with ID: {}", id);
             return ResponseEntity.ok(response);
@@ -242,7 +243,8 @@ public class CompanyController {
     @PostMapping("/{id}/reactivate")
     public ResponseEntity<EntityWithMetadata<Company>> reactivateCompany(@PathVariable UUID id) {
         try {
-            EntityWithMetadata<Company> company = entityService.findById(id, Company.class);
+            ModelSpec modelSpec = new ModelSpec().withName(Company.ENTITY_NAME).withVersion(Company.ENTITY_VERSION);
+            EntityWithMetadata<Company> company = entityService.getById(id, modelSpec, Company.class);
             EntityWithMetadata<Company> response = entityService.update(id, company.entity(), "reactivate_company");
             logger.info("Company reactivated with ID: {}", id);
             return ResponseEntity.ok(response);

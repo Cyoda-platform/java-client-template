@@ -90,7 +90,8 @@ public class NoteController {
     @GetMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<Note>> getNoteById(@PathVariable UUID id) {
         try {
-            EntityWithMetadata<Note> note = entityService.findById(id, Note.class);
+            ModelSpec modelSpec = new ModelSpec().withName(Note.ENTITY_NAME).withVersion(Note.ENTITY_VERSION);
+            EntityWithMetadata<Note> note = entityService.getById(id, modelSpec, Note.class);
             return ResponseEntity.ok(note);
         } catch (Exception e) {
             logger.error("Failed to get note by ID: {}", id, e);
@@ -259,7 +260,8 @@ public class NoteController {
     @PostMapping("/{id}/archive")
     public ResponseEntity<EntityWithMetadata<Note>> archiveNote(@PathVariable UUID id) {
         try {
-            EntityWithMetadata<Note> note = entityService.findById(id, Note.class);
+            ModelSpec modelSpec = new ModelSpec().withName(Note.ENTITY_NAME).withVersion(Note.ENTITY_VERSION);
+            EntityWithMetadata<Note> note = entityService.getById(id, modelSpec, Note.class);
             EntityWithMetadata<Note> response = entityService.update(id, note.entity(), "archive_note");
             logger.info("Note archived with ID: {}", id);
             return ResponseEntity.ok(response);

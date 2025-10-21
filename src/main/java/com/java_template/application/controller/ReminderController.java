@@ -90,7 +90,8 @@ public class ReminderController {
     @GetMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<Reminder>> getReminderById(@PathVariable UUID id) {
         try {
-            EntityWithMetadata<Reminder> reminder = entityService.findById(id, Reminder.class);
+            ModelSpec modelSpec = new ModelSpec().withName(Reminder.ENTITY_NAME).withVersion(Reminder.ENTITY_VERSION);
+            EntityWithMetadata<Reminder> reminder = entityService.getById(id, modelSpec, Reminder.class);
             return ResponseEntity.ok(reminder);
         } catch (Exception e) {
             logger.error("Failed to get reminder by ID: {}", id, e);
@@ -259,7 +260,8 @@ public class ReminderController {
     @PostMapping("/{id}/complete")
     public ResponseEntity<EntityWithMetadata<Reminder>> completeReminder(@PathVariable UUID id) {
         try {
-            EntityWithMetadata<Reminder> reminder = entityService.findById(id, Reminder.class);
+            ModelSpec modelSpec = new ModelSpec().withName(Reminder.ENTITY_NAME).withVersion(Reminder.ENTITY_VERSION);
+            EntityWithMetadata<Reminder> reminder = entityService.getById(id, modelSpec, Reminder.class);
             EntityWithMetadata<Reminder> response = entityService.update(id, reminder.entity(), "complete_reminder");
             logger.info("Reminder completed with ID: {}", id);
             return ResponseEntity.ok(response);
