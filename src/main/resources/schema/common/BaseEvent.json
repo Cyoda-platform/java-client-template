@@ -24,6 +24,10 @@
         "message": {
           "type": "string",
           "description": "Error message."
+        },
+        "retryable": {
+          "type": "boolean",
+          "description": "Flag indicates whether this error is retryable (for example, whether cyoda should retry the calculation request)."
         }
       },
       "required": [

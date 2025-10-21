@@ -11,34 +11,12 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
-import org.cyoda.cloud.api.event.entity.EntityCreatePayload;
-import org.cyoda.cloud.api.event.entity.EntityCreateRequest;
-import org.cyoda.cloud.api.event.entity.EntityDeleteAllRequest;
-import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
-import org.cyoda.cloud.api.event.entity.EntityDeleteRequest;
-import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
-import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
-import org.cyoda.cloud.api.event.entity.EntityTransitionRequest;
-import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
-import org.cyoda.cloud.api.event.entity.EntityUpdateCollectionRequest;
-import org.cyoda.cloud.api.event.entity.EntityUpdatePayload;
-import org.cyoda.cloud.api.event.entity.EntityUpdateRequest;
-import org.cyoda.cloud.api.event.search.EntityGetAllRequest;
-import org.cyoda.cloud.api.event.search.EntityGetRequest;
-import org.cyoda.cloud.api.event.search.EntityResponse;
-import org.cyoda.cloud.api.event.search.EntitySearchRequest;
-import org.cyoda.cloud.api.event.search.EntitySnapshotSearchRequest;
-import org.cyoda.cloud.api.event.search.EntitySnapshotSearchResponse;
-import org.cyoda.cloud.api.event.search.SearchSnapshotStatus;
-import org.cyoda.cloud.api.event.search.SnapshotGetRequest;
-import org.cyoda.cloud.api.event.search.SnapshotGetStatusRequest;
+import org.cyoda.cloud.api.event.entity.*;
+import org.cyoda.cloud.api.event.search.*;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +28,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.java_template.common.config.Config.GRPC_COMMUNICATION_DATA_FORMAT;
 
@@ -84,13 +65,20 @@ public class CyodaRepository implements CrudRepository {
 
     @Override
     public CompletableFuture<DataPayload> findById(final UUID id) {
-        return getById(id);
+        return getById(id, null);
     }
 
-    private CompletableFuture<DataPayload> getById(final UUID entityId) {
+    @Override
+    public CompletableFuture<DataPayload> findById(final UUID id, @Nullable final Date pointInTime) {
+        return getById(id, pointInTime);
+    }
+
+    private CompletableFuture<DataPayload> getById(final UUID entityId, @Nullable final Date pointInTime) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
-                new EntityGetRequest().withId(UUID.randomUUID().toString()).withEntityId(entityId),
+                new EntityGetRequest().withId(UUID.randomUUID().toString())
+                        .withEntityId(entityId)
+                        .withPointInTime(pointInTime),
                 EntityResponse.class
         ).thenApply(EntityResponse::getPayload);
     }
@@ -103,18 +91,31 @@ public class CyodaRepository implements CrudRepository {
             final int pageNumber,
             final boolean inMemory
     ) {
+        return findAllByCriteria(modelSpec, condition, pageSize, pageNumber, inMemory, null);
+    }
+
+    @Override
+    public CompletableFuture<List<DataPayload>> findAllByCriteria(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final GroupCondition condition,
+            final int pageSize,
+            final int pageNumber,
+            final boolean inMemory,
+            @Nullable final Date pointInTime
+    ) {
         return inMemory
-                ? findAllByConditionInMemory(modelSpec, pageSize, condition)
-                : findAllByCondition(modelSpec, pageSize, pageNumber, condition);
+                ? findAllByConditionInMemory(modelSpec, pageSize, condition, pointInTime)
+                : findAllByCondition(modelSpec, pageSize, pageNumber, condition, pointInTime);
     }
 
     private CompletableFuture<List<DataPayload>> findAllByCondition(
             @NotNull final ModelSpec modelSpec,
             final int pageSize,
             final int pageNumber,
-            @NotNull final GroupCondition condition
+            @NotNull final GroupCondition condition,
+            @Nullable final Date pointInTime
     ) {
-        return createSnapshotSearch(modelSpec, condition).thenComposeAsync(snapshotInfo -> {
+        return createSnapshotSearch(modelSpec, condition, pointInTime).thenComposeAsync(snapshotInfo -> {
                     if (snapshotInfo.getSnapshotId() == null) {
                         logger.error("Snapshot ID not found in response");
                         return CompletableFuture.completedFuture(null);
@@ -141,14 +142,16 @@ public class CyodaRepository implements CrudRepository {
     private CompletableFuture<List<DataPayload>> findAllByConditionInMemory(
             @NotNull final ModelSpec modelSpec,
             final int pageSize,
-            @NotNull final GroupCondition condition
+            @NotNull final GroupCondition condition,
+            @Nullable final Date pointInTime
     ) {
         return sendAndGetCollection(
                 cloudEventsServiceBlockingStub::entitySearchCollection,
                 new EntitySearchRequest().withId(generateEventId())
                         .withModel(modelSpec)
                         .withLimit(pageSize)
-                        .withCondition(condition),
+                        .withCondition(condition)
+                        .withPointInTime(pointInTime),
                 EntityResponse.class
         ).thenApply(entities -> entities.map(EntityResponse::getPayload).toList())
                 .exceptionally(this::handleNotFoundOrThrow);
@@ -215,7 +218,7 @@ public class CyodaRepository implements CrudRepository {
     public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> update(
             @NotNull final UUID id,
             @NotNull final ENTITY_TYPE entity,
-            @NotNull final String transition
+            @Nullable final String transition
     ) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
@@ -233,7 +236,7 @@ public class CyodaRepository implements CrudRepository {
     @Override
     public <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
             @NotNull final Collection<ENTITY_TYPE> entities,
-            @NotNull final String transition
+            @Nullable final String transition
     ) {
         final var entitiesByIds = entities.stream()
                 .map(objectMapper::valueToTree)
@@ -366,13 +369,15 @@ public class CyodaRepository implements CrudRepository {
 
     private CompletableFuture<SearchSnapshotStatus> createSnapshotSearch(
             final ModelSpec modelSpec,
-            final GroupCondition condition
+            final GroupCondition condition,
+            @Nullable final Date pointInTime
     ) {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entitySearch,
                 new EntitySnapshotSearchRequest().withId(generateEventId())
                         .withModel(modelSpec)
-                        .withCondition(condition),
+                        .withCondition(condition)
+                        .withPointInTime(pointInTime),
                 EntitySnapshotSearchResponse.class
         ).thenApply(EntitySnapshotSearchResponse::getStatus);
     }
@@ -461,5 +466,50 @@ public class CyodaRepository implements CrudRepository {
 
     private boolean isNotFound(final Throwable exception) {
         return exception instanceof StatusRuntimeException ex && ex.getStatus().getCode().equals(Status.Code.NOT_FOUND);
+    }
+
+    @Override
+    public CompletableFuture<Long> getEntityCount(@NotNull final ModelSpec modelSpec) {
+        return getEntityCount(modelSpec, null);
+    }
+
+    @Override
+    public CompletableFuture<Long> getEntityCount(@NotNull final ModelSpec modelSpec, @Nullable final Date pointInTime) {
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entitySearchCollection,
+                new EntityStatsGetRequest()
+                        .withId(generateEventId())
+                        .withPointInTime(pointInTime)
+                        .withModel(modelSpec),
+                EntityStatsResponse.class
+        ).thenApply(statsStream -> statsStream
+                .filter(stat -> modelSpec.getName().equals(stat.getModelName()) &&
+                        modelSpec.getVersion().equals(stat.getModelVersion()))
+                .findFirst()
+                .map(EntityStatsResponse::getCount)
+                .orElse(0L)
+        ).exceptionally(ex -> {
+            logger.error("Failed to get entity count for model {}/{}: {}",
+                    modelSpec.getName(), modelSpec.getVersion(), ex.getMessage());
+            return 0L;
+        });
+    }
+
+    @Override
+    public CompletableFuture<List<org.cyoda.cloud.api.event.common.EntityChangeMeta>> getEntityChangesMetadata(
+            @NotNull final UUID entityId,
+            @Nullable final Date pointInTime
+    ) {
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entitySearchCollection,
+                new EntityChangesMetadataGetRequest()
+                        .withId(generateEventId())
+                        .withEntityId(entityId)
+                        .withPointInTime(pointInTime),
+                EntityChangesMetadataResponse.class
+        ).thenApply(responseStream -> responseStream
+                .map(EntityChangesMetadataResponse::getChangeMeta)
+                .toList()
+        );
     }
 }

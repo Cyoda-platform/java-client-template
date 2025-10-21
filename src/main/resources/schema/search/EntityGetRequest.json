@@ -11,6 +11,11 @@
       "type": "string",
       "description": "ID of the entity.",
       "format": "uuid"
+    },
+    "pointInTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Point in time to retrieve the entity. If not provided, retrieves the entity at the current consistency time."
     }
   },
   "required": [

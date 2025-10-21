@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/common/ExternalizedFunctionConfig.json",
+  "title": "ExternalizedFunctionConfig",
+  "description": "Common configuration parameters for externalized functions and processors",
+  "type": "object",
+  "properties": {
+    "attachEntity": {
+      "type": "boolean",
+      "description": "Whether to attach entity data to the function call"
+    },
+    "calculationNodesTags": {
+      "type": "string",
+      "description": "Comma-separated list of calculation node tags"
+    },
+    "responseTimeoutMs": {
+      "type": "integer",
+      "existingJavaType": "java.lang.Long",
+      "description": "Response timeout in milliseconds"
+    },
+    "retryPolicy": {
+      "type": "string",
+      "description": "Retry policy for the function"
+    },
+    "context": {
+      "type": "string",
+      "description": "Additional context for the function"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/common/condition/FunctionCondition.json",
+  "extends": {
+    "$ref": "./QueryCondition.json"
+  },
+  "allOf": [
+    {
+      "$ref": "./QueryCondition.json"
+    }
+  ],
+  "title": "FunctionCondition",
+  "description": "Condition with a type 'function' for externalized logic",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "default": "function"
+    },
+    "function": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the function that returns boolean",
+          "minLength": 1
+        },
+        "config": {
+          "$ref": "../ExternalizedFunctionConfig.json"
+        },
+        "criterion": {
+          "$ref": "QueryCondition.json",
+          "description": "Optional criterion to check before calling an expensive function, used when the result can be confidently determined from entity data."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "required": [
+    "function"
+  ]
+}

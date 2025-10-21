@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.java_template.common.auth.Authentication;
 import com.java_template.common.util.HttpUtils;
 import com.java_template.common.workflow.CyodaEntity;
@@ -14,19 +15,20 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
-import static com.java_template.common.config.Config.*;
+import static com.java_template.common.config.Config.CYODA_API_URL;
 
 
 /**
  * ABOUTME: Initialization tool for setting up Cyoda platform configuration
  * including workflow definitions, entity models, and system bootstrapping.
- *
+ *<p>
  * This tool dynamically discovers entities and uses their getModelKey() method
  * to get the correct entity name and version instead of parsing file paths.
  */
@@ -80,7 +82,7 @@ public class CyodaInit {
 
         List<ModelSpec> modelSpecs = discoverEntities();
         logger.info("🔍 Discovered {} entities: {}", modelSpecs.size(),
-            modelSpecs.stream().map(spec -> spec.getName() + ":" + spec.getVersion()).toList());
+                modelSpecs.stream().map(spec -> spec.getName() + ":" + spec.getVersion()).toList());
 
         for (ModelSpec modelSpec : modelSpecs) {
             Path workflowFile = findWorkflowFile(WORKFLOW_DTO_DIR, modelSpec.getName(), modelSpec.getVersion());
@@ -107,9 +109,9 @@ public class CyodaInit {
 
         try (Stream<Path> javaFiles = Files.walk(ENTITY_DIR)) {
             List<Path> entityFiles = javaFiles
-                .filter(path -> path.toString().endsWith(".java"))
-                .filter(path -> !path.getFileName().toString().startsWith("Test"))
-                .toList();
+                    .filter(path -> path.toString().endsWith(".java"))
+                    .filter(path -> !path.getFileName().toString().startsWith("Test"))
+                    .toList();
 
             for (Path javaFile : entityFiles) {
                 ModelSpec modelSpec = extractEntityModelSpec(javaFile);
@@ -133,7 +135,7 @@ public class CyodaInit {
             // Convert file path to class name
             String relativePath = ENTITY_DIR.relativize(javaFile).toString();
             String className = relativePath.replace(File.separator, ".")
-                .replace(".java", "");
+                    .replace(".java", "");
             String fullClassName = "com.java_template.application.entity." + className;
 
             // Load the class
@@ -157,6 +159,7 @@ public class CyodaInit {
     /**
      * Find workflow file for the given entity name and version
      */
+    @SuppressWarnings("SameParameterValue")
     private Path findWorkflowFile(Path workflowDir, String entityName, Integer version) {
         if (!Files.exists(workflowDir)) {
             return null;
@@ -164,18 +167,23 @@ public class CyodaInit {
 
         try (Stream<Path> workflowFilesStream = Files.walk(workflowDir)) {
             return workflowFilesStream
-                .filter(path -> path.toString().toLowerCase().endsWith(".json"))
-                .filter(path -> {
-                    String pathStr = path.toString().toLowerCase();
-                    String fileName = path.getFileName().toString().toLowerCase();
-                    String entityNameLower = entityName.toLowerCase();
+                    .filter(path -> path.toString().toLowerCase().endsWith(".json"))
+                    .filter(path -> {
+                        String pathStr = path.toString().toLowerCase();
+                        String fileName = path.getFileName().toString().toLowerCase();
+                        String entityNameLower = entityName.toLowerCase();
 
-                    // Match by entity name and version directory
-                    return (fileName.startsWith(entityNameLower) || fileName.contains(entityNameLower)) &&
-                           (pathStr.contains("version_" + version) || pathStr.contains("v" + version));
-                })
-                .findFirst()
-                .orElse(null);
+                        // Remove .json extension from filename
+                        String fileNameWithoutExtension = fileName.endsWith(".json")
+                                ? fileName.substring(0, fileName.length() - 5)
+                                : fileName;
+
+                        // Match by entity name and version directory
+                        return fileNameWithoutExtension.equals(entityNameLower) &&
+                                (pathStr.contains("version_" + version) || pathStr.contains("v" + version));
+                    })
+                    .findFirst()
+                    .orElse(null);
         } catch (IOException e) {
             logger.error("❌ Error searching for workflow file: {}", e.getMessage());
             return null;
@@ -202,14 +210,19 @@ public class CyodaInit {
             workflowsArray.add(dtoJson);
             wrappedContent.set("workflows", workflowsArray);
 
+            // Other alternatives are "MERGE" and "ACTIVATE"
+            // MERGE will just add these workflows which may not be what you want, because you might have several workflows active for the same model
+            // ACTIVATE will activate the imported ones and deactivate the others for the same model
+            // Since we want to initialize, we'll just REPLACE, meaning for the models imported, only this one workflow will exist.
+            wrappedContent.set("importMode", new TextNode("REPLACE") );
+
             String wrappedContentJson = wrappedContent.toString();
 
             // Use the endpoint format: model/{entity_name}/{version}/workflow/import
             String importPath = String.format("model/%s/%s/workflow/import", entityName, version);
             logger.debug("🔗 Using import endpoint: {}", importPath);
 
-            JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson,
-                    Map.of("importMode", "MERGE")).join();
+            JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson).join();
 
             int statusCode = response.get("status").asInt();
             if (statusCode >= 200 && statusCode < 300) {

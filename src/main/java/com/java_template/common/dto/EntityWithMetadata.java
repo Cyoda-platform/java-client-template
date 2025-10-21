@@ -1,5 +1,6 @@
 package com.java_template.common.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.workflow.CyodaEntity;
@@ -37,6 +38,7 @@ public record EntityWithMetadata<T extends CyodaEntity>(@JsonProperty("entity") 
      * Gets the technical UUID of the entity.
      * @return the technical UUID, or null if metadata is not available
      */
+    @JsonIgnore
     public UUID getId() {
         return metadata != null ? metadata.getId() : null;
     }
@@ -45,6 +47,7 @@ public record EntityWithMetadata<T extends CyodaEntity>(@JsonProperty("entity") 
      * Gets the model specification containing entity name and version.
      * @return the ModelSpec, or null if metadata is not available
      */
+    @JsonIgnore
     public ModelSpec getModelKey() {
         return metadata != null ? metadata.getModelKey() : null;
     }
@@ -53,6 +56,7 @@ public record EntityWithMetadata<T extends CyodaEntity>(@JsonProperty("entity") 
      * Gets the current workflow state of the entity.
      * @return the workflow state, or null if metadata is not available
      */
+    @JsonIgnore
     public String getState() {
         return metadata != null ? metadata.getState() : null;
     }
@@ -61,6 +65,7 @@ public record EntityWithMetadata<T extends CyodaEntity>(@JsonProperty("entity") 
      * Gets the creation date of the entity.
      * @return the creation date, or null if metadata is not available
      */
+    @JsonIgnore
     public Date getCreationDate() {
         return metadata != null ? metadata.getCreationDate() : null;
     }
@@ -69,6 +74,7 @@ public record EntityWithMetadata<T extends CyodaEntity>(@JsonProperty("entity") 
      * Gets the transition name used for the latest save operation.
      * @return the transition name, or null if metadata is not available
      */
+    @JsonIgnore
     public String getTransitionForLatestSave() {
         return metadata != null ? metadata.getTransitionForLatestSave() : null;
     }
