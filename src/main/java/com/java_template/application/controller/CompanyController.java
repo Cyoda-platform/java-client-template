@@ -90,7 +90,8 @@ public class CompanyController {
     @GetMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<Company>> getCompanyById(@PathVariable UUID id) {
         try {
-            EntityWithMetadata<Company> company = entityService.findById(id, Company.class);
+            ModelSpec modelSpec = new ModelSpec().withName(Company.ENTITY_NAME).withVersion(Company.ENTITY_VERSION);
+            EntityWithMetadata<Company> company = entityService.getById(id, modelSpec, Company.class);
             return ResponseEntity.ok(company);
         } catch (Exception e) {
             logger.error("Failed to get company by ID: {}", id, e);
