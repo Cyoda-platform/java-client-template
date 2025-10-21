@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "Note",
+  "desc": "Note lifecycle workflow for CRM system",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_note",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "NoteCreateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_note",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "NoteUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "archive_note",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": [
+        {
+          "name": "restore_note",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}

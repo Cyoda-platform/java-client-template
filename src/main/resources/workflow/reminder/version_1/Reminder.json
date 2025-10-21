@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "name": "Reminder",
+  "desc": "Reminder lifecycle workflow for CRM system",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_reminder",
+          "next": "pending",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReminderCreateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "update_reminder",
+          "next": "pending",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReminderUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "complete_reminder",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ReminderCompleteProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_reminder",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "reopen_reminder",
+          "next": "pending",
+          "manual": true
+        }
+      ]
+    },
+    "cancelled": {
+      "transitions": [
+        {
+          "name": "reopen_reminder",
+          "next": "pending",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
