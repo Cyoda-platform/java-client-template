@@ -282,7 +282,8 @@ public class ReminderController {
     @PostMapping("/{id}/cancel")
     public ResponseEntity<EntityWithMetadata<Reminder>> cancelReminder(@PathVariable UUID id) {
         try {
-            EntityWithMetadata<Reminder> reminder = entityService.findById(id, Reminder.class);
+            ModelSpec modelSpec = new ModelSpec().withName(Reminder.ENTITY_NAME).withVersion(Reminder.ENTITY_VERSION);
+            EntityWithMetadata<Reminder> reminder = entityService.getById(id, modelSpec, Reminder.class);
             EntityWithMetadata<Reminder> response = entityService.update(id, reminder.entity(), "cancel_reminder");
             logger.info("Reminder cancelled with ID: {}", id);
             return ResponseEntity.ok(response);
