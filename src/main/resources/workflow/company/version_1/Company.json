@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "name": "Company",
+  "desc": "Company lifecycle workflow for CRM system",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_company",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_company",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CompanyUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "archive_company",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": [
+        {
+          "name": "reactivate_company",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
