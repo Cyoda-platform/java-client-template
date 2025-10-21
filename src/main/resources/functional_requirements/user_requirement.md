@@ -1,0 +1,1 @@
+I would like to build a simple CRM in Java that keeps track of companies I am interacting with, keep notes on them and schedule reminders.
