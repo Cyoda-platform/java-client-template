@@ -1,0 +1,1 @@
+Build a Spring Boot client application that exposes simple REST APIs for a browser UI with the following demo rules: Anonymous checkout only, dummy payment auto-approves, decrement Product.quantityAvailable on order creation, single shipment per order, short ULID for order number, and catalog filters by category, free-text, and price range.
