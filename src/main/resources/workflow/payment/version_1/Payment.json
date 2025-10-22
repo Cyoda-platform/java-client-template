@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "name": "Payment",
+  "desc": "Dummy payment processing workflow with auto-approval",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "START_DUMMY_PAYMENT",
+          "next": "INITIATED",
+          "manual": false
+        }
+      ]
+    },
+    "INITIATED": {
+      "transitions": [
+        {
+          "name": "AUTO_MARK_PAID",
+          "next": "PAID",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoMarkPaid",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PAID": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "CANCELED": {
+      "transitions": []
+    }
+  }
+}
+

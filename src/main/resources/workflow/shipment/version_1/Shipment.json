@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "name": "Shipment",
+  "desc": "Shipment fulfillment workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "CREATE_SHIPMENT",
+          "next": "PICKING",
+          "manual": false
+        }
+      ]
+    },
+    "PICKING": {
+      "transitions": [
+        {
+          "name": "READY_TO_SEND",
+          "next": "WAITING_TO_SEND",
+          "manual": true
+        }
+      ]
+    },
+    "WAITING_TO_SEND": {
+      "transitions": [
+        {
+          "name": "MARK_SENT",
+          "next": "SENT",
+          "manual": true
+        }
+      ]
+    },
+    "SENT": {
+      "transitions": [
+        {
+          "name": "MARK_DELIVERED",
+          "next": "DELIVERED",
+          "manual": true
+        }
+      ]
+    },
+    "DELIVERED": {
+      "transitions": []
+    }
+  }
+}
+
