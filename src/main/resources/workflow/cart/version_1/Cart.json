@@ -1,0 +1,103 @@
+{
+  "version": "1.0",
+  "name": "Cart",
+  "desc": "Shopping cart lifecycle workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "CREATE_ON_FIRST_ADD",
+          "next": "ACTIVE",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RecalculateTotals",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ACTIVE": {
+      "transitions": [
+        {
+          "name": "ADD_ITEM",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RecalculateTotals",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "DECREMENT_ITEM",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RecalculateTotals",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "REMOVE_ITEM",
+          "next": "ACTIVE",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RecalculateTotals",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "OPEN_CHECKOUT",
+          "next": "CHECKING_OUT",
+          "manual": true
+        }
+      ]
+    },
+    "CHECKING_OUT": {
+      "transitions": [
+        {
+          "name": "CHECKOUT",
+          "next": "CONVERTED",
+          "manual": true
+        }
+      ]
+    },
+    "CONVERTED": {
+      "transitions": []
+    }
+  }
+}
+

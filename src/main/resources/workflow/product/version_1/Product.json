@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "name": "Product",
+  "desc": "Product catalog workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": []
+    }
+  }
+}
+
