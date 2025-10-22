@@ -54,7 +54,7 @@ public class RecalculateTotals implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Cart> entityWithMetadata) {
         Cart entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**
