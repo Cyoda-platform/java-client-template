@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "name": "Pet",
+  "desc": "Pet entity lifecycle workflow for loading and managing pet data from external APIs",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "load_pet",
+          "next": "loaded",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PetLoadProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "loaded": {
+      "transitions": [
+        {
+          "name": "activate_pet",
+          "next": "active",
+          "manual": true
+        },
+        {
+          "name": "reload_pet",
+          "next": "loaded",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PetLoadProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_pet",
+          "next": "active",
+          "manual": true
+        },
+        {
+          "name": "deactivate_pet",
+          "next": "inactive",
+          "manual": true
+        }
+      ]
+    },
+    "inactive": {
+      "transitions": [
+        {
+          "name": "reactivate_pet",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
+
