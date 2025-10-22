@@ -38,7 +38,7 @@ public class Order implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(org.cyoda.cloud.api.event.common.EntityMetadata metadata) {
         return orderId != null && !orderId.trim().isEmpty() &&
                orderNumber != null && !orderNumber.trim().isEmpty() &&
                status != null && !status.trim().isEmpty() &&

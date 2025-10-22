@@ -36,7 +36,7 @@ public class Shipment implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(org.cyoda.cloud.api.event.common.EntityMetadata metadata) {
         return shipmentId != null && !shipmentId.trim().isEmpty() &&
                orderId != null && !orderId.trim().isEmpty() &&
                status != null && !status.trim().isEmpty() &&
