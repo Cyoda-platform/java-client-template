@@ -38,7 +38,7 @@ public class Cart implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(org.cyoda.cloud.api.event.common.EntityMetadata metadata) {
         return cartId != null && !cartId.trim().isEmpty() &&
                status != null && !status.trim().isEmpty() &&
                lines != null &&

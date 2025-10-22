@@ -50,7 +50,7 @@ public class Product implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(org.cyoda.cloud.api.event.common.EntityMetadata metadata) {
         return sku != null && !sku.trim().isEmpty() &&
                name != null && !name.trim().isEmpty() &&
                description != null &&
