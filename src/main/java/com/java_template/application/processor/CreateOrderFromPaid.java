@@ -68,7 +68,7 @@ public class CreateOrderFromPaid implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Order> entityWithMetadata) {
         Order entity = entityWithMetadata.entity();
         UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     private EntityWithMetadata<Order> processBusinessLogic(

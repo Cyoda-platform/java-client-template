@@ -51,7 +51,7 @@ public class AutoMarkPaidAfter3s implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Payment> entityWithMetadata) {
         Payment entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     private EntityWithMetadata<Payment> processBusinessLogic(

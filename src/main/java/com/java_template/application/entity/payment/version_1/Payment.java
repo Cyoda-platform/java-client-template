@@ -38,7 +38,7 @@ public class Payment implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         return paymentId != null && !paymentId.trim().isEmpty() &&
                cartId != null && !cartId.trim().isEmpty() &&
                amount != null && provider != null && !provider.trim().isEmpty();
