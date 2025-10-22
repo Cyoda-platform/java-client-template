@@ -3,6 +3,7 @@ package com.java_template.application.entity.order.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.time.LocalDateTime;
@@ -49,7 +50,7 @@ public class Order implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         return orderId != null && !orderId.trim().isEmpty() &&
                orderNumber != null && !orderNumber.trim().isEmpty();
     }

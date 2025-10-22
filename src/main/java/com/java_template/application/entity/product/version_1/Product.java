@@ -3,6 +3,7 @@ package com.java_template.application.entity.product.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.time.LocalDateTime;
@@ -70,7 +71,7 @@ public class Product implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         return sku != null && !sku.trim().isEmpty() &&
                name != null && !name.trim().isEmpty() &&
                price != null && quantityAvailable != null &&
