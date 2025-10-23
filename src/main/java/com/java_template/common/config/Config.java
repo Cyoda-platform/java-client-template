@@ -10,7 +10,9 @@ import org.cyoda.cloud.api.event.common.DataFormat;
  * for Cyoda platform connection, gRPC communication, and application parameters.
  */
 public class Config {
-    private static final Dotenv dotenv = Dotenv.load();
+    private static final Dotenv dotenv = Dotenv.configure()
+            .ignoreIfMissing()
+            .load();
 
     public static final String CYODA_HOST = getEnv("CYODA_HOST");
     public static final String CYODA_API_URL = getEnv("CYODA_API_URL", "https://" + CYODA_HOST + "/api");
