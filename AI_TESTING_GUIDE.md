@@ -12,6 +12,7 @@ Retry until workflow import is successful.
  - **Testing Approach**: Focus on verifying processor and criteria execution via logs rather than entity data changes
 
 ### **Entity Name Case Sensitivity** ⚠️
+
 **MOST IMPORTANT**: Entity names for workflow import must **EXACTLY** match the `ENTITY_NAME` constant in your entity class:
 
 ```java
