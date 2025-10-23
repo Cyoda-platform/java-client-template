@@ -1,6 +1,7 @@
 package com.java_template.common.workflow;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 
 /**
  * ABOUTME: Base interface for all Cyoda entities providing common functionality
@@ -21,7 +22,7 @@ public interface CyodaEntity {
      * @return true if the entity is valid, false otherwise
      */
     @JsonIgnore
-    default boolean isValid() {
+    default boolean isValid(EntityMetadata metadata) {
         return true;
     }
 }

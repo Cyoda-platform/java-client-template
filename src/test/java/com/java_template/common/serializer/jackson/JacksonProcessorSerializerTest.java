@@ -6,6 +6,7 @@ import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.DataPayload;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,9 +98,7 @@ class JacksonProcessorSerializerTest {
         request.setPayload(payload);
 
         // When & Then - Should propagate the exception instead of catching it
-        assertThrows(RuntimeException.class, () -> {
-            serializer.extractEntityWithMetadata(request, TestEntity.class);
-        });
+        assertThrows(RuntimeException.class, () -> serializer.extractEntityWithMetadata(request, TestEntity.class));
     }
 
     @Test
@@ -111,9 +110,7 @@ class JacksonProcessorSerializerTest {
         request.setPayload(null);
 
         // When & Then - Should throw exception for null payload
-        assertThrows(Exception.class, () -> {
-            serializer.extractEntityWithMetadata(request, TestEntity.class);
-        });
+        assertThrows(Exception.class, () -> serializer.extractEntityWithMetadata(request, TestEntity.class));
     }
 
     private EntityProcessorCalculationRequest createRequestWithMetadata() {
@@ -160,18 +157,13 @@ class JacksonProcessorSerializerTest {
     }
 
     // Test entity class
+    @SuppressWarnings({"LombokGetterMayBeUsed", "LombokSetterMayBeUsed", "unused"})
     static class TestEntity implements CyodaEntity {
         private Long id;
         private String name;
         private String status;
 
         public TestEntity() {}
-
-        public TestEntity(Long id, String name, String status) {
-            this.id = id;
-            this.name = name;
-            this.status = status;
-        }
 
         public Long getId() { return id; }
         public void setId(Long id) { this.id = id; }
@@ -183,7 +175,7 @@ class JacksonProcessorSerializerTest {
         public void setStatus(String status) { this.status = status; }
 
         @Override
-        public boolean isValid() { return true; }
+        public boolean isValid(EntityMetadata metadata) { return true; }
 
         @Override
         public OperationSpecification getModelKey() {

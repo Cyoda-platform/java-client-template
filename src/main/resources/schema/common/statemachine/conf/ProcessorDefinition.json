@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cyoda.com/cloud/event/common/statemachine/conf/ProcessorDefinition.json",
+  "title": "ProcessorDefinition",
+  "type": "object",
+  "existingJavaType": "org.cyoda.cloud.api.event.common.statemachine.conf.ProcessorDefinition",
+  "properties": {
+    "type": {
+      "type": "string",
+      "description": "Specific type of the processor, e.g. 'scheduled', default is 'externalized' when not specified."
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of the processor"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
