@@ -6,6 +6,7 @@ plugins {
     id 'io.freefair.lombok' version '8.4'
     id "org.jsonschema2pojo" version "1.2.1"
     id 'com.google.protobuf' version '0.9.4'
+    id 'se.thinkcode.cucumber-runner' version '0.0.11'
 }
 
 java {
@@ -72,6 +73,10 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation platform('org.junit:junit-bom:5.13.1')
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.1'
+    testImplementation("io.cucumber:cucumber-java:7.18.0")
+    testImplementation("io.cucumber:cucumber-spring:7.18.0")
+    testImplementation("io.cucumber:cucumber-junit-platform-engine:7.18.0")
+    testImplementation("org.junit.platform:junit-platform-suite")
 }
 
 test {
@@ -125,6 +130,11 @@ protobuf {
 
 bootJar {
     mainClass.set("com.java_template.Application")
+    archiveFileName.set("app.jar")
+}
+
+jar {
+    enabled = false
 }
 
 bootRun {
