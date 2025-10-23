@@ -1,5 +1,5 @@
 # Stage 1: Build the application using Gradle
-FROM gradle:7.6-jdk21 AS builder
+FROM gradle:8.4-jdk21 AS builder
 
 # Set the working directory in the container
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . .
 
 # Run Gradle to build the bootJar
-RUN ./gradlew bootJarPrototype
+RUN ./gradlew bootJar -x test
 
 # Stage 2: Set up the production runtime environment
 FROM openjdk:21-jdk-slim AS production
@@ -17,7 +17,7 @@ FROM openjdk:21-jdk-slim AS production
 WORKDIR /app
 
 # Copy the generated JAR file from the builder stage
-COPY --from=builder /app/build/libs/java-client-template-1.0-SNAPSHOT-prototype.jar /app/app.jar
+COPY --from=builder /app/build/libs/java-template-1.0-SNAPSHOT.jar /app/app.jar
 
 # Expose the port on which the app will run (default Spring Boot port)
 EXPOSE 8080
