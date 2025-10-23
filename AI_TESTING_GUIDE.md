@@ -9,6 +9,7 @@ It is critical to import workflows before you start the application - otherwise 
 Retry until workflow import is successful.
 
 ## ⚠️ **KNOWN LIMITATIONS DISCOVERED IN E2E TESTING**
+
 - **Testing Approach**: Focus on verifying processor and criteria execution via logs rather than entity data changes
 
 ### **Entity Name Case Sensitivity** ⚠️
