@@ -17,7 +17,7 @@ FROM openjdk:21-jdk-slim AS production
 WORKDIR /app
 
 # Copy the generated JAR file from the builder stage
-COPY --from=builder /app/build/libs/java-template-1.0-SNAPSHOT.jar /app/app.jar
+COPY --from=builder /app/build/libs/java-client-template-1.0-SNAPSHOT.jar /app/app.jar
 
 # Expose the port on which the app will run (default Spring Boot port)
 EXPOSE 8080
