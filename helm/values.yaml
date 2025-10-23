@@ -1,0 +1,127 @@
+name: cyoda-client
+
+imagePullSecret:
+  enabled: true
+
+enabled: true
+useNamespaceForIngress: false
+
+imagePullSecrets:
+  - name: regcred
+
+# Enable Spring Boot Actuator health endpoints
+actuatorEnabled: true
+
+container:
+  env:
+    vars:
+      # Timezone
+      TZ: /usr/share/zoneinfo/Europe/Berlin
+
+      # Cyoda Connection (REQUIRED - must be set via --set or values override)
+      CYODA_HOST: ""  # e.g., client-05e11da2107844fc944ee5b872fcb6b6.kube3.cyoda.org
+      CYODA_CLIENT_ID: ""
+      CYODA_CLIENT_SECRET: ""
+
+      # Cyoda API Configuration
+      CYODA_AI_API: cyoda
+      WORKFLOW_AI_API: workflow
+      CONNECTION_AI_API: connection
+      RANDOM_AI_API: random
+      TRINO_AI_API: trino
+
+      # gRPC Configuration
+      GRPC_PROCESSOR_TAG: cyoda_application
+      GRPC_SERVER_PORT: "443"
+
+      # Optional Configuration
+      ENTITY_VERSION: "1000"
+      EXTERNAL_CALCULATIONS_THREAD_POOL: "10"
+      HANDSHAKE_TIMEOUT_MS: "5000"
+      INITIAL_RECONNECT_DELAY_MS: "200"
+      MAX_RECONNECT_DELAY_MS: "10000"
+      FAILED_RECONNECTS_LIMIT: "10"
+      GRPC_COMMUNICATION_DATA_FORMAT: "JSON"
+
+      # Monitoring
+      SENT_EVENTS_CACHE_MAX_SIZE: "100"
+      MONITORING_SCHEDULER_INITIAL_DELAY_SECONDS: "1"
+      MONITORING_SCHEDULER_DELAY_SECONDS: "3"
+      KEEP_ALIVE_WARNING_THRESHOLD: "60000"
+
+      # SSL Configuration
+      SSL_TRUST_ALL: "false"
+      SSL_TRUSTED_HOSTS: ""
+
+      # Feature Flags
+      INCLUDE_DEFAULT_OPERATIONS: "false"
+
+    # Additional environment variables can be added here
+    additionalVars: {}
+
+    # ConfigMaps to load as environment variables
+    configMaps: []
+
+    # Secrets to load as environment variables
+    secrets: []
+
+podAnnotations: {}
+
+health:
+  liveness:
+    path: /actuator/health/liveness
+    initialDelaySeconds: 120
+    timeoutSeconds: 5
+    periodSeconds: 30
+    failureThreshold: 10
+  readiness:
+    path: /actuator/health/readiness
+    initialDelaySeconds: 120
+    timeoutSeconds: 5
+    periodSeconds: 30
+    failureThreshold: 10
+
+service:
+  name: cyoda-client-service
+  type: NodePort
+  serverPort:
+    port: 8080
+    target: 8080
+    name: http
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {}
+  path: /
+  pathType: Prefix
+  tls: []
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+extraVolumeMounts: {}
+extraVolumes: {}
+securityContext: {}
+tolerations: []
+priorityClassName: ""
+serviceAccountName: ""
+nodeSelector: {}
+affinity: {}
+strategy: {}
+
+image:
+  pullPolicy: Always
+  imageName: client-app
