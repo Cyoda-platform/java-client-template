@@ -130,6 +130,11 @@ protobuf {
 
 bootJar {
     mainClass.set("com.java_template.Application")
+    archiveFileName.set("app.jar")
+}
+
+jar {
+    enabled = false
 }
 
 bootRun {
