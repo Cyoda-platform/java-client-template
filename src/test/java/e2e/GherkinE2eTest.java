@@ -13,11 +13,9 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.cucumber.spring.CucumberContextConfiguration;
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CompletionException;
@@ -124,18 +122,13 @@ public class GherkinE2eTest {
 
     private void importWorkflow(
             final RestClient client,
-            final String workflowFileName,
+            final String workflowJson,
             final String modelName,
             final Integer modelVersion,
             final String token) throws URISyntaxException, IOException {
 
         final var workflows = objectMapper.createArrayNode();
-        workflows.add(
-                objectMapper.readTree(
-                        Arrays.stream(new File(this.getClass().getResource("/workflows").toURI()).listFiles())
-                                .filter(it -> it.getName().equals(workflowFileName))
-                                .findFirst()
-                                .get()));
+        workflows.add(objectMapper.readTree(workflowJson));
 
         final var dto = objectMapper.createObjectNode();
         dto.put("entityName", modelName);
@@ -156,13 +149,13 @@ public class GherkinE2eTest {
                 .body(String.class);
     }
 
-    @When("I import workflow from file {string} for model {string} version {int}")
-    public void i_have_a_workflow_in_file(String workflowFileName, String modelName, Integer modelVersion)
+    @When("I import workflow for model {string} version {int}:")
+    public void i_have_a_workflow_in_file(String modelName, Integer modelVersion, String workflowJson)
             throws URISyntaxException,
             IOException {
         final var client = RestClient.create();
         final var token = login(client, CYODA_CLIENT_ID, CYODA_CLIENT_SECRET);
-        importWorkflow(client, workflowFileName, modelName, modelVersion, token);
+        importWorkflow(client, workflowJson, modelName, modelVersion, token);
     }
 
     @When("I create a single prize")
