@@ -51,7 +51,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @DirtiesContext
 @CucumberContextConfiguration
-@SpringBootTest(classes = {Application.class, E2eTestConfig.class})
+@SpringBootTest(classes = { Application.class, E2eTestConfig.class })
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")
@@ -64,6 +64,10 @@ public class GherkinE2eTest {
     private ObjectMapper objectMapper;
     @Autowired
     private PrizeTestProcessor prizeTestProcessor;
+    @Autowired
+    private PrizeTestCriterionAlwaysTrue prizeTestCriterionAlwaysTrue;
+    @Autowired
+    private PrizeTestCriterionAlwaysFalse prizeTestCriterionAlwaysFalse;
 
     private PrizeEntity prizeToCreate;
     private List<PrizeEntity> prizeDefinitions;
@@ -86,8 +90,7 @@ public class GherkinE2eTest {
         this.prizeToCreate = new PrizeEntity(
                 data.get("year"),
                 data.get("category"),
-                data.get("comment")
-        );
+                data.get("comment"));
     }
 
     @Given("I have a list of prizes:")
@@ -96,8 +99,7 @@ public class GherkinE2eTest {
                 .map(row -> new PrizeEntity(
                         row.get("year"),
                         row.get("category"),
-                        row.get("comment")
-                ))
+                        row.get("comment")))
                 .collect(Collectors.toList());
     }
 
@@ -114,8 +116,7 @@ public class GherkinE2eTest {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode())
-                )
+                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode()))
                 .body(JsonNode.class)
                 .get("access_token")
                 .asText();
@@ -126,26 +127,32 @@ public class GherkinE2eTest {
             final String workflowFileName,
             final String modelName,
             final Integer modelVersion,
-            final String token
-    ) throws URISyntaxException, IOException {
+            final String token) throws URISyntaxException, IOException {
 
-        final var workflowJson = objectMapper.readTree(
-                Arrays.stream(new File(this.getClass().getResource("/workflows").toURI()).listFiles())
-                        .filter(it -> it.getName().equals(workflowFileName))
-                        .findFirst()
-                        .get());
+        final var workflows = objectMapper.createArrayNode();
+        workflows.add(
+                objectMapper.readTree(
+                        Arrays.stream(new File(this.getClass().getResource("/workflows").toURI()).listFiles())
+                                .filter(it -> it.getName().equals(workflowFileName))
+                                .findFirst()
+                                .get()));
+
+        final var dto = objectMapper.createObjectNode();
+        dto.put("entityName", modelName);
+        dto.put("modelVersion", modelVersion);
+        dto.put("importMode", "REPLACE");
+        dto.set("workflows", workflows);
 
         client.post()
                 .uri(URI.create(CYODA_API_URL + "/model/" + modelName + "/" + modelVersion + "/workflow/import"))
                 .contentType(APPLICATION_JSON)
                 .header("content-type", APPLICATION_JSON_VALUE)
                 .header("Authorization", "Bearer " + token)
-                .body(workflowJson)
+                .body(dto)
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode())
-                )
+                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode()))
                 .body(String.class);
     }
 
@@ -174,8 +181,7 @@ public class GherkinE2eTest {
             this.retrievedPrizes = List.of(entityService.getById(
                     createdPrizeIds.getFirst(),
                     modelSpec,
-                    PrizeEntity.class
-            ));
+                    PrizeEntity.class));
         } catch (Exception e) {
             this.capturedException = e;
         }
@@ -193,7 +199,11 @@ public class GherkinE2eTest {
 
     @When("I update the prize with transition {string}")
     public void i_update_prize_with_transition(String transitionName) {
-        entityService.update(createdPrizeIds.getFirst(), prizeToCreate, transitionName);
+        try {
+            entityService.update(createdPrizeIds.getFirst(), prizeToCreate, transitionName);
+        } catch (final Exception e) {
+            this.capturedException = e;
+        }
     }
 
     @Then("Awaits processor is triggered")
@@ -202,6 +212,22 @@ public class GherkinE2eTest {
                 .atMost(5, TimeUnit.SECONDS)
                 .pollInterval(200, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(prizeTestProcessor.isProcessTriggered()));
+    }
+
+    @Then("Awaits criterion is triggered and passed")
+    public void awaits_criterion_triggered_and_passed() {
+        Awaitility.await()
+                .atMost(5, TimeUnit.SECONDS)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(prizeTestCriterionAlwaysTrue.isCriterionTriggered()));
+    }
+
+    @Then("Awaits criterion is triggered and failed")
+    public void awaits_criterion_triggered_and_fails() {
+        Awaitility.await()
+                .atMost(5, TimeUnit.SECONDS)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(prizeTestCriterionAlwaysFalse.isCriterionTriggered()));
     }
 
     @When("I update the prize with the year {string} and transition {string}")
@@ -251,8 +277,7 @@ public class GherkinE2eTest {
         modelSpec.setVersion(modelVersion);
         this.retrievedPrizes = entityService.findAll(
                 modelSpec,
-                PrizeEntity.class
-        );
+                PrizeEntity.class);
     }
 
     @When("I delete all of model {string} version {int}")
@@ -280,8 +305,7 @@ public class GherkinE2eTest {
         assertInstanceOf(
                 CompletionException.class,
                 capturedException,
-                "Exception should be from a future."
-        );
+                "Exception should be from a future.");
         assertNotNull(capturedException.getCause(), "The ExecutionException should have a cause.");
     }
 }
