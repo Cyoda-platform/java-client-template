@@ -31,7 +31,8 @@ task cucumberTest(type: Test) {
   finalizedBy jacocoTestReport
   testLogging {
     events "passed", "skipped", "failed"
-    showStandardStreams = true
+    showStandardStreams true
+    exceptionFormat "full"
   }
 }
 
