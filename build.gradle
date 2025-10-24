@@ -31,7 +31,7 @@ task cucumberTest(type: Test) {
   finalizedBy jacocoTestReport
   testLogging {
     events "passed", "skipped", "failed"
-    showStandardStreams = true // This is the most important line!
+    showStandardStreams = true
   }
 }
 
