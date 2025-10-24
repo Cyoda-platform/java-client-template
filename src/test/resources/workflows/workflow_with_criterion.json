@@ -12,14 +12,14 @@
           "disabled": false
         },
         {
-          "name": "TRIGGER_PROCESSOR",
+          "name": "TRIGGER_CRITERION_SUCCESS",
           "next": "CREATED",
           "manual": true,
           "disabled": false,
-          "processors": [
-            {
-              "name": "test-processor-1",
-              "executionMode": "SYNC",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "test-criterion-true",
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "test-cyoda_application",
@@ -27,7 +27,25 @@
                 "retryPolicy": "FIXED"
               }
             }
-          ]
+          }
+        },
+        {
+          "name": "TRIGGER_CRITERION_FAIL",
+          "next": "CREATED",
+          "manual": true,
+          "disabled": false,
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "test-criterion-false",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "test-cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          }
         },
         {
           "name": "DELETE",
