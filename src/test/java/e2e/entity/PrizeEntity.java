@@ -29,8 +29,4 @@ public class PrizeEntity implements CyodaEntity {
         return new OperationSpecification.Entity(modelSpec, MODEL_NAME);
     }
 
-    @Override
-    public boolean isValid() {
-        return CyodaEntity.super.isValid();
-    }
 }
