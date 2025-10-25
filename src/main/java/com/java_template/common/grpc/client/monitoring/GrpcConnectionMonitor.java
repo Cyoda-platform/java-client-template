@@ -4,6 +4,14 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.ConnectivityState;
+import org.cyoda.cloud.api.event.common.CloudEventType;
+import org.cyoda.cloud.api.event.processing.EventAckResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,18 +23,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import org.cyoda.cloud.api.event.common.CloudEventType;
-import org.cyoda.cloud.api.event.processing.EventAckResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
-import static com.java_template.common.config.Config.KEEP_ALIVE_WARNING_THRESHOLD;
-import static com.java_template.common.config.Config.MONITORING_SCHEDULER_DELAY_SECONDS;
-import static com.java_template.common.config.Config.MONITORING_SCHEDULER_INITIAL_DELAY_SECONDS;
-import static com.java_template.common.config.Config.SENT_EVENTS_CACHE_MAX_SIZE;
+import static com.java_template.common.config.Config.*;
 
 
 /**

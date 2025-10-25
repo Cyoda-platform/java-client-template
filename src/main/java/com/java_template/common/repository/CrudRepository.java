@@ -76,6 +76,13 @@ public interface CrudRepository {
             @NotNull Collection<ENTITY_TYPE> entity
     );
 
+    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
+            @NotNull ModelSpec modelSpec,
+            @NotNull Collection<ENTITY_TYPE> entities,
+            @Nullable Integer transactionWindow,
+            @Nullable Long transactionTimeoutMs
+    );
+
     <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> update(
             @NotNull UUID id,
             @NotNull ENTITY_TYPE entity,
@@ -85,6 +92,13 @@ public interface CrudRepository {
     <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
             @NotNull Collection<ENTITY_TYPE> entities,
             @Nullable String transition
+    );
+
+    <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull Collection<ENTITY_TYPE> entities,
+            @Nullable String transition,
+            @Nullable Integer transactionWindow,
+            @Nullable Long transactionTimeoutMs
     );
 
     CompletableFuture<EntityTransitionResponse> applyTransition(@NotNull UUID entityId, @NotNull String transitionName);

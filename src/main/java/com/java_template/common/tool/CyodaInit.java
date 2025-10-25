@@ -280,11 +280,98 @@ public class CyodaInit {
         String importPath = String.format("model/import/JSON/SAMPLE_DATA/%s/%s", entityName, version);
         logger.debug("🔗 Creating entity model at: {}", importPath);
 
-        JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, "{}").join();
+        // Load example JSON files from classpath
+        List<String> exampleJsonFiles = loadExampleJsonFiles(entityName);
+
+        if (exampleJsonFiles.isEmpty()) {
+            logger.debug("No example JSON files found for entity: {}, using empty object", entityName);
+            sendEntityModelRequest(token, importPath, "{}", entityName, version);
+        } else {
+            logger.info("Found {} example JSON file(s) for entity: {}", exampleJsonFiles.size(), entityName);
+            for (int i = 0; i < exampleJsonFiles.size(); i++) {
+                String jsonContent = exampleJsonFiles.get(i);
+                logger.debug("Sending example {} of {} for entity: {}", i + 1, exampleJsonFiles.size(), entityName);
+                sendEntityModelRequest(token, importPath, jsonContent, entityName, version);
+            }
+        }
+
+        setChangeLevel(token, entityName, version);
+        lockModel(token, entityName, version);
+    }
+
+    /**
+     * Load example JSON files from classpath for the given entity
+     */
+    private List<String> loadExampleJsonFiles(String entityName) {
+        List<String> jsonContents = new ArrayList<>();
+        String examplesPath = String.format("/entity-schemas/examples/%s", entityName);
+
+        try {
+            // Get the resource as a URL to check if directory exists
+            var resource = getClass().getResource(examplesPath);
+            if (resource == null) {
+                logger.debug("No examples directory found at classpath: {}", examplesPath);
+                return jsonContents;
+            }
+
+            // Read directory contents from classpath
+            var uri = resource.toURI();
+            Path examplesDir;
+
+            if (uri.getScheme().equals("jar")) {
+                // Running from JAR - need to use FileSystem
+                try (var fs = java.nio.file.FileSystems.newFileSystem(uri, java.util.Collections.emptyMap())) {
+                    examplesDir = fs.getPath(examplesPath);
+                    jsonContents = readJsonFilesFromDirectory(examplesDir);
+                }
+            } else {
+                // Running from IDE/filesystem
+                examplesDir = Paths.get(uri);
+                jsonContents = readJsonFilesFromDirectory(examplesDir);
+            }
+
+        } catch (Exception e) {
+            logger.debug("Could not load example files for entity {}: {}", entityName, e.getMessage());
+        }
+
+        return jsonContents;
+    }
+
+    /**
+     * Read all JSON files from a directory
+     */
+    private List<String> readJsonFilesFromDirectory(Path directory) throws IOException {
+        List<String> jsonContents = new ArrayList<>();
+
+        if (!Files.exists(directory) || !Files.isDirectory(directory)) {
+            return jsonContents;
+        }
+
+        try (Stream<Path> files = Files.list(directory)) {
+            List<Path> jsonFiles = files
+                    .filter(path -> path.toString().endsWith(".json"))
+                    .sorted()
+                    .toList();
+
+            for (Path jsonFile : jsonFiles) {
+                String content = Files.readString(jsonFile);
+                jsonContents.add(content);
+                logger.debug("Loaded example file: {}", jsonFile.getFileName());
+            }
+        }
+
+        return jsonContents;
+    }
+
+    /**
+     * Send a single entity model creation request
+     */
+    private void sendEntityModelRequest(String token, String importPath, String requestBody, String entityName, Integer version) {
+        JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, requestBody).join();
         int statusCode = response.get("status").asInt();
 
         if (statusCode >= 200 && statusCode < 300) {
-            logger.info("✅ Successfully created entity model for: {} (version: {})", entityName, version);
+            logger.debug("✅ Successfully sent entity model request for: {} (version: {})", entityName, version);
         } else {
             String body = response.path("json").toString();
             String errorMsg = String.format("Failed to create entity model for %s (version %s). Status code: %d, body: %s",
@@ -292,9 +379,6 @@ public class CyodaInit {
             logger.error("❌ {}", errorMsg);
             throw new RuntimeException(errorMsg);
         }
-
-        setChangeLevel(token, entityName, version);
-        lockModel(token, entityName, version);
     }
 
     /**
