@@ -201,6 +201,16 @@ public class CyodaRepository implements CrudRepository {
     }
 
     @Override
+    public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final Collection<ENTITY_TYPE> entities,
+            @Nullable final Integer transactionWindow,
+            @Nullable final Long transactionTimeoutMs
+    ) {
+        return saveNewEntitiesWithTransactionParams(modelSpec, entities, transactionWindow, transactionTimeoutMs);
+    }
+
+    @Override
     public CompletableFuture<EntityTransitionResponse> applyTransition(
             @NotNull final UUID entityId,
             @NotNull final String transitionName
@@ -238,6 +248,16 @@ public class CyodaRepository implements CrudRepository {
             @NotNull final Collection<ENTITY_TYPE> entities,
             @Nullable final String transition
     ) {
+        return updateAll(entities, transition, null, null);
+    }
+
+    @Override
+    public <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull final Collection<ENTITY_TYPE> entities,
+            @Nullable final String transition,
+            @Nullable final Integer transactionWindow,
+            @Nullable final Long transactionTimeoutMs
+    ) {
         final var entitiesByIds = entities.stream()
                 .map(objectMapper::valueToTree)
                 .map(entity -> (JsonNode) entity)
@@ -251,6 +271,8 @@ public class CyodaRepository implements CrudRepository {
                 cloudEventsServiceBlockingStub::entityManageCollection,
                 new EntityUpdateCollectionRequest().withId(generateEventId())
                         .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withTransactionWindow(transactionWindow)
+                        .withTransactionTimeoutMs(transactionTimeoutMs)
                         .withPayloads(entitiesByIds.entrySet()
                                 .stream()
                                 .map(entity -> new EntityUpdatePayload().withTransition(transition)
@@ -342,6 +364,34 @@ public class CyodaRepository implements CrudRepository {
                         ),
                 EntityTransactionResponse.class
         );
+    }
+
+    private <PAYLOAD_TYPE> CompletableFuture<EntityTransactionResponse> saveNewEntitiesWithTransactionParams(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final PAYLOAD_TYPE entities,
+            @Nullable final Integer transactionWindow,
+            @Nullable final Long transactionTimeoutMs
+    ) {
+        // Convert entities to collection if it's not already
+        Collection<?> entityCollection = (entities instanceof Collection)
+                ? (Collection<?>) entities
+                : List.of(entities);
+
+        List<EntityCreatePayload> payloads = entityCollection.stream()
+                .map(entity -> new EntityCreatePayload()
+                        .withData(objectMapper.valueToTree(entity))
+                        .withModel(modelSpec))
+                .toList();
+
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entityManageCollection,
+                new EntityCreateCollectionRequest().withId(generateEventId())
+                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withTransactionWindow(transactionWindow)
+                        .withTransactionTimeoutMs(transactionTimeoutMs)
+                        .withPayloads(payloads),
+                EntityTransactionResponse.class
+        ).thenApply(stream -> stream.findFirst().orElse(null));
     }
 
     private CompletableFuture<EntityDeleteResponse> deleteEntity(@NotNull final UUID id) {

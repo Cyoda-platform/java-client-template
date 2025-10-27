@@ -6,14 +6,15 @@ import com.java_template.common.grpc.client.event_handling.EventHandler;
 import com.java_template.common.grpc.client.event_handling.EventHandlingStrategy;
 import com.java_template.common.grpc.client.event_handling.EventSender;
 import io.cloudevents.v1.proto.CloudEvent;
-import java.util.List;
-import java.util.Set;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.cyoda.cloud.api.event.common.CloudEventType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Set;
 
 import static com.java_template.common.config.Config.GRPC_PROCESSOR_TAG;
 
@@ -27,27 +28,36 @@ class CyodaCalculationMemberClient implements EventHandler {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
     private final EventSender eventSender;
-    private final CalculationExecutionStrategy calculationExecutionStrategy;
+    private final EventExecutionRouter eventExecutionRouter;
     private final CloudEventBuilder eventBuilder;
     private final List<EventHandlingStrategy<? extends BaseEvent>> eventHandlingStrategies;
 
     CyodaCalculationMemberClient(
             @Lazy final EventSender eventSender,
-            final CalculationExecutionStrategy calculationExecutionStrategy,
+            final EventExecutionRouter eventExecutionRouter,
             final CloudEventBuilder eventBuilder,
             final List<EventHandlingStrategy<? extends BaseEvent>> eventHandlingStrategies
     ) {
         this.eventSender = eventSender;
-        this.calculationExecutionStrategy = calculationExecutionStrategy;
+        this.eventExecutionRouter = eventExecutionRouter;
         this.eventBuilder = eventBuilder;
         this.eventHandlingStrategies = eventHandlingStrategies;
     }
 
     @Override
     public void handleEvent(final CloudEvent cloudEvent) {
-        calculationExecutionStrategy.run(() -> {
+        // Determine event type BEFORE submitting to thread pool for proper routing
+        final CloudEventType cloudEventType;
+        try {
+            cloudEventType = CloudEventType.fromValue(cloudEvent.getType());
+        } catch (Exception e) {
+            log.error("Failed to parse CloudEventType from event: {}", cloudEvent, e);
+            return;
+        }
+
+        // Route to appropriate thread pool based on event type
+        eventExecutionRouter.routeAndExecute(cloudEventType, () -> {
             try {
-                final var cloudEventType = CloudEventType.fromValue(cloudEvent.getType());
                 log.debug(
                         "[IN] Received event {}: \n{}",
                         cloudEventType,

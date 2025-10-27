@@ -19,6 +19,8 @@ import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +37,8 @@ public class EntityServiceImpl implements EntityService {
 
     private static final int DEFAULT_PAGE_SIZE = 100;
     private static final int FIRST_PAGE = 1;
+
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final CrudRepository repository;
     private final ObjectMapper objectMapper;
@@ -383,6 +387,15 @@ public class EntityServiceImpl implements EntityService {
 
     @Override
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> save(@NotNull final Collection<T> entities) {
+        return save(entities, null, null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> save(
+            @NotNull final Collection<T> entities,
+            @Nullable final Integer transactionWindow,
+            @Nullable final Long transactionTimeoutMs
+    ) {
         if (entities.isEmpty()) {
             return List.of();
         }
@@ -390,7 +403,8 @@ public class EntityServiceImpl implements EntityService {
         T firstEntity = entities.iterator().next();
         ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
 
-        EntityTransactionResponse response = repository.saveAll(modelSpec, entities).join();
+        EntityTransactionResponse response = repository.saveAll(
+                modelSpec, entities, transactionWindow, transactionTimeoutMs).join();
 
         // Extract entity IDs and transaction ID from response
         List<UUID> entityIds = response.getTransactionInfo() != null
@@ -460,7 +474,13 @@ public class EntityServiceImpl implements EntityService {
         EntityChangeMeta changeMeta = changes.stream()
                 .filter(meta -> transactionId.equals(meta.getTransactionId()))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
+                .orElseGet(() -> {
+                    logger.warn("Transaction metadata not found for transaction: {}. " +
+                            "The entity is unchanged. Falling back to last change metadata.", transactionId);
+
+                    // Sanity check: verify that the last element has the maximum transactionId
+                    return getLatestChange(changes);
+                });
 
         // Reload entity at the exact point in time when it was updated
         @SuppressWarnings("unchecked")
@@ -468,7 +488,35 @@ public class EntityServiceImpl implements EntityService {
         return getById(entityId, modelSpec, entityClass, changeMeta.getTimeOfChange());
     }
 
-    public <T extends CyodaEntity> List<EntityWithMetadata<T>> updateAll(@NotNull final Collection<T> entities, @Nullable final String transition) {
+    @NotNull
+    private EntityChangeMeta getLatestChange(List<EntityChangeMeta> changes) {
+        return changes.stream()
+                .max((c1, c2) -> {
+                    UUID id1 = c1.getTransactionId();
+                    UUID id2 = c2.getTransactionId();
+                    if (id1 == null && id2 == null) return 0;
+                    if (id1 == null) return -1;
+                    if (id2 == null) return 1;
+                    return id1.compareTo(id2);
+                })
+                .orElseGet(changes::getFirst);
+    }
+
+    @Override
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> updateAll(
+            @NotNull final Collection<T> entities,
+            @Nullable final String transition
+    ) {
+        return updateAll(entities, transition, null, null);
+    }
+
+    @Override
+    public <T extends CyodaEntity> List<EntityWithMetadata<T>> updateAll(
+            @NotNull final Collection<T> entities,
+            @Nullable final String transition,
+            @Nullable final Integer transactionWindow,
+            @Nullable final Long transactionTimeoutMs
+    ) {
         if (entities.isEmpty()) {
             return List.of();
         }
@@ -476,8 +524,12 @@ public class EntityServiceImpl implements EntityService {
         T firstEntity = entities.iterator().next();
         ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
 
-        List<EntityTransactionResponse> responses = repository.updateAll(objectMapper.convertValue(entities, new TypeReference<>() {
-        }), transition).join();
+        List<EntityTransactionResponse> responses = repository.updateAll(
+                objectMapper.convertValue(entities, new TypeReference<>() {}),
+                transition,
+                transactionWindow,
+                transactionTimeoutMs
+        ).join();
 
         @SuppressWarnings("unchecked")
         Class<T> entityClass = (Class<T>) firstEntity.getClass();
@@ -498,7 +550,13 @@ public class EntityServiceImpl implements EntityService {
                                 EntityChangeMeta changeMeta = changes.stream()
                                         .filter(meta -> transactionId.equals(meta.getTransactionId()))
                                         .findFirst()
-                                        .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
+                                        .orElseGet(() -> {
+                                            logger.warn("Transaction metadata not found for transaction: {}. " +
+                                                    "The entity is unchanged. Falling back to last change metadata.", transactionId);
+
+                                            // Sanity check: verify that the last element has the maximum transactionId
+                                            return getLatestChange(changes);
+                                        });
 
                                 // Reload entity at the exact point in time when it was updated
                                 return getById(entityId, modelSpec, entityClass, changeMeta.getTimeOfChange());

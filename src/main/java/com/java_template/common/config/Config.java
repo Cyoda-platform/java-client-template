@@ -17,7 +17,12 @@ public class Config {
     public static final String GRPC_ADDRESS = getEnv("GRPC_ADDRESS", "grpc-" + CYODA_HOST);
     public static final int GRPC_SERVER_PORT = Integer.parseInt(getEnv("GRPC_SERVER_PORT", "443"));
     public static final String GRPC_PROCESSOR_TAG = getEnv("GRPC_PROCESSOR_TAG", "cloud_manager_app");
-    public static final int EXTERNAL_CALCULATIONS_THREAD_POOL = Integer.parseInt(getEnv("EXTERNAL_CALCULATIONS_THREAD_POOL", "10"));
+
+    // Thread pool configurations for different event types
+    public static final int PROCESSOR_THREAD_POOL = Integer.parseInt(getEnv("PROCESSOR_THREAD_POOL", "20"));
+    public static final int CRITERIA_THREAD_POOL = Integer.parseInt(getEnv("CRITERIA_THREAD_POOL", "20"));
+    public static final int CONTROL_THREAD_POOL = Integer.parseInt(getEnv("CONTROL_THREAD_POOL", "3"));
+
     public static final int HANDSHAKE_TIMEOUT_MS = Integer.parseInt(getEnv("HANDSHAKE_TIMEOUT_MS", "5000"));
 
     public static final int INITIAL_RECONNECT_DELAY_MS = Integer.parseInt(getEnv("INITIAL_RECONNECT_DELAY_MS", "200"));
