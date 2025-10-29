@@ -1,3 +1,7 @@
+---
+type: "manual"
+---
+
 # **Task Decomposition Rules**
 
 **SCOPE**: Apply these rules anytime you are asked to decompose a task.
