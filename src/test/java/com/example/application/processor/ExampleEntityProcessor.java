@@ -34,6 +34,11 @@ import java.util.List;
  * - Error handling and logging
  * - Performance considerations
  * <p>
+ * SEARCH PATTERN GUIDANCE (when interacting with OTHER entities):
+ * - In-memory search (inMemory=true): Use for small, bounded result sets
+ * - Streaming (searchAsStream): Use for processing large datasets without loading into memory
+ * - Avoid loading all results into memory with .toList() on streams
+ * <p>
  * To create a new processor:
  * 1. Copy this file to your processor package
  * 2. Rename class from ExampleEntityProcessor to YourProcessorName
@@ -155,6 +160,11 @@ public class ExampleEntityProcessor implements CyodaProcessor {
     /**
      * Process related entities - example of interacting with OTHER entities
      * Only called if EntityService is injected
+     *
+     * SEARCH PATTERN: Streaming for processing large datasets
+     * Use searchAsStream() when processing entities without loading all into memory.
+     * This is memory-efficient for large result sets. Process each entity as it's
+     * retrieved rather than loading all results first.
      */
     private void processRelatedEntities(ExampleEntity entity) {
         // Example: Find related entities and update them
@@ -174,6 +184,7 @@ public class ExampleEntityProcessor implements CyodaProcessor {
                 .withConditions(List.of(simpleCondition));
 
         // Use streaming API for memory-efficient processing of related entities
+        // Process each entity as it's retrieved without loading all into memory
         try (var stream = entityService.searchAsStream(modelSpec, condition, OtherEntity.class, 100, true, null)) {
             stream.forEach(otherEntityWithMetadata -> {
                 OtherEntity otherEntity = otherEntityWithMetadata.entity();
