@@ -1,8 +1,9 @@
-package com.java_template.application.controller;
+package com.example.application.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.application.entity.example_entity.version_1.ExampleEntity;
+import com.example.application.entity.example_entity.version_1.ExampleEntity;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.CyodaExceptionUtil;
 import jakarta.validation.Valid;
@@ -239,6 +240,9 @@ public class ExampleEntityController {
     /**
      * List all entities with pagination and optional filtering
      * GET /ui/example?page=0&size=20&state=ACTIVE&category=EXAMPLE&pointInTime=2025-10-03T10:15:30Z
+
+     * NOTE: This example uses Spring's Pageable for compatibility with Spring Data REST conventions.
+     * For new code, consider using PageResult directly with searchId for better performance.
      */
     @GetMapping
     public ResponseEntity<Page<EntityWithMetadata<ExampleEntity>>> listEntities(
@@ -263,26 +267,36 @@ public class ExampleEntityController {
                 conditions.add(categoryCondition);
             }
 
-            if (conditions.isEmpty() && (state == null || state.trim().isEmpty())) {
-                // Use paginated findAll when no filters
-                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, ExampleEntity.class, pointInTimeDate));
-            } else {
-                // For filtered results, get all matching results then manually paginate
-                List<EntityWithMetadata<ExampleEntity>> entities;
-                if (conditions.isEmpty()) {
-                    entities = entityService.findAll(modelSpec, ExampleEntity.class, pointInTimeDate);
-                } else {
-                    GroupCondition groupCondition = new GroupCondition()
-                            .withOperator(GroupCondition.Operator.AND)
-                            .withConditions(conditions);
-                    entities = entityService.search(modelSpec, groupCondition, ExampleEntity.class, pointInTimeDate);
-                }
+            // Convert Spring's 0-based page to Cyoda's 1-based page
+            int cyodaPageNumber = pageable.getPageNumber() + 1;
+            int pageSize = pageable.getPageSize();
 
-                // Filter by state if provided (state is in metadata, not entity)
-                if (state != null && !state.trim().isEmpty()) {
-                    entities = entities.stream()
-                            .filter(entity -> state.equals(entity.metadata().getState()))
-                            .toList();
+            if (conditions.isEmpty() && (state == null || state.trim().isEmpty())) {
+                // Use paginated findAll when no filters - returns PageResult
+                PageResult<EntityWithMetadata<ExampleEntity>> pageResult = entityService.findAll(
+                        modelSpec, ExampleEntity.class, pageSize, cyodaPageNumber, pointInTimeDate, null);
+
+                // Convert PageResult to Spring Page for compatibility
+                Page<EntityWithMetadata<ExampleEntity>> page = new PageImpl<>(
+                        pageResult.data(), pageable, pageResult.totalElements());
+                return ResponseEntity.ok(page);
+            } else {
+                // For filtered results with state filter, use streaming for memory efficiency
+                GroupCondition groupCondition = conditions.isEmpty()
+                    ? new GroupCondition().withOperator(GroupCondition.Operator.AND).withConditions(List.of())
+                    : new GroupCondition().withOperator(GroupCondition.Operator.AND).withConditions(conditions);
+
+                // Use streaming API for memory-efficient filtering
+                List<EntityWithMetadata<ExampleEntity>> entities;
+                try (var stream = entityService.searchAsStream(modelSpec, groupCondition, ExampleEntity.class, 100, true, pointInTimeDate)) {
+                    var filteredStream = stream;
+
+                    // Filter by state if provided (state is in metadata, not entity)
+                    if (state != null && !state.trim().isEmpty()) {
+                        filteredStream = filteredStream.filter(entity -> state.equals(entity.metadata().getState()));
+                    }
+
+                    entities = filteredStream.toList();
                 }
 
                 // Manually paginate the filtered results
@@ -310,6 +324,7 @@ public class ExampleEntityController {
      * <p>
      * Example of a custom search endpoint for a specific use case.
      * Supports point-in-time queries.
+     * Uses streaming API for memory-efficient processing.
      */
     @GetMapping("/search")
     public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> searchEntitiesByDescription(
@@ -330,7 +345,11 @@ public class ExampleEntityController {
                     .withOperator(GroupCondition.Operator.AND)
                     .withConditions(List.of(simpleCondition));
 
-            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class, pointInTimeDate);
+            // Use streaming API for memory-efficient processing
+            List<EntityWithMetadata<ExampleEntity>> entities;
+            try (var stream = entityService.searchAsStream(modelSpec, condition, ExampleEntity.class, 100, true, pointInTimeDate)) {
+                entities = stream.toList();
+            }
             return ResponseEntity.ok(entities);
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
@@ -381,15 +400,21 @@ public class ExampleEntityController {
                         .withValue(objectMapper.valueToTree(searchRequest.getMaxAmount())));
             }
 
+            List<EntityWithMetadata<ExampleEntity>> entities;
             if (conditions.isEmpty()) {
-                // No search criteria provided - return all entities
-                return ResponseEntity.ok(entityService.findAll(modelSpec, ExampleEntity.class, pointInTimeDate));
+                // No search criteria provided - stream all entities
+                try (var stream = entityService.streamAll(modelSpec, ExampleEntity.class, 100, pointInTimeDate)) {
+                    entities = stream.toList();
+                }
+            } else {
+                // Use streaming API for memory-efficient search
+                GroupCondition condition = new GroupCondition()
+                        .withOperator(GroupCondition.Operator.AND)
+                        .withConditions(conditions);
+                try (var stream = entityService.searchAsStream(modelSpec, condition, ExampleEntity.class, 100, true, pointInTimeDate)) {
+                    entities = stream.toList();
+                }
             }
-
-            GroupCondition condition = new GroupCondition()
-                    .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(conditions);
-            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class, pointInTimeDate);
             return ResponseEntity.ok(entities);
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(

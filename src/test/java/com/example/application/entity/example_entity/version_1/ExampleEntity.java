@@ -1,8 +1,9 @@
-package com.java_template.application.entity.example_entity.version_1;
+package com.example.application.entity.example_entity.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.time.LocalDateTime;
@@ -33,7 +34,7 @@ public class ExampleEntity implements CyodaEntity {
 
     // Required business identifier field - every entity should have one
     private String exampleId;
-    
+
     // Required core business fields
     private String name;
     private Double amount;
@@ -55,7 +56,7 @@ public class ExampleEntity implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         // Validate required fields
         return exampleId != null;
     }

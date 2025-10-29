@@ -105,7 +105,7 @@ src/main/resources/workflow/$entity_name/version_$version/$entity_name.json
 ## 📚 Documentation and Examples
 
 ### Code Examples
-- **`llm_example/code/application/`** - Complete implementation examples for all components
+- **`src/test/java/com/example/application/`** - Complete implementation examples for all components
   - `controller/` - REST controller patterns
   - `entity/` - Entity class implementations
   - `processor/` - Workflow processor examples  
