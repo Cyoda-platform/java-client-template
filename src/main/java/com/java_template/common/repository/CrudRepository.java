@@ -1,5 +1,6 @@
 package com.java_template.common.repository;
 
+import com.java_template.common.dto.PageResult;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
@@ -29,11 +30,12 @@ public interface CrudRepository {
             @NotNull ModelSpec modelSpec
     );
 
-    CompletableFuture<List<DataPayload>> findAll(
+    CompletableFuture<PageResult<DataPayload>> findAll(
             @NotNull ModelSpec modelSpec,
             int pageSize,
             int pageNumber,
-            @Nullable Date pointInTime
+            @Nullable Date pointInTime,
+            @Nullable UUID searchId
     );
 
     CompletableFuture<DataPayload> findById(@NotNull UUID id);
@@ -49,21 +51,14 @@ public interface CrudRepository {
             @Nullable Date pointInTime
     );
 
-    CompletableFuture<List<DataPayload>> findAllByCriteria(
-            @NotNull ModelSpec modelSpec,
-            @NotNull GroupCondition criteria,
-            int pageSize,
-            int pageNumber,
-            boolean inMemory
-    );
-
-    CompletableFuture<List<DataPayload>> findAllByCriteria(
+    CompletableFuture<PageResult<DataPayload>> findAllByCriteria(
             @NotNull ModelSpec modelSpec,
             @NotNull GroupCondition criteria,
             int pageSize,
             int pageNumber,
             boolean inMemory,
-            @Nullable Date pointInTime
+            @Nullable Date pointInTime,
+            @Nullable UUID searchId
     );
 
     <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> save(

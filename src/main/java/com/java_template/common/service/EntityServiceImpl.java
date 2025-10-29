@@ -1,10 +1,9 @@
 package com.java_template.common.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
 import com.java_template.common.repository.CrudRepository;
 import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
@@ -17,7 +16,6 @@ import org.cyoda.cloud.api.event.common.condition.Operation;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
-import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +25,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * ABOUTME: Implementation of EntityService providing concrete CRUD operations
@@ -102,10 +102,10 @@ public class EntityServiceImpl implements EntityService {
                 .withOperator(GroupCondition.Operator.AND)
                 .withConditions(List.of(simpleCondition));
 
-        Optional<EntityWithMetadata<T>> result = getFirstItemByCondition(
-                entityClass, modelSpec, condition, true, pointInTime);
+        PageResult<EntityWithMetadata<T>> result = search(
+                modelSpec, condition, entityClass, 1, 1, true, pointInTime, null);
 
-        return result.orElse(null);
+        return result.data().isEmpty() ? null : result.data().getFirst();
     }
 
     @Override
@@ -123,56 +123,34 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(
-            @NotNull final ModelSpec modelSpec,
-            @NotNull final Class<T> entityClass
-    ) {
-        return findAll(modelSpec, entityClass, null);
-    }
-
-    @Override
-    public <T extends CyodaEntity> List<EntityWithMetadata<T>> findAll(
+    public <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> findAll(
             @NotNull final ModelSpec modelSpec,
             @NotNull final Class<T> entityClass,
-            @Nullable final Date pointInTime
+            final int pageSize,
+            final int pageNumber,
+            @Nullable final Date pointInTime,
+            @Nullable final UUID searchId
     ) {
-        return getItems(entityClass, modelSpec, null, null, pointInTime);
-    }
-
-    @Override
-    public <T extends CyodaEntity> Page<EntityWithMetadata<T>> findAll(
-            @NotNull final ModelSpec modelSpec,
-            @NotNull final Pageable pageable,
-            @NotNull final Class<T> entityClass
-    ) {
-        return findAll(modelSpec, pageable, entityClass, null);
-    }
-
-    @Override
-    public <T extends CyodaEntity> Page<EntityWithMetadata<T>> findAll(
-            @NotNull final ModelSpec modelSpec,
-            @NotNull final Pageable pageable,
-            @NotNull final Class<T> entityClass,
-            @Nullable final Date pointInTime
-    ) {
-        // Convert Spring's 0-based page number to Cyoda's 1-based page number
-        int cyodaPageNumber = pageable.getPageNumber() + 1;
-        int pageSize = pageable.getPageSize();
-
-        // Get the entities for the requested page
-        List<EntityWithMetadata<T>> entities = getItems(
-                entityClass,
+        PageResult<DataPayload> pageResult = repository.findAll(
                 modelSpec,
                 pageSize,
-                cyodaPageNumber,
-                pointInTime
+                pageNumber,
+                pointInTime,
+                searchId
+        ).join();
+
+        List<EntityWithMetadata<T>> entities = pageResult.data().stream()
+                .filter(Objects::nonNull)
+                .map(payload -> EntityWithMetadata.fromDataPayload(payload, entityClass, objectMapper))
+                .toList();
+
+        return PageResult.of(
+                pageResult.searchId(),
+                entities,
+                pageResult.pageNumber(),
+                pageResult.pageSize(),
+                pageResult.totalElements()
         );
-
-        // Get total count for pagination metadata
-        long totalElements = getEntityCount(modelSpec, pointInTime);
-
-        // Return Spring Page object
-        return new PageImpl<>(entities, pageable, totalElements);
     }
 
     @Override
@@ -186,103 +164,81 @@ public class EntityServiceImpl implements EntityService {
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
+    public <T extends CyodaEntity> Stream<EntityWithMetadata<T>> streamAll(
             @NotNull final ModelSpec modelSpec,
-            @NotNull final GroupCondition condition,
-            @NotNull final Class<T> entityClass
+            @NotNull final Class<T> entityClass,
+            final int pageSize,
+            @Nullable final Date pointInTime
     ) {
-        return search(modelSpec, condition, entityClass, null);
+        return StreamSupport.stream(
+                new PaginatedAllSpliterator<>(
+                        modelSpec,
+                        entityClass,
+                        pageSize,
+                        pointInTime
+                ),
+                false
+        );
     }
 
     @Override
-    public <T extends CyodaEntity> List<EntityWithMetadata<T>> search(
+    public <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> search(
             @NotNull final ModelSpec modelSpec,
             @NotNull final GroupCondition condition,
             @NotNull final Class<T> entityClass,
-            @Nullable final Date pointInTime
-    ) {
-        return getItemsByCondition(entityClass, modelSpec, condition, true, pointInTime);
-    }
-
-    public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItems(
-            @NotNull final Class<T> entityClass,
-            @NotNull final ModelSpec modelSpec,
-            @Nullable final Integer pageSize,
-            @Nullable final Integer pageNumber,
-            @Nullable final Date pointTime
-    ) {
-        List<DataPayload> payloads = repository.findAll(
-                modelSpec,
-                pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
-                pageNumber != null ? pageNumber : FIRST_PAGE,
-                pointTime
-        ).join();
-
-        return payloads.stream()
-                .map(payload -> EntityWithMetadata.fromDataPayload(payload, entityClass, objectMapper))
-                .toList();
-    }
-
-    public <T extends CyodaEntity> Optional<EntityWithMetadata<T>> getFirstItemByCondition(
-            @NotNull final Class<T> entityClass,
-            @NotNull final ModelSpec modelSpec,
-            @NotNull final GroupCondition condition,
-            final boolean inMemory
-    ) {
-        return getFirstItemByCondition(entityClass, modelSpec, condition, inMemory, null);
-    }
-
-    public <T extends CyodaEntity> Optional<EntityWithMetadata<T>> getFirstItemByCondition(
-            @NotNull final Class<T> entityClass,
-            @NotNull final ModelSpec modelSpec,
-            @NotNull final GroupCondition condition,
+            final int pageSize,
+            final int pageNumber,
             final boolean inMemory,
-            @Nullable final Date pointInTime
+            @Nullable final Date pointInTime,
+            @Nullable final UUID searchId
     ) {
-        List<DataPayload> payloads = repository.findAllByCriteria(
+        PageResult<DataPayload> pageResult = repository.findAllByCriteria(
                 modelSpec,
                 condition,
-                1,
-                1,
+                pageSize,
+                pageNumber,
                 inMemory,
-                pointInTime
+                pointInTime,
+                searchId
         ).join();
 
-        return payloads.isEmpty()
-                ? Optional.empty()
-                : Optional.of(EntityWithMetadata.fromDataPayload(payloads.getFirst(), entityClass, objectMapper));
-    }
-
-    public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItemsByCondition(
-            @NotNull final Class<T> entityClass,
-            @NotNull final ModelSpec modelSpec,
-            @NotNull final GroupCondition condition,
-            final boolean inMemory
-    ) {
-        return getItemsByCondition(entityClass, modelSpec, condition, inMemory, null);
-    }
-
-    public <T extends CyodaEntity> List<EntityWithMetadata<T>> getItemsByCondition(
-            @NotNull final Class<T> entityClass,
-            @NotNull final ModelSpec modelSpec,
-            @NotNull final GroupCondition condition,
-            final boolean inMemory,
-            @Nullable final Date pointInTime
-    ) {
-        List<DataPayload> payloads = repository.findAllByCriteria(
-                modelSpec,
-                condition,
-                DEFAULT_PAGE_SIZE,
-                FIRST_PAGE,
-                inMemory,
-                pointInTime
-        ).join();
-
-        return payloads.stream()
+        List<EntityWithMetadata<T>> entities = pageResult.data().stream()
                 .filter(Objects::nonNull)
                 .map(payload -> EntityWithMetadata.fromDataPayload(payload, entityClass, objectMapper))
                 .toList();
+
+        return PageResult.of(
+                pageResult.searchId(),
+                entities,
+                pageResult.pageNumber(),
+                pageResult.pageSize(),
+                pageResult.totalElements()
+        );
     }
+
+    @Override
+    public <T extends CyodaEntity> Stream<EntityWithMetadata<T>> searchAsStream(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final GroupCondition condition,
+            @NotNull final Class<T> entityClass,
+            final int pageSize,
+            final boolean inMemory,
+            @Nullable final Date pointInTime
+    ) {
+        return StreamSupport.stream(
+                new PaginatedConditionSpliterator<>(
+                        modelSpec,
+                        condition,
+                        entityClass,
+                        pageSize,
+                        inMemory,
+                        pointInTime
+                ),
+                false
+        );
+    }
+
+
 
     // ========================================
     // PRIMARY MUTATION METHODS IMPLEMENTATION
@@ -377,14 +333,7 @@ public class EntityServiceImpl implements EntityService {
                 .map(EntityDeleteAllResponse::getNumDeleted)
                 .reduce(0, Integer::sum);
     }
-
-    public <T extends CyodaEntity> ObjectNode saveAndReturnTransactionInfo(@NotNull final T entity) {
-        ModelSpec modelSpec = entity.getModelKey().modelKey();
-
-        EntityTransactionResponse response = repository.save(modelSpec, objectMapper.valueToTree(entity)).join();
-        return objectMapper.valueToTree(response.getTransactionInfo());
-    }
-
+    
     @Override
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> save(@NotNull final Collection<T> entities) {
         return save(entities, null, null);
@@ -432,27 +381,7 @@ public class EntityServiceImpl implements EntityService {
                 })
                 .toList();
     }
-
-    public <T extends CyodaEntity> EntityTransactionInfo saveAllAndReturnTransactionInfo(@NotNull final Collection<T> entities) {
-        if (entities.isEmpty()) {
-            return null;
-        }
-
-        T firstEntity = entities.iterator().next();
-        ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
-
-        Collection<JsonNode> entity = entities.stream().map(it -> {
-            @SuppressWarnings("UnnecessaryLocalVariable") JsonNode jsonNode = objectMapper.valueToTree(it);
-            return jsonNode;
-        }).toList();
-
-        EntityTransactionResponse response = repository.saveAll(
-                modelSpec,
-                entity
-        ).join();
-
-        return response.getTransactionInfo();
-    }
+    
 
     @Override
     public <T extends CyodaEntity> EntityWithMetadata<T> update(
@@ -580,6 +509,194 @@ public class EntityServiceImpl implements EntityService {
             @Nullable final Date pointInTime
     ) {
         return repository.getEntityChangesMetadata(entityId, pointInTime).join();
+    }
+
+    // ========================================
+    // INNER CLASSES
+    // ========================================
+
+    /**
+     * Spliterator for paginated retrieval of all entities (findAll).
+     */
+    private class PaginatedAllSpliterator<T extends CyodaEntity> implements Spliterator<EntityWithMetadata<T>> {
+        private final ModelSpec modelSpec;
+        private final Class<T> entityClass;
+        private final int pageSize;
+        private final Date pointInTime;
+
+        private UUID searchId;
+        private int currentPage = 1;
+        private Iterator<EntityWithMetadata<T>> currentIterator;
+        private boolean hasMore = true;
+
+        PaginatedAllSpliterator(
+                ModelSpec modelSpec,
+                Class<T> entityClass,
+                int pageSize,
+                Date pointInTime
+        ) {
+            this.modelSpec = modelSpec;
+            this.entityClass = entityClass;
+            this.pageSize = pageSize;
+            this.pointInTime = pointInTime;
+        }
+
+        @Override
+        public boolean tryAdvance(java.util.function.Consumer<? super EntityWithMetadata<T>> action) {
+            if (!hasMore) {
+                return false;
+            }
+
+            // Fetch next page if needed
+            if (currentIterator == null || !currentIterator.hasNext()) {
+                if (!fetchNextPage()) {
+                    return false;
+                }
+            }
+
+            // Process next item
+            if (currentIterator.hasNext()) {
+                action.accept(currentIterator.next());
+                return true;
+            }
+
+            return false;
+        }
+
+        private boolean fetchNextPage() {
+            PageResult<EntityWithMetadata<T>> pageResult = findAll(
+                    modelSpec,
+                    entityClass,
+                    pageSize,
+                    currentPage,
+                    pointInTime,
+                    searchId
+            );
+
+            if (pageResult.data().isEmpty()) {
+                hasMore = false;
+                return false;
+            }
+
+            // Update state for next page
+            searchId = pageResult.searchId();
+            currentIterator = pageResult.data().iterator();
+            currentPage++;
+            hasMore = pageResult.hasNext();
+
+            return true;
+        }
+
+        @Override
+        public Spliterator<EntityWithMetadata<T>> trySplit() {
+            return null;
+        }
+
+        @Override
+        public long estimateSize() {
+            return Long.MAX_VALUE;
+        }
+
+        @Override
+        public int characteristics() {
+            return ORDERED | NONNULL;
+        }
+    }
+
+    /**
+     * Spliterator for paginated retrieval with conditions (findAllByCriteria).
+     */
+    private class PaginatedConditionSpliterator<T extends CyodaEntity> implements Spliterator<EntityWithMetadata<T>> {
+        private final ModelSpec modelSpec;
+        private final GroupCondition condition;
+        private final Class<T> entityClass;
+        private final int pageSize;
+        private final boolean inMemory;
+        private final Date pointInTime;
+
+        private UUID searchId;
+        private int currentPage = 1;
+        private Iterator<EntityWithMetadata<T>> currentIterator;
+        private boolean hasMore = true;
+
+        PaginatedConditionSpliterator(
+                ModelSpec modelSpec,
+                GroupCondition condition,
+                Class<T> entityClass,
+                int pageSize,
+                boolean inMemory,
+                Date pointInTime
+        ) {
+            this.modelSpec = modelSpec;
+            this.condition = condition;
+            this.entityClass = entityClass;
+            this.pageSize = pageSize;
+            this.inMemory = inMemory;
+            this.pointInTime = pointInTime;
+        }
+
+        @Override
+        public boolean tryAdvance(java.util.function.Consumer<? super EntityWithMetadata<T>> action) {
+            if (!hasMore) {
+                return false;
+            }
+
+            // Fetch next page if needed
+            if (currentIterator == null || !currentIterator.hasNext()) {
+                if (!fetchNextPage()) {
+                    return false;
+                }
+            }
+
+            // Process next item
+            if (currentIterator.hasNext()) {
+                action.accept(currentIterator.next());
+                return true;
+            }
+
+            return false;
+        }
+
+        private boolean fetchNextPage() {
+            PageResult<EntityWithMetadata<T>> pageResult = search(
+                    modelSpec,
+                    condition,
+                    entityClass,
+                    pageSize,
+                    currentPage,
+                    inMemory,
+                    pointInTime,
+                    searchId
+            );
+
+            if (pageResult.data().isEmpty()) {
+                hasMore = false;
+                return false;
+            }
+
+            // Update state for next page
+            searchId = pageResult.searchId();
+            currentIterator = pageResult.data().iterator();
+            currentPage++;
+            hasMore = pageResult.hasNext();
+
+            return true;
+        }
+
+        @Override
+        public Spliterator<EntityWithMetadata<T>> trySplit() {
+            return null;
+        }
+
+        @Override
+        public long estimateSize() {
+            return Long.MAX_VALUE;
+        }
+
+        @Override
+        public int characteristics() {
+            return ORDERED | NONNULL;
+        }
     }
 
 }
