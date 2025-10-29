@@ -30,8 +30,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Spliterator;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -712,5 +714,367 @@ class EntityServiceImplTest {
 
         assertRepositoryFailure(() -> entityService.save(entities), "Save all failed");
         verify(repository).saveAll(eq(createTestModelSpec()), eq(entities), any(), any());
+    }
+
+    // ========================================
+    // STREAM TESTS
+    // ========================================
+
+    @Test
+    @DisplayName("streamAll should stream all entities across multiple pages")
+    void testStreamAllMultiplePages() {
+        // Create test data for 3 pages
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        TestEntity entity3 = new TestEntity(3L, "Entity 3", "ACTIVE");
+        TestEntity entity4 = new TestEntity(4L, "Entity 4", "ACTIVE");
+        TestEntity entity5 = new TestEntity(5L, "Entity 5", "ACTIVE");
+
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        UUID id3 = UUID.randomUUID();
+        UUID id4 = UUID.randomUUID();
+        UUID id5 = UUID.randomUUID();
+
+        UUID searchId = UUID.randomUUID();
+
+        // Mock page 1 (2 items)
+        List<DataPayload> page1Payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+        when(repository.findAll(eq(createTestModelSpec()), eq(2), eq(1), isNull(), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page1Payloads, 1, 2, 5L)
+                ));
+
+        // Mock page 2 (2 items)
+        List<DataPayload> page2Payloads = List.of(
+                createTestDataPayload(entity3, id3),
+                createTestDataPayload(entity4, id4)
+        );
+        when(repository.findAll(eq(createTestModelSpec()), eq(2), eq(2), isNull(), eq(searchId)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page2Payloads, 2, 2, 5L)
+                ));
+
+        // Mock page 3 (1 item)
+        List<DataPayload> page3Payloads = List.of(
+                createTestDataPayload(entity5, id5)
+        );
+        when(repository.findAll(eq(createTestModelSpec()), eq(2), eq(3), isNull(), eq(searchId)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page3Payloads, 3, 2, 5L)
+                ));
+
+        // Execute stream
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                2,
+                null
+        ).toList();
+
+        // Verify results
+        assertNotNull(result);
+        assertEquals(5, result.size());
+        assertEntityMatches(result.get(0).entity(), entity1);
+        assertEntityMatches(result.get(1).entity(), entity2);
+        assertEntityMatches(result.get(2).entity(), entity3);
+        assertEntityMatches(result.get(3).entity(), entity4);
+        assertEntityMatches(result.get(4).entity(), entity5);
+
+        // Verify repository calls
+        verify(repository).findAll(eq(createTestModelSpec()), eq(2), eq(1), isNull(), isNull());
+        verify(repository).findAll(eq(createTestModelSpec()), eq(2), eq(2), isNull(), eq(searchId));
+        verify(repository).findAll(eq(createTestModelSpec()), eq(2), eq(3), isNull(), eq(searchId));
+    }
+
+    @Test
+    @DisplayName("streamAll should handle empty result set")
+    void testStreamAllEmptyResults() {
+        when(repository.findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), List.of(), 1, 100, 0L)
+                ));
+
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                100,
+                null
+        ).toList();
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        verify(repository).findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull());
+    }
+
+    @Test
+    @DisplayName("streamAll should handle single page result")
+    void testStreamAllSinglePage() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+
+        // totalElements = 2, pageSize = 100, so totalPages = 1 (no more pages)
+        when(repository.findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 1, 100, 2L)
+                ));
+
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                100,
+                null
+        ).toList();
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEntityMatches(result.get(0).entity(), entity1);
+        assertEntityMatches(result.get(1).entity(), entity2);
+        verify(repository).findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull());
+    }
+
+    @Test
+    @DisplayName("streamAll should support filtering with stream operations")
+    void testStreamAllWithFiltering() {
+        TestEntity activeEntity = new TestEntity(1L, "Active Entity", "ACTIVE");
+        TestEntity inactiveEntity = new TestEntity(2L, "Inactive Entity", "INACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(
+                createTestDataPayload(activeEntity, id1),
+                createTestDataPayload(inactiveEntity, id2)
+        );
+
+        when(repository.findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 1, 100, 2L)
+                ));
+
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                100,
+                null
+        )
+        .filter(e -> "ACTIVE".equals(e.entity().getStatus()))
+        .toList();
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEntityMatches(result.get(0).entity(), activeEntity);
+    }
+
+    @Test
+    @DisplayName("streamAll should support mapping with stream operations")
+    void testStreamAllWithMapping() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+
+        // totalElements = 2, pageSize = 100, so totalPages = 1 (no more pages)
+        when(repository.findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 1, 100, 2L)
+                ));
+
+        List<String> names = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                100,
+                null
+        )
+        .map(e -> e.entity().getName())
+        .toList();
+
+        assertNotNull(names);
+        assertEquals(2, names.size());
+        assertEquals("Entity 1", names.get(0));
+        assertEquals("Entity 2", names.get(1));
+    }
+
+    @Test
+    @DisplayName("streamAll should handle repository failure on first page")
+    void testStreamAllRepositoryFailureFirstPage() {
+        when(repository.findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull()))
+                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find all failed")));
+
+        assertRepositoryFailure(
+                () -> entityService.streamAll(createTestModelSpec(), TestEntity.class, 100, null).toList(),
+                "Find all failed"
+        );
+        verify(repository).findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull());
+    }
+
+    @Test
+    @DisplayName("streamAll should handle repository failure on subsequent page")
+    void testStreamAllRepositoryFailureSubsequentPage() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID searchId = UUID.randomUUID();
+
+        List<DataPayload> page1Payloads = List.of(createTestDataPayload(entity1, id1));
+        when(repository.findAll(eq(createTestModelSpec()), eq(1), eq(1), isNull(), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page1Payloads, 1, 1, 2L)
+                ));
+
+        when(repository.findAll(eq(createTestModelSpec()), eq(1), eq(2), isNull(), eq(searchId)))
+                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Page 2 failed")));
+
+        assertRepositoryFailure(
+                () -> entityService.streamAll(createTestModelSpec(), TestEntity.class, 1, null).toList(),
+                "Page 2 failed"
+        );
+        verify(repository).findAll(eq(createTestModelSpec()), eq(1), eq(1), isNull(), isNull());
+        verify(repository).findAll(eq(createTestModelSpec()), eq(1), eq(2), isNull(), eq(searchId));
+    }
+
+    @Test
+    @DisplayName("streamAll should respect pointInTime parameter")
+    void testStreamAllWithPointInTime() {
+        Date pointInTime = new Date();
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(createTestDataPayload(entity1, id1));
+        when(repository.findAll(eq(createTestModelSpec()), eq(100), eq(1), eq(pointInTime), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 1, 100, 1L)
+                ));
+
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                100,
+                pointInTime
+        ).toList();
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEntityMatches(result.get(0).entity(), entity1);
+        verify(repository).findAll(eq(createTestModelSpec()), eq(100), eq(1), eq(pointInTime), isNull());
+    }
+
+    @Test
+    @DisplayName("streamAll should support count operation")
+    void testStreamAllCount() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+
+        // totalElements = 2, pageSize = 100, so totalPages = 1 (no more pages)
+        when(repository.findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 1, 100, 2L)
+                ));
+
+        long count = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                100,
+                null
+        ).count();
+
+        assertEquals(2, count);
+        verify(repository).findAll(eq(createTestModelSpec()), eq(100), eq(1), isNull(), isNull());
+    }
+
+    @Test
+    @DisplayName("streamAll should provide accurate size estimation from the start")
+    void testStreamAllSizeEstimation() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        TestEntity entity3 = new TestEntity(3L, "Entity 3", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        UUID id3 = UUID.randomUUID();
+        UUID searchId = UUID.randomUUID();
+
+        // First page: 2 items, totalElements = 3
+        List<DataPayload> page1Payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+
+        // Second page: 1 item
+        List<DataPayload> page2Payloads = List.of(
+                createTestDataPayload(entity3, id3)
+        );
+
+        // totalElements = 3, pageSize = 2, so totalPages = 2
+        when(repository.findAll(eq(createTestModelSpec()), eq(2), eq(1), isNull(), isNull()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page1Payloads, 1, 2, 3L)
+                ));
+
+        when(repository.findAll(eq(createTestModelSpec()), eq(2), eq(2), isNull(), eq(searchId)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page2Payloads, 2, 2, 3L)
+                ));
+
+        Stream<EntityWithMetadata<TestEntity>> stream = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                2,
+                null
+        );
+
+        // Get the spliterator to check size estimation
+        Spliterator<EntityWithMetadata<TestEntity>> spliterator = stream.spliterator();
+
+        // Size should be known immediately (3 total elements) since first page is fetched upfront
+        long initialSize = spliterator.estimateSize();
+        assertEquals(3, initialSize, "Initial size should be 3 (total elements)");
+
+        // Verify SIZED characteristic is present
+        assertTrue((spliterator.characteristics() & Spliterator.SIZED) != 0,
+                "Spliterator should have SIZED characteristic");
+
+        // Consume first element
+        spliterator.tryAdvance(entity -> {});
+
+        // After first element, size should be: 3 total - 1 processed = 2 remaining
+        long sizeAfterFirst = spliterator.estimateSize();
+        assertEquals(2, sizeAfterFirst, "Size after first element should be 2 remaining");
+
+        // Consume second element
+        spliterator.tryAdvance(entity -> {});
+
+        // Size should now be 1 remaining
+        long sizeAfterSecond = spliterator.estimateSize();
+        assertEquals(1, sizeAfterSecond, "Size after second element should be 1 remaining");
+
+        // Consume third element
+        spliterator.tryAdvance(entity -> {});
+
+        // Size should now be 0 remaining
+        long sizeAfterThird = spliterator.estimateSize();
+        assertEquals(0, sizeAfterThird, "Size after third element should be 0 remaining");
+
+        verify(repository).findAll(eq(createTestModelSpec()), eq(2), eq(1), isNull(), isNull());
+        verify(repository).findAll(eq(createTestModelSpec()), eq(2), eq(2), isNull(), eq(searchId));
     }
 }

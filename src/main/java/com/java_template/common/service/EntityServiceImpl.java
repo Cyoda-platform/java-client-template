@@ -35,8 +35,8 @@ import java.util.stream.StreamSupport;
 @Service
 public class EntityServiceImpl implements EntityService {
 
-    private static final int DEFAULT_PAGE_SIZE = 100;
-    private static final int FIRST_PAGE = 1;
+    public static final int DEFAULT_PAGE_SIZE = 100;
+    public static final int FIRST_PAGE = 1;
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -170,12 +170,27 @@ public class EntityServiceImpl implements EntityService {
             final int pageSize,
             @Nullable final Date pointInTime
     ) {
+        // Fetch first page to get total size upfront
+        PageResult<EntityWithMetadata<T>> firstPage = findAll(
+                modelSpec,
+                entityClass,
+                pageSize,
+                1,
+                pointInTime,
+                null
+        );
+
         return StreamSupport.stream(
-                new PaginatedAllSpliterator<>(
-                        modelSpec,
-                        entityClass,
-                        pageSize,
-                        pointInTime
+                new PaginatedSpliterator<>(
+                        firstPage,
+                        (pageNumber, searchId) -> findAll(
+                                modelSpec,
+                                entityClass,
+                                pageSize,
+                                pageNumber,
+                                pointInTime,
+                                searchId
+                        )
                 ),
                 false
         );
@@ -225,14 +240,31 @@ public class EntityServiceImpl implements EntityService {
             final boolean inMemory,
             @Nullable final Date pointInTime
     ) {
+        // Fetch first page to get total size upfront
+        PageResult<EntityWithMetadata<T>> firstPage = search(
+                modelSpec,
+                condition,
+                entityClass,
+                pageSize,
+                1,
+                inMemory,
+                pointInTime,
+                null
+        );
+
         return StreamSupport.stream(
-                new PaginatedConditionSpliterator<>(
-                        modelSpec,
-                        condition,
-                        entityClass,
-                        pageSize,
-                        inMemory,
-                        pointInTime
+                new PaginatedSpliterator<>(
+                        firstPage,
+                        (pageNumber, searchId) -> search(
+                                modelSpec,
+                                condition,
+                                entityClass,
+                                pageSize,
+                                pageNumber,
+                                inMemory,
+                                pointInTime,
+                                searchId
+                        )
                 ),
                 false
         );
@@ -333,7 +365,7 @@ public class EntityServiceImpl implements EntityService {
                 .map(EntityDeleteAllResponse::getNumDeleted)
                 .reduce(0, Integer::sum);
     }
-    
+
     @Override
     public <T extends CyodaEntity> List<EntityWithMetadata<T>> save(@NotNull final Collection<T> entities) {
         return save(entities, null, null);
@@ -381,7 +413,7 @@ public class EntityServiceImpl implements EntityService {
                 })
                 .toList();
     }
-    
+
 
     @Override
     public <T extends CyodaEntity> EntityWithMetadata<T> update(
@@ -516,133 +548,45 @@ public class EntityServiceImpl implements EntityService {
     // ========================================
 
     /**
-     * Spliterator for paginated retrieval of all entities (findAll).
+     * Functional interface for fetching pages of entities.
      */
-    private class PaginatedAllSpliterator<T extends CyodaEntity> implements Spliterator<EntityWithMetadata<T>> {
-        private final ModelSpec modelSpec;
-        private final Class<T> entityClass;
-        private final int pageSize;
-        private final Date pointInTime;
-
-        private UUID searchId;
-        private int currentPage = 1;
-        private Iterator<EntityWithMetadata<T>> currentIterator;
-        private boolean hasMore = true;
-
-        PaginatedAllSpliterator(
-                ModelSpec modelSpec,
-                Class<T> entityClass,
-                int pageSize,
-                Date pointInTime
-        ) {
-            this.modelSpec = modelSpec;
-            this.entityClass = entityClass;
-            this.pageSize = pageSize;
-            this.pointInTime = pointInTime;
-        }
-
-        @Override
-        public boolean tryAdvance(java.util.function.Consumer<? super EntityWithMetadata<T>> action) {
-            if (!hasMore) {
-                return false;
-            }
-
-            // Fetch next page if needed
-            if (currentIterator == null || !currentIterator.hasNext()) {
-                if (!fetchNextPage()) {
-                    return false;
-                }
-            }
-
-            // Process next item
-            if (currentIterator.hasNext()) {
-                action.accept(currentIterator.next());
-                return true;
-            }
-
-            return false;
-        }
-
-        private boolean fetchNextPage() {
-            PageResult<EntityWithMetadata<T>> pageResult = findAll(
-                    modelSpec,
-                    entityClass,
-                    pageSize,
-                    currentPage,
-                    pointInTime,
-                    searchId
-            );
-
-            if (pageResult.data().isEmpty()) {
-                hasMore = false;
-                return false;
-            }
-
-            // Update state for next page
-            searchId = pageResult.searchId();
-            currentIterator = pageResult.data().iterator();
-            currentPage++;
-            hasMore = pageResult.hasNext();
-
-            return true;
-        }
-
-        @Override
-        public Spliterator<EntityWithMetadata<T>> trySplit() {
-            return null;
-        }
-
-        @Override
-        public long estimateSize() {
-            return Long.MAX_VALUE;
-        }
-
-        @Override
-        public int characteristics() {
-            return ORDERED | NONNULL;
-        }
+    @FunctionalInterface
+    private interface PageFetcher<T extends CyodaEntity> {
+        PageResult<EntityWithMetadata<T>> fetchPage(int pageNumber, UUID searchId);
     }
 
     /**
-     * Spliterator for paginated retrieval with conditions (findAllByCriteria).
+     * Unified spliterator for paginated retrieval of entities.
+     * Supports both findAll and search operations through a PageFetcher function.
+     * Accepts the first page result to enable accurate size estimation from the start.
      */
-    private class PaginatedConditionSpliterator<T extends CyodaEntity> implements Spliterator<EntityWithMetadata<T>> {
-        private final ModelSpec modelSpec;
-        private final GroupCondition condition;
-        private final Class<T> entityClass;
-        private final int pageSize;
-        private final boolean inMemory;
-        private final Date pointInTime;
+    private static class PaginatedSpliterator<T extends CyodaEntity> implements Spliterator<EntityWithMetadata<T>> {
+        private final PageFetcher<T> pageFetcher;
+        private final long totalElements;
 
         private UUID searchId;
-        private int currentPage = 1;
+        private int currentPage;
         private Iterator<EntityWithMetadata<T>> currentIterator;
-        private boolean hasMore = true;
+        private boolean hasMore;
+        private long processedElements = 0;
 
-        PaginatedConditionSpliterator(
-                ModelSpec modelSpec,
-                GroupCondition condition,
-                Class<T> entityClass,
-                int pageSize,
-                boolean inMemory,
-                Date pointInTime
-        ) {
-            this.modelSpec = modelSpec;
-            this.condition = condition;
-            this.entityClass = entityClass;
-            this.pageSize = pageSize;
-            this.inMemory = inMemory;
-            this.pointInTime = pointInTime;
+        PaginatedSpliterator(PageResult<EntityWithMetadata<T>> firstPage, PageFetcher<T> pageFetcher) {
+            this.pageFetcher = pageFetcher;
+            this.totalElements = firstPage.totalElements();
+            this.searchId = firstPage.searchId();
+            this.currentIterator = firstPage.data().iterator();
+            this.currentPage = 2; // Next page to fetch is page 2
+            this.hasMore = firstPage.hasNext();
         }
 
         @Override
         public boolean tryAdvance(java.util.function.Consumer<? super EntityWithMetadata<T>> action) {
-            if (!hasMore) {
-                return false;
-            }
-
             // Fetch next page if needed
             if (currentIterator == null || !currentIterator.hasNext()) {
+                // Don't try to fetch if we know there are no more pages
+                if (!hasMore) {
+                    return false;
+                }
                 if (!fetchNextPage()) {
                     return false;
                 }
@@ -651,6 +595,7 @@ public class EntityServiceImpl implements EntityService {
             // Process next item
             if (currentIterator.hasNext()) {
                 action.accept(currentIterator.next());
+                processedElements++;
                 return true;
             }
 
@@ -658,16 +603,7 @@ public class EntityServiceImpl implements EntityService {
         }
 
         private boolean fetchNextPage() {
-            PageResult<EntityWithMetadata<T>> pageResult = search(
-                    modelSpec,
-                    condition,
-                    entityClass,
-                    pageSize,
-                    currentPage,
-                    inMemory,
-                    pointInTime,
-                    searchId
-            );
+            PageResult<EntityWithMetadata<T>> pageResult = pageFetcher.fetchPage(currentPage, searchId);
 
             if (pageResult.data().isEmpty()) {
                 hasMore = false;
@@ -690,12 +626,14 @@ public class EntityServiceImpl implements EntityService {
 
         @Override
         public long estimateSize() {
-            return Long.MAX_VALUE;
+            // Return accurate remaining count since we know total from first page
+            return totalElements - processedElements;
         }
 
         @Override
         public int characteristics() {
-            return ORDERED | NONNULL;
+            // SIZED is now valid because we know the total size from the first page
+            return ORDERED | NONNULL | SIZED;
         }
     }
 

@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
+import static com.java_template.common.service.EntityServiceImpl.DEFAULT_PAGE_SIZE;
+import static com.java_template.common.service.EntityServiceImpl.FIRST_PAGE;
+
 /**
  * ABOUTME: Core entity service interface providing CRUD operations and search capabilities
  * for Cyoda entities with performance-optimized method selection guidance.
@@ -154,6 +157,13 @@ public interface EntityService {
             @Nullable UUID searchId
     );
 
+    default <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> findAll(
+            @NotNull ModelSpec modelSpec,
+            @NotNull Class<T> entityClass
+    ) {
+        return findAll(modelSpec, entityClass, DEFAULT_PAGE_SIZE, FIRST_PAGE, null, null);
+    }
+
     /**
      * Stream all entities for memory-efficient processing.
      * Automatically handles pagination internally and streams results.
@@ -197,6 +207,14 @@ public interface EntityService {
             @Nullable java.util.Date pointInTime,
             @Nullable UUID searchId
     );
+
+    default <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> search(
+            @NotNull ModelSpec modelSpec,
+            @NotNull GroupCondition condition,
+            @NotNull Class<T> entityClass
+    ) {
+        return search(modelSpec, condition, entityClass, DEFAULT_PAGE_SIZE, FIRST_PAGE, false, null, null);
+    }
 
     /**
      * Stream entities by condition for memory-efficient processing.

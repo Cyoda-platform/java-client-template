@@ -230,7 +230,7 @@ public class GherkinE2eTest {
         final var modelSpec = new ModelSpec();
         modelSpec.setName(modelName);
         modelSpec.setVersion(modelVersion);
-        this.retrievedPrizes = entityService.search(modelSpec, condition, PrizeEntity.class);
+        this.retrievedPrizes = entityService.search(modelSpec, condition, PrizeEntity.class).data();
     }
 
     @When("I create the prizes in bulk")
@@ -252,7 +252,7 @@ public class GherkinE2eTest {
         this.retrievedPrizes = entityService.findAll(
                 modelSpec,
                 PrizeEntity.class
-        );
+        ).data();
     }
 
     @When("I delete all of model {string} version {int}")
