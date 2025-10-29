@@ -3,9 +3,12 @@ package com.java_template.common.config;
 import com.java_template.common.auth.Authentication;
 import com.java_template.common.grpc.client.ClientAuthorizationInterceptor;
 import com.java_template.common.grpc.client.CalculationExecutionStrategy;
+import com.java_template.common.grpc.client.ControlThreadExecutor;
+import com.java_template.common.grpc.client.CriteriaThreadExecutor;
+import com.java_template.common.grpc.client.DefaultEventExecutionRouter;
+import com.java_template.common.grpc.client.EventExecutionRouter;
+import com.java_template.common.grpc.client.ProcessorThreadExecutor;
 import com.java_template.common.grpc.client.connection.DefaultReconnectionStrategy;
-import com.java_template.common.grpc.client.PlatformThreadsCalculationExecutor;
-import com.java_template.common.grpc.client.VirtualThreadsCalculationExecutor;
 import com.java_template.common.grpc.client.monitoring.ConnectionStateTracker;
 import com.java_template.common.grpc.client.connection.ReconnectionStrategy;
 import com.java_template.common.util.SslUtils;
@@ -105,16 +108,55 @@ public class GrpcClientAutoConfiguration {
         return EventFormatProvider.getInstance().resolveFormat(ProtobufFormat.PROTO_CONTENT_TYPE);
     }
 
+    // Separate thread pool executors for different event types
+
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "platform", matchIfMissing = true)
-    public CalculationExecutionStrategy platformThreadsCalculationExecutor() {
-        return new PlatformThreadsCalculationExecutor();
+    public CalculationExecutionStrategy processorThreadExecutor() {
+        return new ProcessorThreadExecutor(false);
     }
 
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "virtual")
-    public CalculationExecutionStrategy virtualThreadsCalculationExecutor() {
-        return new VirtualThreadsCalculationExecutor();
+    public CalculationExecutionStrategy processorThreadExecutorVirtual() {
+        return new ProcessorThreadExecutor(true);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "execution.mode", havingValue = "platform", matchIfMissing = true)
+    public CalculationExecutionStrategy criteriaThreadExecutor() {
+        return new CriteriaThreadExecutor(false);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "execution.mode", havingValue = "virtual")
+    public CalculationExecutionStrategy criteriaThreadExecutorVirtual() {
+        return new CriteriaThreadExecutor(true);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "execution.mode", havingValue = "platform", matchIfMissing = true)
+    public CalculationExecutionStrategy controlThreadExecutor() {
+        return new ControlThreadExecutor(false);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "execution.mode", havingValue = "virtual")
+    public CalculationExecutionStrategy controlThreadExecutorVirtual() {
+        return new ControlThreadExecutor(true);
+    }
+
+    @Bean
+    public EventExecutionRouter eventExecutionRouter(
+            @Value("${execution.mode:platform}") String executionMode
+    ) {
+        boolean useVirtual = "virtual".equals(executionMode);
+
+        CalculationExecutionStrategy processorExecutor = new ProcessorThreadExecutor(useVirtual);
+        CalculationExecutionStrategy criteriaExecutor = new CriteriaThreadExecutor(useVirtual);
+        CalculationExecutionStrategy controlExecutor = new ControlThreadExecutor(useVirtual);
+
+        return new DefaultEventExecutionRouter(processorExecutor, criteriaExecutor, controlExecutor);
     }
 
     @Bean

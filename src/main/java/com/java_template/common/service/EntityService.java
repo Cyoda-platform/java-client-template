@@ -4,6 +4,7 @@ import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.springframework.data.domain.Page;
@@ -312,6 +313,48 @@ public interface EntityService {
     <T extends CyodaEntity> List<EntityWithMetadata<T>> save(@NotNull Collection<T> entities);
 
     /**
+     * Save multiple entities in batch with transaction control parameters
+     *
+     * @param entities Collection of entities to save
+     * @param transactionWindow Maximum number of entities per transaction (null for default)
+     * @param transactionTimeoutMs Transaction timeout in milliseconds (null for default)
+     * @return List of EntityWithMetadata with saved entities and metadata
+     */
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> save(
+            @NotNull Collection<T> entities,
+            @Nullable Integer transactionWindow,
+            @Nullable Long transactionTimeoutMs
+    );
+
+    /**
+     * Update multiple entities in batch
+     *
+     * @param entities Collection of entities to update (must have id field)
+     * @param transition Optional workflow transition name (null to stay in same state)
+     * @return List of EntityWithMetadata with updated entities and metadata
+     */
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> updateAll(
+            @NotNull Collection<T> entities,
+            @Nullable String transition
+    );
+
+    /**
+     * Update multiple entities in batch with transaction control parameters
+     *
+     * @param entities Collection of entities to update (must have id field)
+     * @param transition Optional workflow transition name (null to stay in same state)
+     * @param transactionWindow Maximum number of entities per transaction (null for default)
+     * @param transactionTimeoutMs Transaction timeout in milliseconds (null for default)
+     * @return List of EntityWithMetadata with updated entities and metadata
+     */
+    <T extends CyodaEntity> List<EntityWithMetadata<T>> updateAll(
+            @NotNull Collection<T> entities,
+            @Nullable String transition,
+            @Nullable Integer transactionWindow,
+            @Nullable Long transactionTimeoutMs
+    );
+
+    /**
      * Delete all entities of a type (DANGEROUS - use with caution)
      *
      * @param modelSpec Model specification containing name and version
@@ -330,7 +373,7 @@ public interface EntityService {
      * @param entityId Technical UUID of the entity
      * @return List of EntityChangeMeta with change history information
      */
-    List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(@NotNull UUID entityId);
+    List<EntityChangeMeta> getEntityChangesMetadata(@NotNull UUID entityId);
 
     /**
      * Get entity change history metadata at a specific point in time
@@ -340,7 +383,7 @@ public interface EntityService {
      * @param pointInTime Point in time to retrieve changes up to (null for all changes)
      * @return List of EntityChangeMeta with change history information
      */
-    List<org.cyoda.cloud.api.event.common.EntityChangeMeta> getEntityChangesMetadata(
+    List<EntityChangeMeta> getEntityChangesMetadata(
             @NotNull UUID entityId,
             @Nullable java.util.Date pointInTime
     );

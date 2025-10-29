@@ -411,7 +411,7 @@ class EntityServiceImplTest {
     void testUpdateAllWithNullTransition() {
         Collection<TestEntity> entities = List.of(testEntity);
         List<EntityTransactionResponse> responses = List.of(createTransactionResponse(testEntityId));
-        when(repository.updateAll(any(), isNull()))
+        when(repository.updateAll(any(), isNull(),any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(responses));
 
         when(repository.findById(eq(testEntityId), any()))
@@ -432,7 +432,7 @@ class EntityServiceImplTest {
         assertNotNull(entityWithMetadata.metadata());
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertEquals(testEntityId, entityWithMetadata.metadata().getId());
-        verify(repository).updateAll(any(), isNull());
+        verify(repository).updateAll(any(), isNull(), any(), any());
     }
 
     // ========================================
@@ -817,7 +817,7 @@ class EntityServiceImplTest {
         EntityTransactionResponse transactionResponse = new EntityTransactionResponse();
         transactionResponse.setTransactionInfo(transactionInfo);
 
-        when(repository.saveAll(createTestModelSpec(), entities))
+        when(repository.saveAll(eq(createTestModelSpec()), eq(entities), any(), any()))
                 .thenReturn(CompletableFuture.completedFuture(transactionResponse));
 
         when(repository.findById(eq(testEntityId), any()))
@@ -847,18 +847,18 @@ class EntityServiceImplTest {
         assertEntityMatches(result.get(1).entity(), testEntity2);
         assertEquals(testEntityId, result.getFirst().metadata().getId());
         assertEquals(testEntityId2, result.get(1).metadata().getId());
-        verify(repository).saveAll(createTestModelSpec(), entities);
+        verify(repository).saveAll(eq(createTestModelSpec()), eq(entities), any(), any());
     }
 
     @Test
     @DisplayName("saveAll should handle repository failure with non-empty collection")
     void testCreateAllWithEntitiesRepositoryFailure() {
         Collection<TestEntity> entities = List.of(testEntity, testEntity2);
-        when(repository.saveAll(createTestModelSpec(), entities))
+        when(repository.saveAll(eq(createTestModelSpec()), eq(entities), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Save all failed")));
 
         assertRepositoryFailure(() -> entityService.save(entities), "Save all failed");
-        verify(repository).saveAll(createTestModelSpec(), entities);
+        verify(repository).saveAll(eq(createTestModelSpec()), eq(entities), any(), any());
     }
 
     @Test
