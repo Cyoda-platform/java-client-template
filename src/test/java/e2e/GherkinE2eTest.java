@@ -13,11 +13,9 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.cucumber.spring.CucumberContextConfiguration;
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.CompletionException;
@@ -51,7 +49,7 @@ import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @DirtiesContext
 @CucumberContextConfiguration
-@SpringBootTest(classes = {Application.class, E2eTestConfig.class})
+@SpringBootTest(classes = { Application.class, E2eTestConfig.class })
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")
@@ -64,6 +62,10 @@ public class GherkinE2eTest {
     private ObjectMapper objectMapper;
     @Autowired
     private PrizeTestProcessor prizeTestProcessor;
+    @Autowired
+    private PrizeTestCriterionAlwaysTrue prizeTestCriterionAlwaysTrue;
+    @Autowired
+    private PrizeTestCriterionAlwaysFalse prizeTestCriterionAlwaysFalse;
 
     private PrizeEntity prizeToCreate;
     private List<PrizeEntity> prizeDefinitions;
@@ -86,8 +88,7 @@ public class GherkinE2eTest {
         this.prizeToCreate = new PrizeEntity(
                 data.get("year"),
                 data.get("category"),
-                data.get("comment")
-        );
+                data.get("comment"));
     }
 
     @Given("I have a list of prizes:")
@@ -96,8 +97,7 @@ public class GherkinE2eTest {
                 .map(row -> new PrizeEntity(
                         row.get("year"),
                         row.get("category"),
-                        row.get("comment")
-                ))
+                        row.get("comment")))
                 .collect(Collectors.toList());
     }
 
@@ -114,8 +114,7 @@ public class GherkinE2eTest {
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode())
-                )
+                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode()))
                 .body(JsonNode.class)
                 .get("access_token")
                 .asText();
@@ -123,39 +122,40 @@ public class GherkinE2eTest {
 
     private void importWorkflow(
             final RestClient client,
-            final String workflowFileName,
+            final String workflowJson,
             final String modelName,
             final Integer modelVersion,
-            final String token
-    ) throws URISyntaxException, IOException {
+            final String token) throws URISyntaxException, IOException {
 
-        final var workflowJson = objectMapper.readTree(
-                Arrays.stream(new File(this.getClass().getResource("/workflows").toURI()).listFiles())
-                        .filter(it -> it.getName().equals(workflowFileName))
-                        .findFirst()
-                        .get());
+        final var workflows = objectMapper.createArrayNode();
+        workflows.add(objectMapper.readTree(workflowJson));
+
+        final var dto = objectMapper.createObjectNode();
+        dto.put("entityName", modelName);
+        dto.put("modelVersion", modelVersion);
+        dto.put("importMode", "REPLACE");
+        dto.set("workflows", workflows);
 
         client.post()
                 .uri(URI.create(CYODA_API_URL + "/model/" + modelName + "/" + modelVersion + "/workflow/import"))
                 .contentType(APPLICATION_JSON)
                 .header("content-type", APPLICATION_JSON_VALUE)
                 .header("Authorization", "Bearer " + token)
-                .body(workflowJson)
+                .body(dto)
                 .retrieve()
                 .onStatus(
                         HttpStatusCode::isError,
-                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode())
-                )
+                        (s, r) -> Assertions.fail("Expected 2xx, but got: " + r.getStatusCode()))
                 .body(String.class);
     }
 
-    @When("I import workflow from file {string} for model {string} version {int}")
-    public void i_have_a_workflow_in_file(String workflowFileName, String modelName, Integer modelVersion)
+    @When("I import workflow for model {string} version {int}:")
+    public void i_have_a_workflow_in_file(String modelName, Integer modelVersion, String workflowJson)
             throws URISyntaxException,
             IOException {
         final var client = RestClient.create();
         final var token = login(client, CYODA_CLIENT_ID, CYODA_CLIENT_SECRET);
-        importWorkflow(client, workflowFileName, modelName, modelVersion, token);
+        importWorkflow(client, workflowJson, modelName, modelVersion, token);
     }
 
     @When("I create a single prize")
@@ -174,8 +174,7 @@ public class GherkinE2eTest {
             this.retrievedPrizes = List.of(entityService.getById(
                     createdPrizeIds.getFirst(),
                     modelSpec,
-                    PrizeEntity.class
-            ));
+                    PrizeEntity.class));
         } catch (Exception e) {
             this.capturedException = e;
         }
@@ -193,7 +192,11 @@ public class GherkinE2eTest {
 
     @When("I update the prize with transition {string}")
     public void i_update_prize_with_transition(String transitionName) {
-        entityService.update(createdPrizeIds.getFirst(), prizeToCreate, transitionName);
+        try {
+            entityService.update(createdPrizeIds.getFirst(), prizeToCreate, transitionName);
+        } catch (final Exception e) {
+            this.capturedException = e;
+        }
     }
 
     @Then("Awaits processor is triggered")
@@ -202,6 +205,22 @@ public class GherkinE2eTest {
                 .atMost(5, TimeUnit.SECONDS)
                 .pollInterval(200, TimeUnit.MILLISECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(prizeTestProcessor.isProcessTriggered()));
+    }
+
+    @Then("Awaits criterion is triggered and passed")
+    public void awaits_criterion_triggered_and_passed() {
+        Awaitility.await()
+                .atMost(5, TimeUnit.SECONDS)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(prizeTestCriterionAlwaysTrue.isCriterionTriggered()));
+    }
+
+    @Then("Awaits criterion is triggered and failed")
+    public void awaits_criterion_triggered_and_fails() {
+        Awaitility.await()
+                .atMost(5, TimeUnit.SECONDS)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> Assertions.assertTrue(prizeTestCriterionAlwaysFalse.isCriterionTriggered()));
     }
 
     @When("I update the prize with the year {string} and transition {string}")
@@ -230,7 +249,7 @@ public class GherkinE2eTest {
         final var modelSpec = new ModelSpec();
         modelSpec.setName(modelName);
         modelSpec.setVersion(modelVersion);
-        this.retrievedPrizes = entityService.search(modelSpec, condition, PrizeEntity.class).data();
+        this.retrievedPrizes = entityService.search(modelSpec, condition, PrizeEntity.class);
     }
 
     @When("I create the prizes in bulk")
@@ -251,8 +270,7 @@ public class GherkinE2eTest {
         modelSpec.setVersion(modelVersion);
         this.retrievedPrizes = entityService.findAll(
                 modelSpec,
-                PrizeEntity.class
-        ).data();
+                PrizeEntity.class);
     }
 
     @When("I delete all of model {string} version {int}")
@@ -280,8 +298,7 @@ public class GherkinE2eTest {
         assertInstanceOf(
                 CompletionException.class,
                 capturedException,
-                "Exception should be from a future."
-        );
+                "Exception should be from a future.");
         assertNotNull(capturedException.getCause(), "The ExecutionException should have a cause.");
     }
 }
