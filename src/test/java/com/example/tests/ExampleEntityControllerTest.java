@@ -5,6 +5,7 @@ import com.example.application.entity.example_entity.version_1.ExampleEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.dto.PageResult;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
@@ -303,7 +304,7 @@ class ExampleEntityControllerTest {
                 UUID.randomUUID(), entities, 0, 1000, 2);
 
         when(entityService.search(any(ModelSpec.class), any(GroupCondition.class),
-                eq(ExampleEntity.class), eq(1000), eq(0), eq(true), isNull(), isNull()))
+                eq(ExampleEntity.class), any(SearchAndRetrievalParams.class)))
                 .thenReturn(pageResult);
 
         mockMvc.perform(get("/ui/example/by-category")
@@ -312,7 +313,7 @@ class ExampleEntityControllerTest {
                 .andExpect(jsonPath("$", hasSize(2)));
 
         verify(entityService).search(any(ModelSpec.class), any(GroupCondition.class),
-                eq(ExampleEntity.class), eq(1000), eq(0), eq(true), isNull(), isNull());
+                eq(ExampleEntity.class), any(SearchAndRetrievalParams.class));
     }
 
 
@@ -332,7 +333,7 @@ class ExampleEntityControllerTest {
                 searchId, entities, 0, 50, 1);
 
         when(entityService.search(any(ModelSpec.class), any(GroupCondition.class),
-                eq(ExampleEntity.class), eq(50), eq(0), eq(false), isNull(), isNull()))
+                eq(ExampleEntity.class), any(SearchAndRetrievalParams.class)))
                 .thenReturn(pageResult);
 
         mockMvc.perform(get("/ui/example/search")
@@ -344,7 +345,7 @@ class ExampleEntityControllerTest {
                 .andExpect(jsonPath("$.data", hasSize(1)));
 
         verify(entityService).search(any(ModelSpec.class), any(GroupCondition.class),
-                eq(ExampleEntity.class), eq(50), eq(0), eq(false), isNull(), isNull());
+                eq(ExampleEntity.class), any(SearchAndRetrievalParams.class));
     }
 
     // ========================================

@@ -160,7 +160,7 @@ public class ExampleEntityProcessor implements CyodaProcessor {
     /**
      * Process related entities - example of interacting with OTHER entities
      * Only called if EntityService is injected
-     *
+     *<p>
      * SEARCH PATTERN: Streaming for processing large datasets
      * Use searchAsStream() when processing entities without loading all into memory.
      * This is memory-efficient for large result sets. Process each entity as it's
@@ -185,7 +185,11 @@ public class ExampleEntityProcessor implements CyodaProcessor {
 
         // Use streaming API for memory-efficient processing of related entities
         // Process each entity as it's retrieved without loading all into memory
-        try (var stream = entityService.searchAsStream(modelSpec, condition, OtherEntity.class, 100, true, null)) {
+        try (var stream = entityService.searchAsStream(modelSpec, condition, OtherEntity.class,
+                com.java_template.common.repository.SearchAndRetrievalParams.builder()
+                        .pageSize(100)
+                        .inMemory(true)
+                        .build())) {
             stream.forEach(otherEntityWithMetadata -> {
                 OtherEntity otherEntity = otherEntityWithMetadata.entity();
                 otherEntity.setName("new_name");

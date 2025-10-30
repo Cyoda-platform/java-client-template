@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.dto.PageResult;
 import com.java_template.common.repository.CrudRepository;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -31,9 +32,6 @@ import java.util.stream.StreamSupport;
  */
 @Service
 public class EntityServiceImpl implements EntityService {
-
-    public static final int DEFAULT_PAGE_SIZE = 100;
-    public static final int FIRST_PAGE = 0;
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -100,7 +98,15 @@ public class EntityServiceImpl implements EntityService {
                 .withConditions(List.of(simpleCondition));
 
         PageResult<EntityWithMetadata<T>> result = search(
-                modelSpec, condition, entityClass, 1, 0, true, pointInTime, null);
+                modelSpec,
+                condition,
+                entityClass,
+                SearchAndRetrievalParams.builder()
+                        .pageSize(1)
+                        .pageNumber(0)
+                        .pointInTime(pointInTime)
+                        .inMemory(true)
+                        .build());
 
         return result.data().isEmpty() ? null : result.data().getFirst();
     }
@@ -123,17 +129,11 @@ public class EntityServiceImpl implements EntityService {
     public <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> findAll(
             @NotNull final ModelSpec modelSpec,
             @NotNull final Class<T> entityClass,
-            final int pageSize,
-            final int pageNumber,
-            @Nullable final Date pointInTime,
-            @Nullable final UUID searchId
+            @NotNull final SearchAndRetrievalParams params
     ) {
         PageResult<DataPayload> pageResult = repository.findAll(
                 modelSpec,
-                pageSize,
-                pageNumber,
-                pointInTime,
-                searchId
+                params
         ).join();
 
         List<EntityWithMetadata<T>> entities = pageResult.data().stream()
@@ -164,17 +164,19 @@ public class EntityServiceImpl implements EntityService {
     public <T extends CyodaEntity> Stream<EntityWithMetadata<T>> streamAll(
             @NotNull final ModelSpec modelSpec,
             @NotNull final Class<T> entityClass,
-            final int pageSize,
-            @Nullable final Date pointInTime
+            @NotNull final SearchAndRetrievalParams params
     ) {
         // Fetch first page to get total size upfront
         PageResult<EntityWithMetadata<T>> firstPage = findAll(
                 modelSpec,
                 entityClass,
-                pageSize,
-                0,
-                pointInTime,
-                null
+                SearchAndRetrievalParams.builder()
+                        .pageSize(params.pageSize())
+                        .pageNumber(0)
+                        .pointInTime(params.pointInTime())
+                        .awaitLimitMs(params.awaitLimitMs())
+                        .pollIntervalMs(params.pollIntervalMs())
+                        .build()
         );
 
         return StreamSupport.stream(
@@ -183,10 +185,14 @@ public class EntityServiceImpl implements EntityService {
                         (pageNumber, searchId) -> findAll(
                                 modelSpec,
                                 entityClass,
-                                pageSize,
-                                pageNumber,
-                                pointInTime,
-                                searchId
+                                SearchAndRetrievalParams.builder()
+                                        .pageSize(params.pageSize())
+                                        .pageNumber(pageNumber)
+                                        .pointInTime(params.pointInTime())
+                                        .searchId(searchId)
+                                        .awaitLimitMs(params.awaitLimitMs())
+                                        .pollIntervalMs(params.pollIntervalMs())
+                                        .build()
                         )
                 ),
                 false
@@ -198,20 +204,12 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final ModelSpec modelSpec,
             @NotNull final GroupCondition condition,
             @NotNull final Class<T> entityClass,
-            final int pageSize,
-            final int pageNumber,
-            final boolean inMemory,
-            @Nullable final Date pointInTime,
-            @Nullable final UUID searchId
+            @NotNull final SearchAndRetrievalParams params
     ) {
         PageResult<DataPayload> pageResult = repository.findAllByCriteria(
                 modelSpec,
                 condition,
-                pageSize,
-                pageNumber,
-                inMemory,
-                pointInTime,
-                searchId
+                params
         ).join();
 
         List<EntityWithMetadata<T>> entities = pageResult.data().stream()
@@ -233,20 +231,21 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final ModelSpec modelSpec,
             @NotNull final GroupCondition condition,
             @NotNull final Class<T> entityClass,
-            final int pageSize,
-            final boolean inMemory,
-            @Nullable final Date pointInTime
+            @NotNull final SearchAndRetrievalParams params
     ) {
         // Fetch first page to get total size upfront
         PageResult<EntityWithMetadata<T>> firstPage = search(
                 modelSpec,
                 condition,
                 entityClass,
-                pageSize,
-                1,
-                inMemory,
-                pointInTime,
-                null
+                SearchAndRetrievalParams.builder()
+                        .pageSize(params.pageSize())
+                        .pageNumber(1)
+                        .pointInTime(params.pointInTime())
+                        .inMemory(params.inMemory())
+                        .awaitLimitMs(params.awaitLimitMs())
+                        .pollIntervalMs(params.pollIntervalMs())
+                        .build()
         );
 
         return StreamSupport.stream(
@@ -256,11 +255,15 @@ public class EntityServiceImpl implements EntityService {
                                 modelSpec,
                                 condition,
                                 entityClass,
-                                pageSize,
-                                pageNumber,
-                                inMemory,
-                                pointInTime,
-                                searchId
+                                SearchAndRetrievalParams.builder()
+                                        .pageSize(params.pageSize())
+                                        .pageNumber(pageNumber)
+                                        .pointInTime(params.pointInTime())
+                                        .searchId(searchId)
+                                        .inMemory(params.inMemory())
+                                        .awaitLimitMs(params.awaitLimitMs())
+                                        .pollIntervalMs(params.pollIntervalMs())
+                                        .build()
                         )
                 ),
                 false

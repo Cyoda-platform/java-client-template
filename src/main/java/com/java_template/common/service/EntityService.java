@@ -2,6 +2,7 @@ package com.java_template.common.service;
 
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.dto.PageResult;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.workflow.CyodaEntity;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
@@ -13,9 +14,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
-
-import static com.java_template.common.service.EntityServiceImpl.DEFAULT_PAGE_SIZE;
-import static com.java_template.common.service.EntityServiceImpl.FIRST_PAGE;
 
 /**
  * ABOUTME: Core entity service interface providing CRUD operations and search capabilities
@@ -142,26 +140,20 @@ public interface EntityService {
      *
      * @param modelSpec Model specification containing name and version
      * @param entityClass Entity class type for deserialization
-     * @param pageSize Number of items per page
-     * @param pageNumber Page number (0-based)
-     * @param pointInTime Point in time to retrieve entities as-at (null for current state)
-     * @param searchId Search ID from previous PageResult (null for new search)
+     * @param params Search and retrieval parameters
      * @return PageResult with entities, pagination metadata, and searchId
      */
     <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> findAll(
             @NotNull ModelSpec modelSpec,
             @NotNull Class<T> entityClass,
-            int pageSize,
-            int pageNumber,
-            @Nullable java.util.Date pointInTime,
-            @Nullable UUID searchId
+            @NotNull SearchAndRetrievalParams params
     );
 
     default <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> findAll(
             @NotNull ModelSpec modelSpec,
             @NotNull Class<T> entityClass
     ) {
-        return findAll(modelSpec, entityClass, DEFAULT_PAGE_SIZE, FIRST_PAGE, null, null);
+        return findAll(modelSpec, entityClass, SearchAndRetrievalParams.defaults());
     }
 
     /**
@@ -171,15 +163,13 @@ public interface EntityService {
      *
      * @param modelSpec Model specification containing name and version
      * @param entityClass Entity class type for deserialization
-     * @param pageSize Number of items to fetch per page
-     * @param pointInTime Point in time to retrieve entities as-at (null for current state)
+     * @param params Search and retrieval parameters (pageSize, pointInTime, etc.)
      * @return Stream of EntityWithMetadata (must be closed after use)
      */
     <T extends CyodaEntity> Stream<EntityWithMetadata<T>> streamAll(
             @NotNull ModelSpec modelSpec,
             @NotNull Class<T> entityClass,
-            int pageSize,
-            @Nullable java.util.Date pointInTime
+            @NotNull SearchAndRetrievalParams params
     );
 
     /**
@@ -190,22 +180,14 @@ public interface EntityService {
      * @param modelSpec Model specification containing name and version
      * @param condition Search condition (use SearchConditionBuilder.group())
      * @param entityClass Entity class type for deserialization
-     * @param pageSize Number of items per page
-     * @param pageNumber Page number (0-based)
-     * @param inMemory Whether to use in-memory search (faster but no pagination support)
-     * @param pointInTime Point in time to retrieve entities as-at (null for current state)
-     * @param searchId Search ID from previous PageResult (null for new search)
+     * @param params Search and retrieval parameters
      * @return PageResult with entities, pagination metadata, and searchId
      */
     <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> search(
             @NotNull ModelSpec modelSpec,
             @NotNull GroupCondition condition,
             @NotNull Class<T> entityClass,
-            int pageSize,
-            int pageNumber,
-            boolean inMemory,
-            @Nullable java.util.Date pointInTime,
-            @Nullable UUID searchId
+            @NotNull SearchAndRetrievalParams params
     );
 
     default <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> search(
@@ -213,7 +195,7 @@ public interface EntityService {
             @NotNull GroupCondition condition,
             @NotNull Class<T> entityClass
     ) {
-        return search(modelSpec, condition, entityClass, DEFAULT_PAGE_SIZE, FIRST_PAGE, false, null, null);
+        return search(modelSpec, condition, entityClass, SearchAndRetrievalParams.defaults());
     }
 
     /**
@@ -224,18 +206,14 @@ public interface EntityService {
      * @param modelSpec Model specification containing name and version
      * @param condition Search condition (use SearchConditionBuilder.group())
      * @param entityClass Entity class type for deserialization
-     * @param pageSize Number of items to fetch per page
-     * @param inMemory Whether to use in-memory search (faster but no pagination support)
-     * @param pointInTime Point in time to retrieve entities as-at (null for current state)
+     * @param params Search and retrieval parameters (pageSize, inMemory, pointInTime, etc.)
      * @return Stream of EntityWithMetadata (must be closed after use)
      */
     <T extends CyodaEntity> Stream<EntityWithMetadata<T>> searchAsStream(
             @NotNull ModelSpec modelSpec,
             @NotNull GroupCondition condition,
             @NotNull Class<T> entityClass,
-            int pageSize,
-            boolean inMemory,
-            @Nullable java.util.Date pointInTime
+            @NotNull SearchAndRetrievalParams params
     );
 
     /**

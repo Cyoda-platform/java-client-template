@@ -4,6 +4,7 @@ import com.example.application.entity.example_entity.version_1.ExampleEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.dto.PageResult;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.CyodaExceptionUtil;
 import jakarta.validation.Valid;
@@ -277,7 +278,15 @@ public class ExampleEntityController {
             // Use in-memory search for small, bounded result sets
             // inMemory=true loads all results into memory - only use for small result sets
             PageResult<EntityWithMetadata<ExampleEntity>> result = entityService.search(
-                    modelSpec, condition, ExampleEntity.class, 1000, 0, true, pointInTimeDate, null);
+                    modelSpec,
+                    condition,
+                    ExampleEntity.class,
+                    SearchAndRetrievalParams.builder()
+                            .pageSize(1000)
+                            .pageNumber(0)
+                            .pointInTime(pointInTimeDate)
+                            .inMemory(true)
+                            .build());
 
             logger.info("Found {} entities in category '{}'", result.data().size(), category);
             return ResponseEntity.ok(result.data());
@@ -335,11 +344,19 @@ public class ExampleEntityController {
                         .withValue(objectMapper.valueToTree(minAmount)));
             }
 
+            com.java_template.common.repository.SearchAndRetrievalParams paginationParams =
+                    com.java_template.common.repository.SearchAndRetrievalParams.builder()
+                            .pageSize(size)
+                            .pageNumber(page)
+                            .pointInTime(pointInTimeDate)
+                            .searchId(searchId)
+                            .build();
+
             PageResult<EntityWithMetadata<ExampleEntity>> pageResult;
             if (conditions.isEmpty()) {
                 // No filters: use findAll with searchId support
                 pageResult = entityService.findAll(
-                        modelSpec, ExampleEntity.class, size, page, pointInTimeDate, searchId);
+                        modelSpec, ExampleEntity.class, paginationParams);
             } else {
                 // With filters: use paginated search with searchId support
                 GroupCondition condition = new GroupCondition()
@@ -348,7 +365,7 @@ public class ExampleEntityController {
 
                 // inMemory=false enables pagination with searchId support
                 pageResult = entityService.search(
-                        modelSpec, condition, ExampleEntity.class, size, page, false, pointInTimeDate, searchId);
+                        modelSpec, condition, ExampleEntity.class, paginationParams);
             }
 
             logger.info("Search returned page {} of {} (total: {} entities, searchId: {})",
@@ -422,7 +439,11 @@ public class ExampleEntityController {
             if (condition == null) {
                 // No filters: stream all entities
                 try (Stream<EntityWithMetadata<ExampleEntity>> stream =
-                        entityService.streamAll(modelSpec, ExampleEntity.class, 100, pointInTimeDate)) {
+                        entityService.streamAll(modelSpec, ExampleEntity.class,
+                                SearchAndRetrievalParams.builder()
+                                        .pageSize(100)
+                                        .pointInTime(pointInTimeDate)
+                                        .build())) {
 
                     // Process each entity as it's retrieved (no memory pressure)
                     count = stream.count();
@@ -430,7 +451,12 @@ public class ExampleEntityController {
             } else {
                 // With filters: stream matching entities
                 try (Stream<EntityWithMetadata<ExampleEntity>> stream =
-                        entityService.searchAsStream(modelSpec, condition, ExampleEntity.class, 100, false, pointInTimeDate)) {
+                        entityService.searchAsStream(modelSpec, condition, ExampleEntity.class,
+                                SearchAndRetrievalParams.builder()
+                                        .pageSize(100)
+                                        .inMemory(false)
+                                        .pointInTime(pointInTimeDate)
+                                        .build())) {
 
                     // Process each entity as it's retrieved (no memory pressure)
                     count = stream.count();

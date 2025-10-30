@@ -45,9 +45,6 @@ import static com.java_template.common.config.Config.GRPC_COMMUNICATION_DATA_FOR
  */
 @Repository
 public class CyodaRepository implements CrudRepository {
-    private static final int SNAPSHOT_CREATION_AWAIT_LIMIT_MS = 10_000;
-    private static final int SNAPSHOT_CREATION_POLL_INTERVAL_MS = 500;
-
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final ObjectMapper objectMapper;
@@ -137,15 +134,11 @@ public class CyodaRepository implements CrudRepository {
     public CompletableFuture<PageResult<DataPayload>> findAllByCriteria(
             @NotNull final ModelSpec modelSpec,
             @NotNull final GroupCondition condition,
-            final int pageSize,
-            final int pageNumber,
-            final boolean inMemory,
-            @Nullable final Date pointInTime,
-            @Nullable final UUID searchId
+            @NotNull final SearchAndRetrievalParams params
     ) {
-        return inMemory
-                ? findAllByConditionInMemory(modelSpec, pageSize, condition, pointInTime)
-                : findAllByCondition(modelSpec, pageSize, pageNumber, condition, pointInTime, searchId);
+        return params.inMemory()
+                ? findAllByConditionInMemory(modelSpec, params.pageSize(), condition, params.pointInTime())
+                : findAllByCondition(modelSpec, params.pageSize(), params.pageNumber(), condition, params.pointInTime(), params.searchId(), params.awaitLimitMs(), params.pollIntervalMs());
     }
 
     private CompletableFuture<PageResult<DataPayload>> findAllByCondition(
@@ -154,7 +147,7 @@ public class CyodaRepository implements CrudRepository {
             final int pageNumber,
             @NotNull final GroupCondition condition,
             @Nullable final Date pointInTime,
-            @Nullable final UUID searchId
+            @Nullable final UUID searchId, int awaitLimitMs, int pollIntervalMs
     ) {
             CompletableFuture<SearchSnapshotStatus> snapshot;
 
@@ -183,7 +176,7 @@ public class CyodaRepository implements CrudRepository {
                             snapshotCache.put(cacheKey, CompletableFuture.completedFuture(snapshotInfo));
                         }
 
-                        return getSnapShotIdCompletableFuture(snapshotInfo)
+                        return getSnapShotIdCompletableFuture(snapshotInfo, awaitLimitMs, pollIntervalMs)
                                 .thenApply(snapshotId -> new SnapshotWithMetadata(snapshotId, snapshotInfo.getEntitiesCount(), effectiveSearchId));
                     }).thenCompose(snapshotWithMetadata ->
                             getSearchResult(snapshotWithMetadata.snapshotId, pageSize, pageNumber)
@@ -201,7 +194,7 @@ public class CyodaRepository implements CrudRepository {
     private record SnapshotWithMetadata(UUID snapshotId, Long totalElements, UUID searchId) {}
 
     @NotNull
-    private CompletableFuture<UUID> getSnapShotIdCompletableFuture(SearchSnapshotStatus snapshotInfo) {
+    private CompletableFuture<UUID> getSnapShotIdCompletableFuture(SearchSnapshotStatus snapshotInfo, int awaitLimitMs, int pollIntervalMs) {
         // NOTE: To avoid redundant polling, if snapshot is already done
         if (SearchSnapshotStatus.Status.SUCCESSFUL.equals(snapshotInfo.getStatus())) {
             return CompletableFuture.completedFuture(snapshotInfo.getSnapshotId());
@@ -210,8 +203,8 @@ public class CyodaRepository implements CrudRepository {
         try {
             return waitForSearchCompletion(
                     snapshotInfo.getSnapshotId(),
-                    SNAPSHOT_CREATION_AWAIT_LIMIT_MS,
-                    SNAPSHOT_CREATION_POLL_INTERVAL_MS
+                    awaitLimitMs,
+                    pollIntervalMs
             ).thenApply(it -> snapshotInfo.getSnapshotId());
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -242,17 +235,14 @@ public class CyodaRepository implements CrudRepository {
     @Override
     public CompletableFuture<PageResult<DataPayload>> findAll(
             @NotNull final ModelSpec modelSpec,
-            final int pageSize,
-            final int pageNumber,
-            @Nullable final Date pointInTime,
-            @Nullable final UUID searchId
+            @NotNull final SearchAndRetrievalParams params
     ) {
         // Create an empty condition to match all entities
         GroupCondition matchAllCondition = new GroupCondition()
                 .withOperator(GroupCondition.Operator.AND)
                 .withConditions(List.of());
 
-        return findAllByCondition(modelSpec, pageSize, pageNumber, matchAllCondition, pointInTime, searchId);
+        return findAllByCondition(modelSpec, params.pageSize(), params.pageNumber(), matchAllCondition, params.pointInTime(), params.searchId(), params.awaitLimitMs(), params.pollIntervalMs());
     }
 
     @Override
