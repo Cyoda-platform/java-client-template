@@ -2,6 +2,7 @@ package e2e.entity;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 
 public class PrizeEntity implements CyodaEntity {
 
@@ -30,7 +31,7 @@ public class PrizeEntity implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
-        return CyodaEntity.super.isValid();
+    public boolean isValid(EntityMetadata metadata) {
+        return CyodaEntity.super.isValid(metadata);
     }
 }

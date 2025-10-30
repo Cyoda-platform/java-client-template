@@ -1,8 +1,9 @@
-package com.java_template.application.entity.example_entity.version_1;
+package com.example.application.entity.example_entity.version_1;
 
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 /**
  * Supplementary entity
@@ -25,7 +26,7 @@ public class OtherEntity implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         // Validate required fields
         return true;
     }

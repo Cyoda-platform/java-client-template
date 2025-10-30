@@ -1,5 +1,6 @@
 package com.java_template.common.repository;
 
+import com.java_template.common.dto.PageResult;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
@@ -23,83 +24,192 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface CrudRepository {
 
+    /**
+     * Deletes an entity by its unique identifier.
+     *
+     * @param id the unique identifier of the entity to delete
+     * @return CompletableFuture containing the delete response
+     */
     CompletableFuture<EntityDeleteResponse> deleteById(@NotNull UUID id);
 
+    /**
+     * Deletes all entities matching the specified model specification.
+     *
+     * @param modelSpec the model specification defining which entities to delete
+     * @return CompletableFuture containing list of delete responses
+     */
     CompletableFuture<List<EntityDeleteAllResponse>> deleteAll(
             @NotNull ModelSpec modelSpec
     );
 
-    CompletableFuture<List<DataPayload>> findAll(
+    /**
+     * Finds all entities matching the model specification with pagination support.
+     *
+     * @param modelSpec the model specification to match
+     * @param params search and retrieval parameters
+     * @return CompletableFuture containing paginated results
+     */
+    CompletableFuture<PageResult<DataPayload>> findAll(
             @NotNull ModelSpec modelSpec,
-            int pageSize,
-            int pageNumber,
-            @Nullable Date pointInTime
+            @NotNull SearchAndRetrievalParams params
     );
 
+    /**
+     * Finds an entity by its unique identifier.
+     *
+     * @param id the unique identifier of the entity
+     * @return CompletableFuture containing the entity data payload
+     */
     CompletableFuture<DataPayload> findById(@NotNull UUID id);
 
+    /**
+     * Finds an entity by its unique identifier at a specific point in time.
+     *
+     * @param id the unique identifier of the entity
+     * @param pointInTime timestamp for historical data retrieval
+     * @return CompletableFuture containing the entity data payload
+     */
     CompletableFuture<DataPayload> findById(@NotNull UUID id, @Nullable Date pointInTime);
 
+    /**
+     * Gets the count of entities matching the model specification. This is a fast operation,
+     * on index tables
+     *
+     * @param modelSpec the model specification to match
+     * @return CompletableFuture containing the entity count
+     */
     CompletableFuture<Long> getEntityCount(@NotNull ModelSpec modelSpec);
 
+    /**
+     * Gets the count of entities matching the model specification at a specific point in time. This is a fast operation,
+     * on index tables
+     *
+     * @param modelSpec the model specification to match
+     * @param pointInTime timestamp for historical data retrieval
+     * @return CompletableFuture containing the entity count
+     */
     CompletableFuture<Long> getEntityCount(@NotNull ModelSpec modelSpec, @Nullable Date pointInTime);
 
+    /**
+     * Retrieves metadata about entity changes for a specific entity.
+     *
+     * @param entityId the unique identifier of the entity
+     * @param pointInTime optional timestamp for historical metadata retrieval
+     * @return CompletableFuture containing list of entity change metadata
+     */
     CompletableFuture<List<org.cyoda.cloud.api.event.common.EntityChangeMeta>> getEntityChangesMetadata(
             @NotNull UUID entityId,
             @Nullable Date pointInTime
     );
 
-    CompletableFuture<List<DataPayload>> findAllByCriteria(
+    /**
+     * Finds all entities matching the model specification and criteria with pagination support.
+     *
+     * @param modelSpec the model specification to match
+     * @param criteria the group condition criteria to apply
+     * @param params search and retrieval parameters
+     * @return CompletableFuture containing paginated results
+     */
+    CompletableFuture<PageResult<DataPayload>> findAllByCriteria(
             @NotNull ModelSpec modelSpec,
             @NotNull GroupCondition criteria,
-            int pageSize,
-            int pageNumber,
-            boolean inMemory
+            @NotNull SearchAndRetrievalParams params
     );
 
-    CompletableFuture<List<DataPayload>> findAllByCriteria(
+    /**
+     * Saves a new entity with the specified model specification.
+     *
+     * @param <T> the entity type
+     * @param modelSpec the model specification for the entity
+     * @param entity the entity to save
+     * @return CompletableFuture containing the transaction response
+     */
+    <T> CompletableFuture<EntityTransactionResponse> save(
             @NotNull ModelSpec modelSpec,
-            @NotNull GroupCondition criteria,
-            int pageSize,
-            int pageNumber,
-            boolean inMemory,
-            @Nullable Date pointInTime
+            @NotNull T entity
     );
 
-    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> save(
+    /**
+     * Saves multiple entities with the specified model specification.
+     *
+     * @param <T> the entity type
+     * @param modelSpec the model specification for the entities
+     * @param entity the collection of entities to save
+     * @return CompletableFuture containing the transaction response
+     */
+    <T> CompletableFuture<EntityTransactionResponse> saveAll(
             @NotNull ModelSpec modelSpec,
-            @NotNull ENTITY_TYPE entity
+            @NotNull Collection<T> entity
     );
 
-    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
+    /**
+     * Saves multiple entities with the specified model specification and transaction settings.
+     *
+     * @param <T> the entity type
+     * @param modelSpec the model specification for the entities
+     * @param entities the collection of entities to save
+     * @param transactionWindow optional transaction window size
+     * @param transactionTimeoutMs optional transaction timeout in milliseconds
+     * @return CompletableFuture containing the transaction response
+     */
+    <T> CompletableFuture<EntityTransactionResponse> saveAll(
             @NotNull ModelSpec modelSpec,
-            @NotNull Collection<ENTITY_TYPE> entity
-    );
-
-    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
-            @NotNull ModelSpec modelSpec,
-            @NotNull Collection<ENTITY_TYPE> entities,
+            @NotNull Collection<T> entities,
             @Nullable Integer transactionWindow,
             @Nullable Long transactionTimeoutMs
     );
 
-    <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> update(
+    /**
+     * Updates an existing entity by its unique identifier.
+     *
+     * @param <T> the entity type
+     * @param id the unique identifier of the entity to update
+     * @param entity the updated entity data
+     * @param transition optional state transition to apply
+     * @return CompletableFuture containing the transaction response
+     */
+    <T> CompletableFuture<EntityTransactionResponse> update(
             @NotNull UUID id,
-            @NotNull ENTITY_TYPE entity,
+            @NotNull T entity,
             @Nullable String transition
     );
 
-    <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
-            @NotNull Collection<ENTITY_TYPE> entities,
+    /**
+     * Updates multiple entities with optional state transition.
+     *
+     * @param <T> the entity type
+     * @param entities the collection of entities to update
+     * @param transition optional state transition to apply
+     * @return CompletableFuture containing list of transaction responses
+     */
+    <T> CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull Collection<T> entities,
             @Nullable String transition
     );
 
-    <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> updateAll(
-            @NotNull Collection<ENTITY_TYPE> entities,
+    /**
+     * Updates multiple entities with optional state transition and transaction settings.
+     *
+     * @param <T> the entity type
+     * @param entities the collection of entities to update
+     * @param transition optional state transition to apply
+     * @param transactionWindow optional transaction window size
+     * @param transactionTimeoutMs optional transaction timeout in milliseconds
+     * @return CompletableFuture containing list of transaction responses
+     */
+    <T> CompletableFuture<List<EntityTransactionResponse>> updateAll(
+            @NotNull Collection<T> entities,
             @Nullable String transition,
             @Nullable Integer transactionWindow,
             @Nullable Long transactionTimeoutMs
     );
 
+    /**
+     * Applies a state transition to an entity.
+     *
+     * @param entityId the unique identifier of the entity
+     * @param transitionName the name of the transition to apply
+     * @return CompletableFuture containing the transition response
+     */
     CompletableFuture<EntityTransitionResponse> applyTransition(@NotNull UUID entityId, @NotNull String transitionName);
 }

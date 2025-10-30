@@ -18,8 +18,8 @@
     },
     "pageNumber": {
       "type": "integer",
-      "description": "Page number (from 1).",
-      "default": 1
+      "description": "Page number (from 0).",
+      "default": 0
     },
     "pointInTime": {
       "type": "string",

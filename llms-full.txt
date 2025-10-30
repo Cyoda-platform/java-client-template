@@ -11,15 +11,15 @@ default branch: main
 
 ## Code Examples
 
-- [LLM Example Directory](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/): Complete examples and templates for all components
-  - [Code Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/): Implementation examples
-    - [Controllers](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/controller/): REST controller patterns
-    - [Entities](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/entity/): Entity class implementations
-    - [Processors](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/processor/): Workflow processor examples
-    - [Criteria](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/criterion/): Workflow criteria examples
+- Complete examples and templates for all components
+  - [Code Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/src/test/java/com/example/): Implementation examples
+    - [Controllers](https://github.com/Cyoda-platform/java-client-template/${branch}/src/test/java/com/example/controller/): REST controller patterns
+    - [Entities](https://github.com/Cyoda-platform/java-client-template/${branch}/src/test/java/com/example/entity/): Entity class implementations
+    - [Processors](https://github.com/Cyoda-platform/java-client-template/${branch}/src/test/java/com/example/processor/): Workflow processor examples
+    - [Criteria](https://github.com/Cyoda-platform/java-client-template/${branch}/src/test/java/com/example/criterion/): Workflow criteria examples
     - [Patterns](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/code/patterns/): Patterns and anti-patterns guide
-  - [Configuration Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/config/): Configuration templates
-    - [Workflow Configs](https://github.com/Cyoda-platform/java-client-template/${branch}/llm_example/config/workflow/): Workflow JSON configuration templates
+  - [Configuration Examples](https://github.com/Cyoda-platform/java-client-template/${branch}/src/test/resources/example/config/): Configuration templates
+    - [Workflow Configs](https://github.com/Cyoda-platform/java-client-template/${branch}/src/test/resources/example/config/workflow/): Workflow JSON configuration templates
 
 ```
 java-client-template/
@@ -30,15 +30,16 @@ java-client-template/
       ├── entity/                        # Domain entities (usually empty in template)
       ├── processor/                     # Workflow processors (usually empty in template)
       └── criterion/                     # Workflow criteria (usually empty in template)
-│   └── resources/                      # Configuration files (usually empty in template)
+│   └── resources/                       # Configuration files (usually empty in template)
 │       └── workflow/                    # Workflow configurations (usually empty in template)
-├── llm_example/                         # Compilable examples and templates
-│   ├── code/application/                # Example implementations (.java.txt files)
+├── src/test/java/com/example/           # Compilable examples and templates
+│   ├── application/                     # Example implementations
 │   │   ├── controller/                  # REST controller examples
 │   │   ├── entity/                      # Entity implementation examples
 │   │   ├── processor/                   # Processor implementation examples
 │   │   └── criterion/                   # Criterion implementation examples
-│   ├── config/workflow/                 # Workflow configuration examples
+│   ├── test/resources/example/config/workflow/ # Workflow configuration examples
+```
 
 ## Requirements & Specifications
 
@@ -149,10 +150,10 @@ This template follows a clear separation between **framework code** (that you do
 - `criterion/` – Workflow criteria implementing `CyodaCriterion` interface
 
 ## Code Examples and Best Practices
-**All examples and templates are in the `llm_example/` directory:**
-- `llm_example/code/application/controller/` - REST controller patterns
-- `llm_example/code/application/entity/` - Entity class implementations
-- `llm_example/code/application/processor/` - Workflow processor examples
-- `llm_example/code/application/criterion/` - Workflow criteria examples
-- `llm_example/code/application/patterns/` - Patterns and anti-patterns guide
-- `llm_example/config/workflow/` - Workflow JSON configuration templates
+**All examples and templates are in the `src/test/java/com/example/` and `src/test/resources/example/` directories:**
+- `src/test/java/com/example/application/controller/` - REST controller patterns
+- `src/test/java/com/example/application/entity/`     - Entity class implementations
+- `src/test/java/com/example/application/processor/`  - Workflow processor examples
+- src/test/java/com/example/application/criterion/`   - Workflow criteria examples
+- `src/test/java/com/example/application/patterns/`   - Patterns and anti-patterns guide
+- `src/test/java/com/example/config/workflow/`        - Workflow JSON configuration templates

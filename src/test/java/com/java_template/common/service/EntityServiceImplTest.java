@@ -1,9 +1,10 @@
 package com.java_template.common.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
 import com.java_template.common.repository.CrudRepository;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Getter;
@@ -26,11 +27,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -384,17 +383,6 @@ class EntityServiceImplTest {
     }
 
     @Test
-    @DisplayName("saveAllAndReturnTransactionInfo should return null when empty collection provided")
-    void testCreateAllAndReturnTransactionInfoEmptyCollection() {
-        Collection<TestEntity> emptyEntities = List.of();
-
-        var result = entityService.saveAllAndReturnTransactionInfo(emptyEntities);
-
-        assertNull(result);
-        verify(repository, never()).saveAll(any(ModelSpec.class), any());
-    }
-
-    @Test
     @DisplayName("updateAll should return empty list when no entities provided")
     void testUpdateAllEmptyCollection() {
         Collection<TestEntity> emptyEntities = List.of();
@@ -436,44 +424,6 @@ class EntityServiceImplTest {
     }
 
     // ========================================
-    // REPOSITORY CALL VERIFICATION TESTS
-    // ========================================
-
-    @Test
-    @DisplayName("getItems should call repository.findAll with correct parameters")
-    void testGetItemsRepositoryCall() {
-        List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
-        when(repository.findAll(createTestModelSpec(), 50, 2, null))
-                .thenReturn(CompletableFuture.completedFuture(payloads));
-
-        List<EntityWithMetadata<TestEntity>> result = entityService.getItems(TestEntity.class, createTestModelSpec(), 50, 2, null);
-
-        assertNotNull(result);
-        assertEquals(1, result.size());
-        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
-        assertEntityMatches(entityWithMetadata.entity(), testEntity);
-        assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAll(createTestModelSpec(), 50, 2, null);
-    }
-
-    @Test
-    @DisplayName("getItems should use default pagination when parameters are null")
-    void testGetItemsWithDefaultPagination() {
-        List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
-        when(repository.findAll(createTestModelSpec(), 100, 1, null))
-                .thenReturn(CompletableFuture.completedFuture(payloads));
-
-        List<EntityWithMetadata<TestEntity>> result = entityService.getItems(TestEntity.class, createTestModelSpec(), null, null, null);
-
-        assertNotNull(result);
-        assertEquals(1, result.size());
-        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
-        assertEntityMatches(entityWithMetadata.entity(), testEntity);
-        assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAll(createTestModelSpec(), 100, 1, null);
-    }
-
-    // ========================================
     // MISSING COVERAGE TESTS
     // ========================================
 
@@ -482,8 +432,8 @@ class EntityServiceImplTest {
     void testFindByBusinessIdRepositoryCall() {
         TestEntity entityWithBusinessId = new TestEntity(123L, "TEST-123", "ACTIVE");
         List<DataPayload> payloads = List.of(createTestDataPayload(entityWithBusinessId, testEntityId));
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(payloads));
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), argThat(SearchAndRetrievalParams::inMemory)))
+                .thenReturn(CompletableFuture.completedFuture(PageResult.of(UUID.randomUUID(), payloads, 0, 1, payloads.size())));
 
         EntityWithMetadata<TestEntity> result = entityService.findByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class);
 
@@ -492,45 +442,45 @@ class EntityServiceImplTest {
         assertNotNull(result.metadata());
         assertEntityMatches(result.entity(), entityWithBusinessId);
         assertMetadata(result, testEntityId, entityWithBusinessId.getStatus());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), argThat(SearchAndRetrievalParams::inMemory));
     }
 
     @Test
     @DisplayName("findByBusinessId should handle repository failure")
     void testFindByBusinessIdRepositoryFailure() {
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), argThat(SearchAndRetrievalParams::inMemory)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Search failed")));
 
         assertRepositoryFailure(() -> entityService.findByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class),
                 "Search failed");
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), argThat(SearchAndRetrievalParams::inMemory));
     }
 
     @Test
     @DisplayName("findAll should call repository.findAll with correct model parameters")
     void testFindAllRepositoryCall() {
         List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
-        when(repository.findAll(createTestModelSpec(), 100, 1, null))
-                .thenReturn(CompletableFuture.completedFuture(payloads));
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(PageResult.of(UUID.randomUUID(), payloads, 0, 100, payloads.size())));
 
-        List<EntityWithMetadata<TestEntity>> result = entityService.findAll(createTestModelSpec(), TestEntity.class);
+        PageResult<EntityWithMetadata<TestEntity>> result = entityService.findAll(createTestModelSpec(), TestEntity.class, SearchAndRetrievalParams.defaults());
 
         assertNotNull(result);
-        assertEquals(1, result.size());
-        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
+        assertEquals(1, result.data().size());
+        EntityWithMetadata<TestEntity> entityWithMetadata = result.data().getFirst();
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAll(createTestModelSpec(), 100, 1, null);
+        verify(repository).findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class));
     }
 
     @Test
     @DisplayName("findAll should handle repository failure")
     void testFindAllRepositoryFailure() {
-        when(repository.findAll(createTestModelSpec(), 100, 1, null))
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find all failed")));
 
-        assertRepositoryFailure(() -> entityService.findAll(createTestModelSpec(), TestEntity.class), "Find all failed");
-        verify(repository).findAll(createTestModelSpec(), 100, 1, null);
+        assertRepositoryFailure(() -> entityService.findAll(createTestModelSpec(), TestEntity.class, SearchAndRetrievalParams.defaults()), "Find all failed");
+        verify(repository).findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class));
     }
 
     @Test
@@ -538,133 +488,36 @@ class EntityServiceImplTest {
     void testSearchRepositoryCall() {
         GroupCondition condition = createActiveStatusCondition();
         List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(payloads));
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(PageResult.of(UUID.randomUUID(), payloads, 0, 100, payloads.size())));
 
-        List<EntityWithMetadata<TestEntity>> result = entityService.search(createTestModelSpec(), condition, TestEntity.class);
+        PageResult<EntityWithMetadata<TestEntity>> result = entityService.search(createTestModelSpec(), condition, TestEntity.class,
+                SearchAndRetrievalParams.builder().inMemory(true).build());
 
         assertNotNull(result);
-        assertEquals(1, result.size());
-        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
+        assertEquals(1, result.data().size());
+        EntityWithMetadata<TestEntity> entityWithMetadata = result.data().getFirst();
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true), isNull());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class));
     }
 
     @Test
     @DisplayName("search should handle repository failure")
     void testSearchRepositoryFailure() {
         GroupCondition condition = createActiveStatusCondition();
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true), isNull()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Search failed")));
 
-        assertRepositoryFailure(() -> entityService.search(createTestModelSpec(), condition, TestEntity.class), "Search failed");
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true), isNull());
+        assertRepositoryFailure(() -> entityService.search(createTestModelSpec(), condition, TestEntity.class,
+                SearchAndRetrievalParams.builder().inMemory(true).build()), "Search failed");
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class));
     }
 
     // ========================================
     // ADDITIONAL COVERAGE TESTS
     // ========================================
 
-    @Test
-    @DisplayName("saveAndReturnTransactionInfo should call repository.save and return transaction info")
-    void testCreateAndReturnTransactionInfo() {
-        EntityTransactionInfo transactionInfo = new EntityTransactionInfo();
-        transactionInfo.setEntityIds(List.of(testEntityId));
-        EntityTransactionResponse response = new EntityTransactionResponse();
-        response.setTransactionInfo(transactionInfo);
-        when(repository.save(eq(createTestModelSpec()), any()))
-                .thenReturn(CompletableFuture.completedFuture(response));
-
-        ObjectNode result = entityService.saveAndReturnTransactionInfo(testEntity);
-
-        assertNotNull(result);
-        assertTrue(result.has("entityIds"));
-        verify(repository).save(eq(createTestModelSpec()), any());
-    }
-
-    @Test
-    @DisplayName("saveAndReturnTransactionInfo should handle repository failure")
-    void testCreateAndReturnTransactionInfoFailure() {
-        when(repository.save(eq(createTestModelSpec()), any()))
-                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Save failed")));
-
-        assertRepositoryFailure(() -> entityService.saveAndReturnTransactionInfo(testEntity), "Save failed");
-        verify(repository).save(eq(createTestModelSpec()), any());
-    }
-
-    @Test
-    @DisplayName("getFirstItemByCondition should return empty optional when no entities found")
-    void testGetFirstItemByConditionEmpty() {
-        GroupCondition condition = createActiveStatusCondition();
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
-
-        var result = entityService.getFirstItemByCondition(TestEntity.class, createTestModelSpec(), condition, true);
-
-        assertNotNull(result);
-        assertTrue(result.isEmpty());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
-    }
-
-    @Test
-    @DisplayName("getFirstItemByCondition should return first entity when non-empty payloads are returned")
-    void testGetFirstItemByConditionWithNonEmptyPayloads() {
-        GroupCondition condition = createActiveStatusCondition();
-
-        TestEntity firstEntity = new TestEntity(123L, "First Entity", "ACTIVE");
-        TestEntity secondEntity = new TestEntity(456L, "Second Entity", "ACTIVE");
-        DataPayload firstPayload = createTestDataPayload(firstEntity, testEntityId);
-        DataPayload secondPayload = createTestDataPayload(secondEntity, testEntityId2);
-        List<DataPayload> payloads = List.of(firstPayload, secondPayload);
-
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(payloads));
-
-        var result = entityService.getFirstItemByCondition(TestEntity.class, createTestModelSpec(), condition, true);
-
-        assertTrue(result.isPresent());
-        var entityWithMetadata = result.get();
-        assertEntityMatches(entityWithMetadata.entity(), firstEntity);
-        assertMetadata(entityWithMetadata, testEntityId, firstEntity.getStatus());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
-    }
-
-    @Test
-    @DisplayName("getItemsByCondition should return empty list when no entities found")
-    void testGetItemsByConditionEmpty() {
-        GroupCondition condition = createActiveStatusCondition();
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
-
-        List<EntityWithMetadata<TestEntity>> result = entityService.getItemsByCondition(TestEntity.class, createTestModelSpec(), condition, true);
-
-        assertNotNull(result);
-        assertTrue(result.isEmpty());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true), isNull());
-    }
-
-    @Test
-    @DisplayName("getItemsByCondition should filter null payloads and return valid entities")
-    void testGetItemsByConditionWithNullPayloads() {
-        GroupCondition condition = createActiveStatusCondition();
-        DataPayload validPayload = createTestDataPayload(testEntity, testEntityId);
-        List<DataPayload> payloadsWithNull = new java.util.ArrayList<>();
-        payloadsWithNull.add(null);
-        payloadsWithNull.add(validPayload);
-
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(payloadsWithNull));
-
-        List<EntityWithMetadata<TestEntity>> result = entityService.getItemsByCondition(TestEntity.class, createTestModelSpec(), condition, true);
-
-        assertNotNull(result);
-        assertEquals(1, result.size()); // Only the valid payload should be processed
-        EntityWithMetadata<TestEntity> entityWithMetadata = result.getFirst();
-        assertEntityMatches(entityWithMetadata.entity(), testEntity);
-        assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(100), eq(1), eq(true), isNull());
-    }
 
     @Test
     @DisplayName("deleteAll should handle repository failure")
@@ -692,24 +545,24 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("getItems should handle repository failure")
     void testGetItemsRepositoryFailure() {
-        when(repository.findAll(createTestModelSpec(), 100, 1, null))
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find all failed")));
 
-        assertRepositoryFailure(() -> entityService.getItems(TestEntity.class, createTestModelSpec(), null, null, null),
+        assertRepositoryFailure(() -> entityService.findAll(createTestModelSpec(), TestEntity.class, SearchAndRetrievalParams.defaults()),
                 "Find all failed");
-        verify(repository).findAll(createTestModelSpec(), 100, 1, null);
+        verify(repository).findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class));
     }
 
     @Test
     @DisplayName("updateByBusinessId should handle repository failure during find")
     void testUpdateByBusinessIdFindFailure() {
         testEntity.setName("TEST-123");
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find failed")));
 
         assertRepositoryFailure(() -> entityService.updateByBusinessId(testEntity, BUSINESS_ID_FIELD, TRANSITION_ACTIVATE),
                 "Find failed");
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class));
         verify(repository, never()).update(any(UUID.class), any(), anyString());
     }
 
@@ -717,13 +570,13 @@ class EntityServiceImplTest {
     @DisplayName("updateByBusinessId should handle entity not found")
     void testUpdateByBusinessIdEntityNotFound() {
         testEntity.setName("NONEXISTENT");
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(PageResult.of(UUID.randomUUID(), List.of(), 0, 1, 0L)));
 
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> entityService.updateByBusinessId(testEntity, BUSINESS_ID_FIELD, TRANSITION_ACTIVATE));
         assertTrue(exception.getMessage().contains("Entity not found with business ID"));
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class));
         verify(repository, never()).update(any(UUID.class), any(), anyString());
     }
 
@@ -735,8 +588,8 @@ class EntityServiceImplTest {
 
         TestEntity foundEntity = new TestEntity(123L, "TEST-123", "ACTIVE");
         DataPayload foundPayload = createTestDataPayload(foundEntity, existingEntityTechnicalId);
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(List.of(foundPayload)));
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(PageResult.of(UUID.randomUUID(), List.of(foundPayload), 0, 1, 1L)));
 
         EntityTransactionResponse updateResponse = createTransactionResponse(existingEntityTechnicalId);
         when(repository.update(eq(existingEntityTechnicalId), any(), eq(TRANSITION_ACTIVATE)))
@@ -758,32 +611,32 @@ class EntityServiceImplTest {
         assertNotNull(result.metadata());
         assertEntityMatches(result.entity(), testEntity);
         assertEquals(existingEntityTechnicalId, result.metadata().getId());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class));
         verify(repository).update(eq(existingEntityTechnicalId), any(), eq(TRANSITION_ACTIVATE));
     }
 
     @Test
     @DisplayName("deleteByBusinessId should handle repository failure during find")
     void testDeleteByBusinessIdFindFailure() {
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find failed")));
 
         assertRepositoryFailure(() -> entityService.deleteByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class),
                 "Find failed");
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class));
         verify(repository, never()).deleteById(any(UUID.class));
     }
 
     @Test
     @DisplayName("deleteByBusinessId should return false when entity not found")
     void testDeleteByBusinessIdEntityNotFound() {
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(List.of()));
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(PageResult.of(UUID.randomUUID(), List.of(), 0, 1, 0L)));
 
         boolean result = entityService.deleteByBusinessId(createTestModelSpec(), "NONEXISTENT", BUSINESS_ID_FIELD, TestEntity.class);
 
         assertFalse(result);
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class));
         verify(repository, never()).deleteById(any(UUID.class));
     }
 
@@ -793,8 +646,8 @@ class EntityServiceImplTest {
         UUID entityTechnicalId = UUID.randomUUID();
         TestEntity foundEntity = new TestEntity(123L, "TEST-123", "ACTIVE");
         DataPayload foundPayload = createTestDataPayload(foundEntity, entityTechnicalId);
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull()))
-                .thenReturn(CompletableFuture.completedFuture(List.of(foundPayload)));
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(PageResult.of(UUID.randomUUID(), List.of(foundPayload), 0, 1, 1L)));
 
         EntityDeleteResponse deleteResponse = createDeleteResponse(entityTechnicalId);
         when(repository.deleteById(entityTechnicalId))
@@ -803,7 +656,7 @@ class EntityServiceImplTest {
         boolean result = entityService.deleteByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class);
 
         assertTrue(result);
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), eq(1), eq(1), eq(true), isNull());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any(SearchAndRetrievalParams.class));
         verify(repository).deleteById(entityTechnicalId);
     }
 
@@ -861,21 +714,393 @@ class EntityServiceImplTest {
         verify(repository).saveAll(eq(createTestModelSpec()), eq(entities), any(), any());
     }
 
+    // ========================================
+    // STREAM TESTS
+    // ========================================
+
     @Test
-    @DisplayName("saveAllAndReturnTransactionInfo should return transaction info from repository response")
-    void testCreateAllAndReturnTransactionInfoWithEntities() {
-        Collection<TestEntity> entities = List.of(testEntity, testEntity2);
-        EntityTransactionInfo mockTransactionInfo = new EntityTransactionInfo();
-        EntityTransactionResponse mockTransactionResponse = new EntityTransactionResponse();
-        mockTransactionResponse.setTransactionInfo(mockTransactionInfo);
+    @DisplayName("streamAll should stream all entities across multiple pages")
+    void testStreamAllMultiplePages() {
+        // Create test data for 3 pages
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        TestEntity entity3 = new TestEntity(3L, "Entity 3", "ACTIVE");
+        TestEntity entity4 = new TestEntity(4L, "Entity 4", "ACTIVE");
+        TestEntity entity5 = new TestEntity(5L, "Entity 5", "ACTIVE");
 
-        when(repository.saveAll(any(ModelSpec.class), any()))
-                .thenReturn(CompletableFuture.completedFuture(mockTransactionResponse));
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        UUID id3 = UUID.randomUUID();
+        UUID id4 = UUID.randomUUID();
+        UUID id5 = UUID.randomUUID();
 
-        EntityTransactionInfo result = entityService.saveAllAndReturnTransactionInfo(entities);
+        UUID searchId = UUID.randomUUID();
+
+        // Mock page 0 (2 items)
+        List<DataPayload> page1Payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+        when(repository.findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 0 && params.searchId() == null)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page1Payloads, 0, 2, 5L)
+                ));
+
+        // Mock page 1 (2 items)
+        List<DataPayload> page2Payloads = List.of(
+                createTestDataPayload(entity3, id3),
+                createTestDataPayload(entity4, id4)
+        );
+        when(repository.findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 1 && searchId.equals(params.searchId()))))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page2Payloads, 1, 2, 5L)
+                ));
+
+        // Mock page 2 (1 item)
+        List<DataPayload> page3Payloads = List.of(
+                createTestDataPayload(entity5, id5)
+        );
+        when(repository.findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 2 && searchId.equals(params.searchId()))))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page3Payloads, 2, 2, 5L)
+                ));
+
+        // Execute stream
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                SearchAndRetrievalParams.builder()
+                        .pageSize(2)
+                        .build()
+        ).toList();
+
+        // Verify results
+        assertNotNull(result);
+        assertEquals(5, result.size());
+        assertEntityMatches(result.get(0).entity(), entity1);
+        assertEntityMatches(result.get(1).entity(), entity2);
+        assertEntityMatches(result.get(2).entity(), entity3);
+        assertEntityMatches(result.get(3).entity(), entity4);
+        assertEntityMatches(result.get(4).entity(), entity5);
+
+        // Verify repository calls
+        verify(repository).findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 0 && params.searchId() == null));
+        verify(repository).findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 1 && searchId.equals(params.searchId())));
+        verify(repository).findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 2 && searchId.equals(params.searchId())));
+    }
+
+    @Test
+    @DisplayName("streamAll should handle empty result set")
+    void testStreamAllEmptyResults() {
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), List.of(), 0, 100, 0L)
+                ));
+
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                SearchAndRetrievalParams.builder()
+                        .pageSize(100)
+                        .build()
+        ).toList();
 
         assertNotNull(result);
-        assertEquals(mockTransactionInfo, result);
-        verify(repository).saveAll(eq(createTestModelSpec()), any());
+        assertTrue(result.isEmpty());
+        verify(repository).findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class));
+    }
+
+    @Test
+    @DisplayName("streamAll should handle single page result")
+    void testStreamAllSinglePage() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+
+        // totalElements = 2, pageSize = 100, so totalPages = 1 (no more pages)
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 0, 100, 2L)
+                ));
+
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                SearchAndRetrievalParams.builder()
+                        .pageSize(100)
+                        .build()
+        ).toList();
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEntityMatches(result.get(0).entity(), entity1);
+        assertEntityMatches(result.get(1).entity(), entity2);
+        verify(repository).findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class));
+    }
+
+    @Test
+    @DisplayName("streamAll should support filtering with stream operations")
+    void testStreamAllWithFiltering() {
+        TestEntity activeEntity = new TestEntity(1L, "Active Entity", "ACTIVE");
+        TestEntity inactiveEntity = new TestEntity(2L, "Inactive Entity", "INACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(
+                createTestDataPayload(activeEntity, id1),
+                createTestDataPayload(inactiveEntity, id2)
+        );
+
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 0, 100, 2L)
+                ));
+
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                SearchAndRetrievalParams.builder()
+                        .pageSize(100)
+                        .build()
+        )
+        .filter(e -> "ACTIVE".equals(e.entity().getStatus()))
+        .toList();
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEntityMatches(result.getFirst().entity(), activeEntity);
+    }
+
+    @Test
+    @DisplayName("streamAll should support mapping with stream operations")
+    void testStreamAllWithMapping() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+
+        // totalElements = 2, pageSize = 100, so totalPages = 1 (no more pages)
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 0, 100, 2L)
+                ));
+
+        List<String> names = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                SearchAndRetrievalParams.builder()
+                        .pageSize(100)
+                        .build()
+        )
+        .map(e -> e.entity().getName())
+        .toList();
+
+        assertNotNull(names);
+        assertEquals(2, names.size());
+        assertEquals("Entity 1", names.get(0));
+        assertEquals("Entity 2", names.get(1));
+    }
+
+    @Test
+    @DisplayName("streamAll should handle repository failure on first page")
+    void testStreamAllRepositoryFailureFirstPage() {
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find all failed")));
+
+        //noinspection ResultOfMethodCallIgnored
+        assertRepositoryFailure(
+                () -> entityService.streamAll(createTestModelSpec(), TestEntity.class,
+                        SearchAndRetrievalParams.builder().pageSize(100).build()).toList(),
+                "Find all failed"
+        );
+        verify(repository).findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class));
+    }
+
+    @Test
+    @DisplayName("streamAll should handle repository failure on subsequent page")
+    void testStreamAllRepositoryFailureSubsequentPage() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID searchId = UUID.randomUUID();
+
+        List<DataPayload> page1Payloads = List.of(createTestDataPayload(entity1, id1));
+        when(repository.findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 1 && params.pageNumber() == 0 && params.searchId() == null)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page1Payloads, 0, 1, 2L)
+                ));
+
+        when(repository.findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 1 && params.pageNumber() == 1 && searchId.equals(params.searchId()))))
+                .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Page 2 failed")));
+
+        //noinspection ResultOfMethodCallIgnored
+        assertRepositoryFailure(
+                () -> entityService.streamAll(createTestModelSpec(), TestEntity.class,
+                        SearchAndRetrievalParams.builder().pageSize(1).build()).toList(),
+                "Page 2 failed"
+        );
+        verify(repository).findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 1 && params.pageNumber() == 0 && params.searchId() == null));
+        verify(repository).findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 1 && params.pageNumber() == 1 && searchId.equals(params.searchId())));
+    }
+
+    @Test
+    @DisplayName("streamAll should respect pointInTime parameter")
+    void testStreamAllWithPointInTime() {
+        Date pointInTime = new Date();
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(createTestDataPayload(entity1, id1));
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 0, 100, 1L)
+                ));
+
+        List<EntityWithMetadata<TestEntity>> result = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                SearchAndRetrievalParams.builder()
+                        .pageSize(100)
+                        .pointInTime(pointInTime)
+                        .build()
+        ).toList();
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEntityMatches(result.getFirst().entity(), entity1);
+        verify(repository).findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 100 && params.pageNumber() == 0 && pointInTime.equals(params.pointInTime())));
+    }
+
+    @Test
+    @DisplayName("streamAll should support count operation")
+    void testStreamAllCount() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+
+        List<DataPayload> payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+
+        // totalElements = 2, pageSize = 100, so totalPages = 1 (no more pages)
+        when(repository.findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(UUID.randomUUID(), payloads, 0, 100, 2L)
+                ));
+
+        long count = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                SearchAndRetrievalParams.builder()
+                        .pageSize(100)
+                        .build()
+        ).count();
+
+        assertEquals(2, count);
+        verify(repository).findAll(eq(createTestModelSpec()), any(SearchAndRetrievalParams.class));
+    }
+
+    @Test
+    @DisplayName("streamAll should provide accurate size estimation from the start")
+    void testStreamAllSizeEstimation() {
+        TestEntity entity1 = new TestEntity(1L, "Entity 1", "ACTIVE");
+        TestEntity entity2 = new TestEntity(2L, "Entity 2", "ACTIVE");
+        TestEntity entity3 = new TestEntity(3L, "Entity 3", "ACTIVE");
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        UUID id3 = UUID.randomUUID();
+        UUID searchId = UUID.randomUUID();
+
+        // First page (page 0): 2 items, totalElements = 3
+        List<DataPayload> page1Payloads = List.of(
+                createTestDataPayload(entity1, id1),
+                createTestDataPayload(entity2, id2)
+        );
+
+        // Second page (page 1): 1 item
+        List<DataPayload> page2Payloads = List.of(
+                createTestDataPayload(entity3, id3)
+        );
+
+        // totalElements = 3, pageSize = 2, so totalPages = 2
+        when(repository.findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 0 && params.searchId() == null)))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page1Payloads, 0, 2, 3L)
+                ));
+
+        when(repository.findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 1 && searchId.equals(params.searchId()))))
+                .thenReturn(CompletableFuture.completedFuture(
+                        PageResult.of(searchId, page2Payloads, 1, 2, 3L)
+                ));
+
+        Stream<EntityWithMetadata<TestEntity>> stream = entityService.streamAll(
+                createTestModelSpec(),
+                TestEntity.class,
+                SearchAndRetrievalParams.builder()
+                        .pageSize(2)
+                        .build()
+        );
+
+        // Get the spliterator to check size estimation
+        Spliterator<EntityWithMetadata<TestEntity>> spliterator = stream.spliterator();
+
+        // Size should be known immediately (3 total elements) since first page is fetched upfront
+        long initialSize = spliterator.estimateSize();
+        assertEquals(3, initialSize, "Initial size should be 3 (total elements)");
+
+        // Verify SIZED characteristic is present
+        assertTrue((spliterator.characteristics() & Spliterator.SIZED) != 0,
+                "Spliterator should have SIZED characteristic");
+
+        // Consume first element
+        spliterator.tryAdvance(entity -> {});
+
+        // After first element, size should be: 3 total - 1 processed = 2 remaining
+        long sizeAfterFirst = spliterator.estimateSize();
+        assertEquals(2, sizeAfterFirst, "Size after first element should be 2 remaining");
+
+        // Consume second element
+        spliterator.tryAdvance(entity -> {});
+
+        // Size should now be 1 remaining
+        long sizeAfterSecond = spliterator.estimateSize();
+        assertEquals(1, sizeAfterSecond, "Size after second element should be 1 remaining");
+
+        // Consume third element
+        spliterator.tryAdvance(entity -> {});
+
+        // Size should now be 0 remaining
+        long sizeAfterThird = spliterator.estimateSize();
+        assertEquals(0, sizeAfterThird, "Size after third element should be 0 remaining");
+
+        verify(repository).findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 0 && params.searchId() == null));
+        verify(repository).findAll(eq(createTestModelSpec()), argThat(params ->
+                params.pageSize() == 2 && params.pageNumber() == 1 && searchId.equals(params.searchId())));
     }
 }

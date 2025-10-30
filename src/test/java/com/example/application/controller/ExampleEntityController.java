@@ -1,14 +1,16 @@
-package com.java_template.application.controller;
+package com.example.application.controller;
 
+import com.example.application.entity.example_entity.version_1.ExampleEntity;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.application.entity.example_entity.version_1.ExampleEntity;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.CyodaExceptionUtil;
 import jakarta.validation.Valid;
-import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import lombok.Getter;
 import lombok.Setter;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -16,9 +18,6 @@ import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * Golden Example Controller - Template for creating new controllers
@@ -47,6 +47,11 @@ import java.util.UUID;
  * - Error handling with ProblemDetail (RFC 7807)
  * - Logging best practices
  * - Location header for created resources
+ * <p>
+ * SEARCH PATTERN GUIDANCE:
+ * - In-memory search (inMemory=true): Use for small, bounded result sets that fit in memory
+ * - Paginated search (inMemory=false): Use for large or unknown result set sizes with UI pagination
+ * - Streaming (searchAsStream/streamAll): Use for processing large datasets without loading into memory
  * <p>
  * To create a new controller:
  * 1. Copy this file to your controller package
@@ -237,14 +242,23 @@ public class ExampleEntityController {
     }
 
     /**
-     * List all entities with pagination and optional filtering
-     * GET /ui/example?page=0&size=20&state=ACTIVE&category=EXAMPLE&pointInTime=2025-10-03T10:15:30Z
+     * EXAMPLE 1: LOW VOLUME - In-memory search for small, bounded result sets
+     * GET /ui/example/by-category?category=PREMIUM&pointInTime=2025-10-03T10:15:30Z
+     *<p>
+     * WHEN TO USE:
+     * - You expect a small number of results (e.g., < 1000 entities)
+     * - The result set is bounded by nature (e.g., filtering by a specific category)
+     * - You need all results at once for client-side processing
+     *<p>
+     * PATTERN: search() with inMemory=true
+     * - Returns all matching results in a single call
+     * - No pagination support (all results loaded into memory)
+     * - Fast for small result sets
+     * - DO NOT USE for unbounded queries or large result sets
      */
-    @GetMapping
-    public ResponseEntity<Page<EntityWithMetadata<ExampleEntity>>> listEntities(
-            Pageable pageable,
-            @RequestParam(required = false) String state,
-            @RequestParam(required = false) String category,
+    @GetMapping("/by-category")
+    public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> searchByCategory(
+            @RequestParam String category,
             @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
@@ -252,149 +266,209 @@ public class ExampleEntityController {
                 ? Date.from(pointInTime.toInstant())
                 : null;
 
-            List<QueryCondition> conditions = new ArrayList<>();
-
-            // Add entity field filters (these are in the entity data, not metadata)
-            if (category != null && !category.trim().isEmpty()) {
-                SimpleCondition categoryCondition = new SimpleCondition()
-                        .withJsonPath("$.category")
-                        .withOperation(Operation.EQUALS)
-                        .withValue(objectMapper.valueToTree(category));
-                conditions.add(categoryCondition);
-            }
-
-            if (conditions.isEmpty() && (state == null || state.trim().isEmpty())) {
-                // Use paginated findAll when no filters
-                return ResponseEntity.ok(entityService.findAll(modelSpec, pageable, ExampleEntity.class, pointInTimeDate));
-            } else {
-                // For filtered results, get all matching results then manually paginate
-                List<EntityWithMetadata<ExampleEntity>> entities;
-                if (conditions.isEmpty()) {
-                    entities = entityService.findAll(modelSpec, ExampleEntity.class, pointInTimeDate);
-                } else {
-                    GroupCondition groupCondition = new GroupCondition()
-                            .withOperator(GroupCondition.Operator.AND)
-                            .withConditions(conditions);
-                    entities = entityService.search(modelSpec, groupCondition, ExampleEntity.class, pointInTimeDate);
-                }
-
-                // Filter by state if provided (state is in metadata, not entity)
-                if (state != null && !state.trim().isEmpty()) {
-                    entities = entities.stream()
-                            .filter(entity -> state.equals(entity.metadata().getState()))
-                            .toList();
-                }
-
-                // Manually paginate the filtered results
-                int start = (int) pageable.getOffset();
-                int end = Math.min(start + pageable.getPageSize(), entities.size());
-                List<EntityWithMetadata<ExampleEntity>> pageContent = start < entities.size()
-                    ? entities.subList(start, end)
-                    : new ArrayList<>();
-
-                Page<EntityWithMetadata<ExampleEntity>> page = new PageImpl<>(pageContent, pageable, entities.size());
-                return ResponseEntity.ok(page);
-            }
-        } catch (Exception e) {
-            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST,
-                String.format("Failed to list entities: %s", e.getMessage())
-            );
-            return ResponseEntity.of(problemDetail).build();
-        }
-    }
-
-    /**
-     * Search entities by description (example of custom search endpoint)
-     * GET /ui/example/search?description=text&pointInTime=2025-10-03T10:15:30Z
-     * <p>
-     * Example of a custom search endpoint for a specific use case.
-     * Supports point-in-time queries.
-     */
-    @GetMapping("/search")
-    public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> searchEntitiesByDescription(
-            @RequestParam String description,
-            @RequestParam(required = false) OffsetDateTime pointInTime) {
-        try {
-            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
-            Date pointInTimeDate = pointInTime != null
-                ? Date.from(pointInTime.toInstant())
-                : null;
-
-            SimpleCondition simpleCondition = new SimpleCondition()
-                    .withJsonPath("$.description")
-                    .withOperation(Operation.CONTAINS)
-                    .withValue(objectMapper.valueToTree(description));
+            SimpleCondition categoryCondition = new SimpleCondition()
+                    .withJsonPath("$.category")
+                    .withOperation(Operation.EQUALS)
+                    .withValue(objectMapper.valueToTree(category));
 
             GroupCondition condition = new GroupCondition()
                     .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(List.of(simpleCondition));
+                    .withConditions(List.of(categoryCondition));
 
-            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class, pointInTimeDate);
-            return ResponseEntity.ok(entities);
+            // Use in-memory search for small, bounded result sets
+            // inMemory=true loads all results into memory - only use for small result sets
+            PageResult<EntityWithMetadata<ExampleEntity>> result = entityService.search(
+                    modelSpec,
+                    condition,
+                    ExampleEntity.class,
+                    SearchAndRetrievalParams.builder()
+                            .pageSize(1000)
+                            .pageNumber(0)
+                            .pointInTime(pointInTimeDate)
+                            .inMemory(true)
+                            .build());
+
+            logger.info("Found {} entities in category '{}'", result.data().size(), category);
+            return ResponseEntity.ok(result.data());
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
-                String.format("Failed to search entities by description '%s': %s", description, e.getMessage())
+                String.format("Failed to search entities by category '%s': %s", category, e.getMessage())
             );
             return ResponseEntity.of(problemDetail).build();
         }
     }
 
     /**
-     * Advanced search with multiple criteria (example of complex search)
-     * POST /ui/example/search/advanced
-     * <p>
-     * Example of a complex search endpoint that accepts multiple search criteria
-     * in the request body. Useful when you have many optional search parameters.
+     * EXAMPLE 2: HIGH VOLUME PAGEABLE - Paginated search with searchId for efficient multi-page navigation
+     * GET /ui/example/search?name=John&minAmount=100&page=0&size=50&searchId=uuid&pointInTime=2025-10-03T10:15:30Z
+     *<p>
+     * WHEN TO USE:
+     * - Result set size is unknown or potentially large
+     * - You need to support pagination in a UI
+     * - You want efficient multi-page navigation without re-running the query
+     *<p>
+     * PATTERN: search() with inMemory=false and searchId support
+     * - Returns PageResult with searchId for subsequent page requests
+     * - Use searchId from previous response to get next page from cached snapshot
+     * - Efficient for large result sets
+     * - Supports point-in-time consistency across pages
      */
-    @PostMapping("/search/advanced")
-    public ResponseEntity<List<EntityWithMetadata<ExampleEntity>>> advancedSearch(
-            @RequestBody SearchRequest searchRequest) {
+    @GetMapping("/search")
+    public ResponseEntity<PageResult<EntityWithMetadata<ExampleEntity>>> searchWithPagination(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Double minAmount,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) UUID searchId,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
         try {
             ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
-            Date pointInTimeDate = searchRequest.getPointInTime() != null
-                ? Date.from(searchRequest.getPointInTime().toInstant())
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
                 : null;
 
-            // Build complex search condition using generated classes
             List<QueryCondition> conditions = new ArrayList<>();
 
-            if (searchRequest.getName() != null && !searchRequest.getName().trim().isEmpty()) {
+            if (name != null && !name.trim().isEmpty()) {
                 conditions.add(new SimpleCondition()
                         .withJsonPath("$.name")
                         .withOperation(Operation.CONTAINS)
-                        .withValue(objectMapper.valueToTree(searchRequest.getName())));
+                        .withValue(objectMapper.valueToTree(name)));
             }
 
-            if (searchRequest.getMinAmount() != null) {
+            if (minAmount != null) {
                 conditions.add(new SimpleCondition()
                         .withJsonPath("$.amount")
                         .withOperation(Operation.GREATER_OR_EQUAL)
-                        .withValue(objectMapper.valueToTree(searchRequest.getMinAmount())));
+                        .withValue(objectMapper.valueToTree(minAmount)));
             }
 
-            if (searchRequest.getMaxAmount() != null) {
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$.amount")
-                        .withOperation(Operation.LESS_OR_EQUAL)
-                        .withValue(objectMapper.valueToTree(searchRequest.getMaxAmount())));
-            }
+            com.java_template.common.repository.SearchAndRetrievalParams paginationParams =
+                    com.java_template.common.repository.SearchAndRetrievalParams.builder()
+                            .pageSize(size)
+                            .pageNumber(page)
+                            .pointInTime(pointInTimeDate)
+                            .searchId(searchId)
+                            .build();
 
+            PageResult<EntityWithMetadata<ExampleEntity>> pageResult;
             if (conditions.isEmpty()) {
-                // No search criteria provided - return all entities
-                return ResponseEntity.ok(entityService.findAll(modelSpec, ExampleEntity.class, pointInTimeDate));
+                // No filters: use findAll with searchId support
+                pageResult = entityService.findAll(
+                        modelSpec, ExampleEntity.class, paginationParams);
+            } else {
+                // With filters: use paginated search with searchId support
+                GroupCondition condition = new GroupCondition()
+                        .withOperator(GroupCondition.Operator.AND)
+                        .withConditions(conditions);
+
+                // inMemory=false enables pagination with searchId support
+                pageResult = entityService.search(
+                        modelSpec, condition, ExampleEntity.class, paginationParams);
             }
 
-            GroupCondition condition = new GroupCondition()
-                    .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(conditions);
-            List<EntityWithMetadata<ExampleEntity>> entities = entityService.search(modelSpec, condition, ExampleEntity.class, pointInTimeDate);
-            return ResponseEntity.ok(entities);
+            logger.info("Search returned page {} of {} (total: {} entities, searchId: {})",
+                    pageResult.pageNumber(), pageResult.totalPages(), pageResult.totalElements(), pageResult.searchId());
+
+            // Return PageResult directly - client can use searchId for next page
+            return ResponseEntity.ok(pageResult);
         } catch (Exception e) {
             ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.BAD_REQUEST,
-                String.format("Failed to perform advanced search: %s", e.getMessage())
+                String.format("Failed to search entities: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * EXAMPLE 3: HIGH VOLUME STREAMING - Stream results for memory-efficient processing
+     * POST /ui/example/export
+     * <p>
+     * WHEN TO USE:
+     * - You need to process large result sets without loading everything into memory
+     * - You're exporting data, generating reports, or performing batch operations
+     * - Result set size is unknown or very large (e.g., millions of entities)
+     * - You don't need random access to results, just sequential processing
+     *<p>
+     * PATTERN: searchAsStream() for memory-efficient processing
+     * - Automatically handles pagination internally
+     * - Processes entities one at a time or in small batches
+     * - No memory pressure from large result sets
+     * - Must close stream after use (use try-with-resources)
+     */
+    @PostMapping("/export")
+    public ResponseEntity<String> exportEntities(
+            @RequestBody(required = false) SearchRequest searchRequest) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(ExampleEntity.ENTITY_NAME).withVersion(ExampleEntity.ENTITY_VERSION);
+            Date pointInTimeDate = searchRequest != null && searchRequest.getPointInTime() != null
+                ? Date.from(searchRequest.getPointInTime().toInstant())
+                : null;
+
+            // Build search condition if criteria provided
+            GroupCondition condition = null;
+            if (searchRequest != null) {
+                List<QueryCondition> conditions = new ArrayList<>();
+
+                if (searchRequest.getName() != null && !searchRequest.getName().trim().isEmpty()) {
+                    conditions.add(new SimpleCondition()
+                            .withJsonPath("$.name")
+                            .withOperation(Operation.CONTAINS)
+                            .withValue(objectMapper.valueToTree(searchRequest.getName())));
+                }
+
+                if (searchRequest.getMinAmount() != null) {
+                    conditions.add(new SimpleCondition()
+                            .withJsonPath("$.amount")
+                            .withOperation(Operation.GREATER_OR_EQUAL)
+                            .withValue(objectMapper.valueToTree(searchRequest.getMinAmount())));
+                }
+
+                if (!conditions.isEmpty()) {
+                    condition = new GroupCondition()
+                            .withOperator(GroupCondition.Operator.AND)
+                            .withConditions(conditions);
+                }
+            }
+
+            // Use streaming for memory-efficient processing
+            // The stream MUST be closed after use - use try-with-resources
+            long count;
+            if (condition == null) {
+                // No filters: stream all entities
+                try (Stream<EntityWithMetadata<ExampleEntity>> stream =
+                        entityService.streamAll(modelSpec, ExampleEntity.class,
+                                SearchAndRetrievalParams.builder()
+                                        .pageSize(100)
+                                        .pointInTime(pointInTimeDate)
+                                        .build())) {
+
+                    // Process each entity as it's retrieved (no memory pressure)
+                    count = stream.count();
+                }
+            } else {
+                // With filters: stream matching entities
+                try (Stream<EntityWithMetadata<ExampleEntity>> stream =
+                        entityService.searchAsStream(modelSpec, condition, ExampleEntity.class,
+                                SearchAndRetrievalParams.builder()
+                                        .pageSize(100)
+                                        .inMemory(false)
+                                        .pointInTime(pointInTimeDate)
+                                        .build())) {
+
+                    // Process each entity as it's retrieved (no memory pressure)
+                    count = stream.count();
+                }
+            }
+
+            logger.info("Exported {} entities", count);
+            return ResponseEntity.ok(String.format("Exported %d entities", count));
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to export entities: %s", e.getMessage())
             );
             return ResponseEntity.of(problemDetail).build();
         }

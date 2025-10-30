@@ -1,8 +1,8 @@
-package com.java_template.application.processor;
+package com.example.application.processor;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.java_template.application.entity.example_entity.version_1.ExampleEntity;
-import com.java_template.application.entity.example_entity.version_1.OtherEntity;
+import com.example.application.entity.example_entity.version_1.ExampleEntity;
+import com.example.application.entity.example_entity.version_1.OtherEntity;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -33,6 +33,11 @@ import java.util.List;
  * - Interaction with other entities (when needed)
  * - Error handling and logging
  * - Performance considerations
+ * <p>
+ * SEARCH PATTERN GUIDANCE (when interacting with OTHER entities):
+ * - In-memory search (inMemory=true): Use for small, bounded result sets
+ * - Streaming (searchAsStream): Use for processing large datasets without loading into memory
+ * - Avoid loading all results into memory with .toList() on streams
  * <p>
  * To create a new processor:
  * 1. Copy this file to your processor package
@@ -84,7 +89,7 @@ public class ExampleEntityProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(com.java_template.common.dto.EntityWithMetadata<ExampleEntity> entityWithMetadata) {
         ExampleEntity entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**
@@ -155,13 +160,18 @@ public class ExampleEntityProcessor implements CyodaProcessor {
     /**
      * Process related entities - example of interacting with OTHER entities
      * Only called if EntityService is injected
+     *<p>
+     * SEARCH PATTERN: Streaming for processing large datasets
+     * Use searchAsStream() when processing entities without loading all into memory.
+     * This is memory-efficient for large result sets. Process each entity as it's
+     * retrieved rather than loading all results first.
      */
     private void processRelatedEntities(ExampleEntity entity) {
         // Example: Find related entities and update them
         // This is where you would interact with OTHER entities, not the current one
         logger.debug("Processing related entities for: {}", entity.getExampleId()); //this is business id
 
-        // Example: Update related other entities
+        // Example: Update related other entities using streaming API for memory efficiency
         ModelSpec modelSpec = new ModelSpec().withName(OtherEntity.ENTITY_NAME).withVersion(OtherEntity.ENTITY_VERSION);
         ObjectMapper objectMapper = new ObjectMapper();
         SimpleCondition simpleCondition = new SimpleCondition()
@@ -173,12 +183,18 @@ public class ExampleEntityProcessor implements CyodaProcessor {
                 .withOperator(GroupCondition.Operator.AND)
                 .withConditions(List.of(simpleCondition));
 
-        List<EntityWithMetadata<OtherEntity>> otherEntities = entityService.search(modelSpec, condition, OtherEntity.class);
-
-         for (EntityWithMetadata<OtherEntity> otherEntityWithMetadata : otherEntities) {
-             OtherEntity otherEntity = otherEntityWithMetadata.entity();
-             otherEntity.setName("new_name");
-             entityService.update(otherEntityWithMetadata.metadata().getId(), otherEntity, "UPDATE");
-         }
+        // Use streaming API for memory-efficient processing of related entities
+        // Process each entity as it's retrieved without loading all into memory
+        try (var stream = entityService.searchAsStream(modelSpec, condition, OtherEntity.class,
+                com.java_template.common.repository.SearchAndRetrievalParams.builder()
+                        .pageSize(100)
+                        .inMemory(true)
+                        .build())) {
+            stream.forEach(otherEntityWithMetadata -> {
+                OtherEntity otherEntity = otherEntityWithMetadata.entity();
+                otherEntity.setName("new_name");
+                entityService.update(otherEntityWithMetadata.metadata().getId(), otherEntity, "UPDATE");
+            });
+        }
     }
 }

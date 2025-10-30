@@ -1,6 +1,6 @@
-package com.java_template.application.criterion;
+package com.example.application.criterion;
 
-import com.java_template.application.entity.example_entity.version_1.ExampleEntity;
+import com.example.application.entity.example_entity.version_1.ExampleEntity;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.EvaluationOutcome;
 import com.java_template.common.serializer.ReasonAttachmentStrategy;
@@ -50,7 +50,7 @@ public class ExampleEntityCriterion implements CyodaCriterion {
     public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
         logger.debug("Checking ExampleEntity criteria for request: {}", request.getId());
-        
+
         return serializer.withRequest(request)
             .evaluateEntity(ExampleEntity.class, this::validateEntity)
             .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
@@ -82,7 +82,7 @@ public class ExampleEntityCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        if (!entity.isValid()) {
+        if (!entity.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("ExampleEntity is not valid");
             return EvaluationOutcome.fail("Entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }

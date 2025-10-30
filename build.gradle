@@ -84,6 +84,13 @@ test {
 
     // Pass system properties to tests (needed for conditional test execution)
     systemProperties = System.properties
+
+    // Exclude GherkinE2eTest if no feature files exist
+    // This allows the template to be used in external E2E test projects
+    def featuresDir = file('src/test/resources/features')
+    if (!featuresDir.exists() || !featuresDir.isDirectory() || featuresDir.listFiles()?.length == 0) {
+        exclude '**/GherkinE2eTest.class'
+    }
 }
 
 jsonSchema2Pojo {

@@ -2,8 +2,12 @@ package com.java_template.common.repository;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Expiry;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.Streams;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.java_template.common.dto.PageResult;
 import com.java_template.common.grpc.client.event_handling.CloudEventBuilder;
 import com.java_template.common.grpc.client.event_handling.CloudEventParser;
 import io.cloudevents.v1.proto.CloudEvent;
@@ -41,15 +45,18 @@ import static com.java_template.common.config.Config.GRPC_COMMUNICATION_DATA_FOR
  */
 @Repository
 public class CyodaRepository implements CrudRepository {
-    private static final int SNAPSHOT_CREATION_AWAIT_LIMIT_MS = 10_000;
-    private static final int SNAPSHOT_CREATION_POLL_INTERVAL_MS = 500;
-
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final ObjectMapper objectMapper;
     private final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub;
     private final CloudEventBuilder cloudEventBuilder;
     private final CloudEventParser cloudEventParser;
+
+    /**
+     * Cache for snapshot search results. Only caches searches with pointInTime.
+     * Entries are evicted based on the snapshot's expirationDate.
+     */
+    private final LoadingCache<SearchCacheKey, CompletableFuture<SearchSnapshotStatus>> snapshotCache;
 
     public CyodaRepository(
             final ObjectMapper objectMapper,
@@ -61,6 +68,46 @@ public class CyodaRepository implements CrudRepository {
         this.cloudEventsServiceBlockingStub = cloudEventsServiceBlockingStub;
         this.cloudEventBuilder = cloudEventBuilder;
         this.cloudEventParser = cloudEventParser;
+
+        // Initialize cache with expiry based on snapshot expiration
+        this.snapshotCache = Caffeine.newBuilder()
+                .expireAfter(new Expiry<SearchCacheKey, CompletableFuture<SearchSnapshotStatus>>() {
+                    @Override
+                    public long expireAfterCreate(SearchCacheKey key, CompletableFuture<SearchSnapshotStatus> value, long currentTime) {
+                        return getExpirationDuration(value, currentTime);
+                    }
+
+                    @Override
+                    public long expireAfterUpdate(SearchCacheKey key, CompletableFuture<SearchSnapshotStatus> value, long currentTime, long currentDuration) {
+                        return getExpirationDuration(value, currentTime);
+                    }
+
+                    @Override
+                    public long expireAfterRead(SearchCacheKey key, CompletableFuture<SearchSnapshotStatus> value, long currentTime, long currentDuration) {
+                        return currentDuration;
+                    }
+
+                    private long getExpirationDuration(CompletableFuture<SearchSnapshotStatus> value, long currentTime) {
+                        try {
+                            SearchSnapshotStatus status = value.getNow(null);
+                            if (status != null && status.getExpirationDate() != null) {
+                                long expirationTime = status.getExpirationDate().getTime();
+                                long currentTimeMillis = TimeUnit.NANOSECONDS.toMillis(currentTime);
+                                long durationMillis = expirationTime - currentTimeMillis;
+                                return durationMillis > 0 ? TimeUnit.MILLISECONDS.toNanos(durationMillis) : 0;
+                            }
+                        } catch (Exception e) {
+                            logger.debug("Could not determine expiration time, using default", e);
+                        }
+                        // Default to 1 hour if we can't determine expiration
+                        return TimeUnit.HOURS.toNanos(1);
+                    }
+                })
+                .build(key -> {
+                    if (key.pointInTime != null) {
+                        return createSnapshotSearch(key.modelSpec, key.condition, key.pointInTime);
+                    } else return null;
+                });
     }
 
     @Override
@@ -84,62 +131,87 @@ public class CyodaRepository implements CrudRepository {
     }
 
     @Override
-    public CompletableFuture<List<DataPayload>> findAllByCriteria(
+    public CompletableFuture<PageResult<DataPayload>> findAllByCriteria(
             @NotNull final ModelSpec modelSpec,
             @NotNull final GroupCondition condition,
-            final int pageSize,
-            final int pageNumber,
-            final boolean inMemory
+            @NotNull final SearchAndRetrievalParams params
     ) {
-        return findAllByCriteria(modelSpec, condition, pageSize, pageNumber, inMemory, null);
+        return params.inMemory()
+                ? findAllByConditionInMemory(modelSpec, params.pageSize(), condition, params.pointInTime())
+                : findAllByCondition(modelSpec, params.pageSize(), params.pageNumber(), condition, params.pointInTime(), params.searchId(), params.awaitLimitMs(), params.pollIntervalMs());
     }
 
-    @Override
-    public CompletableFuture<List<DataPayload>> findAllByCriteria(
-            @NotNull final ModelSpec modelSpec,
-            @NotNull final GroupCondition condition,
-            final int pageSize,
-            final int pageNumber,
-            final boolean inMemory,
-            @Nullable final Date pointInTime
-    ) {
-        return inMemory
-                ? findAllByConditionInMemory(modelSpec, pageSize, condition, pointInTime)
-                : findAllByCondition(modelSpec, pageSize, pageNumber, condition, pointInTime);
-    }
-
-    private CompletableFuture<List<DataPayload>> findAllByCondition(
+    private CompletableFuture<PageResult<DataPayload>> findAllByCondition(
             @NotNull final ModelSpec modelSpec,
             final int pageSize,
             final int pageNumber,
             @NotNull final GroupCondition condition,
-            @Nullable final Date pointInTime
+            @Nullable final Date pointInTime,
+            @Nullable final UUID searchId, int awaitLimitMs, int pollIntervalMs
     ) {
-        return createSnapshotSearch(modelSpec, condition, pointInTime).thenComposeAsync(snapshotInfo -> {
-                    if (snapshotInfo.getSnapshotId() == null) {
-                        logger.error("Snapshot ID not found in response");
-                        return CompletableFuture.completedFuture(null);
-                    }
+            CompletableFuture<SearchSnapshotStatus> snapshot;
 
-                    // NOTE: To avoid redundant polling, if snapshot is already done
-                    if (SearchSnapshotStatus.Status.SUCCESSFUL.equals(snapshotInfo.getStatus())) {
-                        return CompletableFuture.completedFuture(snapshotInfo.getSnapshotId());
-                    }
+            if (searchId == null) {
+                // New search - create snapshot and don't use cache
+                snapshot = createSnapshotSearch(modelSpec, condition, pointInTime);
+            } else {
+                // Existing search - use cache with searchId as key
+                SearchCacheKey cacheKey = new SearchCacheKey(modelSpec, condition, pointInTime, searchId);
+                snapshot = Optional.ofNullable(snapshotCache.get(cacheKey))
+                        .orElseGet(() -> createSnapshotSearch(modelSpec, condition, pointInTime));
+            }
 
-                    try {
-                        return waitForSearchCompletion(
-                                snapshotInfo.getSnapshotId(),
-                                SNAPSHOT_CREATION_AWAIT_LIMIT_MS,
-                                SNAPSHOT_CREATION_POLL_INTERVAL_MS
-                        ).thenApply(it -> snapshotInfo.getSnapshotId());
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                }).thenCompose(snapshotId -> getSearchResult(snapshotId, pageSize, pageNumber))
-                .exceptionally(this::handleNotFoundOrThrow);
+            return snapshot.thenComposeAsync(snapshotInfo -> {
+                        if (snapshotInfo.getSnapshotId() == null) {
+                            logger.error("Snapshot ID not found in response");
+                            return CompletableFuture.completedFuture(null);
+                        }
+
+                        // Use the snapshot ID from Cyoda as the search ID
+                        UUID effectiveSearchId = snapshotInfo.getSnapshotId();
+
+                        // Cache the snapshot for subsequent page requests
+                        if (searchId == null && pointInTime != null) {
+                            SearchCacheKey cacheKey = new SearchCacheKey(modelSpec, condition, pointInTime, effectiveSearchId);
+                            snapshotCache.put(cacheKey, CompletableFuture.completedFuture(snapshotInfo));
+                        }
+
+                        return getSnapShotIdCompletableFuture(snapshotInfo, awaitLimitMs, pollIntervalMs)
+                                .thenApply(snapshotId -> new SnapshotWithMetadata(snapshotId, snapshotInfo.getEntitiesCount(), effectiveSearchId));
+                    }).thenCompose(snapshotWithMetadata ->
+                            getSearchResult(snapshotWithMetadata.snapshotId, pageSize, pageNumber)
+                                    .thenApply(data -> PageResult.of(
+                                            snapshotWithMetadata.searchId,
+                                            data,
+                                            pageNumber,
+                                            pageSize,
+                                            snapshotWithMetadata.totalElements != null ? snapshotWithMetadata.totalElements : 0L
+                                    ))
+                    )
+                    .exceptionally(this::handleNotFoundOrThrowPageResult);
     }
 
-    private CompletableFuture<List<DataPayload>> findAllByConditionInMemory(
+    private record SnapshotWithMetadata(UUID snapshotId, Long totalElements, UUID searchId) {}
+
+    @NotNull
+    private CompletableFuture<UUID> getSnapShotIdCompletableFuture(SearchSnapshotStatus snapshotInfo, int awaitLimitMs, int pollIntervalMs) {
+        // NOTE: To avoid redundant polling, if snapshot is already done
+        if (SearchSnapshotStatus.Status.SUCCESSFUL.equals(snapshotInfo.getStatus())) {
+            return CompletableFuture.completedFuture(snapshotInfo.getSnapshotId());
+        }
+
+        try {
+            return waitForSearchCompletion(
+                    snapshotInfo.getSnapshotId(),
+                    awaitLimitMs,
+                    pollIntervalMs
+            ).thenApply(it -> snapshotInfo.getSnapshotId());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private CompletableFuture<PageResult<DataPayload>> findAllByConditionInMemory(
             @NotNull final ModelSpec modelSpec,
             final int pageSize,
             @NotNull final GroupCondition condition,
@@ -153,35 +225,24 @@ public class CyodaRepository implements CrudRepository {
                         .withCondition(condition)
                         .withPointInTime(pointInTime),
                 EntityResponse.class
-        ).thenApply(entities -> entities.map(EntityResponse::getPayload).toList())
-                .exceptionally(this::handleNotFoundOrThrow);
+        ).thenApply(entities -> {
+            List<DataPayload> data = entities.map(EntityResponse::getPayload).toList();
+            // In-memory searches don't have snapshot IDs, so searchId is null
+            return PageResult.of(null, data, 0, pageSize, data.size());
+        }).exceptionally(this::handleNotFoundOrThrowPageResult);
     }
 
     @Override
-    public CompletableFuture<List<DataPayload>> findAll(
+    public CompletableFuture<PageResult<DataPayload>> findAll(
             @NotNull final ModelSpec modelSpec,
-            final int pageSize,
-            final int pageNumber,
-            @Nullable final Date pointInTime
+            @NotNull final SearchAndRetrievalParams params
     ) {
-        return getAllEntities(modelSpec, pageSize, pageNumber, pointInTime);
-    }
+        // Create an empty condition to match all entities
+        GroupCondition matchAllCondition = new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of());
 
-    private CompletableFuture<List<DataPayload>> getAllEntities(
-            @NotNull final ModelSpec modelSpec,
-            final int pageSize,
-            final int pageNumber,
-            @Nullable final Date pointInTime
-    ) {
-        return sendAndGetCollection(
-                cloudEventsServiceBlockingStub::entityManageCollection,
-                new EntityGetAllRequest().withId(UUID.randomUUID().toString())
-                        .withModel(modelSpec)
-                        .withPageSize(pageSize)
-                        .withPageNumber(pageNumber)
-                        .withPointInTime(pointInTime),
-                EntityResponse.class
-        ).thenApply(entities -> entities.map(EntityResponse::getPayload).toList());
+        return findAllByCondition(modelSpec, params.pageSize(), params.pageNumber(), matchAllCondition, params.pointInTime(), params.searchId(), params.awaitLimitMs(), params.pollIntervalMs());
     }
 
     @Override
@@ -466,7 +527,8 @@ public class CyodaRepository implements CrudRepository {
             }
 
             return CompletableFuture.runAsync(
-                    () -> {},
+                    () -> {
+                    },
                     CompletableFuture.delayedExecutor(intervalMillis, TimeUnit.MILLISECONDS)
             ).thenCompose(ignored -> {
                 try {
@@ -505,10 +567,10 @@ public class CyodaRepository implements CrudRepository {
         );
     }
 
-    private <ENTITY_TYPE> List<ENTITY_TYPE> handleNotFoundOrThrow(final Throwable exception) {
+    private <ENTITY_TYPE> PageResult<ENTITY_TYPE> handleNotFoundOrThrowPageResult(final Throwable exception) {
         if (isNotFound(exception)) {
             logger.warn("Not found happens", exception);
-            return Collections.emptyList();
+            return PageResult.of(null, Collections.emptyList(), 1, 0, 0L);
         }
         final var cause = exception instanceof CompletionException ? exception.getCause() : exception;
         throw new CompletionException("Unhandled error", cause);
@@ -561,5 +623,48 @@ public class CyodaRepository implements CrudRepository {
                 .map(EntityChangesMetadataResponse::getChangeMeta)
                 .toList()
         );
+    }
+
+    /**
+     * Cache key for snapshot searches. Combines model spec, condition, point in time, and search ID.
+     */
+    private static class SearchCacheKey {
+        private final ModelSpec modelSpec;
+        private final GroupCondition condition;
+        private final Date pointInTime;
+        private final UUID searchId;
+
+        public SearchCacheKey(ModelSpec modelSpec, GroupCondition condition, Date pointInTime, UUID searchId) {
+            this.modelSpec = modelSpec;
+            this.condition = condition;
+            this.pointInTime = pointInTime;
+            this.searchId = searchId;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            SearchCacheKey that = (SearchCacheKey) o;
+            return Objects.equals(modelSpec, that.modelSpec) &&
+                    Objects.equals(condition, that.condition) &&
+                    Objects.equals(pointInTime, that.pointInTime) &&
+                    Objects.equals(searchId, that.searchId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(modelSpec, condition, pointInTime, searchId);
+        }
+
+        @Override
+        public String toString() {
+            return "SearchCacheKey{" +
+                    "modelSpec=" + modelSpec +
+                    ", condition=" + condition +
+                    ", pointInTime=" + pointInTime +
+                    ", searchId=" + searchId +
+                    '}';
+        }
     }
 }
