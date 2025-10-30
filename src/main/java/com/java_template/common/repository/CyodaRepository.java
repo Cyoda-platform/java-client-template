@@ -200,7 +200,7 @@ public class CyodaRepository implements CrudRepository {
 
     private record SnapshotWithMetadata(UUID snapshotId, Long totalElements, UUID searchId) {}
 
-    @org.jetbrains.annotations.NotNull
+    @NotNull
     private CompletableFuture<UUID> getSnapShotIdCompletableFuture(SearchSnapshotStatus snapshotInfo) {
         // NOTE: To avoid redundant polling, if snapshot is already done
         if (SearchSnapshotStatus.Status.SUCCESSFUL.equals(snapshotInfo.getStatus())) {
@@ -235,7 +235,7 @@ public class CyodaRepository implements CrudRepository {
         ).thenApply(entities -> {
             List<DataPayload> data = entities.map(EntityResponse::getPayload).toList();
             // In-memory searches don't have snapshot IDs, so searchId is null
-            return PageResult.of(null, data, 1, pageSize, data.size());
+            return PageResult.of(null, data, 0, pageSize, data.size());
         }).exceptionally(this::handleNotFoundOrThrowPageResult);
     }
 
@@ -575,15 +575,6 @@ public class CyodaRepository implements CrudRepository {
                 .map(EntityResponse::getPayload)
                 .toList()
         );
-    }
-
-    private <ENTITY_TYPE> List<ENTITY_TYPE> handleNotFoundOrThrow(final Throwable exception) {
-        if (isNotFound(exception)) {
-            logger.warn("Not found happens", exception);
-            return Collections.emptyList();
-        }
-        final var cause = exception instanceof CompletionException ? exception.getCause() : exception;
-        throw new CompletionException("Unhandled error", cause);
     }
 
     private <ENTITY_TYPE> PageResult<ENTITY_TYPE> handleNotFoundOrThrowPageResult(final Throwable exception) {

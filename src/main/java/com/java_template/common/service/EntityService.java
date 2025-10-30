@@ -143,7 +143,7 @@ public interface EntityService {
      * @param modelSpec Model specification containing name and version
      * @param entityClass Entity class type for deserialization
      * @param pageSize Number of items per page
-     * @param pageNumber Page number (1-based)
+     * @param pageNumber Page number (0-based)
      * @param pointInTime Point in time to retrieve entities as-at (null for current state)
      * @param searchId Search ID from previous PageResult (null for new search)
      * @return PageResult with entities, pagination metadata, and searchId
@@ -191,7 +191,7 @@ public interface EntityService {
      * @param condition Search condition (use SearchConditionBuilder.group())
      * @param entityClass Entity class type for deserialization
      * @param pageSize Number of items per page
-     * @param pageNumber Page number (1-based)
+     * @param pageNumber Page number (0-based)
      * @param inMemory Whether to use in-memory search (faster but no pagination support)
      * @param pointInTime Point in time to retrieve entities as-at (null for current state)
      * @param searchId Search ID from previous PageResult (null for new search)

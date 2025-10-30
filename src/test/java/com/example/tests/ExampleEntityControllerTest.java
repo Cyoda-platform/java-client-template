@@ -300,10 +300,10 @@ class ExampleEntityControllerTest {
         entities.add(createEntityWithMetadata(createTestEntity("TEST-002"), UUID.randomUUID()));
 
         PageResult<EntityWithMetadata<ExampleEntity>> pageResult = PageResult.of(
-                UUID.randomUUID(), entities, 1, 1000, 2);
+                UUID.randomUUID(), entities, 0, 1000, 2);
 
         when(entityService.search(any(ModelSpec.class), any(GroupCondition.class),
-                eq(ExampleEntity.class), eq(1000), eq(1), eq(true), isNull(), isNull()))
+                eq(ExampleEntity.class), eq(1000), eq(0), eq(true), isNull(), isNull()))
                 .thenReturn(pageResult);
 
         mockMvc.perform(get("/ui/example/by-category")
@@ -312,7 +312,7 @@ class ExampleEntityControllerTest {
                 .andExpect(jsonPath("$", hasSize(2)));
 
         verify(entityService).search(any(ModelSpec.class), any(GroupCondition.class),
-                eq(ExampleEntity.class), eq(1000), eq(1), eq(true), isNull(), isNull());
+                eq(ExampleEntity.class), eq(1000), eq(0), eq(true), isNull(), isNull());
     }
 
 
@@ -329,22 +329,22 @@ class ExampleEntityControllerTest {
 
         UUID searchId = UUID.randomUUID();
         PageResult<EntityWithMetadata<ExampleEntity>> pageResult = PageResult.of(
-                searchId, entities, 1, 50, 1);
+                searchId, entities, 0, 50, 1);
 
         when(entityService.search(any(ModelSpec.class), any(GroupCondition.class),
-                eq(ExampleEntity.class), eq(50), eq(1), eq(false), isNull(), isNull()))
+                eq(ExampleEntity.class), eq(50), eq(0), eq(false), isNull(), isNull()))
                 .thenReturn(pageResult);
 
         mockMvc.perform(get("/ui/example/search")
                 .param("name", "test")
-                .param("page", "1")
+                .param("page", "0")
                 .param("size", "50"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.searchId").value(searchId.toString()))
                 .andExpect(jsonPath("$.data", hasSize(1)));
 
         verify(entityService).search(any(ModelSpec.class), any(GroupCondition.class),
-                eq(ExampleEntity.class), eq(50), eq(1), eq(false), isNull(), isNull());
+                eq(ExampleEntity.class), eq(50), eq(0), eq(false), isNull(), isNull());
     }
 
     // ========================================

@@ -1,7 +1,6 @@
 package com.java_template.common.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.cyoda.cloud.api.event.common.DataPayload;
 
 import java.util.List;
 import java.util.UUID;
@@ -26,7 +25,7 @@ public record PageResult<T>(
      * @param searchId The unique identifier for this search (used to retrieve subsequent pages).
      *                 Null for in-memory searches that don't support pagination.
      * @param data The list of items in this page
-     * @param pageNumber The current page number (1-based)
+     * @param pageNumber The current page number (0-based)
      * @param pageSize The size of each page
      * @param totalElements The total number of elements across all pages
      * @param <T> The type of data in the page
@@ -40,10 +39,10 @@ public record PageResult<T>(
     /**
      * Checks if this is the first page.
      *
-     * @return true if this is page 1
+     * @return true if this is page 0
      */
     public boolean isFirst() {
-        return pageNumber == 1;
+        return pageNumber == 0;
     }
 
     /**
@@ -52,7 +51,7 @@ public record PageResult<T>(
      * @return true if this is the last page
      */
     public boolean isLast() {
-        return pageNumber >= totalPages;
+        return pageNumber >= totalPages - 1;
     }
 
     /**
@@ -61,7 +60,7 @@ public record PageResult<T>(
      * @return true if there is a next page
      */
     public boolean hasNext() {
-        return pageNumber < totalPages;
+        return pageNumber < totalPages - 1;
     }
 
     /**
@@ -70,7 +69,7 @@ public record PageResult<T>(
      * @return true if there is a previous page
      */
     public boolean hasPrevious() {
-        return pageNumber > 1;
+        return pageNumber > 0;
     }
 }
 

@@ -19,9 +19,6 @@ import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -36,7 +33,7 @@ import java.util.stream.StreamSupport;
 public class EntityServiceImpl implements EntityService {
 
     public static final int DEFAULT_PAGE_SIZE = 100;
-    public static final int FIRST_PAGE = 1;
+    public static final int FIRST_PAGE = 0;
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -103,7 +100,7 @@ public class EntityServiceImpl implements EntityService {
                 .withConditions(List.of(simpleCondition));
 
         PageResult<EntityWithMetadata<T>> result = search(
-                modelSpec, condition, entityClass, 1, 1, true, pointInTime, null);
+                modelSpec, condition, entityClass, 1, 0, true, pointInTime, null);
 
         return result.data().isEmpty() ? null : result.data().getFirst();
     }
@@ -175,7 +172,7 @@ public class EntityServiceImpl implements EntityService {
                 modelSpec,
                 entityClass,
                 pageSize,
-                1,
+                0,
                 pointInTime,
                 null
         );
@@ -575,7 +572,7 @@ public class EntityServiceImpl implements EntityService {
             this.totalElements = firstPage.totalElements();
             this.searchId = firstPage.searchId();
             this.currentIterator = firstPage.data().iterator();
-            this.currentPage = 2; // Next page to fetch is page 2
+            this.currentPage = 1; // Next page to fetch is page 1 (0-based, so second page)
             this.hasMore = firstPage.hasNext();
         }
 

@@ -1,15 +1,15 @@
 package com.example.application.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.application.entity.example_entity.version_1.ExampleEntity;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.dto.PageResult;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.CyodaExceptionUtil;
 import jakarta.validation.Valid;
-import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import lombok.Getter;
 import lombok.Setter;
+import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
@@ -17,9 +17,6 @@ import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -246,12 +243,12 @@ public class ExampleEntityController {
     /**
      * EXAMPLE 1: LOW VOLUME - In-memory search for small, bounded result sets
      * GET /ui/example/by-category?category=PREMIUM&pointInTime=2025-10-03T10:15:30Z
-     *
+     *<p>
      * WHEN TO USE:
      * - You expect a small number of results (e.g., < 1000 entities)
      * - The result set is bounded by nature (e.g., filtering by a specific category)
      * - You need all results at once for client-side processing
-     *
+     *<p>
      * PATTERN: search() with inMemory=true
      * - Returns all matching results in a single call
      * - No pagination support (all results loaded into memory)
@@ -280,7 +277,7 @@ public class ExampleEntityController {
             // Use in-memory search for small, bounded result sets
             // inMemory=true loads all results into memory - only use for small result sets
             PageResult<EntityWithMetadata<ExampleEntity>> result = entityService.search(
-                    modelSpec, condition, ExampleEntity.class, 1000, 1, true, pointInTimeDate, null);
+                    modelSpec, condition, ExampleEntity.class, 1000, 0, true, pointInTimeDate, null);
 
             logger.info("Found {} entities in category '{}'", result.data().size(), category);
             return ResponseEntity.ok(result.data());
@@ -295,13 +292,13 @@ public class ExampleEntityController {
 
     /**
      * EXAMPLE 2: HIGH VOLUME PAGEABLE - Paginated search with searchId for efficient multi-page navigation
-     * GET /ui/example/search?name=John&minAmount=100&page=1&size=50&searchId=uuid&pointInTime=2025-10-03T10:15:30Z
-     *
+     * GET /ui/example/search?name=John&minAmount=100&page=0&size=50&searchId=uuid&pointInTime=2025-10-03T10:15:30Z
+     *<p>
      * WHEN TO USE:
      * - Result set size is unknown or potentially large
      * - You need to support pagination in a UI
      * - You want efficient multi-page navigation without re-running the query
-     *
+     *<p>
      * PATTERN: search() with inMemory=false and searchId support
      * - Returns PageResult with searchId for subsequent page requests
      * - Use searchId from previous response to get next page from cached snapshot
@@ -312,7 +309,7 @@ public class ExampleEntityController {
     public ResponseEntity<PageResult<EntityWithMetadata<ExampleEntity>>> searchWithPagination(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) Double minAmount,
-            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(required = false) UUID searchId,
             @RequestParam(required = false) OffsetDateTime pointInTime) {
@@ -377,7 +374,7 @@ public class ExampleEntityController {
      * - You're exporting data, generating reports, or performing batch operations
      * - Result set size is unknown or very large (e.g., millions of entities)
      * - You don't need random access to results, just sequential processing
-     *
+     *<p>
      * PATTERN: searchAsStream() for memory-efficient processing
      * - Automatically handles pagination internally
      * - Processes entities one at a time or in small batches
@@ -428,12 +425,7 @@ public class ExampleEntityController {
                         entityService.streamAll(modelSpec, ExampleEntity.class, 100, pointInTimeDate)) {
 
                     // Process each entity as it's retrieved (no memory pressure)
-                    count = stream
-                            .peek(entity -> {
-                                // Example: Process entity (e.g., write to file, send to external system)
-                                logger.debug("Processing entity: {}", entity.entity().getExampleId());
-                            })
-                            .count();
+                    count = stream.count();
                 }
             } else {
                 // With filters: stream matching entities
@@ -441,12 +433,7 @@ public class ExampleEntityController {
                         entityService.searchAsStream(modelSpec, condition, ExampleEntity.class, 100, false, pointInTimeDate)) {
 
                     // Process each entity as it's retrieved (no memory pressure)
-                    count = stream
-                            .peek(entity -> {
-                                // Example: Process entity (e.g., write to file, send to external system)
-                                logger.debug("Processing entity: {}", entity.entity().getExampleId());
-                            })
-                            .count();
+                    count = stream.count();
                 }
             }
 
