@@ -13,14 +13,6 @@ import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.cucumber.spring.CucumberContextConfiguration;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Base64;
-import java.util.List;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import org.awaitility.Awaitility;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -31,21 +23,24 @@ import org.junit.platform.suite.api.SelectClasspathResource;
 import org.junit.platform.suite.api.Suite;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import java.util.UUID;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.web.client.RestClient;
 
-import static com.java_template.common.config.Config.CYODA_API_URL;
-import static com.java_template.common.config.Config.CYODA_CLIENT_ID;
-import static com.java_template.common.config.Config.CYODA_CLIENT_SECRET;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Base64;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import static com.java_template.common.config.Config.*;
 import static io.cucumber.junit.platform.engine.Constants.GLUE_PROPERTY_NAME;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
-import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED_VALUE;
-import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+import static org.springframework.http.MediaType.*;
 
 @DirtiesContext
 @CucumberContextConfiguration
@@ -249,7 +244,7 @@ public class GherkinE2eTest {
         final var modelSpec = new ModelSpec();
         modelSpec.setName(modelName);
         modelSpec.setVersion(modelVersion);
-        this.retrievedPrizes = entityService.search(modelSpec, condition, PrizeEntity.class);
+        this.retrievedPrizes = entityService.search(modelSpec, condition, PrizeEntity.class).data();
     }
 
     @When("I create the prizes in bulk")
@@ -270,7 +265,7 @@ public class GherkinE2eTest {
         modelSpec.setVersion(modelVersion);
         this.retrievedPrizes = entityService.findAll(
                 modelSpec,
-                PrizeEntity.class);
+                PrizeEntity.class).data();
     }
 
     @When("I delete all of model {string} version {int}")
