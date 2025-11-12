@@ -1,0 +1,6 @@
+This is a test Python file with some content.
+def hello():
+    print('Hello from the attached file!')
+    
+if __name__ == '__main__':
+    hello()
