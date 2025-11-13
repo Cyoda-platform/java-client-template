@@ -1,0 +1,66 @@
+{
+  "version": "1.0",
+  "name": "Pet",
+  "desc": "Pet data collection workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "activate",
+          "next": "active",
+          "manual": false,
+          "processors": [
+            {
+              "name": "FetchPetDataProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_pet",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ValidatePetDataProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "archive",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": [
+        {
+          "name": "reactivate",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
+
