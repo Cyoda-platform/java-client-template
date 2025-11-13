@@ -56,9 +56,9 @@ public class PetDataValidationCriterion implements CyodaCriterion {
         }
 
         // Check if entity is valid
-        if (!pet.isValid()) {
+        if (!pet.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("Pet entity is not valid - missing required fields");
-            return EvaluationOutcome.fail("Pet entity is not valid - missing required fields", 
+            return EvaluationOutcome.fail("Pet entity is not valid - missing required fields",
                 StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
