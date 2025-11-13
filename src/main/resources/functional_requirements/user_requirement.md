@@ -1,0 +1,1 @@
+please build an app in public java repo that collects data from pets api
