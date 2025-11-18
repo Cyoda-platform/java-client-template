@@ -3,6 +3,7 @@ package com.java_template.application.entity.loan.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.math.BigDecimal;
@@ -19,7 +20,7 @@ public class Loan implements CyodaEntity {
 
     // Required business identifier field
     private String loanId;
-    
+
     // Core loan information
     private String borrowerName;
     private String borrowerEmail;
@@ -28,18 +29,18 @@ public class Loan implements CyodaEntity {
     private Integer loanTermMonths;
     private BigDecimal interestRate;
     private String loanPurpose;
-    
+
     // Loan details
     private String collateral;
     private BigDecimal collateralValue;
     private String loanType; // e.g., "TERM_LOAN", "LINE_OF_CREDIT", "EQUIPMENT_FINANCING"
-    
+
     // Dates
     private LocalDateTime applicationDate;
     private LocalDateTime approvalDate;
     private LocalDateTime disbursementDate;
     private LocalDateTime maturityDate;
-    
+
     // Additional information
     private String notes;
     private String approverName;
@@ -56,7 +57,7 @@ public class Loan implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         // Validate required fields
         return loanId != null && !loanId.trim().isEmpty() &&
                borrowerName != null && !borrowerName.trim().isEmpty() &&

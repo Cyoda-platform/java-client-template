@@ -53,7 +53,7 @@ public class LoanApprovalProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Loan> entityWithMetadata) {
         Loan loan = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return loan != null && loan.isValid() && technicalId != null;
+        return loan != null && loan.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     private EntityWithMetadata<Loan> processLoanApproval(
