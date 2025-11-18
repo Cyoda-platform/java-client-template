@@ -1,14 +1,16 @@
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.loan.version_1.Loan;
-import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
-import org.cyoda.cloud.api.event.processing.EntityCriterionEvaluationRequest;
-import org.cyoda.cloud.api.event.processing.EntityCriterionEvaluationResponse;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,19 +34,18 @@ public class LoanApprovalCriterion implements CyodaCriterion {
     private static final Integer MAX_LOAN_TERM = 360;
 
     public LoanApprovalCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
-    public EntityCriterionEvaluationResponse check(CyodaEventContext<EntityCriterionEvaluationRequest> context) {
-        EntityCriterionEvaluationRequest request = context.getEvent();
-        logger.info("Evaluating LoanApprovalCriterion for request: {}", request.getId());
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
+        logger.debug("Checking Loan approval criteria for request: {}", request.getId());
 
         return serializer.withRequest(request)
-                .toEntityWithMetadata(Loan.class)
-                .validate(this::isValidEntityWithMetadata, "Invalid loan entity wrapper")
-                .map(this::evaluateLoanApprovalCriteria)
-                .complete();
+            .evaluateEntity(Loan.class, this::validateLoanApprovalCriteria)
+            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+            .complete();
     }
 
     @Override
@@ -52,47 +53,58 @@ public class LoanApprovalCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntityWithMetadata(EntityWithMetadata<Loan> entityWithMetadata) {
-        Loan loan = entityWithMetadata.entity();
-        java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return loan != null && loan.isValid() && technicalId != null;
-    }
+    private EvaluationOutcome validateLoanApprovalCriteria(
+            CriterionSerializer.CriterionEntityEvaluationContext<Loan> context) {
 
-    private boolean evaluateLoanApprovalCriteria(
-            CriterionSerializer.CriterionEntityResponseExecutionContext<Loan> context) {
+        Loan loan = context.entityWithMetadata().entity();
 
-        EntityWithMetadata<Loan> entityWithMetadata = context.entityResponse();
-        Loan loan = entityWithMetadata.entity();
+        if (loan == null) {
+            logger.warn("Loan is null");
+            return EvaluationOutcome.fail("Loan is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
+        }
+
+        if (!loan.isValid()) {
+            logger.warn("Loan is not valid");
+            return EvaluationOutcome.fail("Loan is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
+        }
 
         logger.debug("Evaluating approval criteria for loan: {}", loan.getLoanId());
 
         // Check loan amount
         if (loan.getLoanAmount().compareTo(MAX_LOAN_AMOUNT) > 0) {
             logger.warn("Loan {} exceeds maximum amount", loan.getLoanId());
-            return false;
+            return EvaluationOutcome.fail(
+                String.format("Loan amount exceeds maximum of %s", MAX_LOAN_AMOUNT),
+                StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check loan term
         if (loan.getLoanTermMonths() < MIN_LOAN_TERM || loan.getLoanTermMonths() > MAX_LOAN_TERM) {
             logger.warn("Loan {} has invalid term: {}", loan.getLoanId(), loan.getLoanTermMonths());
-            return false;
+            return EvaluationOutcome.fail(
+                String.format("Loan term must be between %d and %d months", MIN_LOAN_TERM, MAX_LOAN_TERM),
+                StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check interest rate is reasonable
-        if (loan.getInterestRate().compareTo(BigDecimal.ZERO) < 0 || 
+        if (loan.getInterestRate().compareTo(BigDecimal.ZERO) < 0 ||
             loan.getInterestRate().compareTo(new BigDecimal("50")) > 0) {
             logger.warn("Loan {} has invalid interest rate: {}", loan.getLoanId(), loan.getInterestRate());
-            return false;
+            return EvaluationOutcome.fail(
+                "Interest rate must be between 0% and 50%",
+                StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check borrower information is complete
         if (loan.getBorrowerEmail() == null || loan.getBorrowerEmail().trim().isEmpty()) {
             logger.warn("Loan {} missing borrower email", loan.getLoanId());
-            return false;
+            return EvaluationOutcome.fail(
+                "Borrower email is required",
+                StandardEvalReasonCategories.DATA_QUALITY_FAILURE);
         }
 
         logger.info("Loan {} meets approval criteria", loan.getLoanId());
-        return true;
+        return EvaluationOutcome.success();
     }
 }
 
