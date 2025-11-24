@@ -3,6 +3,7 @@ package com.java_template.application.entity.interaction.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.time.LocalDateTime;
@@ -18,13 +19,13 @@ public class Interaction implements CyodaEntity {
 
     // Required business identifier field
     private String interactionId;
-    
+
     // Required core business fields
     private String subscriberId;
     private String campaignId;
     private String interactionType;
     private LocalDateTime timestamp;
-    
+
     // Optional fields for additional business data
     private String ipAddress;
     private String userAgent;
@@ -39,7 +40,7 @@ public class Interaction implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         // Validate required fields
         return interactionId != null && !interactionId.trim().isEmpty() &&
                subscriberId != null && !subscriberId.trim().isEmpty() &&

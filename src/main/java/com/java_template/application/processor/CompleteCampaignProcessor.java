@@ -51,7 +51,7 @@ public class CompleteCampaignProcessor implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<EmailCampaign> entityWithMetadata) {
         EmailCampaign entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
-        return entity != null && entity.isValid() && technicalId != null;
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     private EntityWithMetadata<EmailCampaign> processComplete(
