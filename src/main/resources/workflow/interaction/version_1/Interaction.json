@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "name": "Interaction",
+  "desc": "Interaction lifecycle workflow for tracking user engagement with campaigns",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "record_interaction",
+          "next": "recorded",
+          "manual": false,
+          "processors": [
+            {
+              "name": "RecordInteractionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "recorded": {
+      "transitions": []
+    }
+  }
+}
+
