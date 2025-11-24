@@ -1,0 +1,1 @@
+Weekly Cat Fact Subscription application: Data Ingestion to retrieve a new cat fact from the Cat Fact API each week, User Interaction for weekly email sign-ups, Publishing to send cat facts via email, and Reporting to track subscribers and interactions.
