@@ -54,7 +54,7 @@ public class InteractionValidationCriterion implements CyodaCriterion {
             return EvaluationOutcome.fail("Entity is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
         }
 
-        if (!entity.isValid()) {
+        if (!entity.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("Interaction is not valid");
             return EvaluationOutcome.fail("Entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
