@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "name": "CatFact",
+  "desc": "CatFact lifecycle workflow for managing cat facts from API",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "publish_fact",
+          "next": "published",
+          "manual": false,
+          "processors": [
+            {
+              "name": "PublishCatFactProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "published": {
+      "transitions": [
+        {
+          "name": "archive_fact",
+          "next": "archived",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ArchiveCatFactProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}
+

@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "name": "EmailCampaign",
+  "desc": "EmailCampaign lifecycle workflow for managing weekly email campaigns",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "schedule_campaign",
+          "next": "scheduled",
+          "manual": false
+        }
+      ]
+    },
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "send_campaign",
+          "next": "sent",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SendEmailCampaignProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "sent": {
+      "transitions": [
+        {
+          "name": "complete_campaign",
+          "next": "completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CompleteCampaignProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
+
