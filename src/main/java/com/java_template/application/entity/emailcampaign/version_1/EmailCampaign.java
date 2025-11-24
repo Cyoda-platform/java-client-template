@@ -3,6 +3,7 @@ package com.java_template.application.entity.emailcampaign.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.time.LocalDateTime;
@@ -18,12 +19,12 @@ public class EmailCampaign implements CyodaEntity {
 
     // Required business identifier field
     private String campaignId;
-    
+
     // Required core business fields
     private Integer weekNumber;
     private String factId;
     private LocalDateTime scheduledDate;
-    
+
     // Optional fields for additional business data
     private LocalDateTime sentDate;
     private Integer recipientCount;
@@ -41,7 +42,7 @@ public class EmailCampaign implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         // Validate required fields
         return campaignId != null && !campaignId.trim().isEmpty() &&
                weekNumber != null &&

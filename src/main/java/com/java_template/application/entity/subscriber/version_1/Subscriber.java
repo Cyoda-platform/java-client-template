@@ -3,6 +3,7 @@ package com.java_template.application.entity.subscriber.version_1;
 import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Data;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
 import java.time.LocalDateTime;
@@ -18,12 +19,12 @@ public class Subscriber implements CyodaEntity {
 
     // Required business identifier field
     private String subscriberId;
-    
+
     // Required core business fields
     private String email;
     private LocalDateTime subscriptionDate;
     private Boolean isActive;
-    
+
     // Optional fields for additional business data
     private String firstName;
     private String lastName;
@@ -40,7 +41,7 @@ public class Subscriber implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         // Validate required fields
         return subscriberId != null && !subscriberId.trim().isEmpty() &&
                email != null && !email.trim().isEmpty();
