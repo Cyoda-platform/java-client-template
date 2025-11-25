@@ -1,0 +1,19 @@
+{
+  "name": "order",
+  "version": 1,
+  "description": "Represents an order for equities or derivatives.",
+  "fields": [
+    {"name": "order_id", "type": "string", "description": "Unique identifier for the order"},
+    {"name": "symbol", "type": "string", "description": "Trading symbol (e.g., AAPL, SPX)"},
+    {"name": "instrument_type", "type": "string", "description": "EQUITY or DERIVATIVE"},
+    {"name": "order_type", "type": "string", "description": "MARKET, LIMIT, STOP, etc."},
+    {"name": "side", "type": "string", "description": "BUY or SELL"},
+    {"name": "quantity", "type": "number", "description": "Number of shares or contracts"},
+    {"name": "price", "type": "number", "description": "Price for limit orders or last trade price for market orders"},
+    {"name": "status", "type": "string", "description": "NEW, PARTIALLY_FILLED, FILLED, CANCELED, REJECTED"},
+    {"name": "timestamp", "type": "string", "description": "ISO8601 timestamp when order was created"},
+    {"name": "trader_id", "type": "string", "description": "Identifier for the trader or algo"},
+    {"name": "venue", "type": "string", "description": "Exchange or execution venue"},
+    {"name": "client_id", "type": "string", "description": "Client identifier for compliance and reporting"}
+  ]
+}
