@@ -41,7 +41,7 @@ public class Cart implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(EntityMetadata metadata) {
         return cartId != null && !cartId.trim().isEmpty() &&
                status != null && !status.trim().isEmpty() &&
                lines != null && totalItems != null && grandTotal != null;
