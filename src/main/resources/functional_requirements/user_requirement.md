@@ -1,0 +1,1 @@
+Building a new Java application using public Cyoda templates.
