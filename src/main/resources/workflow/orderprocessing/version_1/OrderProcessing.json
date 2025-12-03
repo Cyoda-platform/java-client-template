@@ -1,0 +1,50 @@
+{
+  "name": "OrderProcessing",
+  "version": 1,
+  "description": "Workflow for Order entity handling create, update, and cancel transitions.",
+  "entity": "Order",
+  "states": [
+    { "name": "Created", "description": "Order has been created." },
+    { "name": "Updated", "description": "Order has been updated." },
+    { "name": "Cancelled", "description": "Order has been cancelled." }
+  ],
+  "transitions": [
+    {
+      "name": "create",
+      "from": ["*"],
+      "to": "Created",
+      "description": "Create a new order",
+      "actions": [
+        { "type": "set_field", "field": "status", "value": "CREATED" },
+        { "type": "emit_event", "event": "OrderCreated" }
+      ],
+      "conditions": []
+    },
+    {
+      "name": "update",
+      "from": ["Created", "Updated"],
+      "to": "Updated",
+      "description": "Update an existing order",
+      "actions": [
+        { "type": "set_field", "field": "status", "value": "UPDATED" },
+        { "type": "emit_event", "event": "OrderUpdated" }
+      ],
+      "conditions": [
+        { "type": "field_exists", "field": "id" }
+      ]
+    },
+    {
+      "name": "cancel",
+      "from": ["Created", "Updated"],
+      "to": "Cancelled",
+      "description": "Cancel an order",
+      "actions": [
+        { "type": "set_field", "field": "status", "value": "CANCELLED" },
+        { "type": "emit_event", "event": "OrderCancelled" }
+      ],
+      "conditions": [
+        { "type": "not_field_equals", "field": "status", "value": "SHIPPED" }
+      ]
+    }
+  ]
+}
