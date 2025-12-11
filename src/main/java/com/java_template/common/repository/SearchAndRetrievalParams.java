@@ -1,6 +1,6 @@
 package com.java_template.common.repository;
 
-import jakarta.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Date;
 import java.util.UUID;
@@ -8,7 +8,7 @@ import java.util.UUID;
 /**
  * Record class encapsulating search and retrieval parameters for repository queries.
  * Provides a builder pattern for flexible parameter construction.
- *
+ *<p>
  * @param pageSize Number of entities per page (default: 100)
  * @param pageNumber Page number, 0-based (default: 0)
  * @param inMemory Whether to perform search in memory (default: false)

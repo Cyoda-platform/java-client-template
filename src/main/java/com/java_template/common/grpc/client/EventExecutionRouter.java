@@ -9,7 +9,7 @@ import org.cyoda.cloud.api.event.common.CloudEventType;
 public interface EventExecutionRouter {
     /**
      * Routes the given task to the appropriate executor based on the event type.
-     * 
+     *
      * @param eventType The type of CloudEvent being processed
      * @param task The task to execute
      */

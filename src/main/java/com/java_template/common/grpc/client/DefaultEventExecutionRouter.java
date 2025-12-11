@@ -36,12 +36,12 @@ public class DefaultEventExecutionRouter implements EventExecutionRouter {
                 log.debug("Routing {} to processor thread pool", eventType);
                 processorExecutor.run(task);
                 break;
-            
+
             case ENTITY_CRITERIA_CALCULATION_REQUEST:
                 log.debug("Routing {} to criteria thread pool", eventType);
                 criteriaExecutor.run(task);
                 break;
-            
+
             default:
                 // All other events (keep-alive, ACK, greet, etc.) go to control pool
                 log.debug("Routing {} to control thread pool", eventType);
