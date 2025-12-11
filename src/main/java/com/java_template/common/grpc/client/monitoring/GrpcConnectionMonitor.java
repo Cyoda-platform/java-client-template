@@ -12,8 +12,6 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -32,7 +30,7 @@ import static com.java_template.common.config.Config.*;
  * and performance metrics with caching and listener notification capabilities.
  */
 @Component
-class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, GrpcConnectionStateProvider {
+public class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
     private final AtomicLong lastKeepAliveTimestampMs = new AtomicLong(-1);
     private final AtomicReference<ConnectivityState> lastConnectionState = new AtomicReference<>(ConnectivityState.SHUTDOWN);
@@ -49,20 +47,6 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, Grp
             .expireAfterWrite(5, TimeUnit.MINUTES)
             .build();
 
-    private final Map<
-            Class<? extends MonitoringEvent>,
-            List<MonitoringEventListener<MonitoringEvent>>
-            > monitoringEventListeners;
-
-    public GrpcConnectionMonitor(final List<MonitoringEventListener<MonitoringEvent>> monitoringEventListeners) {
-        this.monitoringEventListeners = monitoringEventListeners.stream().collect(
-                Collectors.groupingBy(
-                        MonitoringEventListener::getEventType,
-                        Collectors.toList()
-                )
-        );
-    }
-
     @PostConstruct
     private void init() {
         monitorExecutor.scheduleWithFixedDelay(
@@ -77,10 +61,15 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, Grp
     private void shutdown() {
         logger.info("Stopping monitoring...");
         monitorExecutor.shutdown();
-        logger.info("Monitoring stoped");
+        logger.info("Monitoring stopped");
     }
 
     private void monitor() {
+
+        if (lastObserverState.get() == ObserverState.IDLE) {
+            logger.debug("Monitoring paused - system is IDLE");
+            return;
+        }
         checkSentEventsCacheSize();
         checkTimeSinceLastKeepAlive();
     }
@@ -97,9 +86,6 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, Grp
         if (EVENT_TYPES_TO_IGNORE.stream().noneMatch(eventType -> eventType.equals(cloudEvent.getType()))) {
             sentEventsCache.put(cloudEvent.getId(), cloudEvent);
             logger.debug("Cached sent event '{}':'{}'", cloudEvent.getType(), cloudEvent.getId());
-            broadcastMonitoringEvent(
-                    new EventSent(cloudEvent.getId(), cloudEvent.getType())
-            );
         }
     }
 
@@ -133,13 +119,11 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, Grp
             );
         }
 
-        broadcastMonitoringEvent(new AckReceivedEvent(ackId, sourceEventId, success));
     }
 
     @Override
     public void trackKeepAlive(final Long eventTimestamp) {
         lastKeepAliveTimestampMs.set(eventTimestamp);
-        broadcastMonitoringEvent(new KeepAliveReceivedEvent(eventTimestamp));
     }
 
     @Override
@@ -155,7 +139,6 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, Grp
         initNextListener.accept(newState, () -> trackConnectionStateChanged(newStateProvider, initNextListener));
 
         final var oldState = this.lastConnectionState.getAndSet(newState);
-        broadcastMonitoringEvent(new GrpcConnectionStateChangedEvent(oldState, newState));
 
         logger.info(
                 "gRPC Managed Channel state changed: {} -> {} (stream observer state: {})",
@@ -170,15 +153,6 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, Grp
             logger.warn("Sent events cache is growing. Current size: {}", sentEventsCache.estimatedSize());
         } else if (sentEventsCache.estimatedSize() > SENT_EVENTS_CACHE_MAX_SIZE / 2) {
             logger.error("Sent events cache is growing unchecked. Current size: {}", sentEventsCache.estimatedSize());
-            broadcastMonitoringEvent(
-                    new SentEventsWithoutAckGrowingEvent(
-                            sentEventsCache.asMap()
-                                    .values()
-                                    .stream()
-                                    .map(CloudEvent::getId)
-                                    .toList()
-                    )
-            );
         } else {
             logger.debug("Sent events cache size: {}", sentEventsCache.estimatedSize());
         }
@@ -218,21 +192,20 @@ class GrpcConnectionMonitor implements EventTracker, ConnectionStateTracker, Grp
                 newState,
                 lastConnectionState.get()
         );
-        broadcastMonitoringEvent(new StreamObserverStateChangedEvent(oldState, newState));
     }
 
-    private void broadcastMonitoringEvent(final MonitoringEvent monitoringEvent) {
-        if (!monitoringEventListeners.containsKey(monitoringEvent.getClass())) {
-            return;
-        }
-        for (final var monitoringEventListener : monitoringEventListeners.get(monitoringEvent.getClass())) {
-            monitoringEventListener.handle(monitoringEvent);
-        }
-    }
+    public record GrpcMonitoringState(
+            ConnectivityState connectionState,
+            ObserverState observerState,
+            long lastKeepAliveTimestampMs
+    ) {}
 
-    @Override
-    public ConnectivityState getLastKnownState() {
-        return lastConnectionState.get();
+    public GrpcMonitoringState getLastKnownState() {
+        return new GrpcMonitoringState(
+                lastConnectionState.get(),
+                lastObserverState.get(),
+                lastKeepAliveTimestampMs.get()
+        );
     }
 }
 

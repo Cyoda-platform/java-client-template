@@ -20,6 +20,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
 import static com.java_template.common.config.Config.CYODA_API_URL;
@@ -36,7 +39,8 @@ import static com.java_template.common.config.Config.CYODA_API_URL;
 public class CyodaInit {
     private static final Logger logger = LoggerFactory.getLogger(CyodaInit.class);
     private static final Path WORKFLOW_DTO_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/resources/workflow");
-    private static final Path ENTITY_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/java/com/java_template/application/entity");
+    private static final Path ENTITY_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/java/com/riskblocs/application/entity");
+    public static final int THREAD_POOL_SIZE = 20;
 
     private final HttpUtils httpUtils;
     private final Authentication authentication;
@@ -48,50 +52,52 @@ public class CyodaInit {
         this.objectMapper = objectMapper;
     }
 
-    public void initCyoda() {
+    public void initCyoda(CyodaInitConfig config) {
         logger.info("🔄 Starting workflow import into Cyoda...");
-
-        try {
-            String token = authentication.getAccessToken().getTokenValue();
-            initEntitiesSchemaFromEntities(token);
-            logger.info("✅ Workflow import process completed.");
-        } catch (Exception ex) {
-            logger.error("❌ Failed to initialize Cyoda workflows");
-            handleImportError(ex);
+        if (config.recreateModels()) {
+            logger.info("⚠️  Recreate models flag is enabled - existing models will be deleted and recreated");
         }
+
+        String token = authentication.getAccessToken().getTokenValue();
+        initEntitiesSchemaFromEntities(token, config);
+        logger.info("✅ Workflow import process completed.");
     }
 
-    private void handleImportError(Throwable ex) {
-        if (ex.getMessage() != null && ex.getMessage().contains("errorCode cannot be empty")) {
-            logger.error("❌ OAuth2 authentication failed: The server returned an invalid error response format");
-            logger.info("💡 This usually means the client credentials are invalid or the client is not registered");
-            logger.info("💡 Please check your CYODA_CLIENT_ID and CYODA_CLIENT_SECRET in the .env file");
-        } else if (ex.getMessage() != null && ex.getMessage().contains("M2M client not found")) {
-            logger.error("❌ OAuth2 client not found: {}", ex.getMessage());
-            logger.info("💡 Please verify your CYODA_CLIENT_ID is correct and registered on the server");
-        } else {
-            logger.error("❌ Cyoda workflow import failed: {}", ex.getMessage(), ex);
-        }
-    }
 
     /**
      * Initialize entities schema from discovered entities using their getModelKey() method
      */
-    private void initEntitiesSchemaFromEntities(String token) {
+    private void initEntitiesSchemaFromEntities(String token, CyodaInitConfig config) {
         logger.info("🔍 Discovering entities dynamically...");
 
         List<ModelSpec> modelSpecs = discoverEntities();
         logger.info("🔍 Discovered {} entities: {}", modelSpecs.size(),
                 modelSpecs.stream().map(spec -> spec.getName() + ":" + spec.getVersion()).toList());
 
-        for (ModelSpec modelSpec : modelSpecs) {
-            Path workflowFile = findWorkflowFile(WORKFLOW_DTO_DIR, modelSpec.getName(), modelSpec.getVersion());
-            if (workflowFile != null) {
-                logger.info("✅ Found workflow file for {}: {}", modelSpec.getName(), workflowFile);
-                importWorkflowForEntity(workflowFile, modelSpec.getName(), modelSpec.getVersion(), token);
-            } else {
-                logger.warn("⚠️ No workflow file found for entity: {} (version: {})", modelSpec.getName(), modelSpec.getVersion());
+        // Process workflows in parallel for better performance
+        ExecutorService executor = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+        try {
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+            for (ModelSpec modelSpec : modelSpecs) {
+                Path workflowFile = findWorkflowFile(WORKFLOW_DTO_DIR, modelSpec.getName(), modelSpec.getVersion());
+                if (workflowFile != null) {
+                    logger.info("✅ Found workflow file for {}: {}", modelSpec.getName(), workflowFile);
+
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() ->
+                                    importWorkflowForEntity(workflowFile, modelSpec.getName(), modelSpec.getVersion(), token, config),
+                            executor
+                    );
+                    futures.add(future);
+                } else {
+                    logger.warn("⚠️ No workflow file found for entity: {} (version: {})", modelSpec.getName(), modelSpec.getVersion());
+                }
             }
+
+            // Wait for all imports to complete
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } finally {
+            executor.shutdown();
         }
     }
 
@@ -136,7 +142,7 @@ public class CyodaInit {
             String relativePath = ENTITY_DIR.relativize(javaFile).toString();
             String className = relativePath.replace(File.separator, ".")
                     .replace(".java", "");
-            String fullClassName = "com.java_template.application.entity." + className;
+            String fullClassName = "com.riskblocs.application.entity." + className;
 
             // Load the class
             Class<?> clazz = Class.forName(fullClassName);
@@ -191,59 +197,71 @@ public class CyodaInit {
     }
 
     /**
-     * Import workflow for a specific entity
+     * Import workflow for a specific entity.
+     * Supports workflow files containing either a single workflow object or an array of workflows.
      */
-    private void importWorkflowForEntity(Path workflowFile, String entityName, Integer version, String token) {
+    private void importWorkflowForEntity(Path workflowFile, String entityName, Integer version, String token, CyodaInitConfig config) {
+        logger.info("📄 Processing workflow file for entity: {}, version: {}", entityName, version);
+
+
+        // Read and process workflow file
+        JsonNode dtoJson;
         try {
-            logger.info("📄 Processing workflow file for entity: {}, version: {}", entityName, version);
-
-            // First check and create entity model if needed
-            checkAndCreateEntityModel(token, entityName, version);
-
-            // Read and process workflow file
             String dtoContent = Files.readString(workflowFile);
-            JsonNode dtoJson = objectMapper.readTree(dtoContent);
-
-            // Wrap the workflow content in the required format: {"workflows": [file_content]}
-            ObjectNode wrappedContent = objectMapper.createObjectNode();
-            ArrayNode workflowsArray = objectMapper.createArrayNode();
-            workflowsArray.add(dtoJson);
-            wrappedContent.set("workflows", workflowsArray);
-
-            // Other alternatives are "MERGE" and "ACTIVATE"
-            // MERGE will just add these workflows which may not be what you want, because you might have several workflows active for the same model
-            // ACTIVATE will activate the imported ones and deactivate the others for the same model
-            // Since we want to initialize, we'll just REPLACE, meaning for the models imported, only this one workflow will exist.
-            wrappedContent.set("importMode", new TextNode("REPLACE") );
-
-            String wrappedContentJson = wrappedContent.toString();
-
-            // Use the endpoint format: model/{entity_name}/{version}/workflow/import
-            String importPath = String.format("model/%s/%s/workflow/import", entityName, version);
-            logger.debug("🔗 Using import endpoint: {}", importPath);
-
-            JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson).join();
-
-            int statusCode = response.get("status").asInt();
-            if (statusCode >= 200 && statusCode < 300) {
-                logger.info("✅ Successfully imported workflow for entity: {} (version: {})", entityName, version);
-            } else {
-                String body = response.path("json").toString();
-                String errorMsg = String.format("Failed to import workflow for entity %s (version %s). Status code: %d, body: %s",
-                        entityName, version, statusCode, body);
-                logger.error("❌ {}", errorMsg);
-                throw new RuntimeException(errorMsg);
-            }
-        } catch (Exception e) {
-            logger.error("❌ Error importing workflow for entity {}: {}", entityName, e.getMessage());
-            throw new RuntimeException("Failed to import workflow for entity " + entityName, e);
+            dtoJson = objectMapper.readTree(dtoContent);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
+
+        // Wrap the workflow content in the required format: {"workflows": [...]}
+        // If the file contains an array, use it directly; otherwise wrap single workflow in array
+        ObjectNode wrappedContent = objectMapper.createObjectNode();
+        ArrayNode workflowsArray;
+        if (dtoJson.isArray()) {
+            // File contains an array of workflows - use it directly
+            workflowsArray = (ArrayNode) dtoJson;
+            logger.debug("📄 Workflow file contains {} workflow(s)", workflowsArray.size());
+        } else {
+            // File contains a single workflow object - wrap it in an array
+            workflowsArray = objectMapper.createArrayNode();
+            workflowsArray.add(dtoJson);
+        }
+        wrappedContent.set("workflows", workflowsArray);
+
+        // Other alternatives are "MERGE" and "ACTIVATE"
+        // MERGE will just add these workflows which may not be what you want, because you might have several workflows active for the same model
+        // ACTIVATE will activate the imported ones and deactivate the others for the same model
+        // Since we want to initialize, we'll just REPLACE, meaning for the models imported, only this one workflow will exist.
+        wrappedContent.set("importMode", new TextNode("REPLACE"));
+
+        String wrappedContentJson = wrappedContent.toString();
+
+        // Use the endpoint format: model/{entity_name}/{version}/workflow/import
+        String importPath = String.format("model/%s/%s/workflow/import", entityName, version);
+        logger.debug("🔗 Using import endpoint: {}", importPath);
+
+        JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson).join();
+
+        int statusCode = response.get("status").asInt();
+        if (statusCode >= 200 && statusCode < 300) {
+            logger.info("✅ Successfully imported workflow for entity: {} (version: {})", entityName, version);
+        } else {
+            String body = response.path("json").toString();
+            String errorMsg = String.format("Failed to import workflow for entity %s (version %s). Status code: %d, body: %s",
+                    entityName, version, statusCode, body);
+            logger.error("❌ {}", errorMsg);
+            throw new RuntimeException(errorMsg);
+        }
+
+        // Check and create entity model if needed
+        checkAndCreateEntityModel(token, entityName, version, config);
+
     }
 
     /**
      * Checks if entity model exists and creates it if needed
      */
-    private void checkAndCreateEntityModel(String token, String entityName, Integer version) {
+    private void checkAndCreateEntityModel(String token, String entityName, Integer version, CyodaInitConfig config) {
         String exportPath = String.format("model/export/SIMPLE_VIEW/%s/%s", entityName, version);
         logger.debug("🔍 Checking if entity model exists: {}", exportPath);
 
@@ -252,7 +270,14 @@ public class CyodaInit {
             int statusCode = response.get("status").asInt();
 
             if (statusCode >= 200 && statusCode < 300) {
-                logger.info("✅ Entity model already exists for: {} (version: {})", entityName, version);
+                if (config.recreateModels()) {
+                    logger.info("🗑️  Entity model exists for: {} (version: {}), deleting due to --recreate-models flag", entityName, version);
+                    deleteEntityModel(token, entityName, version);
+                    logger.info("📝 Creating entity model for: {} (version: {})", entityName, version);
+                    createEntityModel(token, entityName, version);
+                } else {
+                    logger.info("✅ Entity model already exists for: {} (version: {})", entityName, version);
+                }
             } else if (statusCode == 404) {
                 logger.info("📝 Entity model not found, creating for: {} (version: {})", entityName, version);
                 createEntityModel(token, entityName, version);
@@ -418,6 +443,57 @@ public class CyodaInit {
         } else {
             String body = response.path("json").toString();
             String errorMsg = String.format("Failed to lock entity model for %s (version %s). Status code: %d, body: %s",
+                    entityName, version, statusCode, body);
+            logger.error("❌ {}", errorMsg);
+            throw new RuntimeException(errorMsg);
+        }
+    }
+
+    /**
+     * Deletes the entity model if it exists
+     */
+    private void deleteEntityModel(String token, String entityName, Integer version) {
+        // First check if the model exists
+        String exportPath = String.format("model/export/SIMPLE_VIEW/%s/%s", entityName, version);
+        logger.debug("🔍 Checking if entity model exists before deletion: {}", exportPath);
+
+        try {
+            JsonNode checkResponse = httpUtils.sendGetRequest(token, CYODA_API_URL, exportPath).join();
+            int checkStatusCode = checkResponse.get("status").asInt();
+
+            if (checkStatusCode == 404) {
+                logger.info("ℹ️  Entity model does not exist for: {} (version: {}), skipping deletion", entityName, version);
+                return;
+            } else if (checkStatusCode < 200 || checkStatusCode >= 300) {
+                String body = checkResponse.path("json").toString();
+                logger.warn("⚠️  Could not verify entity model existence for {} (version {}). Status code: {}, body: {}",
+                        entityName, version, checkStatusCode, body);
+                // Continue with deletion attempt anyway
+            }
+        } catch (Exception ex) {
+            if (ex.getMessage() != null && ex.getMessage().contains("404")) {
+                logger.info("ℹ️  Entity model does not exist for: {} (version: {}), skipping deletion", entityName, version);
+                return;
+            }
+            logger.warn("⚠️  Could not verify entity model existence for {} (version {}): {}",
+                    entityName, version, ex.getMessage());
+            // Continue with deletion attempt anyway
+        }
+
+        // Model exists, proceed with deletion
+        String deletePath = String.format("model/%s/%s", entityName, version);
+        logger.debug("🔗 Deleting entity model for: {} (version: {})", entityName, version);
+
+        JsonNode response = httpUtils.sendDeleteRequest(token, CYODA_API_URL, deletePath).join();
+        int statusCode = response.get("status").asInt();
+
+        if (statusCode >= 200 && statusCode < 300) {
+            logger.info("✅ Successfully deleted entity model for: {} (version: {})", entityName, version);
+        } else if (statusCode == 404) {
+            logger.info("ℹ️  Entity model was already deleted for: {} (version: {})", entityName, version);
+        } else {
+            String body = response.path("json").toString();
+            String errorMsg = String.format("Failed to delete entity model for %s (version %s). Status code: %d, body: %s",
                     entityName, version, statusCode, body);
             logger.error("❌ {}", errorMsg);
             throw new RuntimeException(errorMsg);

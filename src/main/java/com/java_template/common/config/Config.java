@@ -20,6 +20,19 @@ public class Config {
     public static final int GRPC_SERVER_PORT = Integer.parseInt(getEnv("GRPC_SERVER_PORT", "443"));
     public static final String GRPC_PROCESSOR_TAG = getEnv("GRPC_PROCESSOR_TAG", "cloud_manager_app");
 
+    // gRPC Channel Configuration
+    // Message size limits
+    public static final int GRPC_MAX_INBOUND_MESSAGE_SIZE = Integer.parseInt(getEnv("GRPC_MAX_INBOUND_MESSAGE_SIZE", "16777216")); // 16MB
+    public static final int GRPC_MAX_INBOUND_METADATA_SIZE = Integer.parseInt(getEnv("GRPC_MAX_INBOUND_METADATA_SIZE", "16384")); // 16KB
+    // HTTP/2 flow control window - CRITICAL for handling burst traffic from bulk operations
+    // Default 1MB is too small for 1000+ simultaneous workflow events
+    // Increased to 64MB to handle very high burst traffic
+    public static final int GRPC_FLOW_CONTROL_WINDOW = Integer.parseInt(getEnv("GRPC_FLOW_CONTROL_WINDOW", "67108864")); // 64MB
+    // Keep-alive settings to prevent stream resets during intensive operations
+    public static final long GRPC_KEEP_ALIVE_TIME_SECONDS = Long.parseLong(getEnv("GRPC_KEEP_ALIVE_TIME_SECONDS", "30"));
+    public static final long GRPC_KEEP_ALIVE_TIMEOUT_SECONDS = Long.parseLong(getEnv("GRPC_KEEP_ALIVE_TIMEOUT_SECONDS", "10"));
+    public static final long GRPC_IDLE_TIMEOUT_SECONDS = Long.parseLong(getEnv("GRPC_IDLE_TIMEOUT_SECONDS", "300")); // 5 minutes
+
     // Thread pool configurations for different event types
     public static final int PROCESSOR_THREAD_POOL = Integer.parseInt(getEnv("PROCESSOR_THREAD_POOL", "20"));
     public static final int CRITERIA_THREAD_POOL = Integer.parseInt(getEnv("CRITERIA_THREAD_POOL", "20"));
@@ -34,8 +47,6 @@ public class Config {
 
     public static final String CYODA_CLIENT_ID = getEnv("CYODA_CLIENT_ID");
     public static final String CYODA_CLIENT_SECRET = getEnv("CYODA_CLIENT_SECRET");
-
-    public static final String CHAT_ID = dotenv.get("CHAT_ID");
 
     public static final DataFormat GRPC_COMMUNICATION_DATA_FORMAT = DataFormat.fromValue(getEnv("GRPC_COMMUNICATION_DATA_FORMAT", DataFormat.JSON.value()));
     public static final String EVENT_SOURCE_URI = "urn:cyoda:calculation-member:" + GRPC_PROCESSOR_TAG;

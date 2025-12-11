@@ -13,8 +13,8 @@ import com.java_template.common.grpc.client.event_handling.CloudEventParser;
 import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import jakarta.annotation.Nullable;
-import jakarta.validation.constraints.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
@@ -111,12 +111,12 @@ public class CyodaRepository implements CrudRepository {
     }
 
     @Override
-    public CompletableFuture<DataPayload> findById(final UUID id) {
+    public CompletableFuture<DataPayload> findById(@NotNull final UUID id) {
         return getById(id, null);
     }
 
     @Override
-    public CompletableFuture<DataPayload> findById(final UUID id, @Nullable final Date pointInTime) {
+    public CompletableFuture<DataPayload> findById(@NotNull final UUID id, @Nullable final Date pointInTime) {
         return getById(id, pointInTime);
     }
 
@@ -149,49 +149,50 @@ public class CyodaRepository implements CrudRepository {
             @Nullable final Date pointInTime,
             @Nullable final UUID searchId, int awaitLimitMs, int pollIntervalMs
     ) {
-            CompletableFuture<SearchSnapshotStatus> snapshot;
+        CompletableFuture<SearchSnapshotStatus> snapshot;
 
-            if (searchId == null) {
-                // New search - create snapshot and don't use cache
-                snapshot = createSnapshotSearch(modelSpec, condition, pointInTime);
-            } else {
-                // Existing search - use cache with searchId as key
-                SearchCacheKey cacheKey = new SearchCacheKey(modelSpec, condition, pointInTime, searchId);
-                snapshot = Optional.ofNullable(snapshotCache.get(cacheKey))
-                        .orElseGet(() -> createSnapshotSearch(modelSpec, condition, pointInTime));
-            }
+        if (searchId == null) {
+            // New search - create snapshot and don't use cache
+            snapshot = createSnapshotSearch(modelSpec, condition, pointInTime);
+        } else {
+            // Existing search - use cache with searchId as key
+            SearchCacheKey cacheKey = new SearchCacheKey(modelSpec, condition, pointInTime, searchId);
+            snapshot = Optional.ofNullable(snapshotCache.get(cacheKey))
+                    .orElseGet(() -> createSnapshotSearch(modelSpec, condition, pointInTime));
+        }
 
-            return snapshot.thenComposeAsync(snapshotInfo -> {
-                        if (snapshotInfo.getSnapshotId() == null) {
-                            logger.error("Snapshot ID not found in response");
-                            return CompletableFuture.completedFuture(null);
-                        }
+        return snapshot.thenComposeAsync(snapshotInfo -> {
+                    if (snapshotInfo.getSnapshotId() == null) {
+                        logger.error("Snapshot ID not found in response");
+                        return CompletableFuture.completedFuture(null);
+                    }
 
-                        // Use the snapshot ID from Cyoda as the search ID
-                        UUID effectiveSearchId = snapshotInfo.getSnapshotId();
+                    // Use the snapshot ID from Cyoda as the search ID
+                    UUID effectiveSearchId = snapshotInfo.getSnapshotId();
 
-                        // Cache the snapshot for subsequent page requests
-                        if (searchId == null && pointInTime != null) {
-                            SearchCacheKey cacheKey = new SearchCacheKey(modelSpec, condition, pointInTime, effectiveSearchId);
-                            snapshotCache.put(cacheKey, CompletableFuture.completedFuture(snapshotInfo));
-                        }
+                    // Cache the snapshot for subsequent page requests
+                    if (searchId == null && pointInTime != null) {
+                        SearchCacheKey cacheKey = new SearchCacheKey(modelSpec, condition, pointInTime, effectiveSearchId);
+                        snapshotCache.put(cacheKey, CompletableFuture.completedFuture(snapshotInfo));
+                    }
 
-                        return getSnapShotIdCompletableFuture(snapshotInfo, awaitLimitMs, pollIntervalMs)
-                                .thenApply(snapshotId -> new SnapshotWithMetadata(snapshotId, snapshotInfo.getEntitiesCount(), effectiveSearchId));
-                    }).thenCompose(snapshotWithMetadata ->
-                            getSearchResult(snapshotWithMetadata.snapshotId, pageSize, pageNumber)
-                                    .thenApply(data -> PageResult.of(
-                                            snapshotWithMetadata.searchId,
-                                            data,
-                                            pageNumber,
-                                            pageSize,
-                                            snapshotWithMetadata.totalElements != null ? snapshotWithMetadata.totalElements : 0L
-                                    ))
-                    )
-                    .exceptionally(this::handleNotFoundOrThrowPageResult);
+                    return getSnapShotIdCompletableFuture(snapshotInfo, awaitLimitMs, pollIntervalMs)
+                            .thenApply(snapshotId -> new SnapshotWithMetadata(snapshotId, snapshotInfo.getEntitiesCount(), effectiveSearchId));
+                }).thenCompose(snapshotWithMetadata ->
+                        getSearchResult(snapshotWithMetadata.snapshotId, pageSize, pageNumber)
+                                .thenApply(data -> PageResult.of(
+                                        snapshotWithMetadata.searchId,
+                                        data,
+                                        pageNumber,
+                                        pageSize,
+                                        snapshotWithMetadata.totalElements != null ? snapshotWithMetadata.totalElements : 0L
+                                ))
+                )
+                .exceptionally(this::handleNotFoundOrThrowPageResult);
     }
 
-    private record SnapshotWithMetadata(UUID snapshotId, Long totalElements, UUID searchId) {}
+    private record SnapshotWithMetadata(UUID snapshotId, Long totalElements, UUID searchId) {
+    }
 
     @NotNull
     private CompletableFuture<UUID> getSnapShotIdCompletableFuture(SearchSnapshotStatus snapshotInfo, int awaitLimitMs, int pollIntervalMs) {
@@ -262,7 +263,7 @@ public class CyodaRepository implements CrudRepository {
     }
 
     @Override
-    public <ENTITY_TYPE> CompletableFuture<EntityTransactionResponse> saveAll(
+    public <ENTITY_TYPE> CompletableFuture<List<EntityTransactionResponse>> saveAll(
             @NotNull final ModelSpec modelSpec,
             @NotNull final Collection<ENTITY_TYPE> entities,
             @Nullable final Integer transactionWindow,
@@ -427,7 +428,7 @@ public class CyodaRepository implements CrudRepository {
         );
     }
 
-    private <PAYLOAD_TYPE> CompletableFuture<EntityTransactionResponse> saveNewEntitiesWithTransactionParams(
+    private <PAYLOAD_TYPE> CompletableFuture<List<EntityTransactionResponse>> saveNewEntitiesWithTransactionParams(
             @NotNull final ModelSpec modelSpec,
             @NotNull final PAYLOAD_TYPE entities,
             @Nullable final Integer transactionWindow,
@@ -452,7 +453,7 @@ public class CyodaRepository implements CrudRepository {
                         .withTransactionTimeoutMs(transactionTimeoutMs)
                         .withPayloads(payloads),
                 EntityTransactionResponse.class
-        ).thenApply(stream -> stream.findFirst().orElse(null));
+        ).thenApply(Stream::toList);
     }
 
     private CompletableFuture<EntityDeleteResponse> deleteEntity(@NotNull final UUID id) {
@@ -569,7 +570,7 @@ public class CyodaRepository implements CrudRepository {
 
     private <ENTITY_TYPE> PageResult<ENTITY_TYPE> handleNotFoundOrThrowPageResult(final Throwable exception) {
         if (isNotFound(exception)) {
-            logger.warn("Not found happens", exception);
+            logger.warn("Not found happened", exception);
             return PageResult.of(null, Collections.emptyList(), 1, 0, 0L);
         }
         final var cause = exception instanceof CompletionException ? exception.getCause() : exception;
@@ -600,11 +601,44 @@ public class CyodaRepository implements CrudRepository {
                 .findFirst()
                 .map(EntityStatsResponse::getCount)
                 .orElse(0L)
-        ).exceptionally(ex -> {
-            logger.error("Failed to get entity count for model {}/{}: {}",
-                    modelSpec.getName(), modelSpec.getVersion(), ex.getMessage());
-            return 0L;
-        });
+        );
+    }
+
+    @Override
+    public CompletableFuture<Map<String, Long>> getEntityStatsByState(@NotNull final ModelSpec modelSpec) {
+        return getEntityStatsByState(modelSpec, Collections.emptyList(), null);
+    }
+
+    @Override
+    public CompletableFuture<Map<String, Long>> getEntityStatsByState(
+            @NotNull final ModelSpec modelSpec,
+            @Nullable final Date pointInTime
+    ) {
+        return getEntityStatsByState(modelSpec, Collections.emptyList(), pointInTime);
+    }
+
+    @Override
+    public CompletableFuture<Map<String, Long>> getEntityStatsByState(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final List<String> states,
+            @Nullable final Date pointInTime
+    ) {
+        return sendAndGetCollection(
+                cloudEventsServiceBlockingStub::entitySearchCollection,
+                new EntityStatsByStateGetRequest()
+                        .withId(generateEventId())
+                        .withModel(modelSpec)
+                        .withStates(states)
+                        .withPointInTime(pointInTime),
+                EntityStatsByStateResponse.class
+        ).thenApply(statsStream -> statsStream
+                .filter(stat -> modelSpec.getName().equals(stat.getModelName()) &&
+                        modelSpec.getVersion().equals(stat.getModelVersion()))
+                .collect(Collectors.toMap(
+                        EntityStatsByStateResponse::getState,
+                        EntityStatsByStateResponse::getCount
+                ))
+        );
     }
 
     @Override
@@ -628,43 +662,6 @@ public class CyodaRepository implements CrudRepository {
     /**
      * Cache key for snapshot searches. Combines model spec, condition, point in time, and search ID.
      */
-    private static class SearchCacheKey {
-        private final ModelSpec modelSpec;
-        private final GroupCondition condition;
-        private final Date pointInTime;
-        private final UUID searchId;
+    private record SearchCacheKey(ModelSpec modelSpec, GroupCondition condition, Date pointInTime, UUID searchId) {}
 
-        public SearchCacheKey(ModelSpec modelSpec, GroupCondition condition, Date pointInTime, UUID searchId) {
-            this.modelSpec = modelSpec;
-            this.condition = condition;
-            this.pointInTime = pointInTime;
-            this.searchId = searchId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            SearchCacheKey that = (SearchCacheKey) o;
-            return Objects.equals(modelSpec, that.modelSpec) &&
-                    Objects.equals(condition, that.condition) &&
-                    Objects.equals(pointInTime, that.pointInTime) &&
-                    Objects.equals(searchId, that.searchId);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(modelSpec, condition, pointInTime, searchId);
-        }
-
-        @Override
-        public String toString() {
-            return "SearchCacheKey{" +
-                    "modelSpec=" + modelSpec +
-                    ", condition=" + condition +
-                    ", pointInTime=" + pointInTime +
-                    ", searchId=" + searchId +
-                    '}';
-        }
-    }
 }

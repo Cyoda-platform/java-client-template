@@ -1,5 +1,7 @@
 package com.java_template.common.workflow;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,11 +20,14 @@ public class OperationFactory {
 
     private final List<CyodaProcessor> processors;
     private final List<CyodaCriterion> criteria;
+    private final ObjectMapper objectMapper;
 
     public OperationFactory(
             List<CyodaProcessor> processorBeans,
-            List<CyodaCriterion> criteriaBeans
+            List<CyodaCriterion> criteriaBeans,
+            ObjectMapper objectMapper
     ) {
+        this.objectMapper = objectMapper;
         log.debug(
                 "Initializing OperationFactory with {} processor beans",
                 processorBeans.size()
@@ -46,7 +51,13 @@ public class OperationFactory {
                 .toList();
 
         if (matchedProcessors.isEmpty()) {
-            throw new IllegalStateException("No processor found for OperationSpecificationfor OperationSpecification " + opsSpec);
+            String opsSpecJson = null;
+            try {
+                opsSpecJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(opsSpec);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+            throw new IllegalStateException("No processor found for OperationSpecification\n" + opsSpecJson);
         }
 
         if (matchedProcessors.size() > 1) {
@@ -77,7 +88,13 @@ public class OperationFactory {
                 .toList();
 
         if (matchedCriteria.isEmpty()) {
-            throw new IllegalStateException("No criterion found for OperationSpecificationfor OperationSpecification " + opsSpec);
+            String opsSpecJson = null;
+            try {
+                opsSpecJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(opsSpec);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+            throw new IllegalStateException("No criterion found for OperationSpecification\n" + opsSpecJson);
         }
 
         if (matchedCriteria.size() > 1) {

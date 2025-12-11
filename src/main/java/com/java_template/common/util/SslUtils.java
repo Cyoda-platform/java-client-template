@@ -22,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class SslUtils {
     private static final Logger logger = LoggerFactory.getLogger(SslUtils.class);
@@ -241,7 +242,7 @@ public class SslUtils {
     }
 
     /**
-     * Creates a gRPC ManagedChannelBuilder with custom SSL configuration
+     * Creates a gRPC ManagedChannelBuilder with custom SSL configuration and performance tuning
      */
     public static ManagedChannelBuilder<?> createGrpcChannelBuilder(
             final String host,
@@ -249,6 +250,8 @@ public class SslUtils {
             final boolean avoidSsl
     ) {
         try {
+            NettyChannelBuilder channelBuilder;
+
             if (Config.SSL_TRUST_ALL || shouldTrustHost(host)) {
                 logger.info("Configuring gRPC channel to trust host: {} (self-signed certificates allowed)", host);
 
@@ -265,19 +268,42 @@ public class SslUtils {
                         .build();
 
                 if (avoidSsl) {
-                    return NettyChannelBuilder.forAddress(host, port);
+                    channelBuilder = NettyChannelBuilder.forAddress(host, port);
                 } else {
-                    return NettyChannelBuilder.forAddress(host, port).sslContext(sslContext);
+                    channelBuilder = NettyChannelBuilder.forAddress(host, port).sslContext(sslContext);
                 }
             } else {
                 if (avoidSsl) {
                     logger.debug("Skip using security for host: {}", host);
-                    return ManagedChannelBuilder.forAddress(host, port).usePlaintext();
+                    channelBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext();
                 } else {
                     logger.debug("Using default transport security for host: {}", host);
-                    return ManagedChannelBuilder.forAddress(host, port).useTransportSecurity();
+                    channelBuilder = NettyChannelBuilder.forAddress(host, port);
                 }
             }
+
+            // Apply performance tuning parameters to handle high-volume operations
+            channelBuilder
+                    .maxInboundMessageSize(Config.GRPC_MAX_INBOUND_MESSAGE_SIZE)
+                    .maxInboundMetadataSize(Config.GRPC_MAX_INBOUND_METADATA_SIZE)
+                    .keepAliveTime(Config.GRPC_KEEP_ALIVE_TIME_SECONDS, TimeUnit.SECONDS)
+                    .keepAliveTimeout(Config.GRPC_KEEP_ALIVE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .idleTimeout(Config.GRPC_IDLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .keepAliveWithoutCalls(true)  // Keep connection alive even without active calls
+                    // CRITICAL: Set HTTP/2 flow control window to handle burst traffic
+                    // This prevents RST_STREAM errors when 1000+ workflow events arrive simultaneously
+                    .flowControlWindow(Config.GRPC_FLOW_CONTROL_WINDOW)
+                    .initialFlowControlWindow(Config.GRPC_FLOW_CONTROL_WINDOW);  // Set initial window size too
+
+            logger.info("gRPC channel configured: maxInboundMessageSize={}MB, flowControlWindow={}MB, initialFlowControlWindow={}MB, keepAliveTime={}s, keepAliveWithoutCalls=true, threadPools=[processor={}, criteria={}]",
+                    Config.GRPC_MAX_INBOUND_MESSAGE_SIZE / (1024 * 1024),
+                    Config.GRPC_FLOW_CONTROL_WINDOW / (1024 * 1024),
+                    Config.GRPC_FLOW_CONTROL_WINDOW / (1024 * 1024),
+                    Config.GRPC_KEEP_ALIVE_TIME_SECONDS,
+                    Config.PROCESSOR_THREAD_POOL,
+                    Config.CRITERIA_THREAD_POOL);
+
+            return channelBuilder;
         } catch (Exception e) {
             logger.error(
                     "Failed to configure gRPC SSL for {}:{}, falling back to default: {}",
@@ -285,11 +311,22 @@ public class SslUtils {
                     port,
                     e.getMessage()
             );
+            NettyChannelBuilder fallbackBuilder;
             if (avoidSsl) {
-                return ManagedChannelBuilder.forAddress(host, port).usePlaintext();
+                fallbackBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext();
             } else {
-                return ManagedChannelBuilder.forAddress(host, port).useTransportSecurity();
+                fallbackBuilder = NettyChannelBuilder.forAddress(host, port);
             }
+            // Still apply performance tuning even in fallback case
+            return fallbackBuilder
+                    .maxInboundMessageSize(Config.GRPC_MAX_INBOUND_MESSAGE_SIZE)
+                    .maxInboundMetadataSize(Config.GRPC_MAX_INBOUND_METADATA_SIZE)
+                    .flowControlWindow(Config.GRPC_FLOW_CONTROL_WINDOW)
+                    .initialFlowControlWindow(Config.GRPC_FLOW_CONTROL_WINDOW)
+                    .keepAliveTime(Config.GRPC_KEEP_ALIVE_TIME_SECONDS, TimeUnit.SECONDS)
+                    .keepAliveTimeout(Config.GRPC_KEEP_ALIVE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .keepAliveWithoutCalls(true)
+                    .idleTimeout(Config.GRPC_IDLE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         }
     }
 

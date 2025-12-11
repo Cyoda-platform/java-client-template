@@ -11,4 +11,5 @@ public enum ObserverState {
     JOINING,
     AWAITS_GREET,
     READY,
+    IDLE  // System has given up reconnecting, awaiting resurrection
 }

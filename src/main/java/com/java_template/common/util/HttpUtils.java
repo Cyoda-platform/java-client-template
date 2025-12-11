@@ -3,6 +3,8 @@ package com.java_template.common.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.util.http.ContentTypeAwareParser;
+import com.java_template.common.util.http.ResponseBodyParser;
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import org.springframework.http.HttpStatus;
@@ -22,7 +24,7 @@ import java.util.stream.Collectors;
 
 /**
  * ABOUTME: Utility component providing HTTP client operations for REST API communication
- * with JSON request/response handling and error management.
+ * with configurable response parsing strategies for different content types.
  */
 @Component
 public class HttpUtils {
@@ -30,10 +32,12 @@ public class HttpUtils {
     private final Logger logger = LoggerFactory.getLogger(HttpUtils.class);
     private final ObjectMapper om;
     private final JsonUtils jsonUtils;
+    private final ResponseBodyParser defaultParser;
 
     public HttpUtils(JsonUtils jsonUtils, ObjectMapper om) {
         this.jsonUtils = jsonUtils;
         this.om = om;
+        this.defaultParser = ContentTypeAwareParser.createDefault(om);
     }
 
     private String ensureBearerToken(String token) {
@@ -59,9 +63,9 @@ public class HttpUtils {
         return builder.build();
     }
 
-    private CompletableFuture<ObjectNode> sendRequest(String url, String token, String method, Object data) {
+    private CompletableFuture<ObjectNode> sendRequest(String url, String token, String method, Object data,
+                                                       ResponseBodyParser parser) {
         HttpRequest request = createRequest(url, token, method, data);
-        ObjectNode result = om.createObjectNode();
         return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
                     int statusCode = response.statusCode();
@@ -77,34 +81,19 @@ public class HttpUtils {
                         throw new ResponseStatusException(HttpStatus.valueOf(statusCode), extractErrorMessage(responseBody));
                     }
 
-                    try {
-                        JsonNode responseJson = om.readTree(responseBody);
-                        if (responseJson.isObject()) {
-                            result.set("json", (ObjectNode) responseJson);
-                        } else if (responseJson.isTextual()) {
-                            try {
-                                JsonNode parsedJson = om.readTree(responseJson.asText());
-                                if (parsedJson.isObject()) {
-                                    result.set("json", (ObjectNode) parsedJson);
-                                } else {
-                                    result.set("json", parsedJson);
-                                }
-                            } catch (Exception e) {
-                                result.put("json", responseJson.asText());
-                            }
-                        } else {
-                            result.put("json", responseJson);
-                        }
-                        result.put("status", statusCode);
-                        return result;
-                    } catch (Exception e) {
-                        logger.warn("Failed to parse response JSON: {}", e.getMessage());
-                        result.put("status", statusCode);
-                        result.put("json", responseBody);
-                        return result;
-                    }
+                    String contentType = response.headers()
+                            .firstValue("Content-Type")
+                            .orElse(null);
+
+                    return parser.parse(responseBody, contentType, statusCode);
                 });
     }
+
+    private CompletableFuture<ObjectNode> sendRequest(String url, String token, String method, Object data) {
+        return sendRequest(url, token, method, data, defaultParser);
+    }
+
+    // Public API methods with default parser
 
     public CompletableFuture<ObjectNode> sendGetRequest(String token, String apiUrl, String path, Map<String, String> params) {
         String fullUrl = buildUrlWithParams(apiUrl, path, params);
@@ -134,6 +123,44 @@ public class HttpUtils {
     public CompletableFuture<ObjectNode> sendDeleteRequest(String token, String apiUrl, String path) {
         String fullUrl = buildUrlWithParams(apiUrl, path, null);
         return sendRequest(fullUrl, token, "DELETE", null);
+    }
+
+    // Public API methods with custom parser
+
+    public CompletableFuture<ObjectNode> sendGetRequest(String token, String apiUrl, String path,
+                                                         Map<String, String> params, ResponseBodyParser parser) {
+        String fullUrl = buildUrlWithParams(apiUrl, path, params);
+        return sendRequest(fullUrl, token, "GET", null, parser);
+    }
+
+    public CompletableFuture<ObjectNode> sendGetRequest(String token, String apiUrl, String path,
+                                                         ResponseBodyParser parser) {
+        String fullUrl = buildUrlWithParams(apiUrl, path, null);
+        return sendRequest(fullUrl, token, "GET", null, parser);
+    }
+
+    public CompletableFuture<ObjectNode> sendPostRequest(String token, String apiUrl, String path,
+                                                          Object data, ResponseBodyParser parser) {
+        String fullUrl = buildUrlWithParams(apiUrl, path, null);
+        return sendRequest(fullUrl, token, "POST", data, parser);
+    }
+
+    public CompletableFuture<ObjectNode> sendPostRequest(String token, String apiUrl, String path, Object data,
+                                                          Map<String, String> params, ResponseBodyParser parser) {
+        String fullUrl = buildUrlWithParams(apiUrl, path, params);
+        return sendRequest(fullUrl, token, "POST", data, parser);
+    }
+
+    public CompletableFuture<ObjectNode> sendPutRequest(String token, String apiUrl, String path,
+                                                         Object data, ResponseBodyParser parser) {
+        String fullUrl = buildUrlWithParams(apiUrl, path, null);
+        return sendRequest(fullUrl, token, "PUT", data, parser);
+    }
+
+    public CompletableFuture<ObjectNode> sendDeleteRequest(String token, String apiUrl, String path,
+                                                            ResponseBodyParser parser) {
+        String fullUrl = buildUrlWithParams(apiUrl, path, null);
+        return sendRequest(fullUrl, token, "DELETE", null, parser);
     }
 
     private String buildUrlWithParams(String apiUrl, String path, Map<String, String> params) {

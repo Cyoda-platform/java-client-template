@@ -1,5 +1,6 @@
 package com.java_template.common.tool;
 
+import com.beust.jcommander.JCommander;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.auth.Authentication;
 import com.java_template.common.util.HttpUtils;
@@ -8,10 +9,30 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
 /**
  * ABOUTME: Command-line tool for importing workflow definitions into Cyoda platform
- * with Spring context initialization and dependency injection.
  */
 public class WorkflowImportTool {
     public static void main(String[] args) {
+        // Parse command line arguments using JCommander
+        CyodaInitConfig config = new CyodaInitConfig();
+        JCommander jCommander = JCommander.newBuilder()
+                .addObject(config)
+                .programName("WorkflowImportTool")
+                .build();
+
+        try {
+            jCommander.parse(args);
+        } catch (Exception e) {
+            System.err.println("Error parsing arguments: " + e.getMessage());
+            jCommander.usage();
+            System.exit(1);
+        }
+
+        // Display help if requested
+        if (config.help()) {
+            jCommander.usage();
+            System.exit(0);
+        }
+
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.register(Authentication.class, HttpUtils.class, JsonUtils.class);
         context.registerBean(ObjectMapper.class, () -> new ObjectMapper());
@@ -22,7 +43,7 @@ public class WorkflowImportTool {
         ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
 
         CyodaInit init = new CyodaInit(httpUtils, auth, objectMapper);
-        init.initCyoda();
+        init.initCyoda(config);
 
         context.close();
     }

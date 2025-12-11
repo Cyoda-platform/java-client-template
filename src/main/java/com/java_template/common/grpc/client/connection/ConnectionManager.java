@@ -9,19 +9,20 @@ import com.java_template.common.grpc.client.monitoring.EventTracker;
 import com.java_template.common.grpc.client.monitoring.ObserverState;
 import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.stub.StreamObserver;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import org.cyoda.cloud.api.event.processing.CalculationMemberJoinEvent;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
+
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.java_template.common.config.Config.HANDSHAKE_TIMEOUT_MS;
 
@@ -31,7 +32,7 @@ import static com.java_template.common.config.Config.HANDSHAKE_TIMEOUT_MS;
  * event routing, monitoring, and automatic reconnection with state tracking.
  */
 @Component
-class ConnectionManager implements EventSender {
+public class ConnectionManager implements EventSender {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
     private final AtomicBoolean isConnecting = new AtomicBoolean(false);
 
@@ -74,6 +75,7 @@ class ConnectionManager implements EventSender {
 
     @PostConstruct
     private void init() {
+        reconnectionStrategy.addIdleStateListener(this::onIdleStateChanged);
         initiateConnection();
     }
 
@@ -118,12 +120,7 @@ class ConnectionManager implements EventSender {
             connectionStateTracker.trackObserverStateChange(ObserverState.AWAITS_GREET);
 
             return greetPromise.thenApply(acceptedJoinEvent -> newObserver)
-                    .orTimeout(HANDSHAKE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                    .whenComplete((ignored, error) -> {
-                        if (error != null) {
-                            newObserver.onError(error);
-                        }
-                    });
+                    .orTimeout(HANDSHAKE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         } catch (InvalidProtocolBufferException e) {
             return CompletableFuture.failedFuture(e);
         }
@@ -165,5 +162,17 @@ class ConnectionManager implements EventSender {
             }
             isConnecting.set(false);
         });
+    }
+
+    private void onIdleStateChanged(boolean isIdle) {
+        if (isIdle) {
+            connectionStateTracker.trackObserverStateChange(ObserverState.IDLE);
+            log.warn("Connection manager entered IDLE state - no further reconnection attempts");
+        }
+    }
+
+    public void resurrect() {
+        log.info("Resurrection requested");
+        reconnectionStrategy.resurrect(this::initiateConnection);
     }
 }

@@ -7,13 +7,14 @@ import com.java_template.common.dto.PageResult;
 import com.java_template.common.repository.CrudRepository;
 import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.workflow.CyodaEntity;
-import jakarta.annotation.Nullable;
-import jakarta.validation.constraints.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.QueryCondition;
 import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
@@ -106,7 +107,8 @@ public class EntityServiceImpl implements EntityService {
                         .pageNumber(0)
                         .pointInTime(pointInTime)
                         .inMemory(true)
-                        .build());
+                        .build()
+        );
 
         return result.data().isEmpty() ? null : result.data().getFirst();
     }
@@ -120,6 +122,57 @@ public class EntityServiceImpl implements EntityService {
     ) {
         try {
             return findByBusinessId(modelSpec, businessId, businessIdField, entityClass);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    @Override
+    public <T extends CyodaEntity> EntityWithMetadata<T> findByCompositeKey(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final T entity,
+            @NotNull final Map<String, java.util.function.Function<T, Object>> businessIdExtractors,
+            @NotNull final Class<T> entityClass
+    ) {
+        // Build a list of SimpleConditions for each business key field
+        List<QueryCondition> simpleConditions = new ArrayList<>();
+
+        for (Map.Entry<String, java.util.function.Function<T, Object>> entry : businessIdExtractors.entrySet()) {
+            String fieldName = entry.getKey();
+            java.util.function.Function<T, Object> extractor = entry.getValue();
+            Object value = extractor.apply(entity);
+
+            SimpleCondition condition = new SimpleCondition()
+                    .withJsonPath("$." + fieldName)
+                    .withOperation(Operation.EQUALS)
+                    .withValue(objectMapper.valueToTree(value));
+
+            simpleConditions.add(condition);
+        }
+
+        // Combine all conditions with AND operator
+        GroupCondition groupCondition = new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(simpleConditions);
+
+        // Search with the composite condition
+        PageResult<EntityWithMetadata<T>> result = search(
+                modelSpec, groupCondition, entityClass,
+                SearchAndRetrievalParams.builder().pageSize(1).pageNumber(0).inMemory(true).build()
+        );
+
+        return result.data().isEmpty() ? null : result.data().getFirst();
+    }
+
+    @Override
+    public <T extends CyodaEntity> EntityWithMetadata<T> findByCompositeKeyOrNull(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final T entity,
+            @NotNull final Map<String, java.util.function.Function<T, Object>> businessIdExtractors,
+            @NotNull final Class<T> entityClass
+    ) {
+        try {
+            return findByCompositeKey(modelSpec, entity, businessIdExtractors, entityClass);
         } catch (Exception e) {
             return null;
         }
@@ -158,6 +211,28 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public long getEntityCount(@NotNull final ModelSpec modelSpec, @Nullable final Date pointInTime) {
         return repository.getEntityCount(modelSpec, pointInTime).join();
+    }
+
+    @Override
+    public Map<String, Long> getEntityStatsByState(@NotNull final ModelSpec modelSpec) {
+        return getEntityStatsByState(modelSpec, null);
+    }
+
+    @Override
+    public Map<String, Long> getEntityStatsByState(
+            @NotNull final ModelSpec modelSpec,
+            @Nullable final Date pointInTime
+    ) {
+        return repository.getEntityStatsByState(modelSpec, pointInTime).join();
+    }
+
+    @Override
+    public Map<String, Long> getEntityStatsByState(
+            @NotNull final ModelSpec modelSpec,
+            @NotNull final List<String> states,
+            @Nullable final Date pointInTime
+    ) {
+        return repository.getEntityStatsByState(modelSpec, states, pointInTime).join();
     }
 
     @Override
@@ -384,34 +459,36 @@ public class EntityServiceImpl implements EntityService {
         T firstEntity = entities.iterator().next();
         ModelSpec modelSpec = firstEntity.getModelKey().modelKey();
 
-        EntityTransactionResponse response = repository.saveAll(
+        List<EntityTransactionResponse> responses = repository.saveAll(
                 modelSpec, entities, transactionWindow, transactionTimeoutMs).join();
 
-        // Extract entity IDs and transaction ID from response
-        List<UUID> entityIds = response.getTransactionInfo() != null
-                ? response.getTransactionInfo().getEntityIds()
-                : List.of();
-        UUID transactionId = response.getTransactionInfo().getTransactionId();
+        return responses.stream().flatMap(response -> {
+            // Extract entity IDs and transaction ID from response
+            List<UUID> entityIds = response.getTransactionInfo() != null
+                    ? response.getTransactionInfo().getEntityIds()
+                    : List.of();
+            UUID transactionId = response.getTransactionInfo().getTransactionId();
 
-        @SuppressWarnings("unchecked")
-        Class<T> entityClass = (Class<T>) firstEntity.getClass();
+            @SuppressWarnings("unchecked")
+            Class<T> entityClass = (Class<T>) firstEntity.getClass();
 
-        // For each entity, get its change metadata and reload at the exact point in time
-        return entityIds.stream()
-                .map(entityId -> {
-                    // Get entity changes metadata to find the exact timeOfChange for this transaction
-                    List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
+            // For each entity, get its change metadata and reload at the exact point in time
+            return entityIds.stream()
+                    .map(entityId -> {
+                        // Get entity changes metadata to find the exact timeOfChange for this transaction
+                        List<EntityChangeMeta> changes = getEntityChangesMetadata(entityId);
 
-                    // Find the change metadata for this specific transaction
-                    EntityChangeMeta changeMeta = changes.stream()
-                            .filter(meta -> transactionId.equals(meta.getTransactionId()))
-                            .findFirst()
-                            .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
+                        // Find the change metadata for this specific transaction
+                        EntityChangeMeta changeMeta = changes.stream()
+                                .filter(meta -> transactionId.equals(meta.getTransactionId()))
+                                .findFirst()
+                                .orElseThrow(() -> new RuntimeException("Transaction metadata not found for transaction: " + transactionId));
 
-                    // Reload entity at the exact point in time when it was saved
-                    return getById(entityId, modelSpec, entityClass, changeMeta.getTimeOfChange());
-                })
-                .toList();
+                        // Reload entity at the exact point in time when it was saved
+                        return getById(entityId, modelSpec, entityClass, changeMeta.getTimeOfChange());
+                    });
+        }).toList();
+
     }
 
 

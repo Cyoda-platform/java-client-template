@@ -4,8 +4,8 @@ import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.dto.PageResult;
 import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.workflow.CyodaEntity;
-import jakarta.annotation.Nullable;
-import jakarta.validation.constraints.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -134,6 +134,52 @@ public interface EntityService {
     );
 
     /**
+     * Find entity by composite business key (MEDIUM SPEED - use for multi-field unique identifiers)
+     * Searches for an entity using multiple field values that together form a unique business identifier.
+     *
+     * Example: Finding a LoanTapeItem by dataset_id + loan_id
+     * <pre>{@code
+     * Map<String, Function<LoanTapeItem, Object>> extractors = Map.of(
+     *     "datasetId", LoanTapeItem::getDatasetId,
+     *     "loanId", LoanTapeItem::getLoanId
+     * );
+     * EntityWithMetadata<LoanTapeItem> result = entityService.findByCompositeKey(
+     *     modelSpec, entity, extractors, LoanTapeItem.class
+     * );
+     * }</pre>
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param entity Entity instance with populated business key fields
+     * @param businessIdExtractors Map of field names to functions that extract business key field values
+     * @param entityClass Entity class type for deserialization
+     * @return EntityWithMetadata with entity and metadata, or null if not found
+     */
+    <T extends CyodaEntity> EntityWithMetadata<T> findByCompositeKey(
+            @NotNull ModelSpec modelSpec,
+            @NotNull T entity,
+            @NotNull java.util.Map<String, java.util.function.Function<T, Object>> businessIdExtractors,
+            @NotNull Class<T> entityClass
+    );
+
+    /**
+     * Find entity by composite business key, returning null on any exception (MEDIUM SPEED)
+     * This method wraps findByCompositeKey and catches all exceptions, returning null instead.
+     * Use this when you want to check for entity existence without handling exceptions.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param entity Entity instance with populated business key fields
+     * @param businessIdExtractors Map of field names to functions that extract business key field values
+     * @param entityClass Entity class type for deserialization
+     * @return EntityWithMetadata with entity and metadata, or null if not found or on error
+     */
+    <T extends CyodaEntity> EntityWithMetadata<T> findByCompositeKeyOrNull(
+            @NotNull ModelSpec modelSpec,
+            @NotNull T entity,
+            @NotNull java.util.Map<String, java.util.function.Function<T, Object>> businessIdExtractors,
+            @NotNull Class<T> entityClass
+    );
+
+    /**
      * Get all entities with pagination support using PageResult.
      * Returns pagination metadata including searchId for subsequent page requests.
      * Use searchId from previous PageResult to efficiently retrieve next pages from cached snapshot.
@@ -234,6 +280,47 @@ public interface EntityService {
      * @return Total count of entities
      */
     long getEntityCount(@NotNull ModelSpec modelSpec, @Nullable java.util.Date pointInTime);
+
+    /**
+     * Get entity statistics grouped by workflow state (FAST - uses index tables)
+     * Returns a map where keys are state names and values are entity counts for each state.
+     * Uses Cyoda's entity statistics API.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @return Map of state names to entity counts
+     */
+    java.util.Map<String, Long> getEntityStatsByState(@NotNull ModelSpec modelSpec);
+
+    /**
+     * Get entity statistics grouped by workflow state at a specific point in time (FAST - uses index tables)
+     * Returns a map where keys are state names and values are entity counts for each state.
+     * Uses Cyoda's entity statistics API.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param pointInTime Point in time to retrieve statistics as-at (null for current state)
+     * @return Map of state names to entity counts
+     */
+    java.util.Map<String, Long> getEntityStatsByState(
+            @NotNull ModelSpec modelSpec,
+            @Nullable java.util.Date pointInTime
+    );
+
+    /**
+     * Get entity statistics for specific workflow states (FAST - uses index tables)
+     * Returns a map where keys are state names and values are entity counts for each state.
+     * Only the specified states will be included in the result.
+     * Uses Cyoda's entity statistics API.
+     *
+     * @param modelSpec Model specification containing name and version
+     * @param states List of state names to get statistics for
+     * @param pointInTime Point in time to retrieve statistics as-at (null for current state)
+     * @return Map of state names to entity counts
+     */
+    java.util.Map<String, Long> getEntityStatsByState(
+            @NotNull ModelSpec modelSpec,
+            @NotNull List<String> states,
+            @Nullable java.util.Date pointInTime
+    );
 
     // ========================================
     // PRIMARY MUTATION METHODS (Use These)
