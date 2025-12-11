@@ -7,8 +7,6 @@ import com.java_template.common.dto.PageResult;
 import com.java_template.common.repository.CrudRepository;
 import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.workflow.CyodaEntity;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
@@ -19,6 +17,8 @@ import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -387,6 +387,10 @@ public class EntityServiceImpl implements EntityService {
 
         // Get business ID value from entity using reflection-like approach
         String businessIdValue = getBusinessIdValue(entity, businessIdField);
+
+        if (businessIdValue == null) {
+            throw new IllegalStateException("Business ID value is null for field: " + businessIdField);
+        }
 
         // Extract model info from entity
         ModelSpec modelSpec = entity.getModelKey().modelKey();

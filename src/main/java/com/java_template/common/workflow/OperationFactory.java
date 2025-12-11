@@ -51,7 +51,7 @@ public class OperationFactory {
                 .toList();
 
         if (matchedProcessors.isEmpty()) {
-            String opsSpecJson = null;
+            String opsSpecJson;
             try {
                 opsSpecJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(opsSpec);
             } catch (JsonProcessingException e) {
@@ -88,7 +88,7 @@ public class OperationFactory {
                 .toList();
 
         if (matchedCriteria.isEmpty()) {
-            String opsSpecJson = null;
+            String opsSpecJson;
             try {
                 opsSpecJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(opsSpec);
             } catch (JsonProcessingException e) {

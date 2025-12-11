@@ -1,12 +1,14 @@
 package com.java_template.common.workflow.ops;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.serializer.CriterionSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.serializer.jackson.JacksonCriterionSerializer;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
 import io.cloudevents.v1.proto.CloudEvent;
+import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
@@ -84,9 +86,9 @@ class AlwaysTrueCriterionTest {
         request.setEntityId("456");
 
         // Add a proper payload to avoid extraction errors
-        org.cyoda.cloud.api.event.common.DataPayload payload = new org.cyoda.cloud.api.event.common.DataPayload();
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        com.fasterxml.jackson.databind.node.ObjectNode data = mapper.createObjectNode();
+        DataPayload payload = new DataPayload();
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode data = mapper.createObjectNode();
         data.put("test", "data");
         payload.setData(data);
         request.setPayload(payload);

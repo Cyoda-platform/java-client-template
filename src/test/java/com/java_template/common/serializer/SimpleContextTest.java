@@ -12,7 +12,8 @@ import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * ABOUTME: Simple test to verify the new context-aware methods work correctly.
@@ -41,7 +42,7 @@ class SimpleContextTest {
         request.setCriteriaId("criteria-789");
         request.setCriteriaName("TestCriteria");
         request.setTarget(EntityCriteriaCalculationRequest.Target.WORKFLOW);
-        
+
         // Create test payload
         DataPayload payload = new DataPayload();
         JsonNode testData = objectMapper.createObjectNode()
@@ -54,21 +55,21 @@ class SimpleContextTest {
         EntityCriteriaCalculationResponse response = criterionSerializer.withRequest(request)
                 .evaluate(context -> {
                     System.out.println("Context evaluation called!");
-                    
+
                     // Access request metadata
                     String entityId = context.request().getEntityId();
                     String transactionId = context.request().getTransactionId();
-                    
+
                     // Access payload data
                     JsonNode data = context.payload();
                     String testField = data.get("testField").asText();
                     int numericField = data.get("numericField").asInt();
-                    
+
                     System.out.println("Entity ID: " + entityId);
                     System.out.println("Transaction ID: " + transactionId);
                     System.out.println("Test field: " + testField);
                     System.out.println("Numeric field: " + numericField);
-                    
+
                     // Validation logic using both metadata and payload
                     if ("entity-123".equals(entityId) && "testValue".equals(testField) && numericField > 40) {
                         System.out.println("Returning success");
@@ -85,7 +86,7 @@ class SimpleContextTest {
         System.out.println("Response matches: " + response.getMatches());
         System.out.println("Response error: " + response.getError());
         System.out.println("Response warnings: " + response.getWarnings());
-        
+
         assertTrue(response.getMatches());
     }
 
@@ -98,7 +99,7 @@ class SimpleContextTest {
         request.setTransactionId("txn-123");
         request.setProcessorId("processor-456");
         request.setProcessorName("TestProcessor");
-        
+
         // Create test payload
         DataPayload payload = new DataPayload();
         JsonNode testData = objectMapper.createObjectNode()
@@ -110,14 +111,14 @@ class SimpleContextTest {
         EntityProcessorCalculationResponse response = processorSerializer.withRequest(request)
                 .map(context -> {
                     System.out.println("Processor context evaluation called!");
-                    
+
                     // Access request metadata
                     String entityId = context.request().getEntityId();
                     String transactionId = context.request().getTransactionId();
-                    
+
                     System.out.println("Entity ID: " + entityId);
                     System.out.println("Transaction ID: " + transactionId);
-                    
+
                     // Access and modify payload data
                     JsonNode data = context.payload();
                     return objectMapper.createObjectNode()
