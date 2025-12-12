@@ -1,0 +1,41 @@
+{
+  "orderId": "ORD-001",
+  "customerId": "CUST-001",
+  "customerName": "John Doe",
+  "customerEmail": "john.doe@example.com",
+  "items": [
+    {
+      "itemId": "ITEM-001",
+      "productName": "Laptop",
+      "quantity": 1,
+      "unitPrice": 999.99,
+      "subtotal": 999.99,
+      "metadata": {
+        "sku": "LAPTOP-001",
+        "category": "Electronics"
+      }
+    },
+    {
+      "itemId": "ITEM-002",
+      "productName": "Mouse",
+      "quantity": 2,
+      "unitPrice": 29.99,
+      "subtotal": 59.98,
+      "metadata": {
+        "sku": "MOUSE-001",
+        "category": "Accessories"
+      }
+    }
+  ],
+  "totalAmount": 1059.97,
+  "currency": "USD",
+  "shippingAddress": "123 Main St, Springfield, IL 62701",
+  "billingAddress": "123 Main St, Springfield, IL 62701",
+  "notes": "Please deliver between 9 AM and 5 PM",
+  "metadata": {
+    "source": "web_store",
+    "paymentMethod": "credit_card",
+    "promoCode": "SAVE10"
+  }
+}
+

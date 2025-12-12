@@ -1,0 +1,101 @@
+{
+  "version": "1.0",
+  "name": "Order",
+  "desc": "Order lifecycle workflow covering creation, confirmation, shipping, delivery, and cancellation",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "confirm_order",
+          "next": "confirmed",
+          "manual": true,
+          "description": "Manual confirmation of order after validation"
+        },
+        {
+          "name": "cancel",
+          "next": "cancelled",
+          "manual": true,
+          "description": "Manual cancellation before confirmation"
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "ship_order",
+          "next": "shipped",
+          "manual": true,
+          "description": "Mark order as shipped",
+          "processors": [
+            {
+              "name": "notifyOrderShipped",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel",
+          "next": "cancelled",
+          "manual": true,
+          "description": "Manual cancellation after confirmation"
+        },
+        {
+          "name": "update_order",
+          "next": "confirmed",
+          "manual": true,
+          "description": "Update order details while confirmed"
+        }
+      ]
+    },
+    "shipped": {
+      "transitions": [
+        {
+          "name": "deliver_order",
+          "next": "delivered",
+          "manual": true,
+          "description": "Mark order as delivered",
+          "processors": [
+            {
+              "name": "notifyOrderDelivered",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel",
+          "next": "cancelled",
+          "manual": true,
+          "description": "Manual cancellation during shipping"
+        }
+      ]
+    },
+    "delivered": {
+      "transitions": [
+        {
+          "name": "request_return",
+          "next": "cancelled",
+          "manual": true,
+          "description": "Customer requests return after delivery"
+        }
+      ]
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
+
