@@ -48,11 +48,18 @@ public class Customer implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(org.cyoda.cloud.api.event.common.EntityMetadata metadata) {
         // Validate required fields
         return customerId != null && !customerId.trim().isEmpty() &&
                name != null && !name.trim().isEmpty() &&
                email != null && !email.trim().isEmpty() && isValidEmail(email);
+    }
+
+    /**
+     * Convenience method for validation without metadata
+     */
+    public boolean isValid() {
+        return isValid(null);
     }
     
     /**

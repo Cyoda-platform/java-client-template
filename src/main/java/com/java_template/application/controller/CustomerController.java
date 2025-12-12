@@ -478,3 +478,154 @@ public class CustomerController {
             return ResponseEntity.of(problemDetail).build();
         }
     }
+
+    /**
+     * Search customers by verification status
+     * GET /ui/customers/search/verification?status=SUCCESS
+     */
+    @GetMapping("/search/verification")
+    public ResponseEntity<List<EntityWithMetadata<Customer>>> searchCustomersByVerificationStatus(
+            @RequestParam String status,
+            @RequestParam(required = false) OffsetDateTime pointInTime) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Customer.ENTITY_NAME).withVersion(Customer.ENTITY_VERSION);
+            Date pointInTimeDate = pointInTime != null
+                ? Date.from(pointInTime.toInstant())
+                : null;
+
+            SimpleCondition simpleCondition = new SimpleCondition()
+                    .withJsonPath("$.verification.status")
+                    .withOperation(Operation.EQUALS)
+                    .withValue(objectMapper.valueToTree(status));
+
+            GroupCondition condition = new GroupCondition()
+                    .withOperator(GroupCondition.Operator.AND)
+                    .withConditions(List.of(simpleCondition));
+
+            List<EntityWithMetadata<Customer>> customers = entityService.search(modelSpec, condition, Customer.class, pointInTimeDate);
+            return ResponseEntity.ok(customers);
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to search customers by verification status '%s': %s", status, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Advanced search with multiple criteria
+     * POST /ui/customers/search/advanced
+     */
+    @PostMapping("/search/advanced")
+    public ResponseEntity<List<EntityWithMetadata<Customer>>> advancedSearch(
+            @RequestBody CustomerSearchRequest searchRequest) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Customer.ENTITY_NAME).withVersion(Customer.ENTITY_VERSION);
+            Date pointInTimeDate = searchRequest.getPointInTime() != null
+                ? Date.from(searchRequest.getPointInTime().toInstant())
+                : null;
+
+            // Build complex search condition
+            List<QueryCondition> conditions = new ArrayList<>();
+
+            if (searchRequest.getName() != null && !searchRequest.getName().trim().isEmpty()) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.name")
+                        .withOperation(Operation.CONTAINS)
+                        .withValue(objectMapper.valueToTree(searchRequest.getName())));
+            }
+
+            if (searchRequest.getEmail() != null && !searchRequest.getEmail().trim().isEmpty()) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.email")
+                        .withOperation(Operation.CONTAINS)
+                        .withValue(objectMapper.valueToTree(searchRequest.getEmail())));
+            }
+
+            if (searchRequest.getVerificationStatus() != null && !searchRequest.getVerificationStatus().trim().isEmpty()) {
+                conditions.add(new SimpleCondition()
+                        .withJsonPath("$.verification.status")
+                        .withOperation(Operation.EQUALS)
+                        .withValue(objectMapper.valueToTree(searchRequest.getVerificationStatus())));
+            }
+
+            if (conditions.isEmpty()) {
+                // No search criteria provided - return all customers
+                return ResponseEntity.ok(entityService.findAll(modelSpec, Customer.class, pointInTimeDate));
+            }
+
+            GroupCondition condition = new GroupCondition()
+                    .withOperator(GroupCondition.Operator.AND)
+                    .withConditions(conditions);
+            List<EntityWithMetadata<Customer>> customers = entityService.search(modelSpec, condition, Customer.class, pointInTimeDate);
+            return ResponseEntity.ok(customers);
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to perform advanced search: %s", e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete customer by technical UUID
+     * DELETE /ui/customers/{id}
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteCustomer(@PathVariable UUID id) {
+        try {
+            entityService.deleteById(id);
+            logger.info("Customer deleted with ID: {}", id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete customer with ID '%s': %s", id, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    /**
+     * Delete customer by business identifier
+     * DELETE /ui/customers/business/{customerId}
+     */
+    @DeleteMapping("/business/{customerId}")
+    public ResponseEntity<Void> deleteCustomerByBusinessId(@PathVariable String customerId) {
+        try {
+            ModelSpec modelSpec = new ModelSpec().withName(Customer.ENTITY_NAME).withVersion(Customer.ENTITY_VERSION);
+            boolean deleted = entityService.deleteByBusinessId(modelSpec, customerId, "customerId", Customer.class);
+
+            if (!deleted) {
+                return ResponseEntity.notFound().build();
+            }
+
+            logger.info("Customer deleted with business ID: {}", customerId);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                String.format("Failed to delete customer with business ID '%s': %s", customerId, e.getMessage())
+            );
+            return ResponseEntity.of(problemDetail).build();
+        }
+    }
+
+    // ========================================
+    // Request DTOs for specific operations
+    // ========================================
+
+    /**
+     * DTO for advanced search requests
+     */
+    @Getter
+    @Setter
+    public static class CustomerSearchRequest {
+        private String name;
+        private String email;
+        private String verificationStatus;
+        private OffsetDateTime pointInTime;
+    }
+}
