@@ -1,0 +1,50 @@
+Path for java installation '/usr/lib/jvm/openjdk-21' (Common Linux Locations) does not contain a java executable
+Path for java installation '/usr/lib/jvm/openjdk-17' (Common Linux Locations) does not contain a java executable
+> Task :clean
+> Task :extractProto
+> Task :processResources
+> Task :generateJsonSchema2Pojo
+> Task :extractIncludeProto
+> Task :generateProto
+> Task :generateEffectiveLombokConfig
+
+> Task :compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :classes
+> Task :bootJar
+> Task :bootStartScripts
+> Task :bootDistTar
+> Task :bootDistZip
+> Task :jar SKIPPED
+> Task :startScripts
+> Task :distTar
+> Task :distZip
+> Task :assemble
+> Task :extractIncludeTestProto
+> Task :extractTestProto
+> Task :generateTestProto NO-SOURCE
+> Task :processTestResources
+> Task :generateTestEffectiveLombokConfig
+
+> Task :compileTestJava
+Note: /tmp/cyoda_builds/7e8ce2d9-caa1-440b-a850-3f3483c128c3/src/test/java/com/java_template/common/serializer/EvaluationOutcomeTest.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :testClasses
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+> Task :test
+> Task :check
+> Task :build
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 15s
+21 actionable tasks: 21 executed
