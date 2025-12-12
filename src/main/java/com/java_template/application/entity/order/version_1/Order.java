@@ -63,13 +63,6 @@ public class Order implements CyodaEntity {
                items != null && !items.isEmpty() &&
                totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0;
     }
-
-    /**
-     * Convenience method for validation without metadata
-     */
-    public boolean isValid() {
-        return isValid(null);
-    }
     
     /**
      * Basic email validation

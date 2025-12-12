@@ -1,0 +1,9 @@
+{
+  "productId": "PROD-001",
+  "name": "Laptop Computer",
+  "price": 999.99,
+  "currency": "USD",
+  "inventory": 50,
+  "description": "High-performance laptop for professionals"
+}
+

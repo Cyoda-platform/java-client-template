@@ -1,99 +1,108 @@
 {
   "version": "1.0",
   "name": "Order",
-  "desc": "Order lifecycle workflow covering creation, confirmation, shipping, delivery, and cancellation",
+  "desc": "Order processing workflow: Created -> Validated -> Charged -> Completed -> Failed",
   "initialState": "initial",
   "active": true,
   "states": {
     "initial": {
       "transitions": [
         {
-          "name": "confirm_order",
-          "next": "confirmed",
+          "name": "validate_order",
+          "next": "validated",
           "manual": true,
-          "description": "Manual confirmation of order after validation"
-        },
-        {
-          "name": "cancel",
-          "next": "cancelled",
-          "manual": true,
-          "description": "Manual cancellation before confirmation"
-        }
-      ]
-    },
-    "confirmed": {
-      "transitions": [
-        {
-          "name": "ship_order",
-          "next": "shipped",
-          "manual": true,
-          "description": "Mark order as shipped",
+          "description": "Validate order inventory and total",
           "processors": [
             {
-              "name": "notifyOrderShipped",
+              "name": "ValidateOrder",
               "executionMode": "ASYNC_NEW_TX",
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 10000,
+                "responseTimeoutMs": 5000,
                 "retryPolicy": "FIXED"
               }
             }
           ]
         },
         {
-          "name": "cancel",
-          "next": "cancelled",
+          "name": "fail_order",
+          "next": "failed",
           "manual": true,
-          "description": "Manual cancellation after confirmation"
-        },
-        {
-          "name": "update_order",
-          "next": "confirmed",
-          "manual": true,
-          "description": "Update order details while confirmed"
+          "description": "Mark order as failed"
         }
       ]
     },
-    "shipped": {
+    "validated": {
       "transitions": [
         {
-          "name": "deliver_order",
-          "next": "delivered",
+          "name": "charge_payment",
+          "next": "charged",
           "manual": true,
-          "description": "Mark order as delivered",
+          "description": "Charge payment for order",
           "processors": [
             {
-              "name": "notifyOrderDelivered",
+              "name": "ChargePayment",
               "executionMode": "ASYNC_NEW_TX",
               "config": {
                 "attachEntity": true,
                 "calculationNodesTags": "cyoda_application",
-                "responseTimeoutMs": 10000,
+                "responseTimeoutMs": 5000,
                 "retryPolicy": "FIXED"
               }
             }
           ]
         },
         {
-          "name": "cancel",
-          "next": "cancelled",
+          "name": "fail_order",
+          "next": "failed",
           "manual": true,
-          "description": "Manual cancellation during shipping"
+          "description": "Mark order as failed"
         }
       ]
     },
-    "delivered": {
+    "charged": {
       "transitions": [
         {
-          "name": "request_return",
-          "next": "cancelled",
+          "name": "complete_order",
+          "next": "completed",
           "manual": true,
-          "description": "Customer requests return after delivery"
+          "description": "Complete order and update inventory",
+          "processors": [
+            {
+              "name": "PersistOrder",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "UpdateInventory",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail_order",
+          "next": "failed",
+          "manual": true,
+          "description": "Mark order as failed"
         }
       ]
     },
-    "cancelled": {
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
       "transitions": []
     }
   }

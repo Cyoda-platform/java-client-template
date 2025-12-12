@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "name": "Product",
+  "desc": "Product lifecycle workflow for inventory management",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "activate_product",
+          "next": "active",
+          "manual": true,
+          "description": "Activate product for sale"
+        },
+        {
+          "name": "discontinue",
+          "next": "discontinued",
+          "manual": true,
+          "description": "Discontinue product"
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_product",
+          "next": "active",
+          "manual": true,
+          "description": "Update product details"
+        },
+        {
+          "name": "discontinue",
+          "next": "discontinued",
+          "manual": true,
+          "description": "Discontinue product"
+        }
+      ]
+    },
+    "discontinued": {
+      "transitions": []
+    }
+  }
+}
+
