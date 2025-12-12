@@ -1,0 +1,37 @@
+Path for java installation '/usr/lib/jvm/openjdk-21' (Common Linux Locations) does not contain a java executable
+Path for java installation '/usr/lib/jvm/openjdk-17' (Common Linux Locations) does not contain a java executable
+> Task :clean
+> Task :extractProto
+> Task :processResources
+> Task :generateJsonSchema2Pojo
+> Task :extractIncludeProto
+> Task :generateProto
+> Task :check
+> Task :generateEffectiveLombokConfig
+
+> Task :compileJava
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :classes
+> Task :bootJar
+> Task :bootStartScripts
+> Task :bootDistTar
+> Task :bootDistZip
+> Task :jar SKIPPED
+> Task :startScripts
+> Task :distTar
+> Task :distZip
+> Task :assemble
+> Task :build
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 12s
+15 actionable tasks: 15 executed

@@ -1,0 +1,32 @@
+Path for java installation '/usr/lib/jvm/openjdk-17' (Common Linux Locations) does not contain a java executable
+Path for java installation '/usr/lib/jvm/openjdk-21' (Common Linux Locations) does not contain a java executable
+> Task :generateEffectiveLombokConfig UP-TO-DATE
+> Task :extractProto UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :generateJsonSchema2Pojo UP-TO-DATE
+> Task :extractIncludeProto UP-TO-DATE
+> Task :generateProto UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :extractIncludeTestProto
+> Task :extractTestProto
+> Task :generateTestProto NO-SOURCE
+> Task :processTestResources
+> Task :generateTestEffectiveLombokConfig
+
+> Task :compileTestJava
+Note: /tmp/cyoda_builds/7e8ce2d9-caa1-440b-a850-3f3483c128c3/src/test/java/com/java_template/common/serializer/EvaluationOutcomeTest.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :testClasses
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+> Task :test
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.7/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 6s
+13 actionable tasks: 6 executed, 7 up-to-date
