@@ -1,7 +1,20 @@
 {
-  "customer_id": "002",
-  "email": "jane.doe@example.com",
-  "id": "cust-001",
-  "name": "Jane Doe",
-  "phone": "+1-555-0123"
+  "customerId": "CUST-001",
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "phone": "+1-555-0123",
+  "metadata": {
+    "source": "web_registration",
+    "referralCode": "REF123",
+    "marketingConsent": true
+  },
+  "verification": {
+    "status": "NOT_STARTED",
+    "provider": "identity_verification_service",
+    "requestId": null,
+    "requestedAt": null,
+    "completedAt": null,
+    "failureReason": null,
+    "providerResponse": null
+  }
 }
