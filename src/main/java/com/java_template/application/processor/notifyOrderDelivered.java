@@ -56,7 +56,7 @@ public class notifyOrderDelivered implements CyodaProcessor {
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Order> entityWithMetadata) {
         Order order = entityWithMetadata.entity();
         UUID technicalId = entityWithMetadata.metadata().getId();
-        return order != null && order.isValid() && technicalId != null;
+        return order != null && order.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
     /**

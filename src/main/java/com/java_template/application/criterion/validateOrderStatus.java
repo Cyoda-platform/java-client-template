@@ -61,7 +61,7 @@ public class validateOrderStatus implements CyodaCriterion {
         }
 
         // Check if order is valid
-        if (!order.isValid()) {
+        if (!order.isValid(context.entityWithMetadata().metadata())) {
             logger.warn("Order entity is not valid: {}", order.getOrderId());
             return EvaluationOutcome.fail("Order entity is not valid", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
