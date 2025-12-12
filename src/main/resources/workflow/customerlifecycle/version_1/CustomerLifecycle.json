@@ -1,0 +1,244 @@
+{
+  "version": "1.0",
+  "name": "CustomerLifecycle",
+  "desc": "A comprehensive lifecycle workflow for Customer entity covering onboarding, verification, active management, suspension, and termination.",
+  "initialState": "initial_state",
+  "active": true,
+  "states": {
+    "initial_state": {
+      "transitions": [
+        {
+          "name": "start_onboarding",
+          "next": "onboarding",
+          "manual": false,
+          "description": "System-triggered onboarding flow initiation"
+        },
+        {
+          "name": "cancel",
+          "next": "terminated",
+          "manual": true,
+          "description": "Manual cancellation before onboarding"
+        }
+      ]
+    },
+    "onboarding": {
+      "transitions": [
+        {
+          "name": "request_verification",
+          "next": "verification_pending",
+          "manual": false,
+          "description": "Send verification request to external provider",
+          "processors": [
+            {
+              "name": "sendVerificationRequest",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "skip_verification",
+          "next": "active",
+          "manual": true,
+          "description": "Bypass verification with manual approval"
+        }
+      ]
+    },
+    "verification_pending": {
+      "transitions": [
+        {
+          "name": "verification_success",
+          "next": "verified",
+          "manual": false,
+          "description": "Automatic transition on successful verification",
+          "criterion": {
+            "type": "function",
+            "function": {
+              "name": "checkVerificationResult",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 15000,
+                "retryPolicy": "FIXED"
+              },
+              "criterion": {
+                "type": "simple",
+                "jsonPath": "$.verification.status",
+                "operation": "EQUALS",
+                "value": "SUCCESS"
+              }
+            }
+          }
+        },
+        {
+          "name": "verification_failed",
+          "next": "onboarding",
+          "manual": false,
+          "description": "Retry onboarding if verification fails",
+          "processors": [
+            {
+              "name": "logVerificationFailure",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": false,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel",
+          "next": "terminated",
+          "manual": true,
+          "description": "Manual cancellation during verification"
+        }
+      ]
+    },
+    "verified": {
+      "transitions": [
+        {
+          "name": "activate",
+          "next": "active",
+          "manual": false,
+          "description": "Auto-activate after verification",
+          "processors": [
+            {
+              "name": "grantInitialAccess",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 20000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "flag_for_review",
+          "next": "suspended",
+          "manual": true,
+          "description": "Manual flagging moves customer to suspended for review"
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "suspend",
+          "next": "suspended",
+          "manual": true,
+          "description": "Manual suspension due to compliance or issues",
+          "processors": [
+            {
+              "name": "notifySupport",
+              "executionMode": "ASYNC_SAME_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "LINEAR"
+              }
+            }
+          ]
+        },
+        {
+          "name": "update_details",
+          "next": "active",
+          "manual": true,
+          "description": "Manual update of customer details"
+        },
+        {
+          "name": "request_deactivation",
+          "next": "termination_pending",
+          "manual": false,
+          "description": "Scheduled deactivation workflow initiation",
+          "processors": [
+            {
+              "name": "scheduleDeactivation",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reinstate",
+          "next": "active",
+          "manual": true,
+          "description": "Manual reinstatement after issue resolution",
+          "processors": [
+            {
+              "name": "auditReinstate",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": false,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "terminate",
+          "next": "terminated",
+          "manual": true,
+          "description": "Manual termination from suspended"
+        }
+      ]
+    },
+    "termination_pending": {
+      "transitions": [
+        {
+          "name": "complete_termination",
+          "next": "terminated",
+          "manual": false,
+          "description": "Finalize termination after scheduled tasks",
+          "processors": [
+            {
+              "name": "revokeAccess",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 15000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            },
+            {
+              "name": "archiveCustomerData",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 60000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_termination",
+          "next": "active",
+          "manual": true,
+          "description": "Cancel a pending termination and return to active"
+        }
+      ]
+    },
+    "terminated": {
+      "transitions": []
+    }
+  }
+}
