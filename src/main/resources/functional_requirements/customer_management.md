@@ -1,8 +1,5 @@
 # Customer Management — Functional & UI Requirements
 
-## Overview
-This document defines the UI and functional requirements for the Customer Management system centered on the Customer entity and the CustomerLifecycle workflow. It covers screens, flows, form validation, roles, API interactions, notifications, and acceptance criteria.
-
 ## Goals
 - Provide an intuitive UI to manage customers through their lifecycle: onboarding, verification, active, suspended, termination.
 - Support both admin and user roles with appropriate permissions.
