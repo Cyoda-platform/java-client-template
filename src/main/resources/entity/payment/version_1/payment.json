@@ -1,0 +1,9 @@
+{
+  "paymentId": "PAY-001",
+  "cartId": "CART-001",
+  "amount": 699.99,
+  "status": "INITIATED",
+  "provider": "DUMMY",
+  "createdAt": "2025-08-20T09:06:00Z",
+  "updatedAt": "2025-08-20T09:06:00Z"
+}

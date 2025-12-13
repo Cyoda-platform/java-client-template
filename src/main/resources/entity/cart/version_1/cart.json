@@ -1,0 +1,10 @@
+{
+  "cartId": "CART-001",
+  "status": "ACTIVE",
+  "lines": [ { "sku": "PROD-001", "name": "Acme Phone X", "price": 699.99, "qty": 1 } ],
+  "totalItems": 1,
+  "grandTotal": 699.99,
+  "guestContact": { "name": "Jane Doe", "email": "jane@example.com", "phone": "+447700900000", "address": { "line1": "1 Example St", "city": "London", "postcode": "SW1A 1AA", "country": "GB" } },
+  "createdAt": "2025-08-20T09:00:00Z",
+  "updatedAt": "2025-08-20T09:05:00Z"
+}

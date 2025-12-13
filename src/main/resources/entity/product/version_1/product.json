@@ -1,0 +1,36 @@
+{
+  "sku": "PROD-001",
+  "name": "Acme Phone X",
+  "description": "Flagship smartphone with OLED display and 256GB storage.",
+  "price": 699.99,
+  "quantityAvailable": 150,
+  "category": "electronics",
+  "warehouseId": "LON-01",
+  "attributes": {
+    "brand": "Acme",
+    "model": "Phone X",
+    "dimensions": { "l": 15.0, "w": 7.0, "h": 0.8, "unit": "cm" },
+    "weight": { "value": 0.18, "unit": "kg" },
+    "hazards": [],
+    "custom": { "colorOptions": ["black", "silver"] }
+  },
+  "localizations": {
+    "defaultLocale": "en-GB",
+    "content": [
+      { "locale": "en-GB", "name": "Acme Phone X", "description": "Top-tier smartphone", "regulatory": { "ukca": true } }
+    ]
+  },
+  "media": [
+    { "type": "image", "url": "https://example.com/images/prod-001.jpg", "alt": "Acme Phone X", "tags": ["hero"], "sha256": "" }
+  ],
+  "options": {
+    "axes": [ { "code": "color", "values": ["black","silver"] }, { "code": "capacity", "values": ["128GB","256GB"] } ],
+    "constraints": []
+  },
+  "variants": [ { "variantSku": "PROD-001-BLK-256", "optionValues": { "color": "black", "capacity": "256GB" }, "attributes": { "weight": { "value": 0.18, "unit": "kg" } }, "barcodes": ["EAN:1234567890123"] } ],
+  "bundles": [],
+  "inventory": { "nodes": [ { "nodeId": "LON-01", "type": "Warehouse", "capacity": { "maxUnits": 100000 }, "lots": [ { "lotId": "LOT-A1", "qty": 150 } ] } ] },
+  "compliance": {},
+  "relationships": { "suppliers": [], "relatedProducts": [] },
+  "events": []
+}
