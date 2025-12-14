@@ -194,6 +194,11 @@ public class GrpcConnectionMonitor implements EventTracker, ConnectionStateTrack
         );
     }
 
+    @Override
+    public ObserverState getLastObserverState() {
+        return lastObserverState.get();
+    }
+
     public record GrpcMonitoringState(
             ConnectivityState connectionState,
             ObserverState observerState,

@@ -16,4 +16,6 @@ public interface ConnectionStateTracker {
             Supplier<ConnectivityState> newStateProvider,
             BiConsumer<ConnectivityState, Runnable> initNextListener
     );
+
+    ObserverState getLastObserverState();
 }
