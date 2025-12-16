@@ -1,0 +1,20 @@
+{
+  "orderId": "ORD-20251216-001234",
+  "accountId": "ACC-12345",
+  "instrument": "AAPL",
+  "type": "LIMIT",
+  "side": "BUY",
+  "price": 245.50,
+  "size": 100,
+  "filledSize": 75,
+  "status": "PARTIALLY_FILLED",
+  "createdAt": "2025-12-16T09:30:15Z",
+  "updatedAt": "2025-12-16T09:31:45Z",
+  "expiryTime": "2025-12-16T16:00:00Z",
+  "timeInForce": "DAY",
+  "orderRef": "CLIENT-REF-5678",
+  "avgFillPrice": 245.48,
+  "commission": 18.75,
+  "notes": "Buy order for portfolio rebalancing"
+}
+

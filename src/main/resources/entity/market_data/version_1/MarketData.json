@@ -1,0 +1,18 @@
+{
+  "marketDataId": "MD-AAPL-20251216-093000",
+  "symbol": "AAPL",
+  "timestamp": "2025-12-16T09:30:00Z",
+  "bid": 245.50,
+  "ask": 245.55,
+  "last": 245.52,
+  "volume": 2850000,
+  "source": "NASDAQ",
+  "bidSize": 15000,
+  "askSize": 12500,
+  "openPrice": 244.80,
+  "highPrice": 246.25,
+  "lowPrice": 244.50,
+  "closePrice": 245.52,
+  "vwap": 245.35
+}
+

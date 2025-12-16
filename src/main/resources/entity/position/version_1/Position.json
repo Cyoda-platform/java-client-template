@@ -1,0 +1,19 @@
+{
+  "positionId": "POS-ACC-12345-AAPL",
+  "accountId": "ACC-12345",
+  "instrument": "AAPL",
+  "quantity": 500,
+  "avgCostPrice": 242.75,
+  "currentPrice": 245.52,
+  "marketValue": 122760.00,
+  "costBasis": 121375.00,
+  "unrealizedPnl": 1385.00,
+  "realizedPnl": 245.50,
+  "totalPnl": 1630.50,
+  "pnlPercent": 1.34,
+  "lastUpdated": "2025-12-16T09:31:45Z",
+  "openDate": "2025-11-15T10:00:00Z",
+  "currency": "USD",
+  "status": "OPEN"
+}
+

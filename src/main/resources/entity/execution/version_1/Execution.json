@@ -1,0 +1,19 @@
+{
+  "executionId": "EXEC-20251216-005678",
+  "orderId": "ORD-20251216-001234",
+  "accountId": "ACC-12345",
+  "instrument": "AAPL",
+  "execPrice": 245.48,
+  "execSize": 75,
+  "venue": "NASDAQ",
+  "timestamp": "2025-12-16T09:31:45Z",
+  "side": "BUY",
+  "execType": "TRADE",
+  "brokerRef": "BROKER-EXEC-9876",
+  "counterparty": "MARKET_MAKER_XYZ",
+  "commission": 18.75,
+  "fees": 2.50,
+  "settlementDate": "2025-12-18",
+  "status": "CONFIRMED"
+}
+
