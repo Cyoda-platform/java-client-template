@@ -1,0 +1,23 @@
+{
+  "settlementInstructionId": "SETTLE-001",
+  "tradeId": "TRD-001",
+  "portfolioId": "PORT-001",
+  "instrumentSymbol": "AAPL",
+  "side": "BUY",
+  "quantity": 100,
+  "settlementPrice": 150.00,
+  "settlementAmount": 15000.00,
+  "settlementDate": "2025-12-18T00:00:00",
+  "deliveryDate": "2025-12-18T00:00:00",
+  "settlementStatus": "PENDING",
+  "counterparty": "NASDAQ",
+  "clearingHouse": "DTCC",
+  "depository": "DTC",
+  "deliveryInstructions": "Deliver to account 123456",
+  "paymentInstructions": "Wire transfer to account 789012",
+  "reconciliationStatus": "PENDING",
+  "failureReason": null,
+  "createdAt": "2025-12-16T10:30:00",
+  "updatedAt": "2025-12-16T10:30:00"
+}
+

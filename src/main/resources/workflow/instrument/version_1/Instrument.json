@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "name": "Instrument",
+  "desc": "Instrument lifecycle workflow for equities and derivatives",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_instrument",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_instrument",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "InstrumentUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend_instrument",
+          "next": "suspended",
+          "manual": true
+        },
+        {
+          "name": "deactivate_instrument",
+          "next": "inactive",
+          "manual": true
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_instrument",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    },
+    "inactive": {
+      "transitions": []
+    }
+  }
+}
+

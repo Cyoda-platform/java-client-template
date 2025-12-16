@@ -1,0 +1,19 @@
+{
+  "userId": "USER-001",
+  "name": "John Trader",
+  "email": "john.trader@example.com",
+  "phone": "+1-555-0123",
+  "role": "TRADER",
+  "permissions": ["CREATE_ORDER", "CANCEL_ORDER", "VIEW_PORTFOLIO", "VIEW_POSITIONS"],
+  "accountStatus": "ACTIVE",
+  "lastLoginTime": "2025-12-16T09:00:00",
+  "createdAt": "2025-12-01T10:00:00",
+  "updatedAt": "2025-12-16T10:00:00",
+  "passwordChangedAt": "2025-12-01T10:00:00",
+  "failedLoginAttempts": 0,
+  "lockedUntil": null,
+  "twoFactorEnabled": true,
+  "department": "Trading",
+  "managerId": "USER-ADMIN-001"
+}
+

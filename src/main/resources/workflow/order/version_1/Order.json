@@ -1,0 +1,223 @@
+{
+  "version": "1.0",
+  "name": "Order",
+  "desc": "Order lifecycle workflow: NEW -> ACK -> ROUTED -> FILLED/PARTIAL_FILL -> CANCELLED/REJECTED",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_order",
+          "next": "new",
+          "manual": false
+        }
+      ]
+    },
+    "new": {
+      "transitions": [
+        {
+          "name": "validate_order",
+          "next": "ack",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderValidationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ],
+          "criteria": [
+            {
+              "name": "OrderValidationCriterion"
+            }
+          ]
+        },
+        {
+          "name": "reject_order",
+          "next": "rejected",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderRejectionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "ack": {
+      "transitions": [
+        {
+          "name": "route_order",
+          "next": "routed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderRoutingProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_order",
+          "next": "cancelled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderCancellationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "routed": {
+      "transitions": [
+        {
+          "name": "fill_order",
+          "next": "filled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderExecutionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "partial_fill_order",
+          "next": "partial_fill",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderExecutionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_order",
+          "next": "cancelled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderCancellationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "partial_fill": {
+      "transitions": [
+        {
+          "name": "fill_order",
+          "next": "filled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderExecutionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_order",
+          "next": "cancelled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderCancellationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "filled": {
+      "transitions": [
+        {
+          "name": "confirm_execution",
+          "next": "confirmed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "OrderConfirmationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    },
+    "rejected": {
+      "transitions": []
+    }
+  }
+}
+

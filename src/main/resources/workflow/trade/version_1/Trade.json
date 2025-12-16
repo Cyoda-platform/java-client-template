@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "name": "Trade",
+  "desc": "Trade lifecycle workflow: EXECUTED -> CONFIRMED -> SETTLED",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_trade",
+          "next": "executed",
+          "manual": false
+        }
+      ]
+    },
+    "executed": {
+      "transitions": [
+        {
+          "name": "confirm_trade",
+          "next": "confirmed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "TradeConfirmationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "settle_trade",
+          "next": "settled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "TradeSettlementProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "settled": {
+      "transitions": []
+    }
+  }
+}
+
