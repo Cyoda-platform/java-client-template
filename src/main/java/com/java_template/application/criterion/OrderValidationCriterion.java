@@ -1,9 +1,11 @@
 package com.java_template.application.criterion;
 
 import com.java_template.application.entity.order.version_1.Order;
-import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.CriterionSerializer;
+import com.java_template.common.serializer.EvaluationOutcome;
+import com.java_template.common.serializer.ReasonAttachmentStrategy;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.serializer.StandardEvalReasonCategories;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
@@ -25,18 +27,17 @@ public class OrderValidationCriterion implements CyodaCriterion {
     private final CriterionSerializer serializer;
 
     public OrderValidationCriterion(SerializerFactory serializerFactory) {
-        this.serializer = serializerFactory.getDefaultCriterionSerializer();
+        this.serializer = serializerFactory.getDefaultCriteriaSerializer();
     }
 
     @Override
-    public EntityCriteriaCalculationResponse evaluate(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+    public EntityCriteriaCalculationResponse check(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
         EntityCriteriaCalculationRequest request = context.getEvent();
-        logger.info("Evaluating OrderValidationCriterion for request: {}", request.getId());
+        logger.info("Checking OrderValidationCriterion for request: {}", request.getId());
 
         return serializer.withRequest(request)
-                .toEntityWithMetadata(Order.class)
-                .validate(this::isValidEntityWithMetadata, "Invalid order wrapper")
-                .map(this::evaluateOrder)
+                .evaluateEntity(Order.class, this::validateOrder)
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
                 .complete();
     }
 
@@ -45,30 +46,25 @@ public class OrderValidationCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntityWithMetadata(EntityWithMetadata<Order> entityWithMetadata) {
-        Order entity = entityWithMetadata.entity();
-        return entity != null && entity.isValid(entityWithMetadata.metadata()) &&
-               entityWithMetadata.metadata().getId() != null;
-    }
+    private EvaluationOutcome validateOrder(
+            CriterionSerializer.CriterionEntityEvaluationContext<Order> context) {
 
-    private boolean evaluateOrder(
-            CriterionSerializer.CriterionEntityResponseExecutionContext<Order> context) {
+        Order order = context.entityWithMetadata().entity();
 
-        EntityWithMetadata<Order> entityWithMetadata = context.entityResponse();
-        Order order = entityWithMetadata.entity();
-
-        logger.debug("Evaluating order: {} for validation", order.getOrderId());
+        logger.debug("Validating order: {} for routing", order.getOrderId());
 
         // Check order quantity
         if (order.getQuantity() == null || order.getQuantity() <= 0) {
             logger.warn("Order {} has invalid quantity: {}", order.getOrderId(), order.getQuantity());
-            return false;
+            return EvaluationOutcome.fail("Order quantity must be positive",
+                    StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check order side
         if (!"BUY".equals(order.getSide()) && !"SELL".equals(order.getSide())) {
             logger.warn("Order {} has invalid side: {}", order.getOrderId(), order.getSide());
-            return false;
+            return EvaluationOutcome.fail("Order side must be BUY or SELL",
+                    StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check order type
@@ -82,17 +78,19 @@ public class OrderValidationCriterion implements CyodaCriterion {
         }
         if (!validType) {
             logger.warn("Order {} has invalid type: {}", order.getOrderId(), order.getOrderType());
-            return false;
+            return EvaluationOutcome.fail("Invalid order type",
+                    StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         // Check limit price for limit orders
         if ("LIMIT".equals(order.getOrderType()) && order.getLimitPrice() == null) {
             logger.warn("Order {} is LIMIT but has no limit price", order.getOrderId());
-            return false;
+            return EvaluationOutcome.fail("Limit price required for LIMIT orders",
+                    StandardEvalReasonCategories.BUSINESS_RULE_FAILURE);
         }
 
         logger.info("Order {} validation passed", order.getOrderId());
-        return true;
+        return EvaluationOutcome.success();
     }
 }
 
