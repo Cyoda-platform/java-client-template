@@ -7,8 +7,8 @@ import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
-import org.cyoda.cloud.api.event.processing.CriterionCalculationRequest;
-import org.cyoda.cloud.api.event.processing.CriterionCalculationResponse;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,8 +29,8 @@ public class OrderValidationCriterion implements CyodaCriterion {
     }
 
     @Override
-    public CriterionCalculationResponse evaluate(CyodaEventContext<CriterionCalculationRequest> context) {
-        CriterionCalculationRequest request = context.getEvent();
+    public EntityCriteriaCalculationResponse evaluate(CyodaEventContext<EntityCriteriaCalculationRequest> context) {
+        EntityCriteriaCalculationRequest request = context.getEvent();
         logger.info("Evaluating OrderValidationCriterion for request: {}", request.getId());
 
         return serializer.withRequest(request)
