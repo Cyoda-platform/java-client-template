@@ -1,0 +1,31 @@
+{
+  "version": "1.0",
+  "name": "AuditLog",
+  "desc": "Audit log workflow: RECORDED -> ARCHIVED (immutable)",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "record_event",
+          "next": "recorded",
+          "manual": false
+        }
+      ]
+    },
+    "recorded": {
+      "transitions": [
+        {
+          "name": "archive_log",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}
+

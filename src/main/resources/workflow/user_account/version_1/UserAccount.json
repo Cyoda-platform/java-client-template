@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "name": "UserAccount",
+  "desc": "User account lifecycle workflow: ACTIVE -> SUSPENDED -> INACTIVE",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_account",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_account",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "UserAccountUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend_account",
+          "next": "suspended",
+          "manual": true
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_account",
+          "next": "active",
+          "manual": true
+        },
+        {
+          "name": "deactivate_account",
+          "next": "inactive",
+          "manual": true
+        }
+      ]
+    },
+    "inactive": {
+      "transitions": []
+    }
+  }
+}
+

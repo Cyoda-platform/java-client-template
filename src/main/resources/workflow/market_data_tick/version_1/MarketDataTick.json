@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "name": "MarketDataTick",
+  "desc": "Market data tick workflow: INGESTED -> NORMALIZED -> ARCHIVED",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "ingest_tick",
+          "next": "ingested",
+          "manual": false
+        }
+      ]
+    },
+    "ingested": {
+      "transitions": [
+        {
+          "name": "normalize_tick",
+          "next": "normalized",
+          "manual": true,
+          "processors": [
+            {
+              "name": "MarketDataNormalizationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "normalized": {
+      "transitions": [
+        {
+          "name": "archive_tick",
+          "next": "archived",
+          "manual": true
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}
+

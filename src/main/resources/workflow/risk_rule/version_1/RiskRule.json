@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "name": "RiskRule",
+  "desc": "Risk rule lifecycle workflow: ACTIVE -> INACTIVE",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_rule",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_rule",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "RiskRuleUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "deactivate_rule",
+          "next": "inactive",
+          "manual": true
+        }
+      ]
+    },
+    "inactive": {
+      "transitions": [
+        {
+          "name": "reactivate_rule",
+          "next": "active",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
+

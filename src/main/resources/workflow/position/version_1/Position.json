@@ -1,0 +1,77 @@
+{
+  "version": "1.0",
+  "name": "Position",
+  "desc": "Position lifecycle workflow: OPEN -> CLOSED",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_position",
+          "next": "open",
+          "manual": false
+        }
+      ]
+    },
+    "open": {
+      "transitions": [
+        {
+          "name": "update_position",
+          "next": "open",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PositionUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "mark_to_market",
+          "next": "open",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PositionMarkToMarketProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "close_position",
+          "next": "closed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PositionClosureProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}
+

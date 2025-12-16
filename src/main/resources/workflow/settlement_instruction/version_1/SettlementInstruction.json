@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "name": "SettlementInstruction",
+  "desc": "Settlement instruction workflow: PENDING -> MATCHED -> CONFIRMED -> SETTLED",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_instruction",
+          "next": "pending",
+          "manual": false
+        }
+      ]
+    },
+    "pending": {
+      "transitions": [
+        {
+          "name": "match_instruction",
+          "next": "matched",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SettlementMatchingProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "matched": {
+      "transitions": [
+        {
+          "name": "confirm_instruction",
+          "next": "confirmed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SettlementConfirmationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "confirmed": {
+      "transitions": [
+        {
+          "name": "settle_instruction",
+          "next": "settled",
+          "manual": true,
+          "processors": [
+            {
+              "name": "SettlementExecutionProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "settled": {
+      "transitions": []
+    }
+  }
+}
+

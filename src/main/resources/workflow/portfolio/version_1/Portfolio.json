@@ -1,0 +1,79 @@
+{
+  "version": "1.0",
+  "name": "Portfolio",
+  "desc": "Portfolio lifecycle workflow: ACTIVE -> SUSPENDED -> CLOSED",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "create_portfolio",
+          "next": "active",
+          "manual": false
+        }
+      ]
+    },
+    "active": {
+      "transitions": [
+        {
+          "name": "update_portfolio",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PortfolioUpdateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "mark_to_market",
+          "next": "active",
+          "manual": true,
+          "processors": [
+            {
+              "name": "PortfolioMarkToMarketProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "suspend_portfolio",
+          "next": "suspended",
+          "manual": true
+        }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "reactivate_portfolio",
+          "next": "active",
+          "manual": true
+        },
+        {
+          "name": "close_portfolio",
+          "next": "closed",
+          "manual": true
+        }
+      ]
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}
+
