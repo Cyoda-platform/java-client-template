@@ -61,3 +61,18 @@ A Cyoda-based real-time trading platform for equities and derivatives providing:
 - Define entity JSON examples and versioned workflow definitions in Canvas
 - Create risk rules, surveillance checks, and test data feeds
 - Generate the Java application and deploy to a Cyoda environment
+
+---
+
+## FIX & Venue Connectivity
+- Overview: Support low-latency, reliable connectivity to execution venues and brokers via FIX (and optional REST/websocket adapters). Provide session management, message mapping, sequencing, and recovery to ensure no loss or duplication of orders/executions.
+- Supported protocols & versions: FIX 4.2, 4.4, and FIXT 1.1/EP (gateway support for future versions). REST/Websocket adapters for non-FIX venues.
+- Session management: Persistent sessions with configurable reconnect/backoff, sequence number persistence, gap detection, resend handling, and end-of-day reset policies.
+- Message handling & mappings: Canonical internal message model; venue-specific mapping layers for order/new, cancel/replace, execution reports, market data. Support custom field mappings per venue.
+- Reliability & ordering: Exactly-once semantics for order acceptance and trade events where required; idempotent processing of duplicate messages and robust handling of out-of-order messages via sequencing and application-level dedup keys.
+- Failover & high-availability: Active/passive or active/active gateway configurations, automatic failover, and hot-standby session takeover with minimal message loss.
+- Security & authentication: TLS for transport, mutual TLS or token-based authentication to venue gateways as required, and secure storage/rotation for venue credentials.
+- Monitoring & observability: Per-venue metrics (latency, message rates, session state), alerts for sequence gaps/resends, and audit logs of raw FIX messages for compliance & replay.
+- Testing & certification: Facilities for venue certification tests and a sandbox connectivity mode (replay of historical messages, synthetic traffic) to validate mappings and failover.
+- Configuration: Per-venue configuration registry (host, port, protocol, credentials, FIX dialect, mappings, heartbeat and resend settings) manageable via Canvas/Cloud or config files.
+- Non-functional targets: Document expected per-venue connection latency SLAs, maximum message throughput per connection, and recovery RTO/RPO for session state.
