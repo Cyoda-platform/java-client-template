@@ -31,11 +31,6 @@
                 "retryPolicy": "FIXED"
               }
             }
-          ],
-          "criteria": [
-            {
-              "name": "OrderValidationCriterion"
-            }
           ]
         },
         {
