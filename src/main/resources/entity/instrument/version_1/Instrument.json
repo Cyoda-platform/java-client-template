@@ -1,0 +1,23 @@
+{
+  "symbol": "AAPL",
+  "instrumentType": "EQUITY",
+  "exchange": "NASDAQ",
+  "description": "Apple Inc. Common Stock",
+  "currency": "USD",
+  "currentPrice": 150.25,
+  "bidPrice": 150.20,
+  "askPrice": 150.30,
+  "lastTradePrice": 150.25,
+  "volume": 50000000,
+  "underlyingSymbol": null,
+  "strikePrice": null,
+  "expirationDate": null,
+  "optionType": null,
+  "greeks": null,
+  "lotSize": 1,
+  "tickSize": 0.01,
+  "status": "ACTIVE",
+  "createdAt": "2025-12-16T10:00:00",
+  "updatedAt": "2025-12-16T10:00:00"
+}
+
