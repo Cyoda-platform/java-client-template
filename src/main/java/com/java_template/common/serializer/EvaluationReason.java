@@ -3,7 +3,7 @@ package com.java_template.common.serializer;
 /**
  * ABOUTME: Represents the reason for an evaluation failure in the EvaluationChain.
  * Provides context about why an evaluation failed, enabling detailed feedback.
- *
+ *<p>
  * Evaluation reason for criterion operations.
  * Contains information about why an evaluation failed.
  */
@@ -11,7 +11,7 @@ public record EvaluationReason(
     String reason,
     String category
 ) {
-    
+
     /**
      * Creates an EvaluationReason for a failed evaluation.
      *
@@ -63,7 +63,7 @@ public record EvaluationReason(
     public static EvaluationReason dataQualityFailure(String reason) {
         return new EvaluationReason(reason, StandardEvalReasonCategories.DATA_QUALITY_FAILURE.getCode());
     }
-    
+
     /**
      * Formats the reason for display.
      *

@@ -2,8 +2,6 @@ package com.java_template.common.serializer;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 
 import java.util.function.Supplier;
 
@@ -210,12 +208,12 @@ class EvaluationOutcomeTest {
         EvaluationOutcome structuralCheck = EvaluationOutcome.success();
         EvaluationOutcome businessRuleCheck = EvaluationOutcome.success();
         EvaluationOutcome dataQualityCheck = EvaluationOutcome.Fail.dataQualityFailure("Invalid data format");
-        
+
         // When - chain with AND logic (all must pass)
         EvaluationOutcome strictValidation = structuralCheck
             .and(businessRuleCheck)
             .and(dataQualityCheck);
-        
+
         // When - chain with OR logic (any can pass)
         EvaluationOutcome lenientValidation = structuralCheck
             .or(businessRuleCheck)

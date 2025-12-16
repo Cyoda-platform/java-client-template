@@ -22,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class SslUtils {
     private static final Logger logger = LoggerFactory.getLogger(SslUtils.class);
@@ -130,11 +131,11 @@ public class SslUtils {
     /**
      * Creates an SSLContext based on configuration
      */
-    public static SSLContext createSelectiveSSLContext() throws NoSuchAlgorithmException {
-        List<String> trustedHosts = Config.getTrustedHosts();
-        boolean shouldTrustAll = Config.SSL_TRUST_ALL || !trustedHosts.isEmpty();
+    public static SSLContext createSelectiveSSLContext(Config config) throws NoSuchAlgorithmException {
+        List<String> trustedHosts = config.getTrustedHosts();
+        boolean shouldTrustAll = config.isSslTrustAll() || !trustedHosts.isEmpty();
 
-        if (Config.SSL_TRUST_ALL) {
+        if (config.isSslTrustAll()) {
             logger.warn("SSL_TRUST_ALL is enabled - this should only be used in development!");
         } else if (!trustedHosts.isEmpty()) {
             logger.info("SSL configured to trust specific hosts: {}", trustedHosts);
@@ -152,7 +153,7 @@ public class SslUtils {
 
             logger.info(
                     "Created permissive SSL context (trustAll={}, trustedHosts={})",
-                    Config.SSL_TRUST_ALL,
+                    config.isSslTrustAll(),
                     trustedHosts
             );
             return sslContext;
@@ -192,13 +193,13 @@ public class SslUtils {
     /**
      * Creates a Java 11+ HttpClient with custom SSL configuration
      */
-    public static java.net.http.HttpClient createHttpClient() {
+    public static java.net.http.HttpClient createHttpClient(Config config) {
         try {
-            SSLContext sslContext = createSelectiveSSLContext();
+            SSLContext sslContext = createSelectiveSSLContext(config);
             java.net.http.HttpClient.Builder builder = java.net.http.HttpClient.newBuilder().sslContext(sslContext);
 
-            List<String> trustedHosts = Config.getTrustedHosts();
-            if (Config.SSL_TRUST_ALL || !trustedHosts.isEmpty()) {
+            List<String> trustedHosts = config.getTrustedHosts();
+            if (config.isSslTrustAll() || !trustedHosts.isEmpty()) {
                 logger.info("HttpClient configured with custom SSL settings for hosts: {}", trustedHosts);
             }
 
@@ -212,13 +213,13 @@ public class SslUtils {
     /**
      * Creates an Apache HttpClient with custom SSL configuration
      */
-    public static CloseableHttpClient createApacheHttpClient() {
+    public static CloseableHttpClient createApacheHttpClient(Config config) {
         try {
-            SSLContext sslContext = createSelectiveSSLContext();
-            List<String> trustedHosts = Config.getTrustedHosts();
+            SSLContext sslContext = createSelectiveSSLContext(config);
+            List<String> trustedHosts = config.getTrustedHosts();
 
             HostnameVerifier hostnameVerifier;
-            if (Config.SSL_TRUST_ALL) {
+            if (config.isSslTrustAll()) {
                 hostnameVerifier = NoopHostnameVerifier.INSTANCE;
                 logger.warn("Using NoopHostnameVerifier - this should only be used in development!");
             } else if (!trustedHosts.isEmpty()) {
@@ -241,19 +242,22 @@ public class SslUtils {
     }
 
     /**
-     * Creates a gRPC ManagedChannelBuilder with custom SSL configuration
+     * Creates a gRPC ManagedChannelBuilder with custom SSL configuration and performance tuning
      */
     public static ManagedChannelBuilder<?> createGrpcChannelBuilder(
             final String host,
             final int port,
-            final boolean avoidSsl
+            final boolean avoidSsl,
+            final Config config
     ) {
         try {
-            if (Config.SSL_TRUST_ALL || shouldTrustHost(host)) {
+            NettyChannelBuilder channelBuilder;
+
+            if (config.isSslTrustAll() || shouldTrustHost(host, config)) {
                 logger.info("Configuring gRPC channel to trust host: {} (self-signed certificates allowed)", host);
 
                 // Create an SSL context that trusts all certificates
-                if (Config.SSL_TRUST_ALL) {
+                if (config.isSslTrustAll()) {
                     logger.warn("Creating gRPC channel with InsecureTrustManagerFactory - DEVELOPMENT ONLY!");
                 } else {
                     // For specific trusted hosts, we still use the insecure trust manager
@@ -265,19 +269,42 @@ public class SslUtils {
                         .build();
 
                 if (avoidSsl) {
-                    return NettyChannelBuilder.forAddress(host, port);
+                    channelBuilder = NettyChannelBuilder.forAddress(host, port);
                 } else {
-                    return NettyChannelBuilder.forAddress(host, port).sslContext(sslContext);
+                    channelBuilder = NettyChannelBuilder.forAddress(host, port).sslContext(sslContext);
                 }
             } else {
                 if (avoidSsl) {
                     logger.debug("Skip using security for host: {}", host);
-                    return ManagedChannelBuilder.forAddress(host, port).usePlaintext();
+                    channelBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext();
                 } else {
                     logger.debug("Using default transport security for host: {}", host);
-                    return ManagedChannelBuilder.forAddress(host, port).useTransportSecurity();
+                    channelBuilder = NettyChannelBuilder.forAddress(host, port);
                 }
             }
+
+            // Apply performance tuning parameters to handle high-volume operations
+            channelBuilder
+                    .maxInboundMessageSize(config.getGrpcMaxInboundMessageSize())
+                    .maxInboundMetadataSize(config.getGrpcMaxInboundMetadataSize())
+                    .keepAliveTime(config.getGrpcKeepAliveTimeSeconds(), TimeUnit.SECONDS)
+                    .keepAliveTimeout(config.getGrpcKeepAliveTimeoutSeconds(), TimeUnit.SECONDS)
+                    .idleTimeout(config.getGrpcIdleTimeoutSeconds(), TimeUnit.SECONDS)
+                    .keepAliveWithoutCalls(true)  // Keep connection alive even without active calls
+                    // CRITICAL: Set HTTP/2 flow control window to handle burst traffic
+                    // This prevents RST_STREAM errors when 1000+ workflow events arrive simultaneously
+                    .flowControlWindow(config.getGrpcFlowControlWindow())
+                    .initialFlowControlWindow(config.getGrpcFlowControlWindow());  // Set initial window size too
+
+            logger.info("gRPC channel configured: maxInboundMessageSize={}MB, flowControlWindow={}MB, initialFlowControlWindow={}MB, keepAliveTime={}s, keepAliveWithoutCalls=true, threadPools=[processor={}, criteria={}]",
+                    config.getGrpcMaxInboundMessageSize() / (1024 * 1024),
+                    config.getGrpcFlowControlWindow() / (1024 * 1024),
+                    config.getGrpcFlowControlWindow() / (1024 * 1024),
+                    config.getGrpcKeepAliveTimeSeconds(),
+                    config.getProcessorThreadPool(),
+                    config.getCriteriaThreadPool());
+
+            return channelBuilder;
         } catch (Exception e) {
             logger.error(
                     "Failed to configure gRPC SSL for {}:{}, falling back to default: {}",
@@ -285,24 +312,35 @@ public class SslUtils {
                     port,
                     e.getMessage()
             );
+            NettyChannelBuilder fallbackBuilder;
             if (avoidSsl) {
-                return ManagedChannelBuilder.forAddress(host, port).usePlaintext();
+                fallbackBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext();
             } else {
-                return ManagedChannelBuilder.forAddress(host, port).useTransportSecurity();
+                fallbackBuilder = NettyChannelBuilder.forAddress(host, port);
             }
+            // Still apply performance tuning even in fallback case
+            return fallbackBuilder
+                    .maxInboundMessageSize(config.getGrpcMaxInboundMessageSize())
+                    .maxInboundMetadataSize(config.getGrpcMaxInboundMetadataSize())
+                    .flowControlWindow(config.getGrpcFlowControlWindow())
+                    .initialFlowControlWindow(config.getGrpcFlowControlWindow())
+                    .keepAliveTime(config.getGrpcKeepAliveTimeSeconds(), TimeUnit.SECONDS)
+                    .keepAliveTimeout(config.getGrpcKeepAliveTimeoutSeconds(), TimeUnit.SECONDS)
+                    .keepAliveWithoutCalls(true)
+                    .idleTimeout(config.getGrpcIdleTimeoutSeconds(), TimeUnit.SECONDS);
         }
     }
 
     /**
      * Check if a host should be trusted based on configuration
      */
-    public static boolean shouldTrustHost(String host) {
-        if (Config.SSL_TRUST_ALL) {
+    public static boolean shouldTrustHost(String host, Config config) {
+        if (config.isSslTrustAll()) {
             logger.debug("Trusting host {} due to SSL_TRUST_ALL=true", host);
             return true;
         }
 
-        List<String> trustedHosts = Config.getTrustedHosts();
+        List<String> trustedHosts = config.getTrustedHosts();
         if (trustedHosts.isEmpty()) {
             return false;
         }

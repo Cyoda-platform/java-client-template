@@ -1,6 +1,8 @@
 plugins {
     id 'java'
     id 'application'
+    id 'org.jetbrains.kotlin.jvm' version '2.2.21'
+    id 'org.jetbrains.kotlin.plugin.spring' version '2.2.21'
     id 'org.springframework.boot' version '3.5.3'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'io.freefair.lombok' version '8.4'
@@ -16,6 +18,13 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
+kotlin {
+    jvmToolchain(21)
+    compilerOptions {
+        freeCompilerArgs.add("-Xjsr305=strict")
+    }
+}
+
 // Ensure the Java compiler reports many errors/warnings instead of stopping early
 // This helps CI show all compilation issues in one run
 tasks.withType(JavaCompile).configureEach {
@@ -29,6 +38,11 @@ task cucumberTest(type: Test) {
   classpath = sourceSets.test.runtimeClasspath
   useJUnitPlatform()
   finalizedBy jacocoTestReport
+
+  // Force test profile and cucumber env file
+  systemProperty 'spring.profiles.active', 'cucumber'
+  systemProperty 'spring.config.import', 'optional:file:.env.cucumber'
+
   testLogging {
     events "passed", "skipped", "failed"
     showStandardStreams true
@@ -62,13 +76,27 @@ sourceSets {
             srcDirs += "$buildDir/generated/source/proto/main/grpc"
             srcDirs += "$buildDir/generated-sources/js2p"
         }
+        kotlin {
+            srcDirs += "src/main/kotlin"
+        }
+    }
+    test {
+        kotlin {
+            srcDirs += "src/test/kotlin"
+        }
     }
 }
 
 dependencies {
+    // Kotlin dependencies
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib'
+    implementation 'org.jetbrains.kotlin:kotlin-reflect'
+    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
+
     implementation 'org.springframework.boot:spring-boot-starter-web:3.5.3'
     implementation 'org.springframework.boot:spring-boot-starter' // Version managed by Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client' // Version managed by Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-validation' // Jakarta validation
     implementation 'org.springframework.data:spring-data-commons' // For Page and Pageable
 
 
@@ -88,12 +116,14 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.19.1'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
-    implementation 'io.github.cdimascio:java-dotenv:5.2.2'
     implementation 'org.apache.httpcomponents.client5:httpclient5:5.5'
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.5.0'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3'
     implementation 'com.fasterxml.uuid:java-uuid-generator:4.0.1'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+    implementation 'com.eaio.uuid:uuid:3.2'
+    implementation 'com.beust:jcommander:1.82'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation platform('org.junit:junit-bom:5.13.1')
@@ -101,6 +131,7 @@ dependencies {
     testImplementation("io.cucumber:cucumber-java:7.18.0")
     testImplementation("io.cucumber:cucumber-spring:7.18.0")
     testImplementation("io.cucumber:cucumber-junit-platform-engine:7.18.0")
+    testImplementation 'org.instancio:instancio-junit:5.5.1'
     testImplementation("org.junit.platform:junit-platform-suite")
 }
 
@@ -148,11 +179,19 @@ protobuf {
     }
 }
 
-["bootRun", "build", "compileJava"].each { taskName ->
+["bootRun", "build", "compileJava", "compileKotlin"].each { taskName ->
     tasks.named(taskName).configure {
         dependsOn("generateProto")
         dependsOn("generateJsonSchema2Pojo")
     }
+}
+
+tasks.named("compileTestKotlin").configure {
+    dependsOn("generateTestProto")
+}
+
+tasks.named("compileTestJava").configure {
+    dependsOn("generateTestProto")
 }
 
 bootJar {
@@ -193,6 +232,7 @@ tasks.register('runApp', JavaExec) {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
 }
+
 
 tasks.register('validateWorkflowImplementations', JavaExec) {
     group = 'validation'

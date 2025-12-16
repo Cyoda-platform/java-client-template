@@ -156,12 +156,12 @@ See `llm_example/config/workflow/` for workflow transition examples and patterns
 
 ## ⚙️ **Configuration**
 
-- Use `Config` class constants instead of hardcoded values
-- Load environment variables via `Dotenv` in Config class
+- Use injected `Config` bean instead of hardcoded values
+- Configuration is managed via Spring Boot YAML files (see `CONFIGURATION.md`)
 - Entity versioning: Use integer constants like `public static final Integer ENTITY_VERSION = 1;`
-- Configure GRPC settings via environment variables
-- Use `Config.CYODA_HOST` and related constants for Cyoda integration
-- SSL and authentication settings should be configurable via environment
+- Configure gRPC settings via `application.yml` or profile-specific YAML files
+- Use `config.getCyodaHost()` and related methods for Cyoda integration
+- SSL and authentication settings are configured via Spring Boot properties
 
 ## 🏗️ **Architecture Guidelines**
 
@@ -176,11 +176,11 @@ See `llm_example/config/workflow/` for workflow transition examples and patterns
 ## 🌐 **gRPC Integration**
 
 - Use `CyodaCalculationMemberClient` for gRPC communication with Cyoda
-- Configure gRPC settings via `Config.GRPC_ADDRESS` and `Config.GRPC_SERVER_PORT`
-- Use `Config.GRPC_PROCESSOR_TAG` for processor identification
+- Configure gRPC settings via `config.getGrpcAddress()` and `config.getGrpcServerPort()`
+- Use `config.getGrpcProcessorTag()` for processor identification
 - Handle gRPC streaming with proper error handling and connection management
 - Use protobuf message types for type-safe gRPC communication
-- Configure SSL/TLS settings via environment variables
+- Configure SSL/TLS settings via Spring Boot configuration properties
 
 ## ⚠️ **Error Handling**
 

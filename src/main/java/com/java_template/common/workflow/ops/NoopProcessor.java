@@ -25,9 +25,11 @@ public class NoopProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(NoopProcessor.class);
     private final String className = this.getClass().getSimpleName();
     private final ProcessorSerializer serializer;
+    private final Config config;
 
-    public NoopProcessor(SerializerFactory serializerFactory) {
+    public NoopProcessor(SerializerFactory serializerFactory, Config config) {
         this.serializer = serializerFactory.getDefaultProcessorSerializer();
+        this.config = config;
         logger.debug("NoopProcessor initialized with SerializerFactory");
     }
 
@@ -41,7 +43,7 @@ public class NoopProcessor implements CyodaProcessor {
 
     @Override
     public boolean supports(OperationSpecification opSpec) {
-        return Config.INCLUDE_DEFAULT_OPERATIONS || className.equals(opSpec.operationName());
+        return config.isIncludeDefaultOperations() || className.equals(opSpec.operationName());
     }
 
 }

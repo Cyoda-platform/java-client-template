@@ -1,7 +1,7 @@
 package com.java_template.common.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import jakarta.validation.constraints.NotNull;
+import org.jetbrains.annotations.NotNull;
 
 public interface WorkflowService {
 

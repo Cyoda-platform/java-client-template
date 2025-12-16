@@ -25,7 +25,7 @@ default branch: main
 ## Configuration
 
 - [Build Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/build.gradle): Gradle build configuration with dependencies and plugins
-- [Environment Template](https://github.com/Cyoda-platform/java-client-template/${branch}/.env.template): Environment variables template for Cyoda integration
+- [Application Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/resources/application.yml): Base Spring Boot configuration with defaults
 
 ## API Documentation
 

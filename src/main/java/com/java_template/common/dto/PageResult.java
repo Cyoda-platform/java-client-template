@@ -8,7 +8,7 @@ import java.util.UUID;
 /**
  * ABOUTME: Pagination wrapper for repository search results containing data and pagination metadata.
  * Provides total count and calculated total pages information for paginated queries.
- *
+ *<p>
  * @param <T> The type of data in the page
  */
 public record PageResult<T>(

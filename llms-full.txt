@@ -49,7 +49,7 @@ java-client-template/
 ## Configuration
 
 - [Build Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/build.gradle): Gradle build configuration with dependencies and plugins
-- [Environment Template](https://github.com/Cyoda-platform/java-client-template/${branch}/.env.template): Environment variables template for Cyoda integration
+- [Application Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/resources/application.yml): Base Spring Boot configuration with defaults
 
 ---
 
@@ -83,30 +83,45 @@ git clone https://github.com/Cyoda-platform/java-client-template.git
 cd java-client-template
 ```
 
-### 2. 🧰 Run Workflow Import Tool
+### 2. ⚙️ Configure the Application
+
+Configuration is managed via Spring Boot YAML files. For local development:
+
+```bash
+# Option 1: Create a local profile
+# For example, create src/main/resources/application-local.yml with your settings
+./gradlew runApp --args='--spring.profiles.active=local'
+
+# Option 2: Use environment variables
+export APP_CONFIG_CYODA_HOST=your-cyoda-host:8443
+export APP_CONFIG_CYODA_CLIENT_ID=your-client-id
+export APP_CONFIG_CYODA_CLIENT_SECRET=your-client-secret
+```
+
+### 3. 🧰 Run Workflow Import Tool
 
 #### Option 1: Run via Gradle (recommended for local development)
 ```bash
-./gradlew runApp -PmainClass=com.java_template.common.tool.WorkflowImportTool
+./gradlew runApp -PmainClass=com.java_template.common.tool.WorkflowImportTool --args='--spring.profiles.active=local'
 ```
 
 #### Option 2: Build and Run JAR (recommended for CI or scripting)
 ```bash
 ./gradlew bootJarWorkflowImport
-java -jar build/libs/java-client-template-1.0-SNAPSHOT-workflow-import.jar
+java -jar build/libs/java-client-template-1.0-SNAPSHOT-workflow-import.jar --spring.profiles.active=local
 ```
 
-### 3. ▶️ Run the Application
+### 4. ▶️ Run the Application
 
 #### Option 1: Run via Gradle
 ```bash
-./gradlew runApp
+./gradlew runApp --args='--spring.profiles.active=local'
 ```
 
 #### Option 2: Run Manually After Build
 ```bash
 ./gradlew build
-java -jar build/libs/java-client-template-1.0-SNAPSHOT.jar
+java -jar build/libs/java-client-template-1.0-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
 > Access the app: [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
@@ -123,7 +138,7 @@ This template follows a clear separation between **framework code** (that you do
 
 **Core Framework Components:**
 - `auth/` – Authentication & token management for Cyoda integration
-- `config/` – Configuration classes, constants, and environment variable handling
+- `config/` – Configuration classes using Spring Boot's configuration management
 - `dto/` – Data transfer objects including `EntityWithMetadata<T>` wrapper
 - `grpc/` – gRPC client integration with Cyoda platform
 - `repository/` – Data access layer for Cyoda REST API operations

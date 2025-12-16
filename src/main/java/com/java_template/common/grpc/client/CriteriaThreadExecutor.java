@@ -8,8 +8,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.java_template.common.config.Config.CRITERIA_THREAD_POOL;
-
 /**
  * ABOUTME: Executor for criteria calculation events using a dedicated thread pool.
  * Criteria events are medium-weight operations that evaluate workflow conditions
@@ -20,21 +18,23 @@ public class CriteriaThreadExecutor implements CalculationExecutionStrategy {
 
     private final ExecutorService executorService;
     private final boolean useVirtualThreads;
+    private final int threadPoolSize;
 
-    public CriteriaThreadExecutor(boolean useVirtualThreads) {
+    public CriteriaThreadExecutor(boolean useVirtualThreads, int threadPoolSize) {
         this.useVirtualThreads = useVirtualThreads;
+        this.threadPoolSize = threadPoolSize;
         if (useVirtualThreads) {
             this.executorService = Executors.newFixedThreadPool(
-                CRITERIA_THREAD_POOL,
+                threadPoolSize,
                 Thread.ofVirtual().name("criteria-calculation-", 0).factory()
             );
-            log.info("Initialized CriteriaThreadExecutor with {} virtual threads", CRITERIA_THREAD_POOL);
+            log.info("Initialized CriteriaThreadExecutor with {} virtual threads", threadPoolSize);
         } else {
             this.executorService = Executors.newFixedThreadPool(
-                CRITERIA_THREAD_POOL,
+                threadPoolSize,
                 Thread.ofPlatform().name("criteria-calculation-", 0).factory()
             );
-            log.info("Initialized CriteriaThreadExecutor with {} platform threads", CRITERIA_THREAD_POOL);
+            log.info("Initialized CriteriaThreadExecutor with {} platform threads", threadPoolSize);
         }
     }
 

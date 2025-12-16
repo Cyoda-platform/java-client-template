@@ -1,6 +1,7 @@
 package com.java_template.common.grpc.client;
 
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.java_template.common.config.Config;
 import com.java_template.common.grpc.client.event_handling.CloudEventBuilder;
 import com.java_template.common.grpc.client.event_handling.EventHandler;
 import com.java_template.common.grpc.client.event_handling.EventHandlingStrategy;
@@ -16,8 +17,6 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Set;
 
-import static com.java_template.common.config.Config.GRPC_PROCESSOR_TAG;
-
 
 /**
  * ABOUTME: Main gRPC client for Cyoda calculation member communication providing
@@ -31,17 +30,20 @@ class CyodaCalculationMemberClient implements EventHandler {
     private final EventExecutionRouter eventExecutionRouter;
     private final CloudEventBuilder eventBuilder;
     private final List<EventHandlingStrategy<? extends BaseEvent>> eventHandlingStrategies;
+    private final Config config;
 
     CyodaCalculationMemberClient(
             @Lazy final EventSender eventSender,
             final EventExecutionRouter eventExecutionRouter,
             final CloudEventBuilder eventBuilder,
-            final List<EventHandlingStrategy<? extends BaseEvent>> eventHandlingStrategies
+            final List<EventHandlingStrategy<? extends BaseEvent>> eventHandlingStrategies,
+            final Config config
     ) {
         this.eventSender = eventSender;
         this.eventExecutionRouter = eventExecutionRouter;
         this.eventBuilder = eventBuilder;
         this.eventHandlingStrategies = eventHandlingStrategies;
+        this.config = config;
     }
 
     @Override
@@ -101,7 +103,7 @@ class CyodaCalculationMemberClient implements EventHandler {
 
     @Override
     public Set<String> getSupportedTags() {
-        return Set.of(GRPC_PROCESSOR_TAG);
+        return Set.of(config.getGrpcProcessorTag());
     }
 
     private void sendEvent(final BaseEvent event) {

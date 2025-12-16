@@ -1,8 +1,8 @@
 package com.java_template.common.repository;
 
 import com.java_template.common.dto.PageResult;
-import jakarta.annotation.Nullable;
-import jakarta.validation.constraints.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -91,6 +91,45 @@ public interface CrudRepository {
     CompletableFuture<Long> getEntityCount(@NotNull ModelSpec modelSpec, @Nullable Date pointInTime);
 
     /**
+     * Gets entity statistics grouped by workflow state. This is a fast operation on index tables.
+     * Returns a map where keys are state names and values are entity counts for each state.
+     *
+     * @param modelSpec the model specification to match
+     * @return CompletableFuture containing a map of state names to entity counts
+     */
+    CompletableFuture<java.util.Map<String, Long>> getEntityStatsByState(@NotNull ModelSpec modelSpec);
+
+    /**
+     * Gets entity statistics grouped by workflow state at a specific point in time.
+     * This is a fast operation on index tables.
+     * Returns a map where keys are state names and values are entity counts for each state.
+     *
+     * @param modelSpec the model specification to match
+     * @param pointInTime timestamp for historical data retrieval
+     * @return CompletableFuture containing a map of state names to entity counts
+     */
+    CompletableFuture<java.util.Map<String, Long>> getEntityStatsByState(
+            @NotNull ModelSpec modelSpec,
+            @Nullable Date pointInTime
+    );
+
+    /**
+     * Gets entity statistics for specific workflow states. This is a fast operation on index tables.
+     * Returns a map where keys are state names and values are entity counts for each state.
+     * Only the specified states will be included in the result.
+     *
+     * @param modelSpec the model specification to match
+     * @param states list of state names to get statistics for
+     * @param pointInTime optional timestamp for historical data retrieval
+     * @return CompletableFuture containing a map of state names to entity counts
+     */
+    CompletableFuture<java.util.Map<String, Long>> getEntityStatsByState(
+            @NotNull ModelSpec modelSpec,
+            @NotNull List<String> states,
+            @Nullable Date pointInTime
+    );
+
+    /**
      * Retrieves metadata about entity changes for a specific entity.
      *
      * @param entityId the unique identifier of the entity
@@ -150,9 +189,9 @@ public interface CrudRepository {
      * @param entities the collection of entities to save
      * @param transactionWindow optional transaction window size
      * @param transactionTimeoutMs optional transaction timeout in milliseconds
-     * @return CompletableFuture containing the transaction response
+     * @return CompletableFuture containing the transaction responses
      */
-    <T> CompletableFuture<EntityTransactionResponse> saveAll(
+    <T> CompletableFuture<List<EntityTransactionResponse>> saveAll(
             @NotNull ModelSpec modelSpec,
             @NotNull Collection<T> entities,
             @Nullable Integer transactionWindow,

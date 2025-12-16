@@ -8,8 +8,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.java_template.common.config.Config.PROCESSOR_THREAD_POOL;
-
 /**
  * ABOUTME: Executor for processor calculation events using a dedicated thread pool.
  * Processor events are heavy, long-running operations that execute business logic
@@ -20,21 +18,23 @@ public class ProcessorThreadExecutor implements CalculationExecutionStrategy {
 
     private final ExecutorService executorService;
     private final boolean useVirtualThreads;
+    private final int threadPoolSize;
 
-    public ProcessorThreadExecutor(boolean useVirtualThreads) {
+    public ProcessorThreadExecutor(boolean useVirtualThreads, int threadPoolSize) {
         this.useVirtualThreads = useVirtualThreads;
+        this.threadPoolSize = threadPoolSize;
         if (useVirtualThreads) {
             this.executorService = Executors.newFixedThreadPool(
-                PROCESSOR_THREAD_POOL,
+                threadPoolSize,
                 Thread.ofVirtual().name("processor-calculation-", 0).factory()
             );
-            log.info("Initialized ProcessorThreadExecutor with {} virtual threads", PROCESSOR_THREAD_POOL);
+            log.info("Initialized ProcessorThreadExecutor with {} virtual threads", threadPoolSize);
         } else {
             this.executorService = Executors.newFixedThreadPool(
-                PROCESSOR_THREAD_POOL,
+                threadPoolSize,
                 Thread.ofPlatform().name("processor-calculation-", 0).factory()
             );
-            log.info("Initialized ProcessorThreadExecutor with {} platform threads", PROCESSOR_THREAD_POOL);
+            log.info("Initialized ProcessorThreadExecutor with {} platform threads", threadPoolSize);
         }
     }
 

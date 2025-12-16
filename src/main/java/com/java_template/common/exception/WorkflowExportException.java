@@ -4,11 +4,11 @@ import lombok.Getter;
 
 /**
  * ABOUTME: Exception thrown when workflow export operations fail.
- * 
+ *<p>
  * <p>This exception provides specific error information about workflow export failures
  * without requiring generic exception handling. It includes HTTP status code information
  * to help the controller layer determine the appropriate HTTP response.</p>
- * 
+ *<p>
  * <p><strong>Common Causes:</strong></p>
  * <ul>
  *   <li>Entity model not found (404 from Cyoda API)</li>

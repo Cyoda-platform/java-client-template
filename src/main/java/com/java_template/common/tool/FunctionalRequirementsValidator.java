@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 /**
  * ABOUTME: Validation tool that ensures all processors/criteria mentioned in functional requirements
  * are implemented in the corresponding workflow JSON files.
- * 
+ *<p>
  * This tool:
  * 1. Scans all functional requirement markdown files in src/main/resources/functional_requirements/*_workflow.md
  * 2. Extracts processor and criteria names from the markdown documentation using regex patterns
@@ -25,12 +25,12 @@ import java.util.stream.Stream;
  */
 public class FunctionalRequirementsValidator {
     private static final Logger logger = LoggerFactory.getLogger(FunctionalRequirementsValidator.class);
-    
+
     private static final Path REQUIREMENTS_DIR = Paths.get(System.getProperty("user.dir"))
             .resolve("src/main/resources/functional_requirements");
     private static final Path WORKFLOW_DIR = Paths.get(System.getProperty("user.dir"))
             .resolve("src/main/resources/workflow");
-    
+
     // Regex patterns for extracting processors and criteria from markdown
     private static final List<Pattern> PROCESSOR_PATTERNS = Arrays.asList(
             Pattern.compile("(\\w+Processor)", Pattern.CASE_INSENSITIVE),
@@ -38,7 +38,7 @@ public class FunctionalRequirementsValidator {
             Pattern.compile("`(\\w+Processor)`", Pattern.CASE_INSENSITIVE),
             Pattern.compile("- (\\w+Processor)", Pattern.CASE_INSENSITIVE)
     );
-    
+
     private static final List<Pattern> CRITERIA_PATTERNS = Arrays.asList(
             Pattern.compile("(\\w+Criterion)", Pattern.CASE_INSENSITIVE),
             Pattern.compile("criteria[:\\s]+`?(\\w+)`?", Pattern.CASE_INSENSITIVE),
@@ -46,13 +46,13 @@ public class FunctionalRequirementsValidator {
             Pattern.compile("`(\\w+Criterion)`", Pattern.CASE_INSENSITIVE),
             Pattern.compile("- (\\w+Criterion)", Pattern.CASE_INSENSITIVE)
     );
-    
+
     private final ObjectMapper objectMapper;
-    
+
     public FunctionalRequirementsValidator(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
-    
+
     public static void main(String[] args) {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.registerBean(ObjectMapper.class, () -> new ObjectMapper());
@@ -73,35 +73,35 @@ public class FunctionalRequirementsValidator {
         context.close();
         System.exit(isValid ? 0 : 1);
     }
-    
+
     /**
      * Main validation method that orchestrates the entire validation process
      */
     public boolean validateFunctionalRequirements() {
         logger.info("🔍 Validating functional requirements against workflows...");
         logger.info("======================================================================");
-        
+
         List<Path> requirementFiles = findFunctionalRequirementFiles();
         if (requirementFiles.isEmpty()) {
             logger.error("❌ No functional requirement files found!");
             return false;
         }
-        
+
         boolean allValid = true;
         int totalEntitiesChecked = 0;
         int totalProcessorsChecked = 0;
         int totalCriteriaChecked = 0;
-        
+
         for (Path reqFile : requirementFiles) {
             RequirementResult reqResult = extractProcessorsAndCriteriaFromMarkdown(reqFile);
             if (reqResult == null) {
                 allValid = false;
                 continue;
             }
-            
+
             logger.info("📋 Checking entity: {}", reqResult.entityName);
             logger.info("   Requirements file: {}", reqFile);
-            
+
             // Find corresponding workflow file
             Path workflowFile = getWorkflowFileForEntity(reqResult.entityName);
             if (workflowFile == null) {
@@ -110,20 +110,20 @@ public class FunctionalRequirementsValidator {
                 logger.info("");
                 continue;
             }
-            
+
             logger.info("   Workflow file: {}", workflowFile);
-            
+
             // Extract from workflow
             WorkflowResult workflowResult = extractProcessorsAndCriteriaFromWorkflow(workflowFile);
             if (workflowResult == null) {
                 allValid = false;
                 continue;
             }
-            
+
             // Validate processors
             Set<String> missingProcessors = new HashSet<>(reqResult.processors);
             missingProcessors.removeAll(workflowResult.processors);
-            
+
             if (!missingProcessors.isEmpty()) {
                 logger.error("   ❌ Processors in requirements but missing from workflow:");
                 missingProcessors.forEach(processor -> logger.error("      - {}", processor));
@@ -131,11 +131,11 @@ public class FunctionalRequirementsValidator {
             } else {
                 logger.info("   ✅ All {} processors from requirements found in workflow", reqResult.processors.size());
             }
-            
+
             // Validate criteria
             Set<String> missingCriteria = new HashSet<>(reqResult.criteria);
             missingCriteria.removeAll(workflowResult.criteria);
-            
+
             if (!missingCriteria.isEmpty()) {
                 logger.error("   ❌ Criteria in requirements but missing from workflow:");
                 missingCriteria.forEach(criterion -> logger.error("      - {}", criterion));
@@ -143,7 +143,7 @@ public class FunctionalRequirementsValidator {
             } else {
                 logger.info("   ✅ All {} criteria from requirements found in workflow", reqResult.criteria.size());
             }
-            
+
             // Show what was found
             if (!reqResult.processors.isEmpty() || !reqResult.criteria.isEmpty()) {
                 logger.info("   📊 Required processors: {}", reqResult.processors.isEmpty() ? "None" : String.join(", ", reqResult.processors));
@@ -151,13 +151,13 @@ public class FunctionalRequirementsValidator {
                 logger.info("   📊 Workflow processors: {}", workflowResult.processors.isEmpty() ? "None" : String.join(", ", workflowResult.processors));
                 logger.info("   📊 Workflow criteria: {}", workflowResult.criteria.isEmpty() ? "None" : String.join(", ", workflowResult.criteria));
             }
-            
+
             totalEntitiesChecked++;
             totalProcessorsChecked += reqResult.processors.size();
             totalCriteriaChecked += reqResult.criteria.size();
             logger.info("");
         }
-        
+
         // Summary
         logger.info("======================================================================");
         logger.info("📊 VALIDATION SUMMARY");
@@ -165,7 +165,7 @@ public class FunctionalRequirementsValidator {
         logger.info("Entities checked: {}", totalEntitiesChecked);
         logger.info("Total processors in requirements: {}", totalProcessorsChecked);
         logger.info("Total criteria in requirements: {}", totalCriteriaChecked);
-        
+
         if (allValid) {
             logger.info("✅ ALL FUNCTIONAL REQUIREMENTS VALIDATED SUCCESSFULLY!");
             logger.info("   All processors/criteria from requirements are defined in workflows.");
@@ -177,7 +177,7 @@ public class FunctionalRequirementsValidator {
             logger.info("   2. Ensure processor/criteria names match exactly between requirements and workflows");
             logger.info("   3. Verify workflow state transitions include all required components");
         }
-        
+
         return allValid;
     }
 
@@ -255,18 +255,18 @@ public class FunctionalRequirementsValidator {
 
         return allValid;
     }
-    
+
     /**
      * Find all functional requirement markdown files
      */
     private List<Path> findFunctionalRequirementFiles() {
         List<Path> requirementFiles = new ArrayList<>();
-        
+
         if (!Files.exists(REQUIREMENTS_DIR)) {
             logger.error("❌ Functional requirements directory not found: {}", REQUIREMENTS_DIR);
             return requirementFiles;
         }
-        
+
         try (Stream<Path> entityDirs = Files.list(REQUIREMENTS_DIR)) {
             entityDirs.filter(Files::isDirectory)
                     .forEach(entityDir -> {
@@ -280,10 +280,10 @@ public class FunctionalRequirementsValidator {
         } catch (IOException e) {
             logger.error("Error reading requirements directory: {}", e.getMessage());
         }
-        
+
         return requirementFiles;
     }
-    
+
     /**
      * Extract processor and criteria names from markdown file
      */
@@ -302,7 +302,7 @@ public class FunctionalRequirementsValidator {
             String content = Files.readString(mdFile);
             Set<String> processors = new HashSet<>();
             Set<String> criteria = new HashSet<>();
-            
+
             // Extract processors
             for (Pattern pattern : PROCESSOR_PATTERNS) {
                 Matcher matcher = pattern.matcher(content);
@@ -313,7 +313,7 @@ public class FunctionalRequirementsValidator {
                     }
                 }
             }
-            
+
             // Extract criteria
             for (Pattern pattern : CRITERIA_PATTERNS) {
                 Matcher matcher = pattern.matcher(content);
@@ -326,13 +326,13 @@ public class FunctionalRequirementsValidator {
             }
 
             return new RequirementResult(entityName, processors, criteria);
-            
+
         } catch (IOException e) {
             logger.error("❌ Error reading {}: {}", mdFile, e.getMessage());
             return null;
         }
     }
-    
+
     /**
      * Convert directory name to proper entity name by discovering actual workflow file names
      */
@@ -371,30 +371,30 @@ public class FunctionalRequirementsValidator {
 
         return result.toString();
     }
-    
+
     /**
      * Get the workflow JSON file path for an entity
      */
     private Path getWorkflowFileForEntity(String entityName) {
         // Convert entity name to lowercase for directory matching
         String entityDir = entityName.toLowerCase();
-        
+
         // Try different naming conventions
         List<Path> possiblePaths = Arrays.asList(
                 WORKFLOW_DIR.resolve(entityDir).resolve("version_1").resolve(entityName + ".json"),
                 WORKFLOW_DIR.resolve(entityName.toLowerCase()).resolve("version_1").resolve(entityName + ".json"),
                 WORKFLOW_DIR.resolve(entityName).resolve("version_1").resolve(entityName + ".json")
         );
-        
+
         for (Path path : possiblePaths) {
             if (Files.exists(path)) {
                 return path;
             }
         }
-        
+
         return null;
     }
-    
+
     /**
      * Extract processor and criteria names from workflow JSON file
      */
@@ -403,10 +403,10 @@ public class FunctionalRequirementsValidator {
             JsonNode workflow = objectMapper.readTree(workflowFile.toFile());
             Set<String> processors = new HashSet<>();
             Set<String> criteria = new HashSet<>();
-            
+
             JsonNode states = workflow.get("states");
             if (states != null && states.isObject()) {
-                states.fields().forEachRemaining(stateEntry -> {
+                states.properties().iterator().forEachRemaining(stateEntry -> {
                     JsonNode state = stateEntry.getValue();
                     JsonNode transitions = state.get("transitions");
                     if (transitions != null && transitions.isArray()) {
@@ -421,7 +421,7 @@ public class FunctionalRequirementsValidator {
                                     }
                                 });
                             }
-                            
+
                             // Extract criteria
                             JsonNode criterion = transition.get("criterion");
                             if (criterion != null) {
@@ -431,15 +431,15 @@ public class FunctionalRequirementsValidator {
                     }
                 });
             }
-            
+
             return new WorkflowResult(processors, criteria);
-            
+
         } catch (IOException e) {
             logger.error("❌ Error reading {}: {}", workflowFile, e.getMessage());
             return null;
         }
     }
-    
+
     /**
      * Recursively extract criteria names from nested criterion structures
      */
@@ -447,7 +447,7 @@ public class FunctionalRequirementsValidator {
         if (criterion == null || !criterion.isObject()) {
             return;
         }
-        
+
         // Check if this is a function criterion
         if ("function".equals(criterion.path("type").asText())) {
             JsonNode function = criterion.get("function");
@@ -458,7 +458,7 @@ public class FunctionalRequirementsValidator {
                 }
             }
         }
-        
+
         // Handle nested criteria in various structures
         for (String key : Arrays.asList("and", "or", "not")) {
             JsonNode nested = criterion.get(key);
@@ -470,14 +470,14 @@ public class FunctionalRequirementsValidator {
                 }
             }
         }
-        
+
         // Handle 'conditions' array (used in group criteria)
         JsonNode conditions = criterion.get("conditions");
         if (conditions != null && conditions.isArray()) {
             conditions.forEach(condition -> extractCriteriaRecursively(condition, criteria));
         }
     }
-    
+
     /**
      * Result holder for requirement data
      */
@@ -485,21 +485,21 @@ public class FunctionalRequirementsValidator {
         final String entityName;
         final Set<String> processors;
         final Set<String> criteria;
-        
+
         RequirementResult(String entityName, Set<String> processors, Set<String> criteria) {
             this.entityName = entityName;
             this.processors = processors;
             this.criteria = criteria;
         }
     }
-    
+
     /**
      * Result holder for workflow data
      */
     private static class WorkflowResult {
         final Set<String> processors;
         final Set<String> criteria;
-        
+
         WorkflowResult(Set<String> processors, Set<String> criteria) {
             this.processors = processors;
             this.criteria = criteria;

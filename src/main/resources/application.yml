@@ -5,6 +5,21 @@ logging:
 server:
   port: 8080
   forward-headers-strategy: framework
+  servlet:
+    context-path: /api
+
+spring:
+  mvc:
+    problemdetails:
+      enabled: true
+  servlet:
+    multipart:
+      # Maximum file size for uploads (default: 1MB)
+      max-file-size: 100MB
+      # Maximum request size for multipart/form-data (default: 10MB)
+      max-request-size: 100MB
+      # Whether to resolve multipart requests lazily
+      resolve-lazily: false
 
 springdoc:
   swagger-ui:
@@ -12,3 +27,74 @@ springdoc:
     try-it-out-enabled: true
     csrf:
       enabled: false
+
+# CORS Configuration
+# Environment-specific settings for Cross-Origin Resource Sharing
+# Override via environment variables or profile-specific YAML files for different environments (dev/staging/prod)
+app:
+  cors:
+    # Comma-separated list of allowed origins (no wildcards when credentials enabled)
+    # Dev: http://localhost:3000,http://localhost:5173
+    # Prod: https://app.yourdomain.com
+    allowed-origins: http://localhost:3000,http://localhost:5173
+    # Allowed HTTP methods
+    allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
+    # Allowed request headers
+    allowed-headers: Authorization,Content-Type,Accept,Origin,X-Requested-With,Cache-Control
+    # Headers exposed to the client (empty by default for security)
+    exposed-headers:
+    # Allow credentials (cookies, auth headers) - false is more secure
+    allow-credentials: false
+    # Preflight cache duration in seconds (3600 = 1 hour)
+    max-age-seconds: 3600
+    # URL pattern to apply CORS to
+    path-pattern: /**
+  config:
+    # Cyoda Platform Connection
+    # Override these via environment variables or profile-specific YAML files
+    cyoda-host: localhost:8443
+    cyoda-api-url: https://${app.config.cyoda-host}/api
+    cyoda-client-id:
+    cyoda-client-secret:
+
+    # gRPC Configuration
+    grpc-address: grpc-${app.config.cyoda-host}}
+    grpc-server-port: 443
+    grpc-processor-tag: cyoda_application
+    grpc-communication-data-format: JSON
+
+    # gRPC Channel Configuration
+    grpc-max-inbound-message-size: 16777216
+    grpc-max-inbound-metadata-size: 16384
+    grpc-flow-control-window: 67108864
+    grpc-keep-alive-time-seconds: 30
+    grpc-keep-alive-timeout-seconds: 10
+    grpc-idle-timeout-seconds: 300
+
+    # Thread Pool Configuration
+    processor-thread-pool: 20
+    criteria-thread-pool: 20
+    control-thread-pool: 3
+
+    # Connection Configuration
+    handshake-timeout-ms: 5000
+    initial-reconnect-delay-ms: 200
+    max-reconnect-delay-ms: 10000
+    failed-reconnects-limit: 10
+
+    # Monitoring Configuration
+    sent-events-cache-max-size: 100
+    monitoring-scheduler-initial-delay-seconds: 1
+    monitoring-scheduler-delay-seconds: 3
+    keep-alive-warning-threshold: 60000
+
+    # SSL Configuration
+    ssl-trust-all: false
+    ssl-trusted-hosts: ${app.config.ssl-trusted-hosts:}
+
+    # Feature Flags
+    include-default-operations: false
+
+cyoda:
+  api:
+    url: ${app.config.cyoda-api-url}
