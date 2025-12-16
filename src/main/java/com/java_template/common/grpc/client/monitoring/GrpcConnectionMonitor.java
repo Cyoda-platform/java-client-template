@@ -2,6 +2,7 @@ package com.java_template.common.grpc.client.monitoring;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.java_template.common.config.Config;
 import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.ConnectivityState;
 import org.cyoda.cloud.api.event.common.CloudEventType;
@@ -22,8 +23,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.*;
-
 
 /**
  * ABOUTME: Central monitoring component for gRPC connection health, event tracking,
@@ -42,17 +41,23 @@ public class GrpcConnectionMonitor implements EventTracker, ConnectionStateTrack
             .factory()
     );
 
-    private final Cache<String, CloudEvent> sentEventsCache = Caffeine.newBuilder()
-            .maximumSize(SENT_EVENTS_CACHE_MAX_SIZE)
-            .expireAfterWrite(5, TimeUnit.MINUTES)
-            .build();
+    private final Config config;
+    private final Cache<String, CloudEvent> sentEventsCache;
+
+    public GrpcConnectionMonitor(Config config) {
+        this.config = config;
+        this.sentEventsCache = Caffeine.newBuilder()
+                .maximumSize(config.getSentEventsCacheMaxSize())
+                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .build();
+    }
 
     @PostConstruct
     private void init() {
         monitorExecutor.scheduleWithFixedDelay(
                 this::monitor,
-                MONITORING_SCHEDULER_INITIAL_DELAY_SECONDS,
-                MONITORING_SCHEDULER_DELAY_SECONDS,
+                config.getMonitoringSchedulerInitialDelaySeconds(),
+                config.getMonitoringSchedulerDelaySeconds(),
                 TimeUnit.SECONDS
         );
     }
@@ -149,9 +154,10 @@ public class GrpcConnectionMonitor implements EventTracker, ConnectionStateTrack
     }
 
     private void checkSentEventsCacheSize() {
-        if (sentEventsCache.estimatedSize() > SENT_EVENTS_CACHE_MAX_SIZE / 10) {
+        int maxSize = config.getSentEventsCacheMaxSize();
+        if (sentEventsCache.estimatedSize() > maxSize / 10) {
             logger.warn("Sent events cache is growing. Current size: {}", sentEventsCache.estimatedSize());
-        } else if (sentEventsCache.estimatedSize() > SENT_EVENTS_CACHE_MAX_SIZE / 2) {
+        } else if (sentEventsCache.estimatedSize() > maxSize / 2) {
             logger.error("Sent events cache is growing unchecked. Current size: {}", sentEventsCache.estimatedSize());
         } else {
             logger.debug("Sent events cache size: {}", sentEventsCache.estimatedSize());
@@ -172,10 +178,11 @@ public class GrpcConnectionMonitor implements EventTracker, ConnectionStateTrack
         final var timeSinceLastKeepAlive = System.currentTimeMillis() - lastKeepAliveTimestampMs;
         logger.debug("{}ms since last keep alive", timeSinceLastKeepAlive);
 
-        if (timeSinceLastKeepAlive > KEEP_ALIVE_WARNING_THRESHOLD) {
+        long threshold = config.getKeepAliveWarningThreshold();
+        if (timeSinceLastKeepAlive > threshold) {
             logger.warn(
                     "No Keep alive received within the {}ms threshold. Last successful was {}ms ago. (Managed Channel state: {}; Stream Observer state: {})",
-                    KEEP_ALIVE_WARNING_THRESHOLD,
+                    threshold,
                     timeSinceLastKeepAlive,
                     lastConnectionState.get(),
                     lastObserverState.get()

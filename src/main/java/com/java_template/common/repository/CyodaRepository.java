@@ -7,6 +7,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.Streams;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.java_template.common.config.Config;
 import com.java_template.common.dto.PageResult;
 import com.java_template.common.grpc.client.event_handling.CloudEventBuilder;
 import com.java_template.common.grpc.client.event_handling.CloudEventParser;
@@ -36,8 +37,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.java_template.common.config.Config.GRPC_COMMUNICATION_DATA_FORMAT;
-
 
 /**
  * ABOUTME: Concrete implementation of CrudRepository providing entity CRUD operations
@@ -48,6 +47,7 @@ public class CyodaRepository implements CrudRepository {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final ObjectMapper objectMapper;
+    private final Config config;
     private final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub;
     private final CloudEventBuilder cloudEventBuilder;
     private final CloudEventParser cloudEventParser;
@@ -62,12 +62,14 @@ public class CyodaRepository implements CrudRepository {
             final ObjectMapper objectMapper,
             final CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub,
             final CloudEventBuilder cloudEventBuilder,
-            final CloudEventParser cloudEventParser
+            final CloudEventParser cloudEventParser,
+            final Config config
     ) {
         this.objectMapper = objectMapper;
         this.cloudEventsServiceBlockingStub = cloudEventsServiceBlockingStub;
         this.cloudEventBuilder = cloudEventBuilder;
         this.cloudEventParser = cloudEventParser;
+        this.config = config;
 
         // Initialize cache with expiry based on snapshot expiration
         this.snapshotCache = Caffeine.newBuilder()
@@ -295,7 +297,7 @@ public class CyodaRepository implements CrudRepository {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
                 new EntityUpdateRequest().withId(generateEventId())
-                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withDataFormat(config.getGrpcCommunicationDataFormat())
                         .withPayload(
                                 new EntityUpdatePayload().withEntityId(id)
                                         .withData(objectMapper.valueToTree(entity))
@@ -332,7 +334,7 @@ public class CyodaRepository implements CrudRepository {
         return sendAndGetCollection(
                 cloudEventsServiceBlockingStub::entityManageCollection,
                 new EntityUpdateCollectionRequest().withId(generateEventId())
-                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withDataFormat(config.getGrpcCommunicationDataFormat())
                         .withTransactionWindow(transactionWindow)
                         .withTransactionTimeoutMs(transactionTimeoutMs)
                         .withPayloads(entitiesByIds.entrySet()
@@ -420,7 +422,7 @@ public class CyodaRepository implements CrudRepository {
         return sendAndGet(
                 cloudEventsServiceBlockingStub::entityManage,
                 new EntityCreateRequest().withId(generateEventId())
-                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withDataFormat(config.getGrpcCommunicationDataFormat())
                         .withPayload(new EntityCreatePayload().withData(objectMapper.valueToTree(entities))
                                 .withModel(modelSpec)
                         ),
@@ -448,7 +450,7 @@ public class CyodaRepository implements CrudRepository {
         return sendAndGetCollection(
                 cloudEventsServiceBlockingStub::entityManageCollection,
                 new EntityCreateCollectionRequest().withId(generateEventId())
-                        .withDataFormat(GRPC_COMMUNICATION_DATA_FORMAT)
+                        .withDataFormat(config.getGrpcCommunicationDataFormat())
                         .withTransactionWindow(transactionWindow)
                         .withTransactionTimeoutMs(transactionTimeoutMs)
                         .withPayloads(payloads),

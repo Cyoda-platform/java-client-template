@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.java_template.common.auth.Authentication;
+import com.java_template.common.config.Config;
 import com.java_template.common.util.HttpUtils;
 import com.java_template.common.workflow.CyodaEntity;
 import org.cyoda.cloud.api.event.common.ModelSpec;
@@ -25,8 +26,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
-import static com.java_template.common.config.Config.CYODA_API_URL;
-
 
 /**
  * ABOUTME: Initialization tool for setting up Cyoda platform configuration
@@ -45,11 +44,13 @@ public class CyodaInit {
     private final HttpUtils httpUtils;
     private final Authentication authentication;
     private final ObjectMapper objectMapper;
+    private final Config config;
 
-    public CyodaInit(HttpUtils httpUtils, Authentication authentication, ObjectMapper objectMapper) {
+    public CyodaInit(HttpUtils httpUtils, Authentication authentication, ObjectMapper objectMapper, Config config) {
         this.httpUtils = httpUtils;
         this.authentication = authentication;
         this.objectMapper = objectMapper;
+        this.config = config;
     }
 
     public void initCyoda(CyodaInitConfig config) {
@@ -200,7 +201,7 @@ public class CyodaInit {
      * Import workflow for a specific entity.
      * Supports workflow files containing either a single workflow object or an array of workflows.
      */
-    private void importWorkflowForEntity(Path workflowFile, String entityName, Integer version, String token, CyodaInitConfig config) {
+    private void importWorkflowForEntity(Path workflowFile, String entityName, Integer version, String token, CyodaInitConfig initConfig) {
         logger.info("📄 Processing workflow file for entity: {}, version: {}", entityName, version);
 
 
@@ -240,7 +241,7 @@ public class CyodaInit {
         String importPath = String.format("model/%s/%s/workflow/import", entityName, version);
         logger.debug("🔗 Using import endpoint: {}", importPath);
 
-        JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, wrappedContentJson).join();
+        JsonNode response = httpUtils.sendPostRequest(token, config.getCyodaApiUrl(), importPath, wrappedContentJson).join();
 
         int statusCode = response.get("status").asInt();
         if (statusCode >= 200 && statusCode < 300) {
@@ -254,7 +255,7 @@ public class CyodaInit {
         }
 
         // Check and create entity model if needed
-        checkAndCreateEntityModel(token, entityName, version, config);
+        checkAndCreateEntityModel(token, entityName, version, initConfig);
 
     }
 
@@ -266,7 +267,7 @@ public class CyodaInit {
         logger.debug("🔍 Checking if entity model exists: {}", exportPath);
 
         try {
-            JsonNode response = httpUtils.sendGetRequest(token, CYODA_API_URL, exportPath).join();
+            JsonNode response = httpUtils.sendGetRequest(token, this.config.getCyodaApiUrl(), exportPath).join();
             int statusCode = response.get("status").asInt();
 
             if (statusCode >= 200 && statusCode < 300) {
@@ -392,7 +393,7 @@ public class CyodaInit {
      * Send a single entity model creation request
      */
     private void sendEntityModelRequest(String token, String importPath, String requestBody, String entityName, Integer version) {
-        JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, importPath, requestBody).join();
+        JsonNode response = httpUtils.sendPostRequest(token, config.getCyodaApiUrl(), importPath, requestBody).join();
         int statusCode = response.get("status").asInt();
 
         if (statusCode >= 200 && statusCode < 300) {
@@ -414,7 +415,7 @@ public class CyodaInit {
         String changeLevelPath = String.format("model/%s/%s/changeLevel/%s", entityName, version, changeLevel);
         logger.debug("🔗 Setting change level to {} for entity: {} (version: {})", changeLevel, entityName, version);
 
-        JsonNode response = httpUtils.sendPostRequest(token, CYODA_API_URL, changeLevelPath, null).join();
+        JsonNode response = httpUtils.sendPostRequest(token, config.getCyodaApiUrl(), changeLevelPath, null).join();
         int statusCode = response.get("status").asInt();
 
         if (statusCode >= 200 && statusCode < 300) {
@@ -435,7 +436,7 @@ public class CyodaInit {
         String lockPath = String.format("model/%s/%s/lock", entityName, version);
         logger.debug("🔗 Locking entity model for: {} (version: {})", entityName, version);
 
-        JsonNode response = httpUtils.sendPutRequest(token, CYODA_API_URL, lockPath, null).join();
+        JsonNode response = httpUtils.sendPutRequest(token, config.getCyodaApiUrl(), lockPath, null).join();
         int statusCode = response.get("status").asInt();
 
         if (statusCode >= 200 && statusCode < 300) {
@@ -458,7 +459,7 @@ public class CyodaInit {
         logger.debug("🔍 Checking if entity model exists before deletion: {}", exportPath);
 
         try {
-            JsonNode checkResponse = httpUtils.sendGetRequest(token, CYODA_API_URL, exportPath).join();
+            JsonNode checkResponse = httpUtils.sendGetRequest(token, config.getCyodaApiUrl(), exportPath).join();
             int checkStatusCode = checkResponse.get("status").asInt();
 
             if (checkStatusCode == 404) {
@@ -484,7 +485,7 @@ public class CyodaInit {
         String deletePath = String.format("model/%s/%s", entityName, version);
         logger.debug("🔗 Deleting entity model for: {} (version: {})", entityName, version);
 
-        JsonNode response = httpUtils.sendDeleteRequest(token, CYODA_API_URL, deletePath).join();
+        JsonNode response = httpUtils.sendDeleteRequest(token, config.getCyodaApiUrl(), deletePath).join();
         int statusCode = response.get("status").asInt();
 
         if (statusCode >= 200 && statusCode < 300) {

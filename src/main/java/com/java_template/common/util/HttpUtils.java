@@ -3,6 +3,7 @@ package com.java_template.common.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.java_template.common.config.Config;
 import com.java_template.common.util.http.ContentTypeAwareParser;
 import com.java_template.common.util.http.ResponseBodyParser;
 import org.slf4j.LoggerFactory;
@@ -28,16 +29,17 @@ import java.util.stream.Collectors;
  */
 @Component
 public class HttpUtils {
-    private final HttpClient client = SslUtils.createHttpClient();
+    private final HttpClient client;
     private final Logger logger = LoggerFactory.getLogger(HttpUtils.class);
     private final ObjectMapper om;
     private final JsonUtils jsonUtils;
     private final ResponseBodyParser defaultParser;
 
-    public HttpUtils(JsonUtils jsonUtils, ObjectMapper om) {
+    public HttpUtils(JsonUtils jsonUtils, ObjectMapper om, Config config) {
         this.jsonUtils = jsonUtils;
         this.om = om;
         this.defaultParser = ContentTypeAwareParser.createDefault(om);
+        this.client = SslUtils.createHttpClient(config);
     }
 
     private String ensureBearerToken(String token) {

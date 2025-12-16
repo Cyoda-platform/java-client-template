@@ -1,3 +1,0 @@
-connection:
-  grpc:
-    skip-ssl: true

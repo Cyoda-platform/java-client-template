@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.Application;
+import com.java_template.common.config.Config;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EntityService;
 import e2e.entity.PrizeEntity;
@@ -37,7 +38,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.java_template.common.config.Config.*;
 import static io.cucumber.junit.platform.engine.Constants.GLUE_PROPERTY_NAME;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.http.MediaType.*;
@@ -61,6 +61,8 @@ public class GherkinE2eTest {
     private PrizeTestCriterionAlwaysTrue prizeTestCriterionAlwaysTrue;
     @Autowired
     private PrizeTestCriterionAlwaysFalse prizeTestCriterionAlwaysFalse;
+    @Autowired
+    private Config config;
 
     private PrizeEntity prizeToCreate;
     private List<PrizeEntity> prizeDefinitions;
@@ -101,7 +103,7 @@ public class GherkinE2eTest {
     }
 
     private String login(final RestClient client, final String username, final String password) {
-        return client.post().uri(URI.create(CYODA_API_URL + "/oauth/token"))
+        return client.post().uri(URI.create(config.getCyodaApiUrl() + "/oauth/token"))
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .header("content-type", APPLICATION_FORM_URLENCODED_VALUE)
                 .header("authorization", "Basic " + toBase64(username + ":" + password))
@@ -132,7 +134,7 @@ public class GherkinE2eTest {
         dto.set("workflows", workflows);
 
         client.post()
-                .uri(URI.create(CYODA_API_URL + "/model/" + modelName + "/" + modelVersion + "/workflow/import"))
+                .uri(URI.create(config.getCyodaApiUrl() + "/model/" + modelName + "/" + modelVersion + "/workflow/import"))
                 .contentType(APPLICATION_JSON)
                 .header("content-type", APPLICATION_JSON_VALUE)
                 .header("Authorization", "Bearer " + token)
@@ -149,7 +151,7 @@ public class GherkinE2eTest {
             throws URISyntaxException,
             IOException {
         final var client = RestClient.create();
-        final var token = login(client, CYODA_CLIENT_ID, CYODA_CLIENT_SECRET);
+        final var token = login(client, config.getCyodaClientId(), config.getCyodaClientSecret());
         importWorkflow(client, workflowJson, modelName, modelVersion, token);
     }
 

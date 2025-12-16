@@ -3,6 +3,7 @@ package com.java_template.common.tool;
 import com.beust.jcommander.JCommander;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.auth.Authentication;
+import com.java_template.common.config.Config;
 import com.java_template.common.util.HttpUtils;
 import com.java_template.common.util.JsonUtils;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -13,9 +14,9 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 public class WorkflowImportTool {
     public static void main(String[] args) {
         // Parse command line arguments using JCommander
-        CyodaInitConfig config = new CyodaInitConfig();
+        CyodaInitConfig initConfig = new CyodaInitConfig();
         JCommander jCommander = JCommander.newBuilder()
-                .addObject(config)
+                .addObject(initConfig)
                 .programName("WorkflowImportTool")
                 .build();
 
@@ -28,7 +29,7 @@ public class WorkflowImportTool {
         }
 
         // Display help if requested
-        if (config.help()) {
+        if (initConfig.help()) {
             jCommander.usage();
             System.exit(0);
         }
@@ -41,9 +42,10 @@ public class WorkflowImportTool {
         Authentication auth = context.getBean(Authentication.class);
         HttpUtils httpUtils = context.getBean(HttpUtils.class);
         ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
+        Config config = context.getBean(Config.class);
 
-        CyodaInit init = new CyodaInit(httpUtils, auth, objectMapper);
-        init.initCyoda(config);
+        CyodaInit init = new CyodaInit(httpUtils, auth, objectMapper,config);
+        init.initCyoda(initConfig);
 
         context.close();
     }

@@ -18,6 +18,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 
+import com.java_template.common.config.Config;
+
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.util.Set;
@@ -25,8 +27,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static com.java_template.common.config.Config.HANDSHAKE_TIMEOUT_MS;
 
 
 /**
@@ -45,6 +45,7 @@ public class ConnectionManager implements EventSender {
     private final ReconnectionStrategy reconnectionStrategy;
     private final GreetEventListener greetEventListener;
     private final ManagedChannel managedChannel;
+    private final Config config;
 
     private StreamObserver<CloudEvent> streamObserver = null;
 
@@ -56,7 +57,8 @@ public class ConnectionManager implements EventSender {
             final CloudEventsServiceGrpc.CloudEventsServiceStub cloudEventsServiceStub,
             final ReconnectionStrategy reconnectionStrategy,
             final GreetEventListener greetEventListener,
-            final ManagedChannel managedChannel
+            final ManagedChannel managedChannel,
+            final Config config
     ) {
         this.eventHandler = eventHandler;
         this.eventTracker = eventTracker;
@@ -66,6 +68,7 @@ public class ConnectionManager implements EventSender {
         this.reconnectionStrategy = reconnectionStrategy;
         this.greetEventListener = greetEventListener;
         this.managedChannel = managedChannel;
+        this.config = config;
     }
 
     private CloudEvent createJoinEvent(
@@ -123,7 +126,7 @@ public class ConnectionManager implements EventSender {
             connectionStateTracker.trackObserverStateChange(ObserverState.AWAITS_GREET);
 
             return greetPromise.thenApply(acceptedJoinEvent -> newObserver)
-                    .orTimeout(HANDSHAKE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                    .orTimeout(config.getHandshakeTimeoutMs(), TimeUnit.MILLISECONDS);
         } catch (InvalidProtocolBufferException e) {
             return CompletableFuture.failedFuture(e);
         }

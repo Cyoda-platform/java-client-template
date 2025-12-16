@@ -8,8 +8,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static com.java_template.common.config.Config.CONTROL_THREAD_POOL;
-
 /**
  * ABOUTME: Executor for control and lightweight events using a dedicated thread pool.
  * Control events include keep-alive, ACK, and greet events that must respond quickly
@@ -20,21 +18,23 @@ public class ControlThreadExecutor implements CalculationExecutionStrategy {
 
     private final ExecutorService executorService;
     private final boolean useVirtualThreads;
+    private final int threadPoolSize;
 
-    public ControlThreadExecutor(boolean useVirtualThreads) {
+    public ControlThreadExecutor(boolean useVirtualThreads, int threadPoolSize) {
         this.useVirtualThreads = useVirtualThreads;
+        this.threadPoolSize = threadPoolSize;
         if (useVirtualThreads) {
             this.executorService = Executors.newFixedThreadPool(
-                CONTROL_THREAD_POOL,
+                threadPoolSize,
                 Thread.ofVirtual().name("control-event-", 0).factory()
             );
-            log.info("Initialized ControlThreadExecutor with {} virtual threads", CONTROL_THREAD_POOL);
+            log.info("Initialized ControlThreadExecutor with {} virtual threads", threadPoolSize);
         } else {
             this.executorService = Executors.newFixedThreadPool(
-                CONTROL_THREAD_POOL,
+                threadPoolSize,
                 Thread.ofPlatform().name("control-event-", 0).factory()
             );
-            log.info("Initialized ControlThreadExecutor with {} platform threads", CONTROL_THREAD_POOL);
+            log.info("Initialized ControlThreadExecutor with {} platform threads", threadPoolSize);
         }
     }
 

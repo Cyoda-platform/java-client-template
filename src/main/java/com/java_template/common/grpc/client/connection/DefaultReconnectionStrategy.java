@@ -1,5 +1,6 @@
 package com.java_template.common.grpc.client.connection;
 
+import com.java_template.common.config.Config;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,8 +12,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-
-import static com.java_template.common.config.Config.*;
 
 /**
  * ABOUTME: Default implementation of ReconnectionStrategy with exponential backoff,
@@ -27,6 +26,12 @@ public class DefaultReconnectionStrategy implements ReconnectionStrategy {
     private final AtomicBoolean isIdle = new AtomicBoolean(false);
     private final CopyOnWriteArrayList<Consumer<Boolean>> idleStateListeners = new CopyOnWriteArrayList<>();
     private Runnable lastReconnectCallback;  // Store for resurrection
+
+    private final Config config;
+
+    public DefaultReconnectionStrategy(Config config) {
+        this.config = config;
+    }
 
 
     @PreDestroy
@@ -62,8 +67,8 @@ public class DefaultReconnectionStrategy implements ReconnectionStrategy {
         }
 
         final int attemptsCount = failedReconnectsCount.getAndIncrement();
-        if (attemptsCount > FAILED_RECONNECTS_LIMIT) {
-            log.error("Failed reconnects limit ({}) reached. Giving up!!!", FAILED_RECONNECTS_LIMIT);
+        if (attemptsCount > config.getFailedReconnectsLimit()) {
+            log.error("Failed reconnects limit ({}) reached. Giving up!!!", config.getFailedReconnectsLimit());
             hasReconnectAttempt.set(false);  // Must reset before returning
             enterIdleState();  // NEW: Transition to idle instead of just returning
             return;
@@ -119,8 +124,8 @@ public class DefaultReconnectionStrategy implements ReconnectionStrategy {
 
     private long calculateBackoff(final int attempt) {
         return Math.min(
-                (int) (INITIAL_RECONNECT_DELAY_MS * Math.pow(2, attempt)),
-                MAX_RECONNECT_DELAY_MS
+                (int) (config.getInitialReconnectDelayMs() * Math.pow(2, attempt)),
+                config.getMaxReconnectDelayMs()
         );
     }
 }

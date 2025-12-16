@@ -29,9 +29,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 
-import static com.java_template.common.config.Config.GRPC_ADDRESS;
-import static com.java_template.common.config.Config.GRPC_SERVER_PORT;
-
 
 /**
  * ABOUTME: Spring Boot auto-configuration for gRPC client components including
@@ -43,9 +40,11 @@ public class GrpcClientAutoConfiguration {
     private final Logger log = LoggerFactory.getLogger(this.getClass());
 
     private final ManagedChannel managedChannel;
+    private final Config config;
 
-    public GrpcClientAutoConfiguration(@Lazy final ManagedChannel managedChannel) {
+    public GrpcClientAutoConfiguration(@Lazy final ManagedChannel managedChannel, final Config config) {
         this.managedChannel = managedChannel;
+        this.config = config;
     }
 
     @Bean
@@ -54,9 +53,10 @@ public class GrpcClientAutoConfiguration {
             @Value("${connection.grpc.skip-ssl:false}") final boolean grpcSkipSsl
     ) {
         final ManagedChannel channel = SslUtils.createGrpcChannelBuilder(
-                GRPC_ADDRESS,
-                GRPC_SERVER_PORT,
-                grpcSkipSsl
+                config.getGrpcAddress(),
+                config.getGrpcServerPort(),
+                grpcSkipSsl,
+                config
         ).build();
 
         final Supplier<ConnectivityState> currentStateProvider = () -> channel.getState(false);
@@ -113,37 +113,37 @@ public class GrpcClientAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "platform", matchIfMissing = true)
     public CalculationExecutionStrategy processorThreadExecutor() {
-        return new ProcessorThreadExecutor(false);
+        return new ProcessorThreadExecutor(false, config.getProcessorThreadPool());
     }
 
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "virtual")
     public CalculationExecutionStrategy processorThreadExecutorVirtual() {
-        return new ProcessorThreadExecutor(true);
+        return new ProcessorThreadExecutor(true, config.getProcessorThreadPool());
     }
 
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "platform", matchIfMissing = true)
     public CalculationExecutionStrategy criteriaThreadExecutor() {
-        return new CriteriaThreadExecutor(false);
+        return new CriteriaThreadExecutor(false, config.getCriteriaThreadPool());
     }
 
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "virtual")
     public CalculationExecutionStrategy criteriaThreadExecutorVirtual() {
-        return new CriteriaThreadExecutor(true);
+        return new CriteriaThreadExecutor(true, config.getCriteriaThreadPool());
     }
 
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "platform", matchIfMissing = true)
     public CalculationExecutionStrategy controlThreadExecutor() {
-        return new ControlThreadExecutor(false);
+        return new ControlThreadExecutor(false, config.getControlThreadPool());
     }
 
     @Bean
     @ConditionalOnProperty(name = "execution.mode", havingValue = "virtual")
     public CalculationExecutionStrategy controlThreadExecutorVirtual() {
-        return new ControlThreadExecutor(true);
+        return new ControlThreadExecutor(true, config.getControlThreadPool());
     }
 
     @Bean
@@ -152,9 +152,9 @@ public class GrpcClientAutoConfiguration {
     ) {
         boolean useVirtual = "virtual".equals(executionMode);
 
-        CalculationExecutionStrategy processorExecutor = new ProcessorThreadExecutor(useVirtual);
-        CalculationExecutionStrategy criteriaExecutor = new CriteriaThreadExecutor(useVirtual);
-        CalculationExecutionStrategy controlExecutor = new ControlThreadExecutor(useVirtual);
+        CalculationExecutionStrategy processorExecutor = new ProcessorThreadExecutor(useVirtual, config.getProcessorThreadPool());
+        CalculationExecutionStrategy criteriaExecutor = new CriteriaThreadExecutor(useVirtual, config.getCriteriaThreadPool());
+        CalculationExecutionStrategy controlExecutor = new ControlThreadExecutor(useVirtual, config.getControlThreadPool());
 
         return new DefaultEventExecutionRouter(processorExecutor, criteriaExecutor, controlExecutor);
     }
@@ -162,7 +162,7 @@ public class GrpcClientAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "reconnection.strategy", havingValue = "default", matchIfMissing = true)
     public ReconnectionStrategy reconnectionStrategy() {
-        return new DefaultReconnectionStrategy();
+        return new DefaultReconnectionStrategy(config);
     }
 
     @PreDestroy
