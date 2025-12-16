@@ -11,7 +11,7 @@ COPY . .
 RUN ./gradlew bootJar -x test
 
 # Stage 2: Set up the production runtime environment
-FROM openjdk:21-jdk-slim AS production
+FROM eclipse-temurin:21-jdk-slim AS production
 
 # Set the working directory in the container
 WORKDIR /app
