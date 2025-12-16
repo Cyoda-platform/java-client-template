@@ -1,0 +1,17 @@
+{
+  "portfolioId": "PORT-001",
+  "ownerId": "USER-001",
+  "name": "Main Trading Portfolio",
+  "description": "Primary trading account for equities",
+  "cashBalance": 100000.00,
+  "totalValue": 150000.00,
+  "unrealizedPnl": 5000.00,
+  "realizedPnl": 2500.00,
+  "currency": "USD",
+  "status": "ACTIVE",
+  "positionIds": ["POS-001", "POS-002"],
+  "createdAt": "2025-12-16T10:00:00",
+  "updatedAt": "2025-12-16T10:00:00",
+  "lastMarkToMarketTime": "2025-12-16T10:00:00"
+}
+

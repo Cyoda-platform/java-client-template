@@ -1,0 +1,18 @@
+{
+  "positionId": "POS-001",
+  "portfolioId": "PORT-001",
+  "instrumentSymbol": "AAPL",
+  "quantity": 100,
+  "averageCost": 145.00,
+  "costBasis": 14500.00,
+  "currentPrice": 150.25,
+  "marketValue": 15025.00,
+  "unrealizedPnl": 525.00,
+  "unrealizedPnlPercent": 3.62,
+  "realizedPnl": 0.00,
+  "greeks": null,
+  "createdAt": "2025-12-16T10:00:00",
+  "updatedAt": "2025-12-16T10:00:00",
+  "lastMarkToMarketTime": "2025-12-16T10:00:00"
+}
+

@@ -1,0 +1,21 @@
+{
+  "tickId": "TICK-AAPL-20251216-100000",
+  "instrumentSymbol": "AAPL",
+  "exchange": "NASDAQ",
+  "timestamp": "2025-12-16T10:00:00",
+  "bidPrice": 150.20,
+  "bidSize": 5000,
+  "askPrice": 150.30,
+  "askSize": 5000,
+  "lastPrice": 150.25,
+  "lastSize": 100,
+  "openPrice": 149.50,
+  "highPrice": 151.00,
+  "lowPrice": 149.25,
+  "closePrice": 150.25,
+  "volume": 50000000,
+  "vwap": 150.15,
+  "impliedVolatility": null,
+  "createdAt": "2025-12-16T10:00:00"
+}
+

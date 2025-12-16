@@ -1,0 +1,21 @@
+{
+  "tradeId": "TRD-001",
+  "orderId": "ORD-001",
+  "portfolioId": "PORT-001",
+  "instrumentSymbol": "AAPL",
+  "side": "BUY",
+  "quantity": 100,
+  "executionPrice": 150.00,
+  "tradeValue": 15000.00,
+  "commission": 15.00,
+  "netValue": 14985.00,
+  "executionTime": "2025-12-16T10:30:00",
+  "settlementDate": "2025-12-18T00:00:00",
+  "counterparty": "NASDAQ",
+  "externalTradeId": "EXT-TRD-001",
+  "settlementStatus": "PENDING",
+  "settlementInstructionId": "SETTLE-001",
+  "createdAt": "2025-12-16T10:30:00",
+  "updatedAt": "2025-12-16T10:30:00"
+}
+
