@@ -1,0 +1,16 @@
+routes:
+  - path: /products
+    method: GET
+    handler: product.list
+  - path: /products/{id}
+    method: GET
+    handler: product.get
+  - path: /products
+    method: POST
+    handler: product.create
+  - path: /products/{id}
+    method: PUT
+    handler: product.update
+  - path: /products/{id}
+    method: DELETE
+    handler: product.delete
