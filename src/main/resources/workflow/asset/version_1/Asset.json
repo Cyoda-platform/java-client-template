@@ -1,9 +1,4 @@
-{
-  "entityName": "Asset",
-  "modelVersion": 1,
-  "importMode": "REPLACE",
-  "workflows": [
-    {
+ {
       "name": "Asset Lifecycle Workflow",
       "initialState": "initial",
       "active": true,
@@ -55,6 +50,4 @@
         }
       }
     }
-  ]
-}
-
+  
