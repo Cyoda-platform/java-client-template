@@ -1,0 +1,14 @@
+{
+  "assetId": "asset_btc_001",
+  "symbol": "BTC",
+  "name": "Bitcoin",
+  "type": "CRYPTO",
+  "decimals": 8,
+  "status": "ACTIVE",
+  "tradingEnabled": true,
+  "depositEnabled": true,
+  "withdrawalEnabled": true,
+  "createdAt": "2025-01-01T00:00:00",
+  "updatedAt": "2025-12-17T14:30:00"
+}
+

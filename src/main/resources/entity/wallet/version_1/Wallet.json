@@ -1,0 +1,16 @@
+{
+  "walletId": "wallet_alice_btc_hot_001",
+  "accountId": "acc_alice_001",
+  "assetId": "asset_btc_001",
+  "type": "HOT",
+  "balance": "2.50000000",
+  "reserved": "0.50000000",
+  "total": "3.00000000",
+  "status": "ACTIVE",
+  "address": "1A1z7agoat2LWQLZLQ5QHVJQ34aD1EKbtf",
+  "publicKey": "02d6047b69a6f2d5ba405b8e41e8d970dcf30ce234e41daad8e3d987e931d4b56c",
+  "createdAt": "2025-12-01T10:10:00",
+  "updatedAt": "2025-12-17T14:30:00",
+  "lastActivityAt": "2025-12-17T14:25:00"
+}
+
