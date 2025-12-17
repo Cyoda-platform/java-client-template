@@ -1,0 +1,13 @@
+{
+  "marketId": "market_btc_usd_001",
+  "baseAssetId": "asset_btc_001",
+  "quoteAssetId": "asset_usd_001",
+  "tickSize": "0.01",
+  "minOrderSize": "0.001",
+  "maxOrderSize": "100.0",
+  "status": "ACTIVE",
+  "tradingHours": "24/7",
+  "createdAt": "2025-01-01T00:00:00",
+  "updatedAt": "2025-12-17T14:30:00"
+}
+

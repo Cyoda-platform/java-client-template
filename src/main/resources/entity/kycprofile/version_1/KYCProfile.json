@@ -1,0 +1,33 @@
+{
+  "kycProfileId": "kyc_alice_001",
+  "userId": "user_alice_001",
+  "status": "APPROVED",
+  "verificationLevel": "ADVANCED",
+  "documents": [
+    {
+      "documentId": "doc_alice_passport_001",
+      "type": "PASSPORT",
+      "status": "VERIFIED",
+      "url": "s3://kyc-documents/alice/passport.pdf",
+      "uploadedAt": "2025-12-02T10:00:00",
+      "verifiedAt": "2025-12-03T14:00:00"
+    },
+    {
+      "documentId": "doc_alice_address_001",
+      "type": "PROOF_OF_ADDRESS",
+      "status": "VERIFIED",
+      "url": "s3://kyc-documents/alice/address.pdf",
+      "uploadedAt": "2025-12-02T10:05:00",
+      "verifiedAt": "2025-12-03T14:00:00"
+    }
+  ],
+  "sanctionsScreeningStatus": "PASSED",
+  "pepScreeningStatus": "PASSED",
+  "verificationNotes": "All documents verified. No sanctions hits.",
+  "rejectionReason": null,
+  "createdAt": "2025-12-01T10:00:00",
+  "submittedAt": "2025-12-02T10:00:00",
+  "approvedAt": "2025-12-03T14:00:00",
+  "expiresAt": "2026-12-03T14:00:00"
+}
+

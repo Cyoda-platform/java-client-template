@@ -1,0 +1,17 @@
+{
+  "orderId": "order_alice_001",
+  "accountId": "acc_alice_001",
+  "marketId": "market_btc_usd_001",
+  "side": "BUY",
+  "type": "LIMIT",
+  "price": "42500.50",
+  "quantity": "0.50000000",
+  "filled": "0.00000000",
+  "remaining": "0.50000000",
+  "timeInForce": "GTC",
+  "status": "PLACED",
+  "createdAt": "2025-12-17T14:00:00",
+  "updatedAt": "2025-12-17T14:00:00",
+  "filledAt": null
+}
+
