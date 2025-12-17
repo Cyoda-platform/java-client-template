@@ -1,0 +1,86 @@
+{
+  "entityName": "ComplianceAlert",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "AML Alert Handling Workflow",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "generate_alert",
+              "next": "open",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "ComplianceAlertGenerationProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "open": {
+          "transitions": [
+            {
+              "name": "assign_for_review",
+              "next": "under_review",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "under_review": {
+          "transitions": [
+            {
+              "name": "resolve",
+              "next": "resolved",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "escalate",
+              "next": "escalated",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "resolved": {
+          "transitions": [
+            {
+              "name": "close",
+              "next": "closed",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "escalated": {
+          "transitions": [
+            {
+              "name": "take_action",
+              "next": "resolved",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "closed": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

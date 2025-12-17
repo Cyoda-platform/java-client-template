@@ -1,0 +1,197 @@
+{
+  "entityName": "Wallet",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Wallet Deposit/Withdrawal Workflow",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "initiate_deposit",
+              "next": "deposit_pending",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "initiate_withdrawal",
+              "next": "withdrawal_pending",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "deposit_pending": {
+          "transitions": [
+            {
+              "name": "detect_deposit",
+              "next": "deposit_detected",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "DepositDetectionProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "deposit_detected": {
+          "transitions": [
+            {
+              "name": "perform_kyc_aml_check",
+              "next": "deposit_kyc_aml_check",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "DepositKYCAMLProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "deposit_kyc_aml_check": {
+          "transitions": [
+            {
+              "name": "settle_deposit",
+              "next": "deposit_settled",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "DepositSettlementProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "reject_deposit",
+              "next": "deposit_rejected",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "deposit_settled": {
+          "transitions": []
+        },
+        "deposit_rejected": {
+          "transitions": []
+        },
+        "withdrawal_pending": {
+          "transitions": [
+            {
+              "name": "perform_aml_check",
+              "next": "withdrawal_aml_check",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "WithdrawalAMLProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "withdrawal_aml_check": {
+          "transitions": [
+            {
+              "name": "sign_and_broadcast",
+              "next": "withdrawal_broadcasting",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "WithdrawalSigningProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 10000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "reject_withdrawal",
+              "next": "withdrawal_rejected",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "withdrawal_broadcasting": {
+          "transitions": [
+            {
+              "name": "confirm_broadcast",
+              "next": "withdrawal_confirmed",
+              "manual": false,
+              "disabled": false
+            }
+          ]
+        },
+        "withdrawal_confirmed": {
+          "transitions": [
+            {
+              "name": "finalize",
+              "next": "withdrawal_finalized",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "WithdrawalFinalizationProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "withdrawal_finalized": {
+          "transitions": []
+        },
+        "withdrawal_rejected": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

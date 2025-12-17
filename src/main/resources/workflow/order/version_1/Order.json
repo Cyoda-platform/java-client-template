@@ -1,0 +1,131 @@
+{
+  "entityName": "Order",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Order Lifecycle Workflow",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "validate_and_place",
+              "next": "placed",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "OrderValidationProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "placed": {
+          "transitions": [
+            {
+              "name": "attempt_match",
+              "next": "matching",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "OrderMatchingProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 10000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "cancel",
+              "next": "cancelled",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "matching": {
+          "transitions": [
+            {
+              "name": "partial_fill",
+              "next": "partially_filled",
+              "manual": false,
+              "disabled": false
+            },
+            {
+              "name": "full_fill",
+              "next": "filled",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "OrderSettlementProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 10000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "no_match",
+              "next": "placed",
+              "manual": false,
+              "disabled": false
+            }
+          ]
+        },
+        "partially_filled": {
+          "transitions": [
+            {
+              "name": "continue_matching",
+              "next": "matching",
+              "manual": false,
+              "disabled": false
+            },
+            {
+              "name": "cancel_remaining",
+              "next": "cancelled",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "filled": {
+          "transitions": [
+            {
+              "name": "settle",
+              "next": "settled",
+              "manual": false,
+              "disabled": false
+            }
+          ]
+        },
+        "settled": {
+          "transitions": []
+        },
+        "cancelled": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

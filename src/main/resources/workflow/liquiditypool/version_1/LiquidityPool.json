@@ -1,0 +1,122 @@
+{
+  "entityName": "LiquidityPool",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Liquidity Provisioning & Withdrawal Workflow",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "initialize_pool",
+              "next": "active",
+              "manual": true,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "LiquidityPoolInitializationProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "active": {
+          "transitions": [
+            {
+              "name": "monitor_and_rebalance",
+              "next": "rebalancing",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "LiquidityRebalancingProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 10000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "pause",
+              "next": "paused",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "initiate_withdrawal",
+              "next": "withdrawal_pending",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "rebalancing": {
+          "transitions": [
+            {
+              "name": "complete_rebalance",
+              "next": "active",
+              "manual": false,
+              "disabled": false
+            }
+          ]
+        },
+        "paused": {
+          "transitions": [
+            {
+              "name": "resume",
+              "next": "active",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "initiate_withdrawal",
+              "next": "withdrawal_pending",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "withdrawal_pending": {
+          "transitions": [
+            {
+              "name": "execute_withdrawal",
+              "next": "closed",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "LiquidityWithdrawalProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 10000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "closed": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

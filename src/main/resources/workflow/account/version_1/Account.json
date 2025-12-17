@@ -1,0 +1,60 @@
+{
+  "entityName": "Account",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Account Lifecycle Workflow",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "activate",
+              "next": "active",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "active": {
+          "transitions": [
+            {
+              "name": "update",
+              "next": "active",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "suspend",
+              "next": "suspended",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "suspended": {
+          "transitions": [
+            {
+              "name": "reactivate",
+              "next": "active",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "close",
+              "next": "closed",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "closed": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

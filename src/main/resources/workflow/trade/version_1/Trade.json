@@ -1,0 +1,59 @@
+{
+  "entityName": "Trade",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Trade Settlement Workflow",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "match",
+              "next": "matched",
+              "manual": false,
+              "disabled": false
+            }
+          ]
+        },
+        "matched": {
+          "transitions": [
+            {
+              "name": "settle",
+              "next": "settled",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "TradeSettlementProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 10000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "fail",
+              "next": "failed",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "settled": {
+          "transitions": []
+        },
+        "failed": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

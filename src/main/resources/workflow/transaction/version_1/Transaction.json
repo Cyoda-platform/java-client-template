@@ -1,0 +1,49 @@
+{
+  "entityName": "Transaction",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Transaction Lifecycle Workflow",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "confirm",
+              "next": "confirmed",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "TransactionConfirmationProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "fail",
+              "next": "failed",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "confirmed": {
+          "transitions": []
+        },
+        "failed": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

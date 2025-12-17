@@ -1,0 +1,17 @@
+{
+  "poolId": "pool_btc_usd_001",
+  "marketId": "market_btc_usd_001",
+  "provider": "INTERNAL",
+  "balanceBase": "10.00000000",
+  "balanceQuote": "425000.00",
+  "strategy": "MARKET_MAKER",
+  "bidSpread": "0.05",
+  "askSpread": "0.05",
+  "status": "ACTIVE",
+  "totalVolume": "1000.00000000",
+  "totalFees": "5000.00",
+  "createdAt": "2025-01-01T00:00:00",
+  "updatedAt": "2025-12-17T14:30:00",
+  "lastRebalanceAt": "2025-12-17T12:00:00"
+}
+

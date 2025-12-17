@@ -1,0 +1,134 @@
+{
+  "entityName": "KYCProfile",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "KYC Onboarding & Review Workflow",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "submit_documents",
+              "next": "submitted",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "submitted": {
+          "transitions": [
+            {
+              "name": "perform_automated_screening",
+              "next": "automated_screening",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "KYCAutomatedScreeningProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 10000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "automated_screening": {
+          "transitions": [
+            {
+              "name": "route_to_manual_review",
+              "next": "manual_review",
+              "manual": false,
+              "disabled": false
+            },
+            {
+              "name": "auto_approve",
+              "next": "approved",
+              "manual": false,
+              "disabled": false
+            }
+          ]
+        },
+        "manual_review": {
+          "transitions": [
+            {
+              "name": "approve",
+              "next": "approved",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "reject",
+              "next": "rejected",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "escalate_for_sanctions",
+              "next": "sanctions_escalation",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "sanctions_escalation": {
+          "transitions": [
+            {
+              "name": "resolve_sanctions_hit",
+              "next": "approved",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "block_due_to_sanctions",
+              "next": "blocked",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "approved": {
+          "transitions": [
+            {
+              "name": "suspend",
+              "next": "suspended",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "rejected": {
+          "transitions": [
+            {
+              "name": "resubmit",
+              "next": "submitted",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "blocked": {
+          "transitions": []
+        },
+        "suspended": {
+          "transitions": [
+            {
+              "name": "reactivate",
+              "next": "approved",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+
