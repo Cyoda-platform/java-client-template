@@ -120,14 +120,14 @@ public class ProductController {
                     .map(this::toSlimDTO)
                     .collect(Collectors.toList());
 
-            PageResult<ProductSlimDTO> slimResult = new PageResult<>(
-                    slimDTOs,
-                    result.pageNumber(),
-                    result.pageSize(),
-                    result.totalElements(),
-                    result.totalPages(),
-                    result.searchId()
-            );
+            PageResult<ProductSlimDTO> slimResult = PageResult.builder()
+                    .data(slimDTOs)
+                    .pageNumber(result.pageNumber())
+                    .pageSize(result.pageSize())
+                    .totalElements(result.totalElements())
+                    .totalPages(result.totalPages())
+                    .searchId(result.searchId())
+                    .build();
 
             logger.info("Listed {} products (page {}/{})", slimDTOs.size(), page, result.totalPages());
             return ResponseEntity.ok(slimResult);
