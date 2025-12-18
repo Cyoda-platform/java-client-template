@@ -1,6 +1,6 @@
 {
   "name": "workflow_design_schema",
-  "description": "workflow design schema",
+  "desc": "workflow design schema",
   "schema": {
     "type": "object",
     "required": [
