@@ -1,0 +1,42 @@
+{
+  "fraudDetectionId": "FD-2025-001234",
+  "transactionId": "TXN-2025-001234",
+  "merchantId": "MERCHANT-5678",
+  "customerId": "CUST-9012",
+  "fraudScore": 0.15,
+  "riskLevel": "LOW",
+  "decision": "APPROVE",
+  "deviceFingerprint": "fp_device_abc123xyz",
+  "deviceType": "MOBILE",
+  "osType": "iOS",
+  "browserType": "Safari",
+  "transactionCountLast24h": 2,
+  "transactionCountLastHour": 1,
+  "totalAmountLast24h": 199.98,
+  "velocityThresholdExceeded": false,
+  "ipAddress": "192.168.1.100",
+  "country": "United States",
+  "city": "San Francisco",
+  "latitude": 37.7749,
+  "longitude": -122.4194,
+  "impossibleTravel": false,
+  "cardBlacklisted": false,
+  "ipBlacklisted": false,
+  "deviceBlacklisted": false,
+  "customerBlacklisted": false,
+  "decisionReason": "Decision based on risk level: LOW",
+  "matchedRules": [
+    {
+      "ruleName": "VELOCITY_CHECK",
+      "ruleType": "VELOCITY",
+      "ruleScore": 0.0,
+      "ruleReason": "Transaction count within normal range"
+    }
+  ],
+  "reviewStatus": null,
+  "reviewedBy": null,
+  "reviewedAt": null,
+  "createdAt": "2025-12-18T10:30:00",
+  "updatedAt": "2025-12-18T10:30:00"
+}
+

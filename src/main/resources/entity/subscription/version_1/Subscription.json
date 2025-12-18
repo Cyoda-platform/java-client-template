@@ -1,0 +1,37 @@
+{
+  "subscriptionId": "SUB-2025-005678",
+  "merchantId": "MERCHANT-5678",
+  "customerId": "CUST-9012",
+  "planId": "PLAN-PREMIUM",
+  "planName": "Premium Plan",
+  "planAmount": 99.99,
+  "currency": "USD",
+  "billingCycle": "MONTHLY",
+  "billingDayOfMonth": 18,
+  "nextBillingDate": "2026-01-18T00:00:00",
+  "lastBillingDate": "2025-12-18T00:00:00",
+  "status": "ACTIVE",
+  "startDate": "2025-12-18T10:30:00",
+  "endDate": null,
+  "canceledAt": null,
+  "cancelReason": null,
+  "proratedAmount": null,
+  "previousPlanId": null,
+  "upgradeDowngradeDate": null,
+  "failedAttempts": 0,
+  "maxRetries": 3,
+  "nextRetryDate": null,
+  "lastFailureReason": null,
+  "createdAt": "2025-12-18T10:30:00",
+  "updatedAt": "2025-12-18T10:30:00",
+  "billingHistory": [
+    {
+      "billingDate": "2025-12-18T00:00:00",
+      "amount": 99.99,
+      "status": "SUCCESS",
+      "transactionId": "TXN-2025-001234",
+      "failureReason": null
+    }
+  ]
+}
+

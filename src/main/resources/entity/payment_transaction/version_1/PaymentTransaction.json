@@ -1,0 +1,38 @@
+{
+  "transactionId": "TXN-2025-001234",
+  "merchantId": "MERCHANT-5678",
+  "customerId": "CUST-9012",
+  "amount": 99.99,
+  "currency": "USD",
+  "description": "Premium subscription renewal",
+  "cardToken": "tok_visa_4242",
+  "cardLast4": "4242",
+  "cardBrand": "VISA",
+  "cardExpiryMonth": "12",
+  "cardExpiryYear": "2026",
+  "exchangeRate": 1.0,
+  "baseCurrency": "USD",
+  "baseAmount": 99.99,
+  "deviceFingerprint": "fp_device_abc123xyz",
+  "ipAddress": "192.168.1.100",
+  "geoLocation": "San Francisco, CA, USA",
+  "fraudScore": 0.15,
+  "fraudStatus": "APPROVED",
+  "fraudReason": null,
+  "status": "PENDING",
+  "processorReference": null,
+  "processorStatus": null,
+  "createdAt": "2025-12-18T10:30:00",
+  "updatedAt": "2025-12-18T10:30:00",
+  "processedAt": null,
+  "processedBy": null,
+  "auditLogs": [
+    {
+      "timestamp": "2025-12-18T10:30:00",
+      "action": "CREATED",
+      "actor": "system",
+      "details": "Transaction created via API"
+    }
+  ]
+}
+
