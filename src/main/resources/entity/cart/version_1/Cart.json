@@ -1,0 +1,36 @@
+{
+  "cartId": "CART-2025-001",
+  "status": "ACTIVE",
+  "lines": [
+    {
+      "sku": "LAPTOP-PRO-15-2025",
+      "name": "ProBook 15 Laptop",
+      "price": 1299.99,
+      "qty": 1,
+      "lineTotal": 1299.99
+    },
+    {
+      "sku": "CASE-LAPTOP-15",
+      "name": "Protective Laptop Case",
+      "price": 49.99,
+      "qty": 1,
+      "lineTotal": 49.99
+    }
+  ],
+  "totalItems": 2,
+  "grandTotal": 1349.98,
+  "guestContact": {
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "phone": "+44 20 7946 0958",
+    "address": {
+      "line1": "123 Oxford Street",
+      "city": "London",
+      "postcode": "W1D 2HD",
+      "country": "GB"
+    }
+  },
+  "createdAt": "2025-01-20T14:30:00",
+  "updatedAt": "2025-01-20T14:35:00"
+}
+
