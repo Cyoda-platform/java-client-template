@@ -1,0 +1,94 @@
+{
+  "entityName": "PaymentTransaction",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'PaymentTransaction.1'",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "PROCESS_PAYMENT",
+              "next": "processing",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "PaymentTransactionProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "payment_processing",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "processing": {
+          "transitions": [
+            {
+              "name": "AUTHORIZE",
+              "next": "authorized",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "DECLINE",
+              "next": "failed",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "UPDATE",
+              "next": "processing",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "authorized": {
+          "transitions": [
+            {
+              "name": "CAPTURE",
+              "next": "captured",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "VOID",
+              "next": "voided",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "captured": {
+          "transitions": [
+            {
+              "name": "REFUND",
+              "next": "refunded",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "failed": {
+          "transitions": []
+        },
+        "voided": {
+          "transitions": []
+        },
+        "refunded": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+
