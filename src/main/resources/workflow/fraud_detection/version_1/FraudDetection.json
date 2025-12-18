@@ -1,0 +1,81 @@
+{
+  "entityName": "FraudDetection",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'FraudDetection.1'",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "ANALYZE",
+              "next": "analyzing",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "FraudDetectionProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "fraud_detection",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "analyzing": {
+          "transitions": [
+            {
+              "name": "APPROVE",
+              "next": "approved",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "FLAG_FOR_REVIEW",
+              "next": "review_pending",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "BLOCK",
+              "next": "blocked",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "review_pending": {
+          "transitions": [
+            {
+              "name": "APPROVE_REVIEW",
+              "next": "approved",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "REJECT_REVIEW",
+              "next": "blocked",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "approved": {
+          "transitions": []
+        },
+        "blocked": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

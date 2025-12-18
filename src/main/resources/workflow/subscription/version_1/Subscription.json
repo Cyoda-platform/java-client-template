@@ -1,0 +1,90 @@
+{
+  "entityName": "Subscription",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'Subscription.1'",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "ACTIVATE",
+              "next": "active",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "SubscriptionProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "subscription_management",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "active": {
+          "transitions": [
+            {
+              "name": "RENEW",
+              "next": "active",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "UPGRADE",
+              "next": "active",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "DOWNGRADE",
+              "next": "active",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "PAUSE",
+              "next": "paused",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "CANCEL",
+              "next": "canceled",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "paused": {
+          "transitions": [
+            {
+              "name": "RESUME",
+              "next": "active",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "CANCEL",
+              "next": "canceled",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "canceled": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+
