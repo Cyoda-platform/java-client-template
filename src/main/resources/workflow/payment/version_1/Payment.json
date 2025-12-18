@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "name": "PaymentFlow",
+  "desc": "Dummy payment workflow: INITIATED → PAID | FAILED | CANCELED (auto-PAID after ~3s)",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "START_DUMMY_PAYMENT",
+          "next": "INITIATED",
+          "manual": false
+        }
+      ]
+    },
+    "INITIATED": {
+      "transitions": [
+        {
+          "name": "AUTO_MARK_PAID",
+          "next": "PAID",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AutoMarkPaidAfter3s",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "MARK_FAILED",
+          "next": "FAILED",
+          "manual": true
+        },
+        {
+          "name": "MARK_CANCELED",
+          "next": "CANCELED",
+          "manual": true
+        }
+      ]
+    },
+    "PAID": {
+      "transitions": []
+    },
+    "FAILED": {
+      "transitions": []
+    },
+    "CANCELED": {
+      "transitions": []
+    }
+  }
+}
+

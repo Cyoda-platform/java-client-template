@@ -1,0 +1,22 @@
+{
+  "shipmentId": "SHIP-2025-001",
+  "orderId": "ORD-2025-001",
+  "status": "DELIVERED",
+  "lines": [
+    {
+      "sku": "LAPTOP-PRO-15-2025",
+      "qtyOrdered": 1,
+      "qtyPicked": 1,
+      "qtyShipped": 1
+    },
+    {
+      "sku": "CASE-LAPTOP-15",
+      "qtyOrdered": 1,
+      "qtyPicked": 1,
+      "qtyShipped": 1
+    }
+  ],
+  "createdAt": "2025-01-20T14:40:05",
+  "updatedAt": "2025-01-20T14:50:00"
+}
+
