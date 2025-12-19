@@ -35,7 +35,7 @@ public class OrderValidationProcessor implements CyodaProcessor {
         return serializer.withRequest(request)
                 .toEntityWithMetadata(Order.class)
                 .validate(this::isValidOrder, "Invalid order")
-                .map(this::validateOrderRules)
+                .map(ctx -> validateOrderRules(ctx.entityResponse()))
                 .complete();
     }
 
