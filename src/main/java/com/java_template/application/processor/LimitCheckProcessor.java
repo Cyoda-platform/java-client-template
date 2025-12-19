@@ -35,7 +35,7 @@ public class LimitCheckProcessor implements CyodaProcessor {
         return serializer.withRequest(request)
                 .toEntityWithMetadata(Order.class)
                 .validate(this::isValidOrder, "Invalid order")
-                .map(this::checkLimits)
+                .map(ctx -> checkLimits(ctx.entityResponse()))
                 .complete();
     }
 

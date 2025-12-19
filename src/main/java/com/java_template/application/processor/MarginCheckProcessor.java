@@ -35,7 +35,7 @@ public class MarginCheckProcessor implements CyodaProcessor {
         return serializer.withRequest(request)
                 .toEntityWithMetadata(Order.class)
                 .validate(this::isValidOrder, "Invalid order")
-                .map(this::checkMargin)
+                .map(ctx -> checkMargin(ctx.entityResponse()))
                 .complete();
     }
 

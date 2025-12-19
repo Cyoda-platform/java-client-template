@@ -35,7 +35,7 @@ public class ConcentrationCheckProcessor implements CyodaProcessor {
         return serializer.withRequest(request)
                 .toEntityWithMetadata(Order.class)
                 .validate(this::isValidOrder, "Invalid order")
-                .map(this::checkConcentration)
+                .map(ctx -> checkConcentration(ctx.entityResponse()))
                 .complete();
     }
 

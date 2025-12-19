@@ -37,7 +37,7 @@ public class TradeCreationProcessor implements CyodaProcessor {
         return serializer.withRequest(request)
                 .toEntityWithMetadata(Trade.class)
                 .validate(this::isValidTrade, "Invalid trade")
-                .map(this::createTrade)
+                .map(ctx -> createTrade(ctx.entityResponse()))
                 .complete();
     }
 

@@ -37,7 +37,7 @@ public class SettlementProcessor implements CyodaProcessor {
         return serializer.withRequest(request)
                 .toEntityWithMetadata(Trade.class)
                 .validate(this::isValidTrade, "Invalid trade")
-                .map(this::settleTrade)
+                .map(ctx -> settleTrade(ctx.entityResponse()))
                 .complete();
     }
 
