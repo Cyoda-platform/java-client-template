@@ -40,21 +40,21 @@ public class LimitCheckProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Order> checkLimits(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
-        
+        Order order = orderWithMetadata.entity();
+
         // Calculate estimated cost
         Double estimatedCost = order.getQuantity() * (order.getPrice() != null ? order.getPrice() : 100.0);
         order.setEstimatedCost(estimatedCost);
-        
+
         // In a real system, check against account limits
-        logger.info("Limit check passed for order: {} with estimated cost: {}", 
+        logger.info("Limit check passed for order: {} with estimated cost: {}",
             order.getOrderId(), estimatedCost);
-        
+
         return orderWithMetadata;
     }
 
     private boolean isValidOrder(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
+        Order order = orderWithMetadata.entity();
         return order.getOrderId() != null && order.getQuantity() != null;
     }
 

@@ -40,18 +40,18 @@ public class ConcentrationCheckProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Order> checkConcentration(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
-        
+        Order order = orderWithMetadata.entity();
+
         // In a real system, check position concentration
         // Ensure no single position exceeds concentration limits
-        logger.info("Concentration check passed for order: {} on symbol: {}", 
+        logger.info("Concentration check passed for order: {} on symbol: {}",
             order.getOrderId(), order.getSymbol());
-        
+
         return orderWithMetadata;
     }
 
     private boolean isValidOrder(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
+        Order order = orderWithMetadata.entity();
         return order.getOrderId() != null && order.getSymbol() != null;
     }
 
