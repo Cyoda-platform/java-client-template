@@ -111,9 +111,16 @@ Workflows are defined using **finite-state machine (FSM)** JSON files placed in:
 src/main/resources/workflow/$entity_name/version_$version/$entity_name.json
 ```
 
+### Workflow Schema Reference
+The workflow configuration schema is defined in:
+```
+src/main/resources/schema/common/statemachine/conf/WorkflowConfiguration.json
+```
+This schema defines the structure for workflow definitions, including states, transitions, processors, and criteria.
+
 ### Key Concepts
 - **States and Transitions**: Define the workflow flow
-- **Processors**: Handle business logic during transitions  
+- **Processors**: Handle business logic during transitions
 - **Criteria**: Evaluate conditions to determine transition paths
 - **Automatic Discovery**: Components are found via Spring `@Component` annotation
 

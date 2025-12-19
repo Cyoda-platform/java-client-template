@@ -50,6 +50,7 @@ java-client-template/
 
 - [Build Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/build.gradle): Gradle build configuration with dependencies and plugins
 - [Application Configuration](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/resources/application.yml): Base Spring Boot configuration with defaults
+- [Workflow Schema](https://github.com/Cyoda-platform/java-client-template/${branch}/src/main/resources/schema/common/statemachine/conf/WorkflowConfiguration.json): Workflow configuration schema defining states, transitions, processors, and criteria structure
 
 ---
 
