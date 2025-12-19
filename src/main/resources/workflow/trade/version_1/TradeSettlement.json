@@ -1,0 +1,143 @@
+{
+  "version": "1.0",
+  "name": "TradeSettlement",
+  "desc": "Trade settlement and reconciliation workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "CREATE_TRADE",
+          "next": "PENDING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TradeCreationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PENDING": {
+      "transitions": [
+        {
+          "name": "VALIDATE_TRADE",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TradeValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "RECONCILE",
+          "next": "RECONCILING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "TradeReconciliationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "RECONCILING": {
+      "transitions": [
+        {
+          "name": "RECONCILIATION_PASSED",
+          "next": "READY_TO_SETTLE",
+          "manual": false
+        },
+        {
+          "name": "RECONCILIATION_FAILED",
+          "next": "RECONCILIATION_FAILED",
+          "manual": false
+        }
+      ]
+    },
+    "READY_TO_SETTLE": {
+      "transitions": [
+        {
+          "name": "SETTLE",
+          "next": "SETTLING",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SettlementProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SETTLING": {
+      "transitions": [
+        {
+          "name": "SETTLEMENT_COMPLETE",
+          "next": "SETTLED",
+          "manual": false
+        },
+        {
+          "name": "SETTLEMENT_FAILED",
+          "next": "SETTLEMENT_FAILED",
+          "manual": false
+        }
+      ]
+    },
+    "SETTLED": {
+      "transitions": []
+    },
+    "RECONCILIATION_FAILED": {
+      "transitions": [
+        {
+          "name": "RETRY",
+          "next": "RECONCILING",
+          "manual": true
+        }
+      ]
+    },
+    "SETTLEMENT_FAILED": {
+      "transitions": [
+        {
+          "name": "RETRY",
+          "next": "SETTLING",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
+
