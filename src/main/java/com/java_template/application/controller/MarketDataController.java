@@ -99,14 +99,15 @@ public class MarketDataController {
 
     /**
      * Update market data
-     * PUT /ui/marketdata/{id}
+     * PUT /ui/marketdata/{id}?transition=TRANSITION_NAME
      */
     @PutMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<MarketData>> updateMarketData(
             @PathVariable UUID id,
-            @Valid @RequestBody MarketData marketData) {
+            @Valid @RequestBody MarketData marketData,
+            @RequestParam(required = false) String transition) {
         try {
-            EntityWithMetadata<MarketData> response = entityService.update(id, marketData);
+            EntityWithMetadata<MarketData> response = entityService.update(id, marketData, transition);
             logger.info("MarketData updated with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {

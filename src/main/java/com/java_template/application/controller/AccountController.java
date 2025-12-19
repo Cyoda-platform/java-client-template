@@ -99,14 +99,15 @@ public class AccountController {
 
     /**
      * Update account
-     * PUT /ui/account/{id}
+     * PUT /ui/account/{id}?transition=TRANSITION_NAME
      */
     @PutMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<Account>> updateAccount(
             @PathVariable UUID id,
-            @Valid @RequestBody Account account) {
+            @Valid @RequestBody Account account,
+            @RequestParam(required = false) String transition) {
         try {
-            EntityWithMetadata<Account> response = entityService.update(id, account);
+            EntityWithMetadata<Account> response = entityService.update(id, account, transition);
             logger.info("Account updated with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {

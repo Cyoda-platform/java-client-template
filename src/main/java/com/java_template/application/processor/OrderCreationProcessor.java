@@ -42,20 +42,20 @@ public class OrderCreationProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Order> processOrderCreation(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
-        
+        Order order = orderWithMetadata.entity();
+
         // Initialize order state
         order.setStatus("NEW");
         order.setFilledQuantity(0.0);
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
-        
+
         logger.info("Order created: {} for account: {}", order.getOrderId(), order.getAccountId());
         return orderWithMetadata;
     }
 
     private boolean isValidOrder(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
+        Order order = orderWithMetadata.entity();
         return order.getOrderId() != null && !order.getOrderId().isBlank() &&
                order.getAccountId() != null && !order.getAccountId().isBlank() &&
                order.getSymbol() != null && !order.getSymbol().isBlank() &&

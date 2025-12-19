@@ -99,14 +99,15 @@ public class PositionController {
 
     /**
      * Update position
-     * PUT /ui/position/{id}
+     * PUT /ui/position/{id}?transition=TRANSITION_NAME
      */
     @PutMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<Position>> updatePosition(
             @PathVariable UUID id,
-            @Valid @RequestBody Position position) {
+            @Valid @RequestBody Position position,
+            @RequestParam(required = false) String transition) {
         try {
-            EntityWithMetadata<Position> response = entityService.update(id, position);
+            EntityWithMetadata<Position> response = entityService.update(id, position, transition);
             logger.info("Position updated with ID: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {

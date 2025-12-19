@@ -42,22 +42,22 @@ public class OrderSettlementProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Order> settleOrder(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
-        
+        Order order = orderWithMetadata.entity();
+
         // Update order settlement status
         order.setUpdatedAt(LocalDateTime.now());
         order.setExecutedAt(LocalDateTime.now());
-        
-        logger.info("Order settled: {} with {} shares at avg price {}", 
+
+        logger.info("Order settled: {} with {} shares at avg price {}",
             order.getOrderId(), order.getFilledQuantity(), order.getAveragePrice());
-        
+
         return orderWithMetadata;
     }
 
     private boolean isValidOrder(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
-        return order.getOrderId() != null && 
-               order.getFilledQuantity() != null && 
+        Order order = orderWithMetadata.entity();
+        return order.getOrderId() != null &&
+               order.getFilledQuantity() != null &&
                order.getFilledQuantity() > 0;
     }
 
