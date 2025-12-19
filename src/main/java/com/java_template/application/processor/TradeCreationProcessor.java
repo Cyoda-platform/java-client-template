@@ -42,26 +42,26 @@ public class TradeCreationProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Trade> createTrade(EntityWithMetadata<Trade> tradeWithMetadata) {
-        Trade trade = tradeWithMetadata.getEntity();
-        
+        Trade trade = tradeWithMetadata.entity();
+
         // Initialize trade
         trade.setSettlementStatus("PENDING");
         trade.setExecutedAt(LocalDateTime.now());
         trade.setCreatedAt(LocalDateTime.now());
         trade.setCreatedBy("SYSTEM");
-        
+
         // Calculate total value
         Double totalValue = trade.getQuantity() * trade.getPrice();
         trade.setTotalValue(totalValue);
-        
-        logger.info("Trade created: {} for {} shares at {}", 
+
+        logger.info("Trade created: {} for {} shares at {}",
             trade.getTradeId(), trade.getQuantity(), trade.getPrice());
-        
+
         return tradeWithMetadata;
     }
 
     private boolean isValidTrade(EntityWithMetadata<Trade> tradeWithMetadata) {
-        Trade trade = tradeWithMetadata.getEntity();
+        Trade trade = tradeWithMetadata.entity();
         return trade.getTradeId() != null && !trade.getTradeId().isBlank() &&
                trade.getOrderId() != null && !trade.getOrderId().isBlank() &&
                trade.getQuantity() != null && trade.getQuantity() > 0 &&

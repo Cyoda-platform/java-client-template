@@ -42,21 +42,21 @@ public class SettlementProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Trade> settleTrade(EntityWithMetadata<Trade> tradeWithMetadata) {
-        Trade trade = tradeWithMetadata.getEntity();
-        
+        Trade trade = tradeWithMetadata.entity();
+
         // Update settlement status
         trade.setSettlementStatus("SETTLED");
-        trade.setSettlementDate(LocalDateTime.now().toLocalDate());
-        
-        logger.info("Trade settled: {} for {} shares at {}", 
+        trade.setSettlementDate(LocalDateTime.now());
+
+        logger.info("Trade settled: {} for {} shares at {}",
             trade.getTradeId(), trade.getQuantity(), trade.getPrice());
-        
+
         return tradeWithMetadata;
     }
 
     private boolean isValidTrade(EntityWithMetadata<Trade> tradeWithMetadata) {
-        Trade trade = tradeWithMetadata.getEntity();
-        return trade.getTradeId() != null && 
+        Trade trade = tradeWithMetadata.entity();
+        return trade.getTradeId() != null &&
                trade.getSettlementStatus() != null &&
                "PENDING".equals(trade.getSettlementStatus());
     }

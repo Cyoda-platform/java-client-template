@@ -40,25 +40,25 @@ public class TradeValidationProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Trade> validateTrade(EntityWithMetadata<Trade> tradeWithMetadata) {
-        Trade trade = tradeWithMetadata.getEntity();
-        
+        Trade trade = tradeWithMetadata.entity();
+
         // Validate trade data
         if (trade.getQuantity() <= 0) {
             throw new IllegalArgumentException("Trade quantity must be positive");
         }
-        
+
         if (trade.getPrice() <= 0) {
             throw new IllegalArgumentException("Trade price must be positive");
         }
-        
+
         logger.info("Trade validation passed for: {}", trade.getTradeId());
         return tradeWithMetadata;
     }
 
     private boolean isValidTrade(EntityWithMetadata<Trade> tradeWithMetadata) {
-        Trade trade = tradeWithMetadata.getEntity();
-        return trade.getTradeId() != null && 
-               trade.getOrderId() != null && 
+        Trade trade = tradeWithMetadata.entity();
+        return trade.getTradeId() != null &&
+               trade.getOrderId() != null &&
                trade.getQuantity() != null &&
                trade.getPrice() != null;
     }

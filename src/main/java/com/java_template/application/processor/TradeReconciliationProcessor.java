@@ -40,17 +40,17 @@ public class TradeReconciliationProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Trade> reconcileTrade(EntityWithMetadata<Trade> tradeWithMetadata) {
-        Trade trade = tradeWithMetadata.getEntity();
-        
+        Trade trade = tradeWithMetadata.entity();
+
         // In a real system, reconcile with execution reports
-        logger.info("Trade reconciliation passed for: {} with {} shares", 
+        logger.info("Trade reconciliation passed for: {} with {} shares",
             trade.getTradeId(), trade.getQuantity());
-        
+
         return tradeWithMetadata;
     }
 
     private boolean isValidTrade(EntityWithMetadata<Trade> tradeWithMetadata) {
-        Trade trade = tradeWithMetadata.getEntity();
+        Trade trade = tradeWithMetadata.entity();
         return trade.getTradeId() != null && trade.getOrderId() != null;
     }
 

@@ -40,18 +40,18 @@ public class MarginCheckProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Order> checkMargin(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
-        
+        Order order = orderWithMetadata.entity();
+
         // In a real system, check margin requirements
         // For now, assume margin is available
-        logger.info("Margin check passed for order: {} for account: {}", 
+        logger.info("Margin check passed for order: {} for account: {}",
             order.getOrderId(), order.getAccountId());
-        
+
         return orderWithMetadata;
     }
 
     private boolean isValidOrder(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
+        Order order = orderWithMetadata.entity();
         return order.getOrderId() != null && order.getAccountId() != null;
     }
 

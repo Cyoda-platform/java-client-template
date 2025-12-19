@@ -40,7 +40,7 @@ public class OrderValidationProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Order> validateOrderRules(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
+        Order order = orderWithMetadata.entity();
         
         // Validate order type
         if (!isValidOrderType(order.getOrderType())) {
@@ -69,7 +69,7 @@ public class OrderValidationProcessor implements CyodaProcessor {
     }
 
     private boolean isValidOrder(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
+        Order order = orderWithMetadata.entity();
         return order.getOrderId() != null && order.getQuantity() != null && order.getQuantity() > 0;
     }
 
