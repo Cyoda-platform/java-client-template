@@ -42,22 +42,22 @@ public class OrderSubmissionProcessor implements CyodaProcessor {
     }
 
     private EntityWithMetadata<Order> submitOrder(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
-        
+        Order order = orderWithMetadata.entity();
+
         // In a real system, this would call the execution gateway
         // For now, we simulate submission
         logger.info("Submitting order {} to execution gateway", order.getOrderId());
-        
+
         order.setUpdatedAt(LocalDateTime.now());
-        
+
         logger.info("Order submitted: {} for symbol: {}", order.getOrderId(), order.getSymbol());
         return orderWithMetadata;
     }
 
     private boolean isValidOrder(EntityWithMetadata<Order> orderWithMetadata) {
-        Order order = orderWithMetadata.getEntity();
-        return order.getOrderId() != null && 
-               order.getStatus() != null && 
+        Order order = orderWithMetadata.entity();
+        return order.getOrderId() != null &&
+               order.getStatus() != null &&
                "NEW".equals(order.getStatus());
     }
 
