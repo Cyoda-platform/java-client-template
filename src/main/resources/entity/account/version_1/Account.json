@@ -1,0 +1,23 @@
+{
+  "accountId": "ACC-12345",
+  "accountName": "John Doe Trading Account",
+  "accountType": "INDIVIDUAL",
+  "status": "ACTIVE",
+  "cashBalance": 100000.0,
+  "totalEquity": 150000.0,
+  "buyingPower": 300000.0,
+  "maintenanceMargin": 30000.0,
+  "initialMargin": 50000.0,
+  "marginUtilization": 0.2,
+  "currency": "USD",
+  "allowedAssetTypes": ["EQUITY", "OPTION", "FUTURE"],
+  "marginEnabled": true,
+  "shortSellEnabled": true,
+  "optionsEnabled": true,
+  "complianceStatus": "COMPLIANT",
+  "regulatoryStatus": "APPROVED",
+  "lastComplianceCheckAt": "2025-01-01T08:00:00",
+  "createdAt": "2024-01-01T00:00:00",
+  "updatedAt": "2025-01-01T16:00:00"
+}
+

@@ -1,0 +1,24 @@
+{
+  "orderId": "ORD-20250101-001",
+  "accountId": "ACC-12345",
+  "clientOrderId": "CLIENT-ORD-001",
+  "symbol": "AAPL",
+  "assetType": "EQUITY",
+  "orderType": "LIMIT",
+  "side": "BUY",
+  "quantity": 100.0,
+  "price": 150.25,
+  "stopPrice": null,
+  "timeInForce": "DAY",
+  "status": "NEW",
+  "filledQuantity": 0.0,
+  "averagePrice": null,
+  "fills": [],
+  "estimatedCost": 15025.0,
+  "riskCheckStatus": "PENDING",
+  "complianceStatus": "PENDING",
+  "createdAt": "2025-01-01T09:30:00",
+  "updatedAt": "2025-01-01T09:30:00",
+  "executedAt": null
+}
+

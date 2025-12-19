@@ -1,0 +1,160 @@
+{
+  "version": "1.0",
+  "name": "OrderLifecycle",
+  "desc": "Order lifecycle workflow: creation, validation, execution, and settlement",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "CREATE_ORDER",
+          "next": "NEW",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderCreationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "NEW": {
+      "transitions": [
+        {
+          "name": "VALIDATE_ORDER",
+          "next": "VALIDATED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "REJECT_ORDER",
+          "next": "REJECTED",
+          "manual": true
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "SUBMIT_TO_EXECUTION",
+          "next": "SUBMITTED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderSubmissionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUBMITTED": {
+      "transitions": [
+        {
+          "name": "ACKNOWLEDGE",
+          "next": "ACK",
+          "manual": false
+        },
+        {
+          "name": "REJECT",
+          "next": "REJECTED",
+          "manual": false
+        }
+      ]
+    },
+    "ACK": {
+      "transitions": [
+        {
+          "name": "PARTIAL_FILL",
+          "next": "PARTIAL_FILL",
+          "manual": false
+        },
+        {
+          "name": "FILL",
+          "next": "FILLED",
+          "manual": false
+        },
+        {
+          "name": "CANCEL",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "PARTIAL_FILL": {
+      "transitions": [
+        {
+          "name": "MORE_FILL",
+          "next": "PARTIAL_FILL",
+          "manual": false
+        },
+        {
+          "name": "COMPLETE_FILL",
+          "next": "FILLED",
+          "manual": false
+        },
+        {
+          "name": "CANCEL",
+          "next": "CANCELLED",
+          "manual": true
+        }
+      ]
+    },
+    "FILLED": {
+      "transitions": [
+        {
+          "name": "SETTLE",
+          "next": "SETTLED",
+          "manual": false,
+          "processors": [
+            {
+              "name": "OrderSettlementProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SETTLED": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": []
+    },
+    "REJECTED": {
+      "transitions": []
+    }
+  }
+}
+

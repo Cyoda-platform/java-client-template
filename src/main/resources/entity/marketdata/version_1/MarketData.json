@@ -1,0 +1,35 @@
+{
+  "marketDataId": "MD-AAPL-20250101-093000",
+  "symbol": "AAPL",
+  "assetType": "EQUITY",
+  "venue": "NASDAQ",
+  "bid": 150.20,
+  "ask": 150.30,
+  "bidSize": 5000.0,
+  "askSize": 4500.0,
+  "last": 150.25,
+  "lastSize": 1000.0,
+  "open": 149.50,
+  "high": 151.00,
+  "low": 149.25,
+  "close": 150.25,
+  "volume": 50000000.0,
+  "bidLevels": [
+    {"price": 150.20, "size": 5000.0, "orders": 12},
+    {"price": 150.15, "size": 3000.0, "orders": 8},
+    {"price": 150.10, "size": 2000.0, "orders": 5}
+  ],
+  "askLevels": [
+    {"price": 150.30, "size": 4500.0, "orders": 10},
+    {"price": 150.35, "size": 3500.0, "orders": 7},
+    {"price": 150.40, "size": 2500.0, "orders": 4}
+  ],
+  "impliedVolatility": null,
+  "delta": null,
+  "gamma": null,
+  "vega": null,
+  "theta": null,
+  "quoteTime": "2025-01-01T09:30:00",
+  "createdAt": "2025-01-01T09:30:00"
+}
+

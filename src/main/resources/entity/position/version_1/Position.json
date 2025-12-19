@@ -1,0 +1,22 @@
+{
+  "positionId": "POS-ACC-12345-AAPL",
+  "accountId": "ACC-12345",
+  "symbol": "AAPL",
+  "assetType": "EQUITY",
+  "quantity": 100.0,
+  "averageCost": 150.25,
+  "currentPrice": 152.50,
+  "marketValue": 15250.0,
+  "unrealizedPnL": 225.0,
+  "realizedPnL": 0.0,
+  "totalPnL": 225.0,
+  "pnlPercentage": 1.5,
+  "notionalValue": 15250.0,
+  "delta": null,
+  "gamma": null,
+  "vega": null,
+  "theta": null,
+  "openedAt": "2025-01-01T09:35:00",
+  "lastUpdatedAt": "2025-01-01T16:00:00"
+}
+

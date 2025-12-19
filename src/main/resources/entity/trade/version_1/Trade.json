@@ -1,0 +1,22 @@
+{
+  "tradeId": "TRD-20250101-001",
+  "orderId": "ORD-20250101-001",
+  "accountId": "ACC-12345",
+  "executionId": "EXEC-20250101-001",
+  "symbol": "AAPL",
+  "assetType": "EQUITY",
+  "side": "BUY",
+  "quantity": 50.0,
+  "price": 150.25,
+  "commission": 12.50,
+  "totalValue": 7512.50,
+  "settlementStatus": "PENDING",
+  "settlementDate": "2025-01-03",
+  "counterparty": "BROKER-XYZ",
+  "venue": "NASDAQ",
+  "executionVenue": "NASDAQ",
+  "executedAt": "2025-01-01T09:35:00",
+  "createdAt": "2025-01-01T09:35:00",
+  "createdBy": "SYSTEM"
+}
+

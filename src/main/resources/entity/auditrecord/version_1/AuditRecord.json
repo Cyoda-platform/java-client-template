@@ -1,0 +1,22 @@
+{
+  "auditId": "AUD-20250101-001",
+  "accountId": "ACC-12345",
+  "relatedEntityId": "ORD-20250101-001",
+  "relatedEntityType": "ORDER",
+  "eventType": "ORDER_CREATED",
+  "action": "CREATE",
+  "status": "SUCCESS",
+  "userId": "USER-001",
+  "systemComponent": "OrderManagementSystem",
+  "ipAddress": "192.168.1.100",
+  "description": "Order created for AAPL 100 shares at limit 150.25",
+  "details": "{\"symbol\": \"AAPL\", \"quantity\": 100, \"price\": 150.25}",
+  "previousState": null,
+  "newState": "NEW",
+  "complianceRule": "ORDER_VALIDATION",
+  "surveillanceFlag": "NORMAL",
+  "regulatoryCategory": "NORMAL_TRADING",
+  "eventTime": "2025-01-01T09:30:00",
+  "recordedAt": "2025-01-01T09:30:00"
+}
+

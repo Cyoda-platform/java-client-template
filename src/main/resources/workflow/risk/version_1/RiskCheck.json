@@ -1,0 +1,118 @@
+{
+  "version": "1.0",
+  "name": "RiskCheck",
+  "desc": "Pre-trade and real-time risk validation workflow",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "START_RISK_CHECK",
+          "next": "PRE_TRADE_CHECK",
+          "manual": false
+        }
+      ]
+    },
+    "PRE_TRADE_CHECK": {
+      "transitions": [
+        {
+          "name": "CHECK_LIMITS",
+          "next": "LIMIT_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "LimitCheckProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "LIMIT_CHECK": {
+      "transitions": [
+        {
+          "name": "CHECK_MARGIN",
+          "next": "MARGIN_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "MarginCheckProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "LIMIT_BREACH",
+          "next": "RISK_FAILED",
+          "manual": false
+        }
+      ]
+    },
+    "MARGIN_CHECK": {
+      "transitions": [
+        {
+          "name": "CHECK_CONCENTRATION",
+          "next": "CONCENTRATION_CHECK",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ConcentrationCheckProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "MARGIN_BREACH",
+          "next": "RISK_FAILED",
+          "manual": false
+        }
+      ]
+    },
+    "CONCENTRATION_CHECK": {
+      "transitions": [
+        {
+          "name": "ALL_CHECKS_PASSED",
+          "next": "RISK_PASSED",
+          "manual": false
+        },
+        {
+          "name": "CONCENTRATION_BREACH",
+          "next": "RISK_FAILED",
+          "manual": false
+        }
+      ]
+    },
+    "RISK_PASSED": {
+      "transitions": []
+    },
+    "RISK_FAILED": {
+      "transitions": [
+        {
+          "name": "RETRY",
+          "next": "PRE_TRADE_CHECK",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
+
