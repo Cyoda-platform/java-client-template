@@ -9,13 +9,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import reactor.core.publisher.Mono;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
@@ -48,7 +49,10 @@ class ItemsSearchControllerTest {
     @Test
     @DisplayName("Should return 400 when query parameter is missing")
     void testSearchMissingQuery() throws Exception {
-        mockMvc.perform(get("/items/search"))
+        String requestBody = objectMapper.writeValueAsString(new SearchRequest(null, null, null, null));
+        mockMvc.perform(post("/items/search")
+                .contentType("application/json")
+                .content(requestBody))
                 .andExpect(status().isBadRequest());
 
         verify(itemSearchService, never()).search(anyString(), anyString(), anyInt(), anyInt());
@@ -57,7 +61,10 @@ class ItemsSearchControllerTest {
     @Test
     @DisplayName("Should return 400 when query parameter is empty")
     void testSearchEmptyQuery() throws Exception {
-        mockMvc.perform(get("/items/search").param("q", ""))
+        String requestBody = objectMapper.writeValueAsString(new SearchRequest("", null, null, null));
+        mockMvc.perform(post("/items/search")
+                .contentType("application/json")
+                .content(requestBody))
                 .andExpect(status().isBadRequest());
 
         verify(itemSearchService, never()).search(anyString(), anyString(), anyInt(), anyInt());
@@ -70,7 +77,10 @@ class ItemsSearchControllerTest {
         when(itemSearchService.search("test", null, 20, 0))
                 .thenReturn(Mono.just(mockResponse));
 
-        mockMvc.perform(get("/items/search").param("q", "test"))
+        String requestBody = objectMapper.writeValueAsString(new SearchRequest("test", null, null, null));
+        mockMvc.perform(post("/items/search")
+                .contentType("application/json")
+                .content(requestBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.results").isArray());
 

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * ABOUTME: REST controller for searching Hacker News items via the Cyoda entity search API.
- * Provides a GET /items/search endpoint with query parameter validation and error handling.
+ * Provides a POST /items/search endpoint with request body validation and error handling.
  */
 @RestController
 @RequestMapping("/items")
@@ -29,33 +29,31 @@ public class ItemsSearchController {
 
     /**
      * Search for Hacker News items using the Cyoda entity search API.
-     * GET /items/search?q=<query>&type=<type>&limit=<limit>&offset=<offset>
+     * POST /items/search with JSON request body
      *
-     * @param q the search query (required)
-     * @param type the entity type to search (optional)
-     * @param limit the maximum number of results (default 20)
-     * @param offset the pagination offset (default 0)
+     * @param request the search request containing q (required), type, limit, and offset
      * @return ResponseEntity with search results or error response
      */
-    @GetMapping("/search")
-    public ResponseEntity<JsonNode> search(
-            @RequestParam(value = "q", required = false) String q,
-            @RequestParam(value = "type", required = false) String type,
-            @RequestParam(value = "limit", defaultValue = "" + DEFAULT_LIMIT) int limit,
-            @RequestParam(value = "offset", defaultValue = "" + DEFAULT_OFFSET) int offset) {
+    @PostMapping("/search")
+    public ResponseEntity<JsonNode> search(@RequestBody SearchRequest request) {
 
-        logger.info("Search request received: q={}, type={}, limit={}, offset={}", q, type, limit, offset);
+        logger.info("Search request received: {}", request);
 
         // Validate required parameter
-        if (q == null || q.trim().isEmpty()) {
+        if (request.getQ() == null || request.getQ().trim().isEmpty()) {
             logger.warn("Search request missing required parameter 'q'");
             return ResponseEntity.badRequest().build();
         }
 
         try {
             // Call service and block to get response (MVC pattern)
-            JsonNode result = itemSearchService.search(q, type, limit, offset).block();
-            logger.info("Search completed successfully for query: {}", q);
+            JsonNode result = itemSearchService.search(
+                    request.getQ(),
+                    request.getType(),
+                    request.getLimit(),
+                    request.getOffset()
+            ).block();
+            logger.info("Search completed successfully for query: {}", request.getQ());
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             logger.error("Error during search: {}", e.getMessage(), e);
