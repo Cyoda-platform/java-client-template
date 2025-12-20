@@ -189,6 +189,83 @@ This schema defines the structure for workflow definitions, including states, tr
 
 - See `CONTRIBUTING.md` for detailed guidelines
 
+## Entity Search (items/search)
+
+The application provides a `/items/search` endpoint for searching Hacker News items using the Cyoda entity search API.
+
+### Configuration
+
+Set the following environment variable to enable authorization:
+
+```bash
+export CYODA_API_TOKEN=your-api-token-here
+```
+
+Or add to `.env` file:
+```
+CYODA_API_TOKEN=your-api-token-here
+```
+
+### API Usage
+
+#### Basic Search
+```bash
+curl -X GET "http://localhost:8080/api/items/search?q=rust" \
+  -H "Content-Type: application/json"
+```
+
+#### Search with Type Filter
+```bash
+curl -X GET "http://localhost:8080/api/items/search?q=rust&type=story" \
+  -H "Content-Type: application/json"
+```
+
+#### Search with Pagination
+```bash
+curl -X GET "http://localhost:8080/api/items/search?q=rust&limit=50&offset=10" \
+  -H "Content-Type: application/json"
+```
+
+#### Full Example with All Parameters
+```bash
+curl -X GET "http://localhost:8080/api/items/search?q=rust&type=story&limit=50&offset=0" \
+  -H "Content-Type: application/json"
+```
+
+### Query Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `q` | string | Yes | - | Search query string |
+| `type` | string | No | - | Entity type to filter results (e.g., "story", "comment") |
+| `limit` | integer | No | 20 | Maximum number of results to return |
+| `offset` | integer | No | 0 | Pagination offset for result set |
+
+### Response
+
+Returns a JSON response with search results from the Cyoda entity search API:
+
+```json
+{
+  "results": [
+    {
+      "id": "...",
+      "title": "...",
+      "type": "story",
+      ...
+    }
+  ],
+  "total": 100,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+### Error Handling
+
+- **400 Bad Request**: Missing or empty `q` parameter
+- **500 Internal Server Error**: Service error or upstream API failure
+
 ## Package Management
 
 Always use appropriate package managers for dependency management:
