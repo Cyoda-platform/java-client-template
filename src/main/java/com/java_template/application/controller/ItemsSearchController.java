@@ -35,23 +35,24 @@ public class ItemsSearchController {
      */
     @PostMapping("/search")
     public ResponseEntity<JsonNode> search(@RequestBody SearchRequest request) {
-        String q = request == null ? null : request.getQ();
-        String type = request == null ? null : request.getType();
-        int limit = request == null ? 20 : request.getLimit();
-        int offset = request == null ? 0 : request.getOffset();
 
-        logger.info("Search request received: q={}, type={}, limit={}, offset={}", q, type, limit, offset);
+        logger.info("Search request received: {}", request);
 
         // Validate required parameter
-        if (q == null || q.trim().isEmpty()) {
+        if (request.getQ() == null || request.getQ().trim().isEmpty()) {
             logger.warn("Search request missing required parameter 'q'");
             return ResponseEntity.badRequest().build();
         }
 
         try {
             // Call service and block to get response (MVC pattern)
-            JsonNode result = itemSearchService.search(q, type, limit, offset).block();
-            logger.info("Search completed successfully for query: {}", q);
+            JsonNode result = itemSearchService.search(
+                    request.getQ(),
+                    request.getType(),
+                    request.getLimit(),
+                    request.getOffset()
+            ).block();
+            logger.info("Search completed successfully for query: {}", request.getQ());
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             logger.error("Error during search: {}", e.getMessage(), e);
