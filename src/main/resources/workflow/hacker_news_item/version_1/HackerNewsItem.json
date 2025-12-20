@@ -1,0 +1,77 @@
+{
+  "entityName": "HackerNewsItem",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'HackerNewsItem.1'",
+      "initialState": "RECEIVED",
+      "active": true,
+      "states": {
+        "RECEIVED": {
+          "transitions": [
+            {
+              "name": "submitItem",
+              "next": "VALIDATED",
+              "manual": false,
+              "disabled": false,
+              "criterion": {
+                "type": "group",
+                "operator": "AND",
+                "conditions": [
+                  {
+                    "type": "function",
+                    "function": {
+                      "name": "HackerNewsItemCriterion",
+                      "config": {
+                        "attachEntity": true,
+                        "calculationNodesTags": "cyoda_application",
+                        "responseTimeoutMs": 5000,
+                        "retryPolicy": "FIXED"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "name": "rejectItem",
+              "next": "REJECTED",
+              "manual": false,
+              "disabled": false
+            }
+          ]
+        },
+        "VALIDATED": {
+          "transitions": [
+            {
+              "name": "enrichAndStore",
+              "next": "STORED",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "HackerNewsItemProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "STORED": {
+          "transitions": []
+        },
+        "REJECTED": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

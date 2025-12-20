@@ -1,0 +1,19 @@
+{
+  "id": 42161127,
+  "type": "story",
+  "rawJson": {
+    "id": 42161127,
+    "type": "story",
+    "by": "dang",
+    "time": 1734691200,
+    "text": "Example Hacker News story",
+    "dead": false,
+    "deleted": false,
+    "descendants": 42,
+    "score": 123,
+    "title": "Show HN: Example Application",
+    "url": "https://example.com"
+  },
+  "importTimestamp": "2025-12-20T10:00:00Z"
+}
+
