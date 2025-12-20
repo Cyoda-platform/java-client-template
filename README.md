@@ -3,7 +3,7 @@
 A **Gradle project** using **Spring Boot** with **Cyoda integration** for building scalable web clients with workflow-driven backend interactions.
 
 
-## 🛠️ Getting Started
+## ⚠️ Getting Started
 
 > ☕ **Java 21 Required**
 > Make sure Java 21 is installed and set as the active version.
@@ -30,7 +30,7 @@ export APP_CONFIG_CYODA_CLIENT_ID=your-client-id
 export APP_CONFIG_CYODA_CLIENT_SECRET=your-client-secret
 ```
 
-### 3. 🧰 Run Workflow Import Tool
+### 3. 🧭 Run Workflow Import Tool
 
 #### Option 1: Run via Gradle (recommended for local development)
 ```bash
@@ -62,7 +62,7 @@ java -jar build/libs/java-client-template-1.0-SNAPSHOT.jar --spring.profiles.act
 
 ---
 
-## 🏗️ Project Structure
+## 🗂 Project Structure
 
 This template follows a clear separation between **framework code** (that you don't modify) and **application code** (where you implement your business logic).
 
@@ -104,7 +104,7 @@ Pure functions that evaluate conditions without side effects. Must not modify en
 ### EntityWithMetadata<T> Pattern
 Unified wrapper that includes both entity data and technical metadata (UUID, state, etc.). Used consistently across controllers, processors, and criteria.
 
-## 🔄 Workflow Configuration
+## 🔧 Workflow Configuration
 
 Workflows are defined using **finite-state machine (FSM)** JSON files placed in:
 ```
@@ -131,7 +131,7 @@ This schema defines the structure for workflow definitions, including states, tr
   - `controller/` - REST controller patterns
   - `entity/` - Entity class implementations
   - `processor/` - Workflow processor examples  
-  - `criterion/` - Workflow criteria examples
+  - `criterion/` - Workflow criteria examples  
   - `patterns/` - Comprehensive patterns and anti-patterns guide
 
 ### Configuration Examples  
@@ -178,17 +178,6 @@ This schema defines the structure for workflow definitions, including states, tr
 5. **Configure Workflows**: Create JSON files in `src/main/resources/workflow/`
 6. **Build Controllers**: Create REST endpoints in `application/controller/`
 
-## 🔧 Development Workflow
-
-1. Review `llm_example/` directory for patterns before implementing new features
-2. Follow established architectural patterns for processors, criteria, and serializers
-3. Use `usage-rules.md` for detailed implementation guidelines
-4. Run `./gradlew build` to generate required classes before development
-
-**For Contributors:**
-
-- See `CONTRIBUTING.md` for detailed guidelines
-
 ## Entity Search (items/search)
 
 The application provides a `/items/search` endpoint for searching Hacker News items using the Cyoda entity search API.
@@ -202,81 +191,50 @@ export CYODA_API_TOKEN=your-api-token-here
 ```
 
 Or add to `.env` file:
-```
+
+```bash
 CYODA_API_TOKEN=your-api-token-here
 ```
 
 ### API Usage
 
-#### Basic Search
+#### Basic Search (POST)
 ```bash
-curl -X POST "http://localhost:8080/items/search" \
+curl -X POST "http://localhost:8080/api/items/search" \
   -H "Content-Type: application/json" \
-  -d '{"q": "rust"}'
+  -d '{"q":"rust","type":"story","limit":50,"offset":0}'
 ```
 
-#### Search with Type Filter
+#### Search with Type Filter (POST)
 ```bash
-curl -X POST "http://localhost:8080/items/search" \
+curl -X POST "http://localhost:8080/api/items/search" \
   -H "Content-Type: application/json" \
-  -d '{"q": "rust", "type": "story"}'
+  -d '{"q":"rust","type":"story"}'
 ```
 
-#### Search with Pagination
+#### Search with Pagination (POST)
 ```bash
-curl -X POST "http://localhost:8080/items/search" \
+curl -X POST "http://localhost:8080/api/items/search" \
   -H "Content-Type: application/json" \
-  -d '{"q": "rust", "limit": 50, "offset": 10}'
+  -d '{"q":"rust","limit":50,"offset":10}'
 ```
 
-#### Full Example with All Parameters
+#### Full Example with All Parameters (POST)
 ```bash
-curl -X POST "http://localhost:8080/items/search" \
+curl -X POST "http://localhost:8080/api/items/search" \
   -H "Content-Type: application/json" \
-  -d '{"q": "rust", "type": "story", "limit": 50, "offset": 0}'
+  -d '{"q":"rust","type":"story","limit":50,"offset":0}'
 ```
 
 ### Request Body
 
-The request body should be a JSON object with the following properties:
-
-| Property | Type | Required | Default | Description |
-|----------|------|----------|---------|-------------|
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
 | `q` | string | Yes | - | Search query string |
 | `type` | string | No | - | Entity type to filter results (e.g., "story", "comment") |
-| `limit` | integer | No | 20 | Maximum number of results to return |
-| `offset` | integer | No | 0 | Pagination offset for result set |
+| `limit` | integer | No | 20 | Maximum number of results |
+| `offset` | integer | No | 0 | Pagination offset |
 
-### Response
+***
 
-Returns a JSON response with search results from the Cyoda entity search API:
-
-```json
-{
-  "results": [
-    {
-      "id": "...",
-      "title": "...",
-      "type": "story",
-      ...
-    }
-  ],
-  "total": 100,
-  "limit": 20,
-  "offset": 0
-}
-```
-
-### Error Handling
-
-- **400 Bad Request**: Missing or empty `q` parameter
-- **500 Internal Server Error**: Service error or upstream API failure
-
-## Package Management
-
-Always use appropriate package managers for dependency management:
-
-1. **Use package managers** for all dependency operations instead of manually editing configuration files
-2. **Exception**: Only edit package files directly for complex configurations that cannot be accomplished through package manager commands
-3. **Generated Classes**: Ensure `build/generated-sources/js2p/org/cyoda/cloud/api/event` classes are available via `./gradlew build`
-4. **Communication**: Use generated classes for all Cyoda integration
+Updated README with POST-based examples for /items/search.
