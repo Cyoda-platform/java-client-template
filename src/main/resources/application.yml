@@ -52,13 +52,14 @@ app:
   config:
     # Cyoda Platform Connection
     # Override these via environment variables or profile-specific YAML files
-    cyoda-host: localhost:8443
-    cyoda-api-url: https://${app.config.cyoda-host}/api
+    # MUST SET CYODA_HOST, CYODA_CLIENT_ID, CYODA_CLIENT_SECRET
+    cyoda-host:
     cyoda-client-id:
     cyoda-client-secret:
+    cyoda-api-url: https://${app.config.cyoda-host}/api
 
     # gRPC Configuration
-    grpc-address: grpc-${app.config.cyoda-host}}
+    grpc-address: grpc-${app.config.cyoda-host}
     grpc-server-port: 443
     grpc-processor-tag: cyoda_application
     grpc-communication-data-format: JSON
@@ -88,13 +89,15 @@ app:
     monitoring-scheduler-delay-seconds: 3
     keep-alive-warning-threshold: 60000
 
-    # SSL Configuration
+    # SSL Configuration -- only needed for local development using self-signed certificates
     ssl-trust-all: false
-    ssl-trusted-hosts: ${app.config.ssl-trusted-hosts:}
+    ssl-trusted-hosts:
 
     # Feature Flags
+    # This is just for testing purposes. It activates NoopProcessor and AlwaysTrueCriterion/AlwaysFalseCriterion
+    # which can be used for testing workflows without having to implement actual processors/criteria
     include-default-operations: false
 
 cyoda:
   api:
-    url: ${app.config.cyoda-api-url}
+    url: https://${app.config.cyoda-host}
