@@ -234,7 +234,3 @@ curl -X POST "http://localhost:8080/api/items/search" \
 | `type` | string | No | - | Entity type to filter results (e.g., "story", "comment") |
 | `limit` | integer | No | 20 | Maximum number of results |
 | `offset` | integer | No | 0 | Pagination offset |
-
-***
-
-Updated README with POST-based examples for /items/search.
