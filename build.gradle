@@ -94,6 +94,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin'
 
     implementation 'org.springframework.boot:spring-boot-starter-web:3.5.3'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux:3.5.3' // For WebClient
     implementation 'org.springframework.boot:spring-boot-starter' // Version managed by Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client' // Version managed by Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-validation' // Jakarta validation
