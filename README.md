@@ -198,28 +198,28 @@ CYODA_API_TOKEN=your-api-token-here
 
 ### API Usage
 
-#### Basic Search (POST)
+#### Basic Search
 ```bash
 curl -X POST "http://localhost:8080/api/items/search" \
   -H "Content-Type: application/json" \
-  -d '{"q":"rust","type":"story","limit":50,"offset":0}'
+  -d '{"q":"rust"}'
 ```
 
-#### Search with Type Filter (POST)
+#### Search with Type Filter
 ```bash
 curl -X POST "http://localhost:8080/api/items/search" \
   -H "Content-Type: application/json" \
   -d '{"q":"rust","type":"story"}'
 ```
 
-#### Search with Pagination (POST)
+#### Search with Pagination
 ```bash
 curl -X POST "http://localhost:8080/api/items/search" \
   -H "Content-Type: application/json" \
   -d '{"q":"rust","limit":50,"offset":10}'
 ```
 
-#### Full Example with All Parameters (POST)
+#### Full Example with All Parameters
 ```bash
 curl -X POST "http://localhost:8080/api/items/search" \
   -H "Content-Type: application/json" \
