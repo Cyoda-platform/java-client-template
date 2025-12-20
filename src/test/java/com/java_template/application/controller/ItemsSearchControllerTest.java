@@ -94,7 +94,10 @@ class ItemsSearchControllerTest {
         when(itemSearchService.search("test", null, 20, 0))
                 .thenReturn(Mono.just(mockResponse));
 
-        mockMvc.perform(get("/items/search").param("q", "test"))
+        String requestBody = objectMapper.writeValueAsString(new SearchRequest("test", null, null, null));
+        mockMvc.perform(post("/items/search")
+                .contentType("application/json")
+                .content(requestBody))
                 .andExpect(status().isOk());
 
         verify(itemSearchService).search("test", null, 20, 0);
