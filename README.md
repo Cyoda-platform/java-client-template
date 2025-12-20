@@ -210,32 +210,38 @@ CYODA_API_TOKEN=your-api-token-here
 
 #### Basic Search
 ```bash
-curl -X GET "http://localhost:8080/api/items/search?q=rust" \
-  -H "Content-Type: application/json"
+curl -X POST "http://localhost:8080/items/search" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "rust"}'
 ```
 
 #### Search with Type Filter
 ```bash
-curl -X GET "http://localhost:8080/api/items/search?q=rust&type=story" \
-  -H "Content-Type: application/json"
+curl -X POST "http://localhost:8080/items/search" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "rust", "type": "story"}'
 ```
 
 #### Search with Pagination
 ```bash
-curl -X GET "http://localhost:8080/api/items/search?q=rust&limit=50&offset=10" \
-  -H "Content-Type: application/json"
+curl -X POST "http://localhost:8080/items/search" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "rust", "limit": 50, "offset": 10}'
 ```
 
 #### Full Example with All Parameters
 ```bash
-curl -X GET "http://localhost:8080/api/items/search?q=rust&type=story&limit=50&offset=0" \
-  -H "Content-Type: application/json"
+curl -X POST "http://localhost:8080/items/search" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "rust", "type": "story", "limit": 50, "offset": 0}'
 ```
 
-### Query Parameters
+### Request Body
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
+The request body should be a JSON object with the following properties:
+
+| Property | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
 | `q` | string | Yes | - | Search query string |
 | `type` | string | No | - | Entity type to filter results (e.g., "story", "comment") |
 | `limit` | integer | No | 20 | Maximum number of results to return |

@@ -49,10 +49,8 @@ class ItemsSearchControllerTest {
     @Test
     @DisplayName("Should return 400 when query parameter is missing")
     void testSearchMissingQuery() throws Exception {
-        String requestBody = objectMapper.writeValueAsString(new SearchRequest(null, null, null, null));
-        mockMvc.perform(post("/items/search")
-                .contentType("application/json")
-                .content(requestBody))
+        String body = "{}";
+        mockMvc.perform(post("/items/search").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());
 
         verify(itemSearchService, never()).search(anyString(), anyString(), anyInt(), anyInt());
@@ -61,10 +59,8 @@ class ItemsSearchControllerTest {
     @Test
     @DisplayName("Should return 400 when query parameter is empty")
     void testSearchEmptyQuery() throws Exception {
-        String requestBody = objectMapper.writeValueAsString(new SearchRequest("", null, null, null));
-        mockMvc.perform(post("/items/search")
-                .contentType("application/json")
-                .content(requestBody))
+        String body = objectMapper.writeValueAsString(new SearchRequest("", null, null, null));
+        mockMvc.perform(post("/items/search").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());
 
         verify(itemSearchService, never()).search(anyString(), anyString(), anyInt(), anyInt());
@@ -77,10 +73,8 @@ class ItemsSearchControllerTest {
         when(itemSearchService.search("test", null, 20, 0))
                 .thenReturn(Mono.just(mockResponse));
 
-        String requestBody = objectMapper.writeValueAsString(new SearchRequest("test", null, null, null));
-        mockMvc.perform(post("/items/search")
-                .contentType("application/json")
-                .content(requestBody))
+        String body = objectMapper.writeValueAsString(new SearchRequest("test", null, null, null));
+        mockMvc.perform(post("/items/search").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.results").isArray());
 
@@ -94,10 +88,8 @@ class ItemsSearchControllerTest {
         when(itemSearchService.search("test", null, 20, 0))
                 .thenReturn(Mono.just(mockResponse));
 
-        String requestBody = objectMapper.writeValueAsString(new SearchRequest("test", null, null, null));
-        mockMvc.perform(post("/items/search")
-                .contentType("application/json")
-                .content(requestBody))
+        String body = objectMapper.writeValueAsString(new SearchRequest("test", null, null, null));
+        mockMvc.perform(post("/items/search").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk());
 
         verify(itemSearchService).search("test", null, 20, 0);
@@ -110,10 +102,8 @@ class ItemsSearchControllerTest {
         when(itemSearchService.search("test", null, 50, 10))
                 .thenReturn(Mono.just(mockResponse));
 
-        mockMvc.perform(get("/items/search")
-                .param("q", "test")
-                .param("limit", "50")
-                .param("offset", "10"))
+        String body = objectMapper.writeValueAsString(new SearchRequest("test", null, 50, 10));
+        mockMvc.perform(post("/items/search").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk());
 
         verify(itemSearchService).search("test", null, 50, 10);
@@ -126,9 +116,8 @@ class ItemsSearchControllerTest {
         when(itemSearchService.search("test", "story", 20, 0))
                 .thenReturn(Mono.just(mockResponse));
 
-        mockMvc.perform(get("/items/search")
-                .param("q", "test")
-                .param("type", "story"))
+        String body = objectMapper.writeValueAsString(new SearchRequest("test", "story", null, null));
+        mockMvc.perform(post("/items/search").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk());
 
         verify(itemSearchService).search("test", "story", 20, 0);
@@ -140,8 +129,8 @@ class ItemsSearchControllerTest {
         when(itemSearchService.search(anyString(), anyString(), anyInt(), anyInt()))
                 .thenReturn(Mono.error(new RuntimeException("Service error")));
 
-        mockMvc.perform(get("/items/search").param("q", "test"))
+        String body = objectMapper.writeValueAsString(new SearchRequest("test", null, null, null));
+        mockMvc.perform(post("/items/search").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isInternalServerError());
     }
 }
-
