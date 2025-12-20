@@ -4,6 +4,7 @@ import com.example.application.entity.hacker_news_item.version_1.HackerNewsItem;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
@@ -16,7 +17,7 @@ import java.time.Instant;
 
 /**
  * HackerNewsItemProcessor - Enriches Hacker News items with import timestamp
- * 
+ *
  * This processor adds the importTimestamp field to the Hacker News item
  * during the enrichAndStore transition. The timestamp is set to the
  * current server time when the item is processed.
@@ -54,7 +55,7 @@ public class HackerNewsItemProcessor implements CyodaProcessor {
      */
     private boolean isValidEntityWithMetadata(EntityWithMetadata<HackerNewsItem> entityWithMetadata) {
         HackerNewsItem entity = entityWithMetadata.entity();
-        return entity != null && entity.isValid(entityWithMetadata.metadata()) 
+        return entity != null && entity.isValid(entityWithMetadata.metadata())
                 && entityWithMetadata.metadata().getId() != null;
     }
 
