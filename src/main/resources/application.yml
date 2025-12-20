@@ -52,7 +52,7 @@ app:
   config:
     # Cyoda Platform Connection
     # Override these via environment variables or profile-specific YAML files
-    # MUST SET CYODA_HOST, CYODA_CLIENT_ID, CYODA_CLIENT_SECRET
+    # MUST SET cyoda-host, cyoda-client-id, cyoda-client-secret. Get them from Cyoda AI Studio, for example
     cyoda-host:
     cyoda-client-id:
     cyoda-client-secret:
