@@ -26,7 +26,6 @@ Customer
 ## Error handling
 - 404 for not found
 - 400 for validation errors
-- 500 for server errors
 
 ## Notes
 - Use in-memory storage for initial implementation (can switch to a persistent store later)
