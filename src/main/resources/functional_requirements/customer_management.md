@@ -1,7 +1,7 @@
 # Customer Management - Functional Requirements
 
 ## Overview
-A simple Customer Management API to create, read, update, and delete customer records.
+A simple Customer Management test API to create, read, update, and delete customer records.
 
 ## Entities
 Customer
