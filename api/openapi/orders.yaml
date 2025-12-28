@@ -1,0 +1,49 @@
+openapi: 3.0.0
+info:
+  title: Trading Platform Orders API
+  version: v1
+paths:
+  /orders:
+    post:
+      summary: Submit a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '201':
+          description: Order accepted
+  /orders/{orderId}:
+    get:
+      summary: Get order status
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order status
+components:
+  schemas:
+    OrderRequest:
+      type: object
+      properties:
+        clientId:
+          type: string
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [BUY, SELL]
+        quantity:
+          type: number
+        price:
+          type: number
+        orderType:
+          type: string
+          enum: [MARKET, LIMIT, IOC, GTC]
+      required: [clientId, symbol, side, quantity, orderType]

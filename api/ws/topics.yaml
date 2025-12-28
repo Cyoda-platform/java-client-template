@@ -1,0 +1,67 @@
+# WebSocket Topics Specification
+
+# Message envelope shared across topics
+messageEnvelope:
+  type: object
+  properties:
+    topic:
+      type: string
+    timestamp:
+      type: string
+      format: date-time
+    payload:
+      type: object
+
+# Topics
+market-data:
+  description: "Real-time market data topic. Subtopics: trades, quotes, orderbook"
+  payloadSchemas:
+    trade:
+      type: object
+      properties:
+        symbol:
+          type: string
+        price:
+          type: number
+        size:
+          type: number
+    quote:
+      type: object
+      properties:
+        symbol:
+          type: string
+        bid:
+          type: number
+        ask:
+          type: number
+    orderbook:
+      type: object
+      properties:
+        symbol:
+          type: string
+        bids:
+          type: array
+          items:
+            type: object
+            properties:
+              price:
+                type: number
+              size:
+                type: number
+pnl-stream:
+  description: "Real-time P&L streaming per account/portfolio"
+  payloadSchemas:
+    pnlUpdate:
+      type: object
+      properties:
+        accountId:
+          type: string
+        portfolioId:
+          type: string
+        realized:
+          type: number
+        unrealized:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
