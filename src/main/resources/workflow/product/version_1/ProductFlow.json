@@ -1,0 +1,41 @@
+{
+  "entityName": "Product",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'Product.1'",
+      "initialState": "ACTIVE",
+      "active": true,
+      "states": {
+        "ACTIVE": {
+          "transitions": [
+            {
+              "name": "UPDATE",
+              "next": "ACTIVE",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "DEACTIVATE",
+              "next": "INACTIVE",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "INACTIVE": {
+          "transitions": [
+            {
+              "name": "REACTIVATE",
+              "next": "ACTIVE",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+

@@ -120,13 +120,12 @@ public class ProductController {
                     .map(this::toProductDTO)
                     .toList();
 
-            PageResult<ProductDTO> dtoResult = new PageResult<>(
+            PageResult<ProductDTO> dtoResult = PageResult.of(
+                    result.searchId(),
                     dtos,
                     result.pageNumber(),
                     result.pageSize(),
-                    result.totalElements(),
-                    result.totalPages(),
-                    result.searchId()
+                    result.totalElements()
             );
 
             logger.info("Found {} products", result.totalElements());
