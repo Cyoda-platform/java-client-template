@@ -1,0 +1,36 @@
+{
+  "cartId": "CART-001",
+  "status": "ACTIVE",
+  "lines": [
+    {
+      "sku": "LAPTOP-PRO-001",
+      "name": "Professional Laptop",
+      "price": 1299.99,
+      "qty": 1,
+      "lineTotal": 1299.99
+    },
+    {
+      "sku": "MOUSE-WIRELESS",
+      "name": "Wireless Mouse",
+      "price": 29.99,
+      "qty": 2,
+      "lineTotal": 59.98
+    }
+  ],
+  "totalItems": 3,
+  "grandTotal": 1359.97,
+  "guestContact": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "+44 20 7946 0958",
+    "address": {
+      "line1": "123 Main Street",
+      "city": "London",
+      "postcode": "SW1A 1AA",
+      "country": "United Kingdom"
+    }
+  },
+  "createdAt": "2025-01-10T10:00:00",
+  "updatedAt": "2025-01-10T10:15:00"
+}
+

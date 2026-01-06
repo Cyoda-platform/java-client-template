@@ -1,0 +1,144 @@
+{
+  "sku": "LAPTOP-PRO-001",
+  "name": "Professional Laptop",
+  "description": "High-performance laptop for professionals",
+  "price": 1299.99,
+  "quantityAvailable": 150,
+  "category": "Electronics",
+  "warehouseId": "LON-01",
+  "attributes": {
+    "brand": "TechBrand",
+    "model": "ProBook X1",
+    "dimensions": {
+      "l": 35.5,
+      "w": 24.0,
+      "h": 1.8,
+      "unit": "cm"
+    },
+    "weight": {
+      "value": 1.8,
+      "unit": "kg"
+    },
+    "hazards": [],
+    "custom": {}
+  },
+  "localizations": {
+    "defaultLocale": "en-GB",
+    "content": [
+      {
+        "locale": "en-GB",
+        "name": "Professional Laptop",
+        "description": "High-performance laptop for professionals",
+        "regulatory": {
+          "ukca": true
+        },
+        "salesRestrictions": []
+      }
+    ]
+  },
+  "media": [
+    {
+      "type": "image",
+      "url": "https://example.com/images/laptop-pro-001.jpg",
+      "alt": "Professional Laptop Front View",
+      "tags": ["hero", "product"],
+      "sha256": "abc123def456"
+    }
+  ],
+  "options": {
+    "axes": [
+      {
+        "code": "color",
+        "values": ["silver", "black", "blue"]
+      },
+      {
+        "code": "storage",
+        "values": ["256GB", "512GB", "1TB"]
+      }
+    ],
+    "constraints": []
+  },
+  "variants": [
+    {
+      "variantSku": "LAPTOP-PRO-001-SLV-256",
+      "optionValues": {
+        "color": "silver",
+        "storage": "256GB"
+      },
+      "attributes": {
+        "weight": {
+          "value": 1.8,
+          "unit": "kg"
+        }
+      },
+      "barcodes": ["EAN:1234567890123"],
+      "priceOverrides": {
+        "base": 1299.99,
+        "priceBooks": []
+      },
+      "inventoryPolicy": {
+        "backorder": false,
+        "maxBackorderDays": 0
+      }
+    }
+  ],
+  "bundles": [],
+  "inventory": {
+    "nodes": [
+      {
+        "nodeId": "LON-01",
+        "type": "Warehouse",
+        "capacity": {
+          "maxUnits": 100000
+        },
+        "lots": [
+          {
+            "lotId": "LOT-A1",
+            "mfgDate": "2025-01-10",
+            "expires": "2027-01-10",
+            "qty": 150,
+            "serials": [],
+            "quality": "Released"
+          }
+        ],
+        "reservations": [],
+        "inTransit": []
+      }
+    ],
+    "policies": {
+      "allocation": "earliest-expiry-first",
+      "oversellGuard": {
+        "maxPercent": 5
+      }
+    }
+  },
+  "compliance": {
+    "docs": [],
+    "restrictions": []
+  },
+  "relationships": {
+    "suppliers": [
+      {
+        "partyId": "SUP-TECHBRAND",
+        "contract": {
+          "id": "C-2025-01",
+          "incoterm": "DAP",
+          "leadTimeDays": 14
+        }
+      }
+    ],
+    "relatedProducts": []
+  },
+  "events": [
+    {
+      "type": "ProductCreated",
+      "at": "2025-01-10T09:00:00Z",
+      "payload": {
+        "sku": "LAPTOP-PRO-001"
+      }
+    }
+  ],
+  "createdAt": "2025-01-10T09:00:00",
+  "updatedAt": "2025-01-10T09:00:00"
+}
+
