@@ -1,0 +1,1 @@
+Generate Cyoda OMS Backend (UI → App APIs → Cyoda Service) Objective Build a Spring Boot client application that exposes simple REST APIs for a browser UI (no login in the browser). The app will hold server-side Cyoda credentials and talk to Cyoda’s standard /entity/ APIs and workflows on behalf of the UI.
