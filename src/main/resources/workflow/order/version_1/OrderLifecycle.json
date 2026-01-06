@@ -1,0 +1,70 @@
+{
+  "entityName": "Order",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'Order.1'",
+      "initialState": "WAITING_TO_FULFILL",
+      "active": true,
+      "states": {
+        "WAITING_TO_FULFILL": {
+          "transitions": [
+            {
+              "name": "CREATE_ORDER_FROM_PAID",
+              "next": "PICKING",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "CreateOrderFromPaidProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "test-cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "PICKING": {
+          "transitions": [
+            {
+              "name": "READY_TO_SEND",
+              "next": "WAITING_TO_SEND",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "WAITING_TO_SEND": {
+          "transitions": [
+            {
+              "name": "MARK_SENT",
+              "next": "SENT",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "SENT": {
+          "transitions": [
+            {
+              "name": "MARK_DELIVERED",
+              "next": "DELIVERED",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "DELIVERED": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

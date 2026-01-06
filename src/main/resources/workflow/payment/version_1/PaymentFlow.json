@@ -1,0 +1,64 @@
+{
+  "entityName": "Payment",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'Payment.1'",
+      "initialState": "INITIATED",
+      "active": true,
+      "states": {
+        "INITIATED": {
+          "transitions": [
+            {
+              "name": "START_DUMMY_PAYMENT",
+              "next": "INITIATED",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "CreateDummyPaymentProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "test-cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "AUTO_MARK_PAID",
+              "next": "PAID",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "AutoMarkPaidProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "test-cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "PAID": {
+          "transitions": []
+        },
+        "FAILED": {
+          "transitions": []
+        },
+        "CANCELED": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

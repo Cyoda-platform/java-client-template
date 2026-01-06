@@ -1,0 +1,114 @@
+{
+  "entityName": "Cart",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'Cart.1'",
+      "initialState": "NEW",
+      "active": true,
+      "states": {
+        "NEW": {
+          "transitions": [
+            {
+              "name": "CREATE_ON_FIRST_ADD",
+              "next": "ACTIVE",
+              "manual": false,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "RecalculateTotalsProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "test-cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "ACTIVE": {
+          "transitions": [
+            {
+              "name": "ADD_ITEM",
+              "next": "ACTIVE",
+              "manual": true,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "RecalculateTotalsProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "test-cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "DECREMENT_ITEM",
+              "next": "ACTIVE",
+              "manual": true,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "RecalculateTotalsProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "test-cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "REMOVE_ITEM",
+              "next": "ACTIVE",
+              "manual": true,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "RecalculateTotalsProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "test-cyoda_application",
+                    "responseTimeoutMs": 5000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "OPEN_CHECKOUT",
+              "next": "CHECKING_OUT",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "CHECKING_OUT": {
+          "transitions": [
+            {
+              "name": "CHECKOUT",
+              "next": "CONVERTED",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "CONVERTED": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+

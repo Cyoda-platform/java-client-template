@@ -1,0 +1,48 @@
+{
+  "entityName": "Shipment",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'Shipment.1'",
+      "initialState": "PICKING",
+      "active": true,
+      "states": {
+        "PICKING": {
+          "transitions": [
+            {
+              "name": "READY_TO_SEND",
+              "next": "WAITING_TO_SEND",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "WAITING_TO_SEND": {
+          "transitions": [
+            {
+              "name": "MARK_SENT",
+              "next": "SENT",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "SENT": {
+          "transitions": [
+            {
+              "name": "MARK_DELIVERED",
+              "next": "DELIVERED",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        },
+        "DELIVERED": {
+          "transitions": []
+        }
+      }
+    }
+  ]
+}
+
