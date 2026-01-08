@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "name": "order_workflow",
+  "desc": "Order workflow with create, update, and cancel transitions",
+  "initialState": "new",
+  "active": true,
+  "states": {
+    "new": {
+      "transitions": [
+        {
+          "name": "create",
+          "next": "created",
+          "manual": true
+        }
+      ]
+    },
+    "created": {
+      "transitions": [
+        {
+          "name": "update",
+          "next": "created",
+          "manual": true
+        },
+        {
+          "name": "cancel",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "cancelled": {
+      "transitions": []
+    }
+  }
+}
