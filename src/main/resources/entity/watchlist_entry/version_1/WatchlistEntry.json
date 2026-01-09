@@ -1,0 +1,35 @@
+{
+  "id": "OFAC-2024-001",
+  "source": "OFAC",
+  "name": "Ahmed Hassan Al-Mansouri",
+  "aliases": [
+    "Ahmed Mansouri",
+    "A. H. Al-Mansouri",
+    "Hassan Ahmed"
+  ],
+  "type": "INDIVIDUAL",
+  "identifiers": [
+    {
+      "type": "PASSPORT",
+      "value": "AE-123456789"
+    },
+    {
+      "type": "SSN",
+      "value": "987-65-4321"
+    }
+  ],
+  "riskLevel": "CRITICAL",
+  "active": true,
+  "addedAt": "2024-01-09T10:30:00",
+  "rawRecord": "{\"ofacId\": \"12345\", \"listType\": \"SDN\", \"program\": \"IRAN\", \"designation\": \"2023-12-15\"}",
+  "metadata": {
+    "country": "Iran",
+    "designation": "2023-12-15",
+    "program": "IRAN",
+    "listType": "SDN",
+    "ofacId": "12345",
+    "lastUpdated": "2024-01-09T10:30:00",
+    "source_url": "https://www.treasury.gov/ofac"
+  }
+}
+
