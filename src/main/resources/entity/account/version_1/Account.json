@@ -1,0 +1,22 @@
+{
+  "id": "ACC-2024-001",
+  "customerId": "CUST-2024-001",
+  "accountNumber": "1234567890",
+  "accountType": "CHECKING",
+  "currency": "USD",
+  "status": "ACTIVE",
+  "balances": {
+    "available": 5250.75,
+    "ledger": 5250.75,
+    "lastUpdated": "2024-01-09T14:30:00"
+  },
+  "openedAt": "2023-06-15T10:00:00",
+  "closedAt": null,
+  "metadata": {
+    "accountHolder": "John Smith",
+    "bankCode": "BANK001",
+    "region": "US-EAST",
+    "complianceLevel": "STANDARD"
+  }
+}
+
