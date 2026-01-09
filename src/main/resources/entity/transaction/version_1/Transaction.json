@@ -1,0 +1,38 @@
+{
+  "id": "TXN-2024-001",
+  "accountId": "ACC-2024-001",
+  "fromAccountId": "ACC-2024-001",
+  "toAccountId": "ACC-2024-002",
+  "amount": 1500.00,
+  "currency": "USD",
+  "timestamp": "2024-01-09T14:30:00",
+  "type": "PAYMENT",
+  "status": "COMPLETED",
+  "channel": "ONLINE",
+  "merchant": "Global Retail Corp",
+  "country": "US",
+  "geoLocation": {
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "city": "New York",
+    "country": "US"
+  },
+  "rawPayload": "{\"transactionId\": \"TXN-2024-001\", \"amount\": 1500.00, \"currency\": \"USD\", \"timestamp\": \"2024-01-09T14:30:00\"}",
+  "normalizedPayload": "{\"id\": \"TXN-2024-001\", \"accountId\": \"ACC-2024-001\", \"amount\": 1500.00, \"currency\": \"USD\", \"type\": \"PAYMENT\", \"status\": \"COMPLETED\"}",
+  "flags": [
+    "HIGH_AMOUNT",
+    "CROSS_BORDER"
+  ],
+  "score": 35.0,
+  "matchedWatchlistIds": [
+    "WL-2024-001"
+  ],
+  "metadata": {
+    "source": "ONLINE_BANKING",
+    "ipAddress": "192.168.1.100",
+    "deviceId": "DEVICE-12345",
+    "userAgent": "Mozilla/5.0",
+    "riskLevel": "MEDIUM"
+  }
+}
+
