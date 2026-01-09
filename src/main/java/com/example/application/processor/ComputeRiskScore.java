@@ -1,9 +1,11 @@
 package com.example.application.processor;
 
 import com.example.application.entity.customer.version_1.Customer;
+import com.example.application.entity.transaction.version_1.Transaction;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
@@ -17,9 +19,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * ComputeRiskScore Processor - KYC Onboarding Workflow
- * 
- * Computes customer risk score based on KYC verification results and customer attributes.
+ * ComputeRiskScore Processor - KYC Onboarding & Transaction Monitoring Workflows
+ *
+ * Computes risk score for both customers and transactions.
  * Evaluates multiple risk factors to determine overall compliance risk level.
  */
 @Component
@@ -38,11 +40,21 @@ public class ComputeRiskScore implements CyodaProcessor {
         EntityProcessorCalculationRequest request = context.getEvent();
         logger.info("Computing risk score for request: {}", request.getId());
 
-        return serializer.withRequest(request)
-                .toEntityWithMetadata(Customer.class)
-                .validate(this::isValidEntityWithMetadata, "Invalid customer entity")
-                .map(this::processEntityWithMetadataLogic)
-                .complete();
+        // Try to process as Customer first, then as Transaction
+        try {
+            return serializer.withRequest(request)
+                    .toEntityWithMetadata(Customer.class)
+                    .validate(this::isValidCustomer, "Invalid customer entity")
+                    .map(this::processCustomerRiskScore)
+                    .complete();
+        } catch (Exception e) {
+            logger.debug("Not a Customer entity, trying Transaction");
+            return serializer.withRequest(request)
+                    .toEntityWithMetadata(Transaction.class)
+                    .validate(this::isValidTransaction, "Invalid transaction entity")
+                    .map(this::processTransactionRiskScore)
+                    .complete();
+        }
     }
 
     @Override
@@ -50,39 +62,61 @@ public class ComputeRiskScore implements CyodaProcessor {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private boolean isValidEntityWithMetadata(EntityWithMetadata<Customer> entityWithMetadata) {
+    private boolean isValidCustomer(EntityWithMetadata<Customer> entityWithMetadata) {
         Customer entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
         return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
     }
 
-    private EntityWithMetadata<Customer> processEntityWithMetadataLogic(
+    private boolean isValidTransaction(EntityWithMetadata<Transaction> entityWithMetadata) {
+        Transaction entity = entityWithMetadata.entity();
+        java.util.UUID technicalId = entityWithMetadata.metadata().getId();
+        return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
+    }
+
+    private EntityWithMetadata<Customer> processCustomerRiskScore(
             ProcessorSerializer.ProcessorEntityResponseExecutionContext<Customer> context) {
 
         EntityWithMetadata<Customer> entityWithMetadata = context.entityResponse();
         Customer customer = entityWithMetadata.entity();
 
         logger.debug("Computing risk score for customer: {}", customer.getId());
+        double riskScore = calculateCustomerRiskScore(customer);
 
-        // Calculate risk score based on multiple factors
-        double riskScore = calculateRiskScore(customer);
-
-        // Store risk score in metadata
         if (customer.getMetadata() == null) {
             customer.setMetadata(new HashMap<>());
         }
         customer.getMetadata().put("riskScore", riskScore);
         customer.getMetadata().put("riskLevel", getRiskLevel(riskScore));
-        customer.getMetadata().put("riskFactors", identifyRiskFactors(customer));
+        customer.getMetadata().put("riskFactors", identifyCustomerRiskFactors(customer));
 
         logger.info("Risk score computed for customer {}: {}", customer.getId(), riskScore);
         return entityWithMetadata;
     }
 
-    private double calculateRiskScore(Customer customer) {
+    private EntityWithMetadata<Transaction> processTransactionRiskScore(
+            ProcessorSerializer.ProcessorEntityResponseExecutionContext<Transaction> context) {
+
+        EntityWithMetadata<Transaction> entityWithMetadata = context.entityResponse();
+        Transaction transaction = entityWithMetadata.entity();
+
+        logger.debug("Computing risk score for transaction: {}", transaction.getId());
+        double riskScore = calculateTransactionRiskScore(transaction);
+
+        if (transaction.getMetadata() == null) {
+            transaction.setMetadata(new HashMap<>());
+        }
+        transaction.setScore(riskScore);
+        transaction.getMetadata().put("riskScore", riskScore);
+        transaction.getMetadata().put("riskLevel", getRiskLevel(riskScore));
+
+        logger.info("Risk score computed for transaction {}: {}", transaction.getId(), riskScore);
+        return entityWithMetadata;
+    }
+
+    private double calculateCustomerRiskScore(Customer customer) {
         double score = 0.0;
 
-        // Factor 1: KYC verification status (0-30 points)
         if (customer.getStatus() == Customer.Status.VERIFIED) {
             score += 10;
         } else if (customer.getStatus() == Customer.Status.PENDING) {
@@ -91,7 +125,6 @@ public class ComputeRiskScore implements CyodaProcessor {
             score += 30;
         }
 
-        // Factor 2: KYC level (0-20 points)
         if (customer.getKycLevel() == Customer.KycLevel.HIGH) {
             score += 5;
         } else if (customer.getKycLevel() == Customer.KycLevel.MEDIUM) {
@@ -100,26 +133,42 @@ public class ComputeRiskScore implements CyodaProcessor {
             score += 20;
         }
 
-        // Factor 3: Customer type (0-15 points)
         if (customer.getCustomerType() == Customer.CustomerType.BUSINESS) {
             score += 10;
         } else {
             score += 5;
         }
 
-        // Factor 4: Address validation (0-20 points)
         if (customer.getAddresses() == null || customer.getAddresses().isEmpty()) {
             score += 20;
         } else {
             score += 5;
         }
 
-        // Factor 5: Metadata risk indicators (0-15 points)
-        if (customer.getMetadata() != null) {
-            if (customer.getMetadata().containsKey("verificationScore")) {
-                double verificationScore = (Double) customer.getMetadata().get("verificationScore");
-                score += (1 - verificationScore) * 15;
-            }
+        return Math.min(score, 100.0);
+    }
+
+    private double calculateTransactionRiskScore(Transaction transaction) {
+        double score = 0.0;
+
+        // Factor 1: Flags (each flag adds points)
+        if (transaction.getFlags() != null) {
+            score += transaction.getFlags().size() * 15;
+        }
+
+        // Factor 2: Watchlist matches
+        if (transaction.getMatchedWatchlistIds() != null && !transaction.getMatchedWatchlistIds().isEmpty()) {
+            score += transaction.getMatchedWatchlistIds().size() * 25;
+        }
+
+        // Factor 3: Transaction amount
+        if (transaction.getAmount() != null && transaction.getAmount().doubleValue() > 10000) {
+            score += 20;
+        }
+
+        // Factor 4: High-risk country
+        if (transaction.getCountry() != null && isHighRiskCountry(transaction.getCountry())) {
+            score += 25;
         }
 
         return Math.min(score, 100.0);
@@ -131,9 +180,9 @@ public class ComputeRiskScore implements CyodaProcessor {
         return "LOW";
     }
 
-    private java.util.List<String> identifyRiskFactors(Customer customer) {
+    private java.util.List<String> identifyCustomerRiskFactors(Customer customer) {
         java.util.List<String> factors = new java.util.ArrayList<>();
-        
+
         if (customer.getStatus() != Customer.Status.VERIFIED) {
             factors.add("UNVERIFIED_STATUS");
         }
@@ -143,8 +192,13 @@ public class ComputeRiskScore implements CyodaProcessor {
         if (customer.getAddresses() == null || customer.getAddresses().isEmpty()) {
             factors.add("NO_ADDRESS_PROVIDED");
         }
-        
+
         return factors;
+    }
+
+    private boolean isHighRiskCountry(String country) {
+        java.util.Set<String> highRiskCountries = java.util.Set.of("KP", "IR", "SY", "CU");
+        return country != null && highRiskCountries.contains(country.toUpperCase());
     }
 }
 
