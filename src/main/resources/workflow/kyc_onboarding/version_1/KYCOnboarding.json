@@ -1,0 +1,135 @@
+{
+  "version": "1.0",
+  "name": "KYCOnboarding",
+  "desc": "KYC Onboarding workflow for customer identity verification and risk assessment",
+  "initialState": "started",
+  "active": true,
+  "metadata": {
+    "retentionDays": 2555,
+    "supportedJurisdictions": ["US", "EU"],
+    "audit": {
+      "enabled": true,
+      "fields": ["actor", "timestamp", "from", "to", "reason"]
+    }
+  },
+  "states": {
+    "started": {
+      "transitions": [
+        {
+          "name": "submitDocuments",
+          "next": "documentVerification",
+          "manual": false,
+          "processors": [
+            {"name": "validatePayload"},
+            {"name": "storeDocuments"}
+          ]
+        }
+      ]
+    },
+    "documentVerification": {
+      "transitions": [
+        {
+          "name": "verifyIdentity",
+          "next": "identityVerification",
+          "manual": false,
+          "processors": [
+            {"name": "callKYCProvider"}
+          ]
+        },
+        {
+          "name": "rejectDocuments",
+          "next": "rejected",
+          "manual": true,
+          "processors": []
+        }
+      ]
+    },
+    "identityVerification": {
+      "transitions": [
+        {
+          "name": "assessRisk",
+          "next": "riskScoring",
+          "manual": false,
+          "processors": [
+            {"name": "computeRiskScore"}
+          ]
+        },
+        {
+          "name": "failVerification",
+          "next": "rejected",
+          "manual": true,
+          "processors": []
+        }
+      ]
+    },
+    "riskScoring": {
+      "transitions": [
+        {
+          "name": "approveHighRisk",
+          "next": "manualReview",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.metadata.riskScore",
+            "operation": "GREATER_THAN_OR_EQUALS",
+            "value": 70
+          },
+          "processors": [
+            {"name": "createCaseOnHighRisk"}
+          ]
+        },
+        {
+          "name": "approveLowRisk",
+          "next": "approved",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.metadata.riskScore",
+            "operation": "LESS_THAN",
+            "value": 70
+          },
+          "processors": []
+        }
+      ]
+    },
+    "manualReview": {
+      "transitions": [
+        {
+          "name": "approveAfterReview",
+          "next": "approved",
+          "manual": true,
+          "processors": []
+        },
+        {
+          "name": "suspendForEDD",
+          "next": "suspended",
+          "manual": true,
+          "processors": []
+        },
+        {
+          "name": "rejectAfterReview",
+          "next": "rejected",
+          "manual": true,
+          "processors": []
+        }
+      ]
+    },
+    "approved": {
+      "transitions": []
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "suspended": {
+      "transitions": [
+        {
+          "name": "resumeReview",
+          "next": "manualReview",
+          "manual": true,
+          "processors": []
+        }
+      ]
+    }
+  }
+}
+
