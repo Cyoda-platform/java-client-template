@@ -1,0 +1,20 @@
+{
+  "id": "ALERT-2024-001",
+  "transactionId": "TXN-2024-00456",
+  "customerId": "CUST-2024-001",
+  "alertType": "WATCHLIST_HIT",
+  "severity": "HIGH",
+  "status": "OPEN",
+  "createdAt": "2024-01-09T14:30:00",
+  "assignedTo": "analyst_john",
+  "relatedCaseId": "CASE-2024-0789",
+  "metadata": {
+    "watchlistSource": "OFAC",
+    "matchScore": 0.95,
+    "matchedFields": ["name", "dob"],
+    "riskLevel": "CRITICAL",
+    "investigationNotes": "Potential match with OFAC SDN list - requires immediate review",
+    "escalationReason": "High confidence watchlist match"
+  }
+}
+

@@ -1,0 +1,62 @@
+{
+  "id": "CASE-2024-001",
+  "title": "Data Privacy Compliance Review",
+  "description": "Comprehensive review of data privacy practices and GDPR compliance across all systems",
+  "createdBy": "john.smith",
+  "assignees": [
+    "jane.doe",
+    "michael.johnson",
+    "sarah.williams"
+  ],
+  "status": "OPEN",
+  "alerts": [
+    "ALERT-2024-0042",
+    "ALERT-2024-0043"
+  ],
+  "evidences": [
+    "DOC-EV-2024-001",
+    "DOC-EV-2024-002",
+    "DOC-EV-2024-003"
+  ],
+  "createdAt": "2024-01-15T09:30:00",
+  "resolvedAt": null,
+  "auditTrail": [
+    {
+      "timestamp": "2024-01-15T09:30:00",
+      "actor": "john.smith",
+      "action": "CASE_CREATED",
+      "details": "Case created for data privacy compliance review"
+    },
+    {
+      "timestamp": "2024-01-15T10:15:00",
+      "actor": "jane.doe",
+      "action": "CASE_ASSIGNED",
+      "details": "Case assigned to jane.doe, michael.johnson, and sarah.williams"
+    },
+    {
+      "timestamp": "2024-01-15T14:45:00",
+      "actor": "michael.johnson",
+      "action": "CASE_REVIEWED",
+      "details": "Initial review completed. Evidence documents attached."
+    },
+    {
+      "timestamp": "2024-01-16T08:00:00",
+      "actor": "sarah.williams",
+      "action": "ALERT_LINKED",
+      "details": "Linked alerts ALERT-2024-0042 and ALERT-2024-0043 to case"
+    }
+  ],
+  "metadata": {
+    "priority": "HIGH",
+    "department": "Compliance",
+    "region": "EU",
+    "riskLevel": "CRITICAL",
+    "estimatedResolutionDate": "2024-02-15",
+    "tags": [
+      "GDPR",
+      "Data Privacy",
+      "Compliance Review"
+    ]
+  }
+}
+
