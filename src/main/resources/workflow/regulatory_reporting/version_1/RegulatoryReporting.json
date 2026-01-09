@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "name": "RegulatoryReporting",
+  "desc": "Regulatory reporting workflow for SAR/STR generation, approval, and submission with integrity verification",
+  "initialState": "draft",
+  "active": true,
+  "metadata": {
+    "retentionDays": 2555,
+    "supportedJurisdictions": ["US", "EU"],
+    "reportVersioning": true,
+    "integrityHashAlgorithm": "SHA256",
+    "audit": {
+      "enabled": true,
+      "fields": ["actor", "timestamp", "from", "to", "reason"]
+    }
+  },
+  "states": {
+    "draft": {
+      "transitions": [
+        {
+          "name": "submitForReview",
+          "next": "review",
+          "manual": true,
+          "processors": [
+            {"name": "collectReportData"}
+          ]
+        }
+      ]
+    },
+    "review": {
+      "transitions": [
+        {
+          "name": "approveReport",
+          "next": "approved",
+          "manual": true,
+          "processors": [
+            {"name": "renderTemplate"}
+          ]
+        },
+        {
+          "name": "rejectReport",
+          "next": "draft",
+          "manual": true,
+          "processors": []
+        }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        {
+          "name": "submitToRegulator",
+          "next": "submitted",
+          "manual": true,
+          "processors": [
+            {"name": "signAndHashExport"},
+            {"name": "submitToRegulator"}
+          ]
+        }
+      ]
+    },
+    "submitted": {
+      "transitions": [
+        {
+          "name": "archiveReport",
+          "next": "archived",
+          "manual": false,
+          "processors": []
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    }
+  }
+}
+

@@ -1,0 +1,120 @@
+{
+  "version": "1.0",
+  "name": "TransactionMonitoring",
+  "desc": "Real-time transaction monitoring workflow with rule evaluation, risk scoring, and alert generation",
+  "initialState": "ingest",
+  "active": true,
+  "metadata": {
+    "retentionDays": 2555,
+    "supportedJurisdictions": ["US", "EU"],
+    "audit": {
+      "enabled": true,
+      "fields": ["actor", "timestamp", "from", "to", "reason"]
+    }
+  },
+  "states": {
+    "ingest": {
+      "transitions": [
+        {
+          "name": "normalizeData",
+          "next": "normalize",
+          "manual": false,
+          "processors": [
+            {"name": "normalizeTransaction"}
+          ]
+        }
+      ]
+    },
+    "normalize": {
+      "transitions": [
+        {
+          "name": "evaluateRules",
+          "next": "ruleEvaluation",
+          "manual": false,
+          "processors": [
+            {"name": "evaluateRulesEngine"}
+          ]
+        }
+      ]
+    },
+    "ruleEvaluation": {
+      "transitions": [
+        {
+          "name": "enrichAnalytics",
+          "next": "analyticsEnrichment",
+          "manual": false,
+          "processors": [
+            {"name": "fuzzyWatchlistMatch"}
+          ]
+        }
+      ]
+    },
+    "analyticsEnrichment": {
+      "transitions": [
+        {
+          "name": "scoreTransaction",
+          "next": "scoreEvaluation",
+          "manual": false,
+          "processors": [
+            {"name": "computeRiskScore"}
+          ]
+        }
+      ]
+    },
+    "scoreEvaluation": {
+      "transitions": [
+        {
+          "name": "createAlertHighRisk",
+          "next": "alertCreated",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.score",
+            "operation": "GREATER_THAN_OR_EQUALS",
+            "value": 75
+          },
+          "processors": [
+            {"name": "createAlert"},
+            {"name": "holdFunds"}
+          ]
+        },
+        {
+          "name": "noActionLowRisk",
+          "next": "noAction",
+          "manual": false,
+          "criterion": {
+            "type": "simple",
+            "jsonPath": "$.score",
+            "operation": "LESS_THAN",
+            "value": 75
+          },
+          "processors": []
+        }
+      ]
+    },
+    "alertCreated": {
+      "transitions": [
+        {
+          "name": "closeAlert",
+          "next": "closed",
+          "manual": true,
+          "processors": []
+        }
+      ]
+    },
+    "noAction": {
+      "transitions": [
+        {
+          "name": "archiveTransaction",
+          "next": "closed",
+          "manual": false,
+          "processors": []
+        }
+      ]
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}
+

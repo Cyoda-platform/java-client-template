@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "name": "AlertReviewAndCaseManagement",
+  "desc": "Alert review and case management workflow with analyst assignment, evidence attachment, and SLA-based escalation",
+  "initialState": "created",
+  "active": true,
+  "metadata": {
+    "retentionDays": 2555,
+    "supportedJurisdictions": ["US", "EU"],
+    "slaEscalationHours": 24,
+    "audit": {
+      "enabled": true,
+      "fields": ["actor", "timestamp", "from", "to", "reason"]
+    }
+  },
+  "states": {
+    "created": {
+      "transitions": [
+        {
+          "name": "assignToAnalyst",
+          "next": "assigned",
+          "manual": false,
+          "processors": [
+            {"name": "assignAnalyst"}
+          ]
+        }
+      ]
+    },
+    "assigned": {
+      "transitions": [
+        {
+          "name": "startReview",
+          "next": "inReview",
+          "manual": true,
+          "processors": [
+            {"name": "enrichWithCustomerHistory"},
+            {"name": "attachEvidence"}
+          ]
+        }
+      ]
+    },
+    "inReview": {
+      "transitions": [
+        {
+          "name": "escalateCase",
+          "next": "escalated",
+          "manual": true,
+          "processors": [
+            {"name": "createCase"},
+            {"name": "generateSARReport"}
+          ]
+        },
+        {
+          "name": "resolveAlert",
+          "next": "resolved",
+          "manual": true,
+          "processors": [
+            {"name": "updateAlertStatus"}
+          ]
+        }
+      ]
+    },
+    "escalated": {
+      "transitions": [
+        {
+          "name": "resolveEscalated",
+          "next": "resolved",
+          "manual": true,
+          "processors": [
+            {"name": "updateAlertStatus"}
+          ]
+        },
+        {
+          "name": "closeEscalated",
+          "next": "closed",
+          "manual": true,
+          "processors": []
+        }
+      ]
+    },
+    "resolved": {
+      "transitions": [
+        {
+          "name": "archiveResolved",
+          "next": "closed",
+          "manual": false,
+          "processors": []
+        }
+      ]
+    },
+    "closed": {
+      "transitions": []
+    }
+  }
+}
+
