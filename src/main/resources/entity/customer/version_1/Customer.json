@@ -1,0 +1,40 @@
+{
+  "id": "CUST-2024-001",
+  "legalName": "John Doe",
+  "primaryEmail": "john.doe@example.com",
+  "primaryPhone": "+1-555-0123",
+  "dob": "1985-06-15",
+  "customerType": "INDIVIDUAL",
+  "status": "VERIFIED",
+  "kycLevel": "HIGH",
+  "addresses": [
+    {
+      "line1": "123 Main Street",
+      "line2": "Apartment 4B",
+      "city": "New York",
+      "state": "NY",
+      "postcode": "10001",
+      "country": "United States",
+      "addressType": "HOME"
+    },
+    {
+      "line1": "456 Business Avenue",
+      "line2": null,
+      "city": "New York",
+      "state": "NY",
+      "postcode": "10002",
+      "country": "United States",
+      "addressType": "BUSINESS"
+    }
+  ],
+  "metadata": {
+    "sourceSystem": "COMPLIANCE_PORTAL",
+    "verificationDate": "2024-01-15",
+    "riskScore": 25,
+    "documentTypes": ["PASSPORT", "UTILITY_BILL"],
+    "notes": "High-value customer with verified identity"
+  },
+  "createdAt": "2024-01-10T14:30:00",
+  "updatedAt": "2024-01-15T09:45:00"
+}
+
