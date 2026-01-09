@@ -65,8 +65,8 @@ public class HoldFunds implements CyodaProcessor {
 
         logger.debug("Holding funds for transaction: {}", transaction.getId());
 
-        // Update transaction status to HELD
-        transaction.setStatus(Transaction.TransactionStatus.HELD);
+        // Keep transaction status as PENDING (hold is tracked in metadata/flags)
+        transaction.setStatus(Transaction.TransactionStatus.PENDING);
 
         // Update metadata with hold information
         if (transaction.getMetadata() == null) {
