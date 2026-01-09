@@ -20,7 +20,7 @@
           "next": "normalize",
           "manual": false,
           "processors": [
-            {"name": "normalizeTransaction"}
+            {"name": "NormalizeTransaction"}
           ]
         }
       ]
@@ -32,7 +32,7 @@
           "next": "ruleEvaluation",
           "manual": false,
           "processors": [
-            {"name": "evaluateRulesEngine"}
+            {"name": "EvaluateRulesEngine"}
           ]
         }
       ]
@@ -44,7 +44,7 @@
           "next": "analyticsEnrichment",
           "manual": false,
           "processors": [
-            {"name": "fuzzyWatchlistMatch"}
+            {"name": "FuzzyWatchlistMatch"}
           ]
         }
       ]
@@ -56,7 +56,7 @@
           "next": "scoreEvaluation",
           "manual": false,
           "processors": [
-            {"name": "computeRiskScore"}
+            {"name": "ComputeRiskScore"}
           ]
         }
       ]
@@ -74,8 +74,8 @@
             "value": 75
           },
           "processors": [
-            {"name": "createAlert"},
-            {"name": "holdFunds"}
+            {"name": "CreateAlert"},
+            {"name": "HoldFunds"}
           ]
         },
         {

@@ -21,7 +21,7 @@
           "next": "assigned",
           "manual": false,
           "processors": [
-            {"name": "assignAnalyst"}
+            {"name": "AssignAnalyst"}
           ]
         }
       ]
@@ -33,8 +33,8 @@
           "next": "inReview",
           "manual": true,
           "processors": [
-            {"name": "enrichWithCustomerHistory"},
-            {"name": "attachEvidence"}
+            {"name": "EnrichWithCustomerHistory"},
+            {"name": "AttachEvidence"}
           ]
         }
       ]
@@ -46,8 +46,8 @@
           "next": "escalated",
           "manual": true,
           "processors": [
-            {"name": "createCase"},
-            {"name": "generateSARReport"}
+            {"name": "CreateCase"},
+            {"name": "GenerateSARReport"}
           ]
         },
         {
@@ -55,7 +55,7 @@
           "next": "resolved",
           "manual": true,
           "processors": [
-            {"name": "updateAlertStatus"}
+            {"name": "UpdateAlertStatus"}
           ]
         }
       ]
@@ -67,7 +67,7 @@
           "next": "resolved",
           "manual": true,
           "processors": [
-            {"name": "updateAlertStatus"}
+            {"name": "UpdateAlertStatus"}
           ]
         },
         {

@@ -20,8 +20,8 @@
           "next": "documentVerification",
           "manual": false,
           "processors": [
-            {"name": "validatePayload"},
-            {"name": "storeDocuments"}
+            {"name": "ValidatePayload"},
+            {"name": "StoreDocuments"}
           ]
         }
       ]
@@ -33,7 +33,7 @@
           "next": "identityVerification",
           "manual": false,
           "processors": [
-            {"name": "callKYCProvider"}
+            {"name": "CallKYCProvider"}
           ]
         },
         {
@@ -51,7 +51,7 @@
           "next": "riskScoring",
           "manual": false,
           "processors": [
-            {"name": "computeRiskScore"}
+            {"name": "ComputeRiskScore"}
           ]
         },
         {
@@ -75,7 +75,7 @@
             "value": 70
           },
           "processors": [
-            {"name": "createCaseOnHighRisk"}
+            {"name": "CreateCaseOnHighRisk"}
           ]
         },
         {

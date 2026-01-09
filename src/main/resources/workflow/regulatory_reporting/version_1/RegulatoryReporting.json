@@ -22,7 +22,7 @@
           "next": "review",
           "manual": true,
           "processors": [
-            {"name": "collectReportData"}
+            {"name": "CollectReportData"}
           ]
         }
       ]
@@ -34,7 +34,7 @@
           "next": "approved",
           "manual": true,
           "processors": [
-            {"name": "renderTemplate"}
+            {"name": "RenderTemplate"}
           ]
         },
         {
@@ -48,12 +48,12 @@
     "approved": {
       "transitions": [
         {
-          "name": "submitToRegulator",
+          "name": "SubmitToRegulator",
           "next": "submitted",
           "manual": true,
           "processors": [
-            {"name": "signAndHashExport"},
-            {"name": "submitToRegulator"}
+            {"name": "SignAndHashExport"},
+            {"name": "SubmitToRegulator"}
           ]
         }
       ]
