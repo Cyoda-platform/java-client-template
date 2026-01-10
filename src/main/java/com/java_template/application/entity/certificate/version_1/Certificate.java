@@ -57,7 +57,7 @@ public class Certificate implements CyodaEntity {
     }
 
     @Override
-    public boolean isValid() {
+    public boolean isValid(org.cyoda.cloud.api.event.common.EntityMetadata metadata) {
         // Validate required fields
         return certificateId != null && !certificateId.trim().isEmpty() &&
                commonName != null && !commonName.trim().isEmpty() &&
