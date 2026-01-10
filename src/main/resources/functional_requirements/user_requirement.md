@@ -1,0 +1,1 @@
+Create an Entity named Certificate that represents a digital certificate and fully manages its lifecycle.
