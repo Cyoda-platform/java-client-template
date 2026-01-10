@@ -1,0 +1,72 @@
+{
+  "version": "1.0",
+  "name": "Certificate",
+  "desc": "Certificate lifecycle workflow managing creation, issuance, renewal, and revocation",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "issue_certificate",
+          "next": "issued",
+          "manual": false,
+          "processors": [
+            {
+              "name": "CertificateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "issued": {
+      "transitions": [
+        {
+          "name": "renew_certificate",
+          "next": "issued",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CertificateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "revoke_certificate",
+          "next": "revoked",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CertificateProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "revoked": {
+      "transitions": []
+    }
+  }
+}
+
