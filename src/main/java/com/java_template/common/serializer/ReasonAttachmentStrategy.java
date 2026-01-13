@@ -6,22 +6,22 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
  * ABOUTME: Strategy interface for attaching evaluation reasons to responses.
  * Provides abstraction for where and how evaluation reasons are attached to responses,
  * making the system agnostic to the specific attachment mechanism.
- * 
+ *<p>
  * Strategy for attaching evaluation reasons to responses.
  * This abstraction allows the EvaluationChain to be agnostic about where
  * the evaluation reason is attached to the response.
  */
 @FunctionalInterface
 public interface ReasonAttachmentStrategy {
-    
+
     /**
      * Attaches the evaluation reason to the response.
-     * 
+     *
      * @param response the response to attach the reason to
      * @param reason the evaluation reason to attach
      */
     void attachReason(EntityCriteriaCalculationResponse response, EvaluationReason reason);
-    
+
     /**
      * Default strategy that attaches failure reasons to warnings.
      *
@@ -35,11 +35,11 @@ public interface ReasonAttachmentStrategy {
             response.getWarnings().add(reason.formatReason());
         };
     }
-    
+
     /**
      * No-op strategy that doesn't attach reasons anywhere.
      * Useful for disabling reason attachment.
-     * 
+     *
      * @return ReasonAttachmentStrategy that does nothing
      */
     static ReasonAttachmentStrategy none() {
@@ -47,7 +47,7 @@ public interface ReasonAttachmentStrategy {
             // No-op: don't attach reasons anywhere
         };
     }
-    
+
     /**
      * Strategy that logs reasons instead of attaching them to the response.
      * Useful for debugging or when reasons should only be logged.
@@ -60,10 +60,10 @@ public interface ReasonAttachmentStrategy {
             logger.debug("Evaluation failure: {}", reason.formatReason());
         };
     }
-    
+
     /**
      * Composite strategy that applies multiple strategies.
-     * 
+     *
      * @param strategies the strategies to apply
      * @return ReasonAttachmentStrategy that applies all given strategies
      */

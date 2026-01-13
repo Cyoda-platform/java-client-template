@@ -3,14 +3,13 @@ package com.java_template.common.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.auth.Authentication;
+import com.java_template.common.config.Config;
 import com.java_template.common.exception.WorkflowExportException;
 import com.java_template.common.util.HttpUtils;
-import jakarta.validation.constraints.NotNull;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
-import static com.java_template.common.config.Config.CYODA_API_URL;
 
 
 @Service
@@ -20,19 +19,23 @@ public class WorkflowServiceImpl implements WorkflowService {
 
     private final HttpUtils httpUtils;
     private final Authentication authentication;
+    private final Config config;
 
     /**
      * Constructor for WorkflowServiceImpl with dependency injection.
      *
      * @param httpUtils HTTP utility component for making REST API calls
      * @param authentication OAuth2 authentication component for token management
+     * @param config Configuration component for application settings
      */
     public WorkflowServiceImpl(
             final HttpUtils httpUtils,
-            final Authentication authentication
+            final Authentication authentication,
+            final Config config
     ) {
         this.httpUtils = httpUtils;
         this.authentication = authentication;
+        this.config = config;
     }
 
     @Override
@@ -51,7 +54,7 @@ public class WorkflowServiceImpl implements WorkflowService {
             logger.debug("Using export endpoint: {}", exportPath);
 
             // Make HTTP GET request to Cyoda API
-            ObjectNode response = httpUtils.sendGetRequest(token, CYODA_API_URL, exportPath).join();
+            ObjectNode response = httpUtils.sendGetRequest(token, config.getCyodaApiUrl(), exportPath).join();
             int statusCode = response.get("status").asInt();
 
             // Check response status

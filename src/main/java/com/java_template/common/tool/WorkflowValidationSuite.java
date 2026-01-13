@@ -9,78 +9,78 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
  * ABOUTME: Comprehensive validation suite that runs both workflow validation tools:
  * 1. WorkflowImplementationValidator - validates workflow implementations exist as Java classes
  * 2. FunctionalRequirementsValidator - validates functional requirements are implemented in workflows
- * 
+ *<p>
  * This tool provides a single entry point for complete workflow consistency validation
  * and reports overall success/failure status for CI/CD integration.
  */
 public class WorkflowValidationSuite {
     private static final Logger logger = LoggerFactory.getLogger(WorkflowValidationSuite.class);
-    
+
     private final ObjectMapper objectMapper;
-    
+
     public WorkflowValidationSuite(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
-    
+
     public static void main(String[] args) {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.registerBean(ObjectMapper.class, () -> new ObjectMapper());
         context.refresh();
-        
+
         ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
         WorkflowValidationSuite suite = new WorkflowValidationSuite(objectMapper);
-        
+
         boolean isValid = suite.runAllValidations();
-        
+
         context.close();
         System.exit(isValid ? 0 : 1);
     }
-    
+
     /**
      * Run all validation tools and return overall success status
      */
     public boolean runAllValidations() {
         logger.info("🚀 Running comprehensive workflow validation...");
         logger.info("================================================================================");
-        
+
         boolean allPassed = true;
-        
+
         // Run Workflow Implementation Validation
         logger.info("");
         logger.info("🔍 Workflow Implementation Validation");
         logger.info("--------------------------------------------------------------------------------");
-        
+
         WorkflowImplementationValidator implementationValidator = new WorkflowImplementationValidator(objectMapper);
         boolean implementationValid = implementationValidator.validateWorkflowImplementations();
-        
+
         if (implementationValid) {
             logger.info("✅ Workflow Implementation Validation PASSED");
         } else {
             logger.error("❌ Workflow Implementation Validation FAILED");
             allPassed = false;
         }
-        
+
         // Run Functional Requirements Validation
         logger.info("");
         logger.info("🔍 Functional Requirements Validation");
         logger.info("--------------------------------------------------------------------------------");
-        
+
         FunctionalRequirementsValidator requirementsValidator = new FunctionalRequirementsValidator(objectMapper);
         boolean requirementsValid = requirementsValidator.validateFunctionalRequirements();
-        
+
         if (requirementsValid) {
             logger.info("✅ Functional Requirements Validation PASSED");
         } else {
             logger.error("❌ Functional Requirements Validation FAILED");
             allPassed = false;
         }
-        
+
         // Final Results
         logger.info("");
         logger.info("================================================================================");
         logger.info("🏁 FINAL VALIDATION RESULTS");
         logger.info("================================================================================");
-        
+
         if (allPassed) {
             logger.info("🎉 ALL VALIDATIONS PASSED!");
             logger.info("✅ Workflow implementations are complete");
@@ -96,10 +96,10 @@ public class WorkflowValidationSuite {
             logger.info("   - Add missing workflow definitions to JSON files");
             logger.info("   - Ensure naming consistency between requirements, workflows, and implementations");
         }
-        
+
         return allPassed;
     }
-    
+
     /**
      * Run only the workflow implementation validation
      */
@@ -108,7 +108,7 @@ public class WorkflowValidationSuite {
         WorkflowImplementationValidator validator = new WorkflowImplementationValidator(objectMapper);
         return validator.validateWorkflowImplementations();
     }
-    
+
     /**
      * Run only the functional requirements validation
      */

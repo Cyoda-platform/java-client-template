@@ -16,7 +16,7 @@ import java.util.stream.Stream;
 /**
  * ABOUTME: Validation tool that ensures all processors/criteria referenced in workflow JSON files
  * exist as actual Java classes in the application processor and criterion directories.
- * 
+ *<p>
  * This tool:
  * 1. Scans all workflow JSON files in src/main/resources/workflow/entity/version_1/Entity.json
  * 2. Extracts all processor and criteria names from the workflows
@@ -27,20 +27,20 @@ import java.util.stream.Stream;
  */
 public class WorkflowImplementationValidator {
     private static final Logger logger = LoggerFactory.getLogger(WorkflowImplementationValidator.class);
-    
+
     private static final Path WORKFLOW_DIR = Paths.get(System.getProperty("user.dir"))
             .resolve("src/main/resources/workflow");
     private static final Path PROCESSOR_DIR = Paths.get(System.getProperty("user.dir"))
             .resolve("src/main/java/com/java_template/application/processor");
     private static final Path CRITERION_DIR = Paths.get(System.getProperty("user.dir"))
             .resolve("src/main/java/com/java_template/application/criterion");
-    
+
     private final ObjectMapper objectMapper;
-    
+
     public WorkflowImplementationValidator(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
-    
+
     public static void main(String[] args) {
         AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
         context.registerBean(ObjectMapper.class, () -> new ObjectMapper());
@@ -61,74 +61,74 @@ public class WorkflowImplementationValidator {
         context.close();
         System.exit(isValid ? 0 : 1);
     }
-    
+
     /**
      * Main validation method that orchestrates the entire validation process
      */
     public boolean validateWorkflowImplementations() {
         logger.info("🔍 Validating workflow implementations...");
         logger.info("============================================================");
-        
+
         List<Path> workflowFiles = findWorkflowFiles();
         if (workflowFiles.isEmpty()) {
             logger.error("❌ No workflow files found!");
             return false;
         }
-        
+
         Set<String> existingProcessors = findJavaClasses(PROCESSOR_DIR);
         Set<String> existingCriteria = findJavaClasses(CRITERION_DIR);
-        
+
         logger.info("📁 Found {} processor classes", existingProcessors.size());
         logger.info("📁 Found {} criterion classes", existingCriteria.size());
         logger.info("");
-        
+
         boolean allValid = true;
         int totalProcessorsChecked = 0;
         int totalCriteriaChecked = 0;
-        
+
         for (Path workflowFile : workflowFiles) {
             String entityName = workflowFile.getFileName().toString().replace(".json", "");
             logger.info("📋 Checking workflow: {}", entityName);
             logger.info("   File: {}", workflowFile);
-            
+
             ValidationResult result = extractProcessorsAndCriteria(workflowFile);
             if (result == null) {
                 allValid = false;
                 continue;
             }
-            
+
             // Validate processors
             Set<String> missingProcessors = new HashSet<>(result.processors);
             missingProcessors.removeAll(existingProcessors);
-            
+
             if (!missingProcessors.isEmpty()) {
                 logger.error("   ❌ Missing processors: {}", String.join(", ", missingProcessors));
                 allValid = false;
             } else {
                 logger.info("   ✅ All {} processors found", result.processors.size());
             }
-            
+
             // Validate criteria
             Set<String> missingCriteria = new HashSet<>(result.criteria);
             missingCriteria.removeAll(existingCriteria);
-            
+
             if (!missingCriteria.isEmpty()) {
                 logger.error("   ❌ Missing criteria: {}", String.join(", ", missingCriteria));
                 allValid = false;
             } else {
                 logger.info("   ✅ All {} criteria found", result.criteria.size());
             }
-            
+
             if (!result.processors.isEmpty() || !result.criteria.isEmpty()) {
                 logger.info("   📊 Processors: {}", result.processors.isEmpty() ? "None" : String.join(", ", result.processors));
                 logger.info("   📊 Criteria: {}", result.criteria.isEmpty() ? "None" : String.join(", ", result.criteria));
             }
-            
+
             totalProcessorsChecked += result.processors.size();
             totalCriteriaChecked += result.criteria.size();
             logger.info("");
         }
-        
+
         // Summary
         logger.info("============================================================");
         logger.info("📊 VALIDATION SUMMARY");
@@ -138,7 +138,7 @@ public class WorkflowImplementationValidator {
         logger.info("Total criteria referenced: {}", totalCriteriaChecked);
         logger.info("Available processor classes: {}", existingProcessors.size());
         logger.info("Available criterion classes: {}", existingCriteria.size());
-        
+
         if (allValid) {
             logger.info("✅ ALL WORKFLOW IMPLEMENTATIONS VALIDATED SUCCESSFULLY!");
         } else {
@@ -149,7 +149,7 @@ public class WorkflowImplementationValidator {
             logger.info("   2. Ensure they implement CyodaProcessor/CyodaCriterion interfaces");
             logger.info("   3. Add @Component annotation for Spring registration");
         }
-        
+
         return allValid;
     }
 
@@ -225,18 +225,18 @@ public class WorkflowImplementationValidator {
 
         return allValid;
     }
-    
+
     /**
      * Find all workflow JSON files
      */
     private List<Path> findWorkflowFiles() {
         List<Path> workflowFiles = new ArrayList<>();
-        
+
         if (!Files.exists(WORKFLOW_DIR)) {
             logger.error("❌ Workflow directory not found: {}", WORKFLOW_DIR);
             return workflowFiles;
         }
-        
+
         try (Stream<Path> entityDirs = Files.list(WORKFLOW_DIR)) {
             entityDirs.filter(Files::isDirectory)
                     .forEach(entityDir -> {
@@ -258,20 +258,20 @@ public class WorkflowImplementationValidator {
         } catch (IOException e) {
             logger.error("Error reading workflow directory: {}", e.getMessage());
         }
-        
+
         return workflowFiles;
     }
-    
+
     /**
      * Find all Java class names in a directory
      */
     private Set<String> findJavaClasses(Path directory) {
         Set<String> classes = new HashSet<>();
-        
+
         if (!Files.exists(directory)) {
             return classes;
         }
-        
+
         try (Stream<Path> files = Files.list(directory)) {
             files.filter(file -> file.toString().endsWith(".java"))
                     .forEach(file -> {
@@ -281,10 +281,10 @@ public class WorkflowImplementationValidator {
         } catch (IOException e) {
             logger.warn("Error reading directory {}: {}", directory, e.getMessage());
         }
-        
+
         return classes;
     }
-    
+
     /**
      * Extract processor and criteria names from a workflow JSON file
      */
@@ -293,10 +293,10 @@ public class WorkflowImplementationValidator {
             JsonNode workflow = objectMapper.readTree(workflowFile.toFile());
             Set<String> processors = new HashSet<>();
             Set<String> criteria = new HashSet<>();
-            
+
             JsonNode states = workflow.get("states");
             if (states != null && states.isObject()) {
-                states.fields().forEachRemaining(stateEntry -> {
+                states.properties().iterator().forEachRemaining(stateEntry -> {
                     JsonNode state = stateEntry.getValue();
                     JsonNode transitions = state.get("transitions");
                     if (transitions != null && transitions.isArray()) {
@@ -311,7 +311,7 @@ public class WorkflowImplementationValidator {
                                     }
                                 });
                             }
-                            
+
                             // Extract criteria
                             JsonNode criterion = transition.get("criterion");
                             if (criterion != null) {
@@ -321,15 +321,15 @@ public class WorkflowImplementationValidator {
                     }
                 });
             }
-            
+
             return new ValidationResult(processors, criteria);
-            
+
         } catch (IOException e) {
             logger.error("❌ Error reading {}: {}", workflowFile, e.getMessage());
             return null;
         }
     }
-    
+
     /**
      * Recursively extract criteria names from nested criterion structures
      */
@@ -337,7 +337,7 @@ public class WorkflowImplementationValidator {
         if (criterion == null || !criterion.isObject()) {
             return;
         }
-        
+
         // Check if this is a function criterion
         if ("function".equals(criterion.path("type").asText())) {
             JsonNode function = criterion.get("function");
@@ -348,7 +348,7 @@ public class WorkflowImplementationValidator {
                 }
             }
         }
-        
+
         // Handle nested criteria in various structures
         for (String key : Arrays.asList("and", "or", "not")) {
             JsonNode nested = criterion.get(key);
@@ -360,21 +360,21 @@ public class WorkflowImplementationValidator {
                 }
             }
         }
-        
+
         // Handle 'conditions' array (used in group criteria)
         JsonNode conditions = criterion.get("conditions");
         if (conditions != null && conditions.isArray()) {
             conditions.forEach(condition -> extractCriteriaRecursively(condition, criteria));
         }
     }
-    
+
     /**
      * Result holder for validation data
      */
     private static class ValidationResult {
         final Set<String> processors;
         final Set<String> criteria;
-        
+
         ValidationResult(Set<String> processors, Set<String> criteria) {
             this.processors = processors;
             this.criteria = criteria;

@@ -1,5 +1,6 @@
 package com.java_template.common.auth;
 
+import com.java_template.common.config.Config;
 import com.java_template.common.util.SslUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,8 +22,6 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
-import static com.java_template.common.config.Config.*;
-
 
 /**
  * ABOUTME: OAuth2 authentication component providing client credentials flow
@@ -35,15 +34,17 @@ public class Authentication {
 
     private final OAuth2AuthorizedClientManager authorizedClientManager;
     private final ConcurrentMap<String, CachedToken> tokenCache = new ConcurrentHashMap<>();
+    private final Config config;
 
     private static final String CACHE_KEY = "cyoda";
 
-    public Authentication() {
+    public Authentication(Config config) {
+        this.config = config;
 
         ClientRegistration registration = ClientRegistration.withRegistrationId("cyoda")
-                .tokenUri(CYODA_API_URL + "/oauth/token")
-                .clientId(CYODA_CLIENT_ID)
-                .clientSecret(CYODA_CLIENT_SECRET)
+                .tokenUri(config.getCyodaApiUrl() + "/oauth/token")
+                .clientId(config.getCyodaClientId())
+                .clientSecret(config.getCyodaClientSecret())
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                 .scope("ROLE_M2M")
@@ -63,7 +64,7 @@ public class Authentication {
 
         RestClient restClient = RestClient.builder()
                 .requestFactory(new JdkClientHttpRequestFactory(
-                        SslUtils.createHttpClient()
+                        SslUtils.createHttpClient(config)
                 ))
                 .messageConverters((messageConverters) -> {
                     messageConverters.clear();

@@ -25,9 +25,11 @@ public class AlwaysFalseCriterion implements CyodaCriterion {
     private static final Logger logger = LoggerFactory.getLogger(AlwaysFalseCriterion.class);
     private final String className = this.getClass().getSimpleName();
     private final CriterionSerializer serializer;
+    private final Config config;
 
-    public AlwaysFalseCriterion(SerializerFactory serializerFactory) {
+    public AlwaysFalseCriterion(SerializerFactory serializerFactory, Config config) {
         this.serializer = serializerFactory.getDefaultCriteriaSerializer();
+        this.config = config;
         logger.debug("AlwaysFalseCriterion initialized with SerializerFactory");
     }
 
@@ -42,6 +44,6 @@ public class AlwaysFalseCriterion implements CyodaCriterion {
 
     @Override
     public boolean supports(OperationSpecification opsSpec) {
-        return Config.INCLUDE_DEFAULT_OPERATIONS || className.equals(opsSpec.operationName());
+        return config.isIncludeDefaultOperations() || className.equals(opsSpec.operationName());
     }
 }

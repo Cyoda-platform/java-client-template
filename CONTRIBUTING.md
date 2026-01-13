@@ -21,66 +21,32 @@ java-client-template/
       ├── entity/                        # Domain entities (usually empty in template)
       ├── processor/                     # Workflow processors (usually empty in template)
       └── criterion/                     # Workflow criteria (usually empty in template)
-│   └── resources/                      # Configuration files (usually empty in template)
+│   └── resources/                       # Configuration files (usually empty in template)
 │       └── workflow/                    # Workflow configurations (usually empty in template)
-├── llm_example/                         # Compilable examples and templates
-│   ├── code/application/                # Example implementations (.java.txt files)
+├── src/test/java/com/example/           # Compilable examples and templates
+│   ├── application/                     # Example implementations (.java.txt files)
 │   │   ├── controller/                  # REST controller examples
 │   │   ├── entity/                      # Entity implementation examples
 │   │   ├── processor/                   # Processor implementation examples
 │   │   └── criterion/                   # Criterion implementation examples
-│   ├── config/workflow/                 # Workflow configuration examples
+│   ├── test/resources/example/config/workflow/                 # Workflow configuration examples
 └── CONTRIBUTING.md                      # This file
 ```
 
 ## 🔄 Example Validation Workflow
 If you'd like to contribute to the examples, please follow the workflow below. 
-You can also use this workflow to test your changes before submitting a pull request.
 
-1. Add relevant changes to the project
-2. Update doc files:
+
+1. Add relevant examples to `src/test/java/com/example/` directory
+2. Add relevant configurations to `src/test/resources/example/config/` directory
+3. Write unit tests for your examples in `src/test/java/com/example/tests` directory
+4. Update doc files:
 - `llms.txt` - AI-friendly documentation references
 - `llms-full.txt` - AI-friendly documentation references with line breaks
 - `README.md` - Project documentation
 - `usage-rules.md` - Developer and AI agent guidelines
 - `.augment-guidelines` - Project overview and development workflow
 
-The files above do not have code or configuration examples. They reference llm_example/ for implementation details. 
-
-So once you have made your changes, you can validate them by running the following commands:
-
-### Manual Validation
-
-```bash
-# 1. Copy examples to application directory
-mkdir -p src/main/java/com/java_template/application && \
-cp -r llm_example/code/application/* src/main/java/com/java_template/application/
-
-# 2. Rename .txt files to .java
-find src/main/java/com/java_template/application -name "*.java.txt" -exec bash -c 'mv "$1" "${1%.txt}"' _ {} \;
-
-# 3. Copy workflow configurations
-mkdir -p src/main/resources/workflow/ && \
-cp -r llm_example/config/workflow/* src/main/resources/workflow/
-
-# 4. Build and test
-./gradlew clean build
-
-# Once the examples are ready they can be moved to the template
-# 5. Move example code to the template
-cp -r src/main/resources/workflow/* llm_example/config/workflow/
-cp -r src/main/java/com/java_template/application/* llm_example/code/application/
-
-find llm_example/code/application -name "*.java" -exec bash -c 'mv "$1" "$1.txt"' _ {} \;
-
-# 6. Clean up when done
-rm -rf src/main/java/com/java_template/application
-rm -rf src/main/resources/workflow
-
-
-```
-
-3. If validation of examples fails, fix the issues and repeat steps 2-4 until all examples compile successfully.
 4. Please, submit a pull request with your changes.
 
 You are most welcome to submit a pull request even if you are not sure if your changes are correct.

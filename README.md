@@ -15,30 +15,45 @@ git clone https://github.com/Cyoda-platform/java-client-template.git
 cd java-client-template
 ```
 
-### 2. 🧰 Run Workflow Import Tool
+### 2. ⚙️ Configure the Application
+
+Configuration is managed via Spring Boot YAML files. For local development:
+
+```bash
+# Option 1: Create a local profile
+# For example, create src/main/resources/application-local.yml with your settings
+./gradlew runApp --args='--spring.profiles.active=local'
+
+# Option 2: Use environment variables
+export APP_CONFIG_CYODA_HOST=your-cyoda-host:8443
+export APP_CONFIG_CYODA_CLIENT_ID=your-client-id
+export APP_CONFIG_CYODA_CLIENT_SECRET=your-client-secret
+```
+
+### 3. 🧰 Run Workflow Import Tool
 
 #### Option 1: Run via Gradle (recommended for local development)
 ```bash
-./gradlew runApp -PmainClass=com.java_template.common.tool.WorkflowImportTool
+./gradlew runApp -PmainClass=com.java_template.common.tool.WorkflowImportTool --args='--spring.profiles.active=local'
 ```
 
 #### Option 2: Build and Run JAR (recommended for CI or scripting)
 ```bash
 ./gradlew bootJarWorkflowImport
-java -jar build/libs/java-client-template-1.0-SNAPSHOT-workflow-import.jar
+java -jar build/libs/java-client-template-1.0-SNAPSHOT-workflow-import.jar --spring.profiles.active=local
 ```
 
-### 3. ▶️ Run the Application
+### 4. ▶️ Run the Application
 
 #### Option 1: Run via Gradle
 ```bash
-./gradlew runApp
+./gradlew runApp --args='--spring.profiles.active=local'
 ```
 
 #### Option 2: Run Manually After Build
 ```bash
 ./gradlew build
-java -jar build/libs/java-client-template-1.0-SNAPSHOT.jar
+java -jar build/libs/java-client-template-1.0-SNAPSHOT.jar --spring.profiles.active=local
 ```
 
 > Access the app: [http://localhost:8080/swagger-ui/index.html](http://localhost:8080/swagger-ui/index.html)
@@ -55,7 +70,7 @@ This template follows a clear separation between **framework code** (that you do
 
 **Core Framework Components:**
 - `auth/` – Authentication & token management for Cyoda integration
-- `config/` – Configuration classes, constants, and environment variable handling  
+- `config/` – Configuration classes using Spring Boot's configuration management
 - `dto/` – Data transfer objects including `EntityWithMetadata<T>` wrapper
 - `grpc/` – gRPC client integration with Cyoda platform
 - `repository/` – Data access layer for Cyoda REST API operations
@@ -96,16 +111,23 @@ Workflows are defined using **finite-state machine (FSM)** JSON files placed in:
 src/main/resources/workflow/$entity_name/version_$version/$entity_name.json
 ```
 
+### Workflow Schema Reference
+The workflow configuration schema is defined in:
+```
+src/main/resources/schema/common/statemachine/conf/WorkflowConfiguration.json
+```
+This schema defines the structure for workflow definitions, including states, transitions, processors, and criteria.
+
 ### Key Concepts
 - **States and Transitions**: Define the workflow flow
-- **Processors**: Handle business logic during transitions  
+- **Processors**: Handle business logic during transitions
 - **Criteria**: Evaluate conditions to determine transition paths
 - **Automatic Discovery**: Components are found via Spring `@Component` annotation
 
 ## 📚 Documentation and Examples
 
 ### Code Examples
-- **`llm_example/code/application/`** - Complete implementation examples for all components
+- **`src/test/java/com/example/application/`** - Complete implementation examples for all components
   - `controller/` - REST controller patterns
   - `entity/` - Entity class implementations
   - `processor/` - Workflow processor examples  

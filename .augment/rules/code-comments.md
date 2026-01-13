@@ -1,3 +1,8 @@
+---
+type: "agent_requested"
+description: "Example description"
+---
+
 # Code Comments Rules
 
 > **SCOPE**: Apply these rules anytime you write comments in code.

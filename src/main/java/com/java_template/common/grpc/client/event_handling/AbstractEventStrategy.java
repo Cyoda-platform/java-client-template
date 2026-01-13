@@ -99,7 +99,7 @@ public abstract class AbstractEventStrategy<
     protected TResponse returnErrorResponseFor(CloudEvent cloudEvent, JsonProcessingException e) {
         TResponse errorResponse = createErrorResponse();
 
-        AbstractEventStrategy.RequestIdRecoveryResult recoveryResult = recoverRequestIdFromCloudEvent(cloudEvent);
+        RequestIdRecoveryResult recoveryResult = recoverRequestIdFromCloudEvent(cloudEvent);
         if (recoveryResult.requestId().isPresent()) {
             String requestId = recoveryResult.requestId().get();
             setRequestIdInErrorResponse(errorResponse, requestId);
@@ -129,14 +129,14 @@ public abstract class AbstractEventStrategy<
      * @param cloudEvent the CloudEvent containing potentially corrupted JSON data
      * @return RequestIdRecoveryResult containing the requestId if found and any error message
      */
-    public static AbstractEventStrategy.RequestIdRecoveryResult recoverRequestIdFromCloudEvent(CloudEvent cloudEvent) {
+    public static RequestIdRecoveryResult recoverRequestIdFromCloudEvent(CloudEvent cloudEvent) {
         if (cloudEvent == null) {
-            return new AbstractEventStrategy.RequestIdRecoveryResult(Optional.empty(), "CloudEvent is null, cannot recover requestId");
+            return new RequestIdRecoveryResult(Optional.empty(), "CloudEvent is null, cannot recover requestId");
         }
 
         String textData = cloudEvent.getTextData();
         if (textData.trim().isEmpty()) {
-            return new AbstractEventStrategy.RequestIdRecoveryResult(Optional.empty(), "CloudEvent text data is empty, cannot recover requestId");
+            return new RequestIdRecoveryResult(Optional.empty(), "CloudEvent text data is empty, cannot recover requestId");
         }
 
         // Pattern to match "requestId" field with various quote styles and whitespace
@@ -149,7 +149,7 @@ public abstract class AbstractEventStrategy<
         Matcher matcher = requestIdPattern.matcher(textData);
         if (matcher.find()) {
             String requestId = matcher.group(1);
-            return new AbstractEventStrategy.RequestIdRecoveryResult(Optional.of(requestId), null);
+            return new RequestIdRecoveryResult(Optional.of(requestId), null);
         }
 
         // Fallback: try to find any UUID-like pattern near "requestId" text
@@ -162,7 +162,7 @@ public abstract class AbstractEventStrategy<
         Matcher fallbackMatcher = fallbackPattern.matcher(textData);
         if (fallbackMatcher.find()) {
             String requestId = fallbackMatcher.group(1);
-            return new AbstractEventStrategy.RequestIdRecoveryResult(Optional.of(requestId), null);
+            return new RequestIdRecoveryResult(Optional.of(requestId), null);
         }
 
         // Final fallback: look for any string value after "requestId" that looks like an identifier
@@ -174,10 +174,10 @@ public abstract class AbstractEventStrategy<
         Matcher generalMatcher = generalPattern.matcher(textData);
         if (generalMatcher.find()) {
             String requestId = generalMatcher.group(1);
-            return new AbstractEventStrategy.RequestIdRecoveryResult(Optional.of(requestId), null);
+            return new RequestIdRecoveryResult(Optional.of(requestId), null);
         }
 
-        return new AbstractEventStrategy.RequestIdRecoveryResult(Optional.empty(), "Could not recover requestId from CloudEvent text data. No matching patterns found.");
+        return new RequestIdRecoveryResult(Optional.empty(), "Could not recover requestId from CloudEvent text data. No matching patterns found.");
     }
 
     /**

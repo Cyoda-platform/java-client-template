@@ -1,0 +1,29 @@
+Task: Migrate Configuration Management from dotenv to Spring Boot
+Please migrate the entire configuration system from using the  dotenv library to pure Spring Boot configuration management. This involves:
+1. Remove dotenv dependency:
+Remove io.github.cdimascio.dotenv from build.gradle
+2. Refactor src/main/java/com/java_template/common/config/Config.java:
+Remove all  dotenv imports and static Dotenv instances
+Convert to Spring @ConfigurationProperties approach with proper getters/setters
+Remove all static field access patterns - make it a proper Spring bean
+Maintain all existing configuration properties and their default values
+Ensure type safety (convert string parsing to proper Spring type conversion)
+3. Update application configuration files:
+Ensure application.yml and application-cucumber.yaml properly import environment files
+Set up proper hierarchy: .env → .env.cucumber → system properties
+Verify all environment variable names are preserved
+4. Update all classes that use Config:
+Find all classes that reference Config.FIELD_NAME static access
+Convert to proper Spring dependency injection using @Autowired Config config
+Update field access from Config.FIELD_NAME to config.getFieldName()
+5. Key requirements:
+Maintain backward compatibility - all existing environment variables should work
+Preserve all default values currently defined
+Ensure the cucumber profile still loads .env.cucumber properly
+Keep the same configuration hierarchy behavior
+No functional changes - only the configuration loading mechanism changes
+6. Testing:
+Verify that ./gradlew cucumberTest still uses .env.cucumber
+Verify that normal application startup uses .env
+Confirm all gRPC and Cyoda configuration still works
+Please make minimal changes focused only on the configuration system migration. Do not modify any business logic or add new features.

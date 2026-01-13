@@ -1,3 +1,8 @@
+---
+type: "agent_requested"
+description: "Example description"
+---
+
 # Compilation and Build Lifecycle Rules
 
 **Scope**: When performing compilation, testing, or other build lifecycle actions

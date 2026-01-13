@@ -3,6 +3,7 @@ package com.java_template.common.grpc.client.event_handling;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.java_template.common.config.Config;
 import io.cloudevents.core.data.PojoCloudEventData;
 import io.cloudevents.core.format.EventFormat;
 import io.cloudevents.v1.proto.CloudEvent;
@@ -10,8 +11,6 @@ import java.net.URI;
 import java.util.UUID;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.springframework.stereotype.Component;
-
-import static com.java_template.common.config.Config.EVENT_SOURCE_URI;
 
 /**
  * ABOUTME: Component for building CloudEvent instances from BaseEvent objects
@@ -23,13 +22,16 @@ public class CloudEventBuilder {
 
     private final ObjectMapper objectMapper;
     private final EventFormat eventFormat;
+    private final Config config;
 
     public CloudEventBuilder(
             final ObjectMapper objectMapper,
-            final EventFormat eventFormat
+            final EventFormat eventFormat,
+            final Config config
     ) {
         this.objectMapper = objectMapper;
         this.eventFormat = eventFormat;
+        this.config = config;
     }
 
     public CloudEvent buildEvent(final BaseEvent event) throws InvalidProtocolBufferException {
@@ -37,7 +39,7 @@ public class CloudEventBuilder {
         return CloudEvent.parseFrom(
                 eventFormat.serialize(
                         io.cloudevents.core.builder.CloudEventBuilder.v1()
-                                .withSource(URI.create(EVENT_SOURCE_URI))
+                                .withSource(URI.create(config.getEventSourceUri()))
                                 .withType(event.getClass().getSimpleName())
                                 .withId(UUID.randomUUID().toString())
                                 .withData(PojoCloudEventData.wrap(event, this::mapEvent))

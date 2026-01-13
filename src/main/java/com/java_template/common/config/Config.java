@@ -1,88 +1,309 @@
 package com.java_template.common.config;
 
-import io.github.cdimascio.dotenv.Dotenv;
 import java.util.Arrays;
 import java.util.List;
 import org.cyoda.cloud.api.event.common.DataFormat;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 /**
  * ABOUTME: Central configuration class providing environment-based settings
  * for Cyoda platform connection, gRPC communication, and application parameters.
  */
+@Component
+@ConfigurationProperties(prefix = "app.config")
 public class Config {
-    private static final Dotenv dotenv = Dotenv.configure()
-            .ignoreIfMissing()
-            .load();
 
-    public static final String CYODA_HOST = getEnv("CYODA_HOST");
-    public static final String CYODA_API_URL = getEnv("CYODA_API_URL", "https://" + CYODA_HOST + "/api");
-    public static final String GRPC_ADDRESS = getEnv("GRPC_ADDRESS", "grpc-" + CYODA_HOST);
-    public static final int GRPC_SERVER_PORT = Integer.parseInt(getEnv("GRPC_SERVER_PORT", "443"));
-    public static final String GRPC_PROCESSOR_TAG = getEnv("GRPC_PROCESSOR_TAG", "cloud_manager_app");
+    private String cyodaHost;
+    private String cyodaApiUrl;
+    private String grpcAddress;
+    private int grpcServerPort = 443;
+    private String grpcProcessorTag = "cloud_manager_app";
 
-    // Thread pool configurations for different event types
-    public static final int PROCESSOR_THREAD_POOL = Integer.parseInt(getEnv("PROCESSOR_THREAD_POOL", "20"));
-    public static final int CRITERIA_THREAD_POOL = Integer.parseInt(getEnv("CRITERIA_THREAD_POOL", "20"));
-    public static final int CONTROL_THREAD_POOL = Integer.parseInt(getEnv("CONTROL_THREAD_POOL", "3"));
+    // gRPC Channel Configuration
+    private int grpcMaxInboundMessageSize = 16777216; // 16MB
+    private int grpcMaxInboundMetadataSize = 16384; // 16KB
+    private int grpcFlowControlWindow = 67108864; // 64MB
+    private long grpcKeepAliveTimeSeconds = 30;
+    private long grpcKeepAliveTimeoutSeconds = 10;
+    private long grpcIdleTimeoutSeconds = 300; // 5 minutes
 
-    public static final int HANDSHAKE_TIMEOUT_MS = Integer.parseInt(getEnv("HANDSHAKE_TIMEOUT_MS", "5000"));
+    // Thread pool configurations
+    private int processorThreadPool = 20;
+    private int criteriaThreadPool = 20;
+    private int controlThreadPool = 3;
 
-    public static final int INITIAL_RECONNECT_DELAY_MS = Integer.parseInt(getEnv("INITIAL_RECONNECT_DELAY_MS", "200"));
-    public static final int MAX_RECONNECT_DELAY_MS = Integer.parseInt(getEnv("MAX_RECONNECT_DELAY_MS", "10000"));
-    public static final int FAILED_RECONNECTS_LIMIT = Integer.parseInt(getEnv("FAILED_RECONNECTS_LIMIT", "10"));
+    private int handshakeTimeoutMs = 5000;
 
+    private int initialReconnectDelayMs = 200;
+    private int maxReconnectDelayMs = 10000;
+    private int failedReconnectsLimit = 10;
 
-    public static final String CYODA_CLIENT_ID = getEnv("CYODA_CLIENT_ID");
-    public static final String CYODA_CLIENT_SECRET = getEnv("CYODA_CLIENT_SECRET");
+    private String cyodaClientId;
+    private String cyodaClientSecret;
 
-    public static final String CHAT_ID = dotenv.get("CHAT_ID");
-
-    public static final DataFormat GRPC_COMMUNICATION_DATA_FORMAT = DataFormat.fromValue(getEnv("GRPC_COMMUNICATION_DATA_FORMAT", DataFormat.JSON.value()));
-    public static final String EVENT_SOURCE_URI = "urn:cyoda:calculation-member:" + GRPC_PROCESSOR_TAG;
+    private String grpcCommunicationDataFormat = DataFormat.JSON.value();
 
     // Monitoring
-    public static final int SENT_EVENTS_CACHE_MAX_SIZE = Integer.parseInt(getEnv("SENT_EVENTS_CACHE_MAX_SIZE", "100"));
-    public static final int MONITORING_SCHEDULER_INITIAL_DELAY_SECONDS = Integer.parseInt(getEnv("MONITORING_SCHEDULER_INITIAL_DELAY_SECONDS", "1"));
-    public static final int MONITORING_SCHEDULER_DELAY_SECONDS = Integer.parseInt(getEnv("MONITORING_SCHEDULER_DELAY_SECONDS", "3"));
-    public static final long KEEP_ALIVE_WARNING_THRESHOLD = Long.parseLong(dotenv.get("KEEP_ALIVE_WARNING_THRESHOLD", "60000"));
+    private int sentEventsCacheMaxSize = 100;
+    private int monitoringSchedulerInitialDelaySeconds = 1;
+    private int monitoringSchedulerDelaySeconds = 3;
+    private long keepAliveWarningThreshold = 60000;
 
     // SSL Configuration
-    public static final boolean SSL_TRUST_ALL = Boolean.parseBoolean(getEnv("SSL_TRUST_ALL", "false"));
-    public static final String SSL_TRUSTED_HOSTS = getEnv("SSL_TRUSTED_HOSTS", "");
+    private boolean sslTrustAll = false;
+    private String sslTrustedHosts = "";
 
-    public static final boolean INCLUDE_DEFAULT_OPERATIONS = Boolean.parseBoolean(getEnv("INCLUDE_DEFAULT_OPERATIONS", "false"));
+    private boolean includeDefaultOperations = false;
+
+    // Getters and setters
+
+    public String getCyodaHost() {
+        return cyodaHost;
+    }
+
+    public void setCyodaHost(String cyodaHost) {
+        this.cyodaHost = cyodaHost;
+        // Update dependent properties if not explicitly set
+        if (cyodaApiUrl == null) {
+            cyodaApiUrl = "https://" + cyodaHost + "/api";
+        }
+        if (grpcAddress == null) {
+            grpcAddress = "grpc-" + cyodaHost;
+        }
+    }
+
+    public String getCyodaApiUrl() {
+        return cyodaApiUrl;
+    }
+
+    public void setCyodaApiUrl(String cyodaApiUrl) {
+        this.cyodaApiUrl = cyodaApiUrl;
+    }
+
+    public String getGrpcAddress() {
+        return grpcAddress;
+    }
+
+    public void setGrpcAddress(String grpcAddress) {
+        this.grpcAddress = grpcAddress;
+    }
+
+    public int getGrpcServerPort() {
+        return grpcServerPort;
+    }
+
+    public void setGrpcServerPort(int grpcServerPort) {
+        this.grpcServerPort = grpcServerPort;
+    }
+
+    public String getGrpcProcessorTag() {
+        return grpcProcessorTag;
+    }
+
+    public void setGrpcProcessorTag(String grpcProcessorTag) {
+        this.grpcProcessorTag = grpcProcessorTag;
+    }
+
+    public int getGrpcMaxInboundMessageSize() {
+        return grpcMaxInboundMessageSize;
+    }
+
+    public void setGrpcMaxInboundMessageSize(int grpcMaxInboundMessageSize) {
+        this.grpcMaxInboundMessageSize = grpcMaxInboundMessageSize;
+    }
+
+    public int getGrpcMaxInboundMetadataSize() {
+        return grpcMaxInboundMetadataSize;
+    }
+
+    public void setGrpcMaxInboundMetadataSize(int grpcMaxInboundMetadataSize) {
+        this.grpcMaxInboundMetadataSize = grpcMaxInboundMetadataSize;
+    }
+
+    public int getGrpcFlowControlWindow() {
+        return grpcFlowControlWindow;
+    }
+
+    public void setGrpcFlowControlWindow(int grpcFlowControlWindow) {
+        this.grpcFlowControlWindow = grpcFlowControlWindow;
+    }
+
+    public long getGrpcKeepAliveTimeSeconds() {
+        return grpcKeepAliveTimeSeconds;
+    }
+
+    public void setGrpcKeepAliveTimeSeconds(long grpcKeepAliveTimeSeconds) {
+        this.grpcKeepAliveTimeSeconds = grpcKeepAliveTimeSeconds;
+    }
+
+    public long getGrpcKeepAliveTimeoutSeconds() {
+        return grpcKeepAliveTimeoutSeconds;
+    }
+
+    public void setGrpcKeepAliveTimeoutSeconds(long grpcKeepAliveTimeoutSeconds) {
+        this.grpcKeepAliveTimeoutSeconds = grpcKeepAliveTimeoutSeconds;
+    }
+
+    public long getGrpcIdleTimeoutSeconds() {
+        return grpcIdleTimeoutSeconds;
+    }
+
+    public void setGrpcIdleTimeoutSeconds(long grpcIdleTimeoutSeconds) {
+        this.grpcIdleTimeoutSeconds = grpcIdleTimeoutSeconds;
+    }
+
+    public int getProcessorThreadPool() {
+        return processorThreadPool;
+    }
+
+    public void setProcessorThreadPool(int processorThreadPool) {
+        this.processorThreadPool = processorThreadPool;
+    }
+
+    public int getCriteriaThreadPool() {
+        return criteriaThreadPool;
+    }
+
+    public void setCriteriaThreadPool(int criteriaThreadPool) {
+        this.criteriaThreadPool = criteriaThreadPool;
+    }
+
+    public int getControlThreadPool() {
+        return controlThreadPool;
+    }
+
+    public void setControlThreadPool(int controlThreadPool) {
+        this.controlThreadPool = controlThreadPool;
+    }
+
+    public int getHandshakeTimeoutMs() {
+        return handshakeTimeoutMs;
+    }
+
+    public void setHandshakeTimeoutMs(int handshakeTimeoutMs) {
+        this.handshakeTimeoutMs = handshakeTimeoutMs;
+    }
+
+    public int getInitialReconnectDelayMs() {
+        return initialReconnectDelayMs;
+    }
+
+    public void setInitialReconnectDelayMs(int initialReconnectDelayMs) {
+        this.initialReconnectDelayMs = initialReconnectDelayMs;
+    }
+
+    public int getMaxReconnectDelayMs() {
+        return maxReconnectDelayMs;
+    }
+
+    public void setMaxReconnectDelayMs(int maxReconnectDelayMs) {
+        this.maxReconnectDelayMs = maxReconnectDelayMs;
+    }
+
+    public int getFailedReconnectsLimit() {
+        return failedReconnectsLimit;
+    }
+
+    public void setFailedReconnectsLimit(int failedReconnectsLimit) {
+        this.failedReconnectsLimit = failedReconnectsLimit;
+    }
+
+    public String getCyodaClientId() {
+        return cyodaClientId;
+    }
+
+    public void setCyodaClientId(String cyodaClientId) {
+        this.cyodaClientId = cyodaClientId;
+    }
+
+    public String getCyodaClientSecret() {
+        return cyodaClientSecret;
+    }
+
+    public void setCyodaClientSecret(String cyodaClientSecret) {
+        this.cyodaClientSecret = cyodaClientSecret;
+    }
+
+    public DataFormat getGrpcCommunicationDataFormat() {
+        return DataFormat.fromValue(grpcCommunicationDataFormat);
+    }
+
+    public void setGrpcCommunicationDataFormat(String grpcCommunicationDataFormat) {
+        this.grpcCommunicationDataFormat = grpcCommunicationDataFormat;
+    }
+
+    public String getEventSourceUri() {
+        return "urn:cyoda:calculation-member:" + grpcProcessorTag;
+    }
+
+    public int getSentEventsCacheMaxSize() {
+        return sentEventsCacheMaxSize;
+    }
+
+    public void setSentEventsCacheMaxSize(int sentEventsCacheMaxSize) {
+        this.sentEventsCacheMaxSize = sentEventsCacheMaxSize;
+    }
+
+    public int getMonitoringSchedulerInitialDelaySeconds() {
+        return monitoringSchedulerInitialDelaySeconds;
+    }
+
+    public void setMonitoringSchedulerInitialDelaySeconds(int monitoringSchedulerInitialDelaySeconds) {
+        this.monitoringSchedulerInitialDelaySeconds = monitoringSchedulerInitialDelaySeconds;
+    }
+
+    public int getMonitoringSchedulerDelaySeconds() {
+        return monitoringSchedulerDelaySeconds;
+    }
+
+    public void setMonitoringSchedulerDelaySeconds(int monitoringSchedulerDelaySeconds) {
+        this.monitoringSchedulerDelaySeconds = monitoringSchedulerDelaySeconds;
+    }
+
+    public long getKeepAliveWarningThreshold() {
+        return keepAliveWarningThreshold;
+    }
+
+    public void setKeepAliveWarningThreshold(long keepAliveWarningThreshold) {
+        this.keepAliveWarningThreshold = keepAliveWarningThreshold;
+    }
+
+    public boolean isSslTrustAll() {
+        return sslTrustAll;
+    }
+
+    public void setSslTrustAll(boolean sslTrustAll) {
+        this.sslTrustAll = sslTrustAll;
+    }
+
+    public String getSslTrustedHosts() {
+        return sslTrustedHosts;
+    }
+
+    public void setSslTrustedHosts(String sslTrustedHosts) {
+        this.sslTrustedHosts = sslTrustedHosts;
+    }
+
+    public boolean isIncludeDefaultOperations() {
+        return includeDefaultOperations;
+    }
+
+    public void setIncludeDefaultOperations(boolean includeDefaultOperations) {
+        this.includeDefaultOperations = includeDefaultOperations;
+    }
 
     /**
      * Get list of hosts that should be trusted even with self-signed certificates
      * @return List of trusted hosts
      */
-    public static List<String> getTrustedHosts() {
-        if (SSL_TRUSTED_HOSTS.isBlank()) {
+    public List<String> getTrustedHosts() {
+        if (sslTrustedHosts == null || sslTrustedHosts.isBlank()) {
             return List.of();
         }
-        return Arrays.stream(SSL_TRUSTED_HOSTS.split(","))
+        return Arrays.stream(sslTrustedHosts.split(","))
                 .map(String::trim)
                 .filter(host -> !host.isEmpty())
                 .toList();
     }
-
-    private static String getEnv(String key, String defaultValue) {
-        String value = dotenv.get(key);
-        if (value == null) {
-            value = System.getenv(key);
-        }
-        return value != null ? value : defaultValue;
-    }
-
-    private static String getEnv(String key) {
-        String value = dotenv.get(key);
-        if (value == null) {
-            value = System.getenv(key);
-        }
-        if (value == null) {
-            throw new RuntimeException("Missing required environment variable: " + key);
-        }
-        return value;
-    }
-
 }

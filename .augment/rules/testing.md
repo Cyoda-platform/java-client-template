@@ -1,3 +1,8 @@
+---
+type: "agent_requested"
+description: "Example description"
+---
+
 # Testing Rules
 
 > **SCOPE**: Apply these rules anytime you write or launch tests.
