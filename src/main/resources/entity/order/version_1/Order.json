@@ -1,0 +1,18 @@
+{
+  "orderId": "ORD-20250113-001",
+  "symbol": "AAPL",
+  "side": "BUY",
+  "quantity": 1000,
+  "price": 150.25,
+  "orderType": "LIMIT",
+  "timeInForce": "GTC",
+  "traderId": "TRADER-001",
+  "timestamp": "2025-01-13T10:30:00",
+  "filledQuantity": 0,
+  "remainingQuantity": 1000,
+  "executedPrice": null,
+  "status": "NEW",
+  "createdAt": "2025-01-13T10:30:00",
+  "updatedAt": "2025-01-13T10:30:00"
+}
+

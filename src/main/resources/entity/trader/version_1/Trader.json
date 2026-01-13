@@ -1,0 +1,14 @@
+{
+  "traderId": "TRADER-001",
+  "name": "John Smith",
+  "email": "john.smith@trading.com",
+  "department": "Equities",
+  "maxOrderSize": 50000,
+  "maxNotionalPerDay": 5000000.0,
+  "currentDayNotional": 1500000.0,
+  "status": "ACTIVE",
+  "riskCheckEnabled": true,
+  "createdAt": "2025-01-01T09:00:00",
+  "updatedAt": "2025-01-13T10:30:00"
+}
+

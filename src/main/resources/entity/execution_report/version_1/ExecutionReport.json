@@ -1,0 +1,14 @@
+{
+  "executionId": "EXEC-20250113-001",
+  "orderId": "ORD-20250113-001",
+  "filledQuantity": 500,
+  "remainingQuantity": 500,
+  "price": 150.25,
+  "status": "PARTIALLY_FILLED",
+  "timestamp": "2025-01-13T10:31:00",
+  "venueId": "VENUE-NYSE",
+  "executionVenue": "NYSE",
+  "createdAt": "2025-01-13T10:31:00",
+  "updatedAt": "2025-01-13T10:31:00"
+}
+
