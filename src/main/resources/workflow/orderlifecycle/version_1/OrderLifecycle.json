@@ -1,0 +1,300 @@
+{
+  "version": "1.0",
+  "name": "OrderLifecycle",
+  "desc": "Order lifecycle workflow for managing order states from creation to completion",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "VALIDATE",
+          "next": "VALIDATED",
+          "manual": false,
+          "disabled": false,
+          "criterion": {
+            "type": "function",
+            "name": "OrderValidationCriterion"
+          },
+          "processors": [
+            {
+              "name": "OrderValidationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "RiskCheckProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "PersistenceProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "REJECT",
+          "next": "REJECTED",
+          "manual": true,
+          "disabled": false
+        }
+      ]
+    },
+    "VALIDATED": {
+      "transitions": [
+        {
+          "name": "ROUTE",
+          "next": "ROUTED",
+          "manual": true,
+          "disabled": false,
+          "processors": [
+            {
+              "name": "OrderRoutingProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "PersistenceProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "REJECT",
+          "next": "REJECTED",
+          "manual": true,
+          "disabled": false
+        }
+      ]
+    },
+    "ROUTED": {
+      "transitions": [
+        {
+          "name": "ACKNOWLEDGE",
+          "next": "ACKNOWLEDGED",
+          "manual": true,
+          "disabled": false,
+          "processors": [
+            {
+              "name": "AcknowledgeProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "PersistenceProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "REJECT",
+          "next": "REJECTED",
+          "manual": true,
+          "disabled": false
+        }
+      ]
+    },
+    "ACKNOWLEDGED": {
+      "transitions": [
+        {
+          "name": "FILL",
+          "next": "FILLED",
+          "manual": true,
+          "disabled": false,
+          "processors": [
+            {
+              "name": "ExecutionReportProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "PersistenceProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PARTIAL_FILL",
+          "next": "PARTIALLY_FILLED",
+          "manual": true,
+          "disabled": false,
+          "processors": [
+            {
+              "name": "ExecutionReportProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "PersistenceProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "CANCEL",
+          "next": "CANCELLED",
+          "manual": true,
+          "disabled": false,
+          "processors": [
+            {
+              "name": "CancellationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "PersistenceProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "PARTIALLY_FILLED": {
+      "transitions": [
+        {
+          "name": "FILL",
+          "next": "FILLED",
+          "manual": true,
+          "disabled": false,
+          "processors": [
+            {
+              "name": "ExecutionReportProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "PersistenceProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PARTIAL_FILL",
+          "next": "PARTIALLY_FILLED",
+          "manual": true,
+          "disabled": false
+        },
+        {
+          "name": "CANCEL",
+          "next": "CANCELLED",
+          "manual": true,
+          "disabled": false,
+          "processors": [
+            {
+              "name": "CancellationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "PersistenceProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "FILLED": {
+      "transitions": []
+    },
+    "CANCELLED": {
+      "transitions": []
+    },
+    "REJECTED": {
+      "transitions": []
+    }
+  }
+}
