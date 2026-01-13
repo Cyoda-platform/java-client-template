@@ -1,0 +1,13 @@
+{
+  "venueId": "VENUE-NYSE",
+  "name": "New York Stock Exchange",
+  "type": "EXCHANGE",
+  "routingRule": "DIRECT",
+  "supportedSymbols": ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"],
+  "averageLiquidity": 10000000.0,
+  "status": "ACTIVE",
+  "available": true,
+  "createdAt": "2024-01-01T09:00:00",
+  "updatedAt": "2025-01-13T10:30:00"
+}
+
