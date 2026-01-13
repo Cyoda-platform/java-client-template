@@ -1,0 +1,31 @@
+{
+  "description": "Trade entity representing an executed trade with execution details, fees, and settlement information",
+  "id": "550e8400-e29b-41d4-a716-446655440002",
+  "orderId": "550e8400-e29b-41d4-a716-446655440001",
+  "accountId": "550e8400-e29b-41d4-a716-446655440000",
+  "symbol": "AAPL",
+  "quantity": 500,
+  "executionPrice": 150.30,
+  "executionTime": "2024-01-15T10:36:15Z",
+  "tradeValue": 75150.00,
+  "fees": {
+    "commissionFee": 75.15,
+    "exchangeFee": 25.05,
+    "clearingFee": 10.02,
+    "totalFees": 110.22
+  },
+  "netTradeValue": 75039.78,
+  "settlementDate": "2024-01-17T00:00:00Z",
+  "status": "EXECUTED",
+  "tradeValidation": {
+    "quantity": {
+      "rule": "quantity > 0",
+      "value": 500
+    },
+    "executionPrice": {
+      "rule": "executionPrice > 0",
+      "value": 150.30
+    }
+  }
+}
+

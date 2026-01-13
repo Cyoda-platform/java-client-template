@@ -1,0 +1,32 @@
+{
+  "description": "Market quote entity representing real-time market data with bid/ask prices and volume",
+  "id": "550e8400-e29b-41d4-a716-446655440004",
+  "symbol": "AAPL",
+  "bid": 150.25,
+  "bidSize": 10000,
+  "ask": 150.35,
+  "askSize": 8500,
+  "last": 150.30,
+  "lastSize": 500,
+  "volume": 2500000,
+  "openPrice": 149.80,
+  "highPrice": 151.00,
+  "lowPrice": 149.50,
+  "closePrice": 150.30,
+  "timestamp": "2024-01-15T10:36:15Z",
+  "quoteValidation": {
+    "bid": {
+      "rule": "bid > 0",
+      "value": 150.25
+    },
+    "ask": {
+      "rule": "ask > bid",
+      "value": 150.35
+    },
+    "volume": {
+      "rule": "volume >= 0",
+      "value": 2500000
+    }
+  }
+}
+

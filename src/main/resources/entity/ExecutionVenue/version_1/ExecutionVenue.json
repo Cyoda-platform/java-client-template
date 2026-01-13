@@ -1,0 +1,37 @@
+{
+  "description": "Execution venue entity representing a trading venue with connectivity status and fee structure",
+  "id": "550e8400-e29b-41d4-a716-446655440007",
+  "venueName": "NYSE",
+  "type": "EXCHANGE",
+  "status": "ACTIVE",
+  "connectivity": {
+    "status": "CONNECTED",
+    "latency": 2.5,
+    "lastHeartbeat": "2024-01-15T10:36:15Z"
+  },
+  "fees": {
+    "commissionRate": 0.001,
+    "exchangeFee": 0.0001,
+    "clearingFee": 0.00005,
+    "minCommission": 1.00
+  },
+  "tradingHours": {
+    "open": "09:30",
+    "close": "16:00",
+    "timezone": "US/Eastern"
+  },
+  "priority": 1,
+  "createdAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-01-15T10:36:15Z",
+  "venueValidation": {
+    "commissionRate": {
+      "rule": "commissionRate >= 0",
+      "value": 0.001
+    },
+    "latency": {
+      "rule": "latency > 0",
+      "value": 2.5
+    }
+  }
+}
+

@@ -1,0 +1,26 @@
+{
+  "description": "Position entity representing a current holding in a security with mark-to-market valuation and P&L",
+  "id": "550e8400-e29b-41d4-a716-446655440003",
+  "accountId": "550e8400-e29b-41d4-a716-446655440000",
+  "symbol": "AAPL",
+  "quantity": 500,
+  "averageCost": 150.20,
+  "totalCost": 75100.00,
+  "currentPrice": 150.30,
+  "currentValue": 75150.00,
+  "unrealizedPnL": 50.00,
+  "unrealizedPnLPercent": 0.067,
+  "realizedPnL": 0.00,
+  "lastUpdated": "2024-01-15T10:36:15Z",
+  "positionValidation": {
+    "quantity": {
+      "rule": "quantity > 0",
+      "value": 500
+    },
+    "currentPrice": {
+      "rule": "currentPrice > 0",
+      "value": 150.30
+    }
+  }
+}
+

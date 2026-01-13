@@ -1,0 +1,22 @@
+{
+  "description": "Trading account entity representing an institutional trading account with balance, status, and risk limits",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "accountNumber": "ACC-2024-001",
+  "accountType": "INSTITUTIONAL",
+  "status": "ACTIVE",
+  "balance": 5000000.00,
+  "currency": "USD",
+  "createdAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-01-15T10:30:00Z",
+  "riskLimits": {
+    "dailyLossLimit": 100000.00,
+    "positionLimit": 1000000.00,
+    "orderValueLimit": 500000.00
+  },
+  "metadata": {
+    "description": "Primary trading account for institutional client",
+    "region": "US",
+    "tier": "PREMIUM"
+  }
+}
+

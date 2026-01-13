@@ -1,0 +1,35 @@
+{
+  "description": "Portfolio entity representing aggregated account holdings with total value and P&L metrics",
+  "id": "550e8400-e29b-41d4-a716-446655440006",
+  "accountId": "550e8400-e29b-41d4-a716-446655440000",
+  "totalValue": 5075150.00,
+  "cash": 4999850.00,
+  "positionValue": 75150.00,
+  "positionCount": 1,
+  "realizedPnL": 500.00,
+  "unrealizedPnL": 50.00,
+  "totalPnL": 550.00,
+  "totalPnLPercent": 0.011,
+  "dayPnL": 50.00,
+  "dayPnLPercent": 0.001,
+  "lastUpdated": "2024-01-15T10:36:15Z",
+  "positions": [
+    {
+      "symbol": "AAPL",
+      "quantity": 500,
+      "value": 75150.00,
+      "unrealizedPnL": 50.00
+    }
+  ],
+  "portfolioValidation": {
+    "totalValue": {
+      "rule": "totalValue > 0",
+      "value": 5075150.00
+    },
+    "cash": {
+      "rule": "cash >= 0",
+      "value": 4999850.00
+    }
+  }
+}
+

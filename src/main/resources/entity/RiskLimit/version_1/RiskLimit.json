@@ -1,0 +1,24 @@
+{
+  "description": "Risk limit entity representing pre-trade and real-time risk control thresholds for an account",
+  "id": "550e8400-e29b-41d4-a716-446655440005",
+  "accountId": "550e8400-e29b-41d4-a716-446655440000",
+  "limitType": "DAILY_LOSS_LIMIT",
+  "limitValue": 100000.00,
+  "currentUsage": 25000.00,
+  "usagePercent": 25.0,
+  "status": "ACTIVE",
+  "createdAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-01-15T10:36:15Z",
+  "resetTime": "2024-01-16T00:00:00Z",
+  "riskLimitValidation": {
+    "limitValue": {
+      "rule": "limitValue > 0",
+      "value": 100000.00
+    },
+    "currentUsage": {
+      "rule": "currentUsage >= 0 AND currentUsage <= limitValue",
+      "value": 25000.00
+    }
+  }
+}
+
