@@ -1,0 +1,9 @@
+{
+  "name": "Store",
+  "version": 1,
+  "fields": {
+    "storeId": {"type": "string", "description": "Unique store identifier"},
+    "name": {"type": "string", "description": "Store name"},
+    "location": {"type": "string", "description": "Geographic location or address"}
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Product",
+  "version": 1,
+  "fields": {
+    "productId": {"type": "string", "description": "Unique product identifier from Pet Store API"},
+    "name": {"type": "string", "description": "Product name"},
+    "category": {"type": "string", "description": "Product category"},
+    "price": {"type": "number", "description": "Unit price"},
+    "currency": {"type": "string", "description": "Currency code"},
+    "createdAt": {"type": "string", "format": "date-time", "description": "Timestamp for product creation"}
+  }
+}

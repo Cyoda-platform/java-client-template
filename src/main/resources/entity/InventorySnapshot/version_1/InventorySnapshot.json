@@ -1,0 +1,11 @@
+{
+  "name": "InventorySnapshot",
+  "version": 1,
+  "fields": {
+    "snapshotId": {"type": "string", "description": "Unique snapshot identifier"},
+    "storeId": {"type": "string", "description": "Store identifier"},
+    "productId": {"type": "string", "description": "Product identifier"},
+    "quantityOnHand": {"type": "integer", "description": "Quantity in stock at snapshot time"},
+    "recordedAt": {"type": "string", "format": "date-time", "description": "Snapshot timestamp"}
+  }
+}

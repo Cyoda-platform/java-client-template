@@ -1,0 +1,13 @@
+{
+  "name": "SaleTransaction",
+  "version": 1,
+  "fields": {
+    "transactionId": {"type": "string", "description": "Unique transaction identifier"},
+    "productId": {"type": "string", "description": "Product identifier"},
+    "storeId": {"type": "string", "description": "Store identifier"},
+    "quantity": {"type": "integer", "description": "Quantity sold"},
+    "unitPrice": {"type": "number", "description": "Price per unit at time of sale"},
+    "totalAmount": {"type": "number", "description": "Total amount for the transaction"},
+    "soldAt": {"type": "string", "format": "date-time", "description": "Sale timestamp"}
+  }
+}
