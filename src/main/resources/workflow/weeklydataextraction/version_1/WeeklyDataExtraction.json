@@ -1,0 +1,213 @@
+{
+  "version": "1",
+  "name": "WeeklyDataExtraction",
+  "desc": "Scheduled job that runs every Monday at 02:00 UTC to fetch product, sales, and inventory data from the Pet Store API, normalize and persist entities.",
+  "initialState": "scheduled",
+  "active": true,
+  "metadata": {
+    "cron": "0 2 * * MON",
+    "idempotencyKeys": ["transactionId", "snapshotId"],
+    "retryPolicy": {
+      "retries": 3,
+      "strategy": "EXPONENTIAL",
+      "backoffMs": 2000
+    }
+  },
+  "states": {
+    "scheduled": {
+      "transitions": [
+        {
+          "name": "start_fetch",
+          "next": "fetch_data",
+          "manual": false
+        }
+      ]
+    },
+    "fetch_data": {
+      "transitions": [
+        {
+          "name": "to_parse",
+          "next": "parse_data",
+          "manual": false,
+          "processors": [
+            {
+              "name": "http_get_petstore_products",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "EXPONENTIAL",
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "http_get_petstore_orders",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 15000,
+                "retryPolicy": "EXPONENTIAL",
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "http_get_petstore_inventory",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "EXPONENTIAL",
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail",
+          "next": "failure",
+          "manual": false
+        }
+      ]
+    },
+    "parse_data": {
+      "transitions": [
+        {
+          "name": "to_persist",
+          "next": "persist_entities",
+          "manual": false,
+          "processors": [
+            {
+              "name": "parse_json_xml",
+              "executionMode": "SYNC",
+              "config": {
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "validate_schema",
+              "executionMode": "SYNC",
+              "config": {
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail",
+          "next": "failure",
+          "manual": false
+        }
+      ]
+    },
+    "persist_entities": {
+      "transitions": [
+        {
+          "name": "to_success",
+          "next": "success",
+          "manual": false,
+          "processors": [
+            {
+              "name": "upsert_product",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "EXPONENTIAL",
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "upsert_sale_transaction",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "EXPONENTIAL",
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "upsert_inventory_snapshot",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "responseTimeoutMs": 8000,
+                "retryPolicy": "EXPONENTIAL",
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "upsert_store",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "responseTimeoutMs": 8000,
+                "retryPolicy": "EXPONENTIAL",
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail",
+          "next": "failure",
+          "manual": false
+        }
+      ]
+    },
+    "success": {
+      "transitions": [
+        {
+          "name": "emit_report_event",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "emit_data_ready_event",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 2000,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failure": {
+      "transitions": [
+        {
+          "name": "log_and_alert",
+          "next": "failed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "log_error",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 2000,
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "send_alert",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}

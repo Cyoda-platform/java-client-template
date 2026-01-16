@@ -1,0 +1,201 @@
+{
+  "version": "1",
+  "name": "ReportGenerationAndEmail",
+  "desc": "Aggregate weekly data, compute KPIs, generate PDF report with charts, and email to victoria.sagdieva@cyoda.com.",
+  "initialState": "start",
+  "active": true,
+  "metadata": {
+    "archiveReports": true
+  },
+  "states": {
+    "start": {
+      "transitions": [
+        {
+          "name": "aggregate",
+          "next": "aggregate_data",
+          "manual": false
+        }
+      ]
+    },
+    "aggregate_data": {
+      "transitions": [
+        {
+          "name": "to_analyze",
+          "next": "analyze_metrics",
+          "manual": false,
+          "processors": [
+            {
+              "name": "query_entities_for_week",
+              "executionMode": "SYNC",
+              "config": {
+                "responseTimeoutMs": 15000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "aggregate_by_product_category",
+              "executionMode": "SYNC",
+              "config": {
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail",
+          "next": "failure",
+          "manual": false
+        }
+      ]
+    },
+    "analyze_metrics": {
+      "transitions": [
+        {
+          "name": "to_generate",
+          "next": "generate_report",
+          "manual": false,
+          "processors": [
+            {
+              "name": "calculate_kpis",
+              "executionMode": "SYNC",
+              "config": {
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "detect_underperformers",
+              "executionMode": "SYNC",
+              "config": {
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail",
+          "next": "failure",
+          "manual": false
+        }
+      ]
+    },
+    "generate_report": {
+      "transitions": [
+        {
+          "name": "to_email",
+          "next": "email_report",
+          "manual": false,
+          "processors": [
+            {
+              "name": "render_pdf_report",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 20000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "export_csv_aggregated",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail",
+          "next": "failure",
+          "manual": false
+        }
+      ]
+    },
+    "email_report": {
+      "transitions": [
+        {
+          "name": "to_complete",
+          "next": "complete",
+          "manual": false,
+          "processors": [
+            {
+              "name": "send_email_with_attachments",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "EXPONENTIAL",
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail",
+          "next": "failure",
+          "manual": false
+        }
+      ]
+    },
+    "complete": {
+      "transitions": [
+        {
+          "name": "archive",
+          "next": "archived",
+          "manual": false,
+          "processors": [
+            {
+              "name": "save_report_metadata",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 2000,
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "failure": {
+      "transitions": [
+        {
+          "name": "log_and_notify_ops",
+          "next": "failed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "log_error",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 2000,
+                "calculationNodesTags": "cyoda_application"
+              }
+            },
+            {
+              "name": "notify_ops_channel",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED",
+                "calculationNodesTags": "cyoda_application"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "archived": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": []
+    }
+  }
+}
