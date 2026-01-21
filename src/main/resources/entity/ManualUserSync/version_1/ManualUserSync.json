@@ -1,0 +1,23 @@
+{
+  "id": "d4f8a6b2-1c3a-4f2b-9e2a-7f1b9c2a6d4e",
+  "name": "ManualUserSync",
+  "description": "Record representing a manual user synchronization run from Auth0",
+  "initiated_by": "cli",
+  "started_at": "2026-01-21T12:00:00Z",
+  "finished_at": null,
+  "status": "idle",
+  "sync_parameters": {
+    "auth0_domain": "<AUTH0_DOMAIN_PLACEHOLDER>",
+    "include_user_metadata": true,
+    "page_size": 100
+  },
+  "results": {
+    "created": 0,
+    "updated": 0,
+    "missing": 0,
+    "errors": []
+  },
+  "auth0_fetch_cursor": null,
+  "created_at": "2026-01-21T12:00:00Z",
+  "updated_at": "2026-01-21T12:00:00Z"
+}
