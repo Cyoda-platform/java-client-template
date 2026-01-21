@@ -1,0 +1,31 @@
+{
+  "entityName": "Environment",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'Environment.1'",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "UPDATE",
+              "next": "initial",
+              "manual": true,
+              "disabled": false
+            },
+            {
+              "name": "MARK_FOR_DELETION",
+              "next": "initial",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+

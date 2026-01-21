@@ -9,22 +9,27 @@ import org.cyoda.cloud.api.event.common.ModelSpec;
 import java.time.OffsetDateTime;
 
 /**
- * Environment Entity - Represents a user's environment access record
- * 
- * This entity tracks environment information including access time
- * and deletion status for user environment management.
+ * Environment Entity - Represents an environment where a user has access
+ *
+ * This entity tracks user access to different environments with audit information.
  */
 @Data
 public class Environment implements CyodaEntity {
     public static final String ENTITY_NAME = "Environment";
     public static final Integer ENTITY_VERSION = 1;
 
-    // Required business identifier field
-    private String name;
+    // Business identifier - combination of userId and environment name
+    private String environmentId;
 
-    // Environment access tracking
+    // Reference to user
+    private String userId;
+
+    // Environment details
+    private String name;
     private OffsetDateTime lastAccessTime;
     private Boolean markedForDeletion;
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 
     @Override
     public OperationSpecification getModelKey() {
@@ -36,8 +41,8 @@ public class Environment implements CyodaEntity {
 
     @Override
     public boolean isValid(EntityMetadata metadata) {
-        // Validate required fields
-        return name != null && !name.isBlank();
+        return environmentId != null && !environmentId.isBlank() &&
+               userId != null && !userId.isBlank();
     }
 }
 
