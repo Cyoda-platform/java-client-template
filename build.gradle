@@ -179,6 +179,13 @@ protobuf {
     }
 }
 
+// Add protobuf well-known types to the protobuf compiler
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.25.1'
+    }
+}
+
 ["bootRun", "build", "compileJava", "compileKotlin"].each { taskName ->
     tasks.named(taskName).configure {
         dependsOn("generateProto")
