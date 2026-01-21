@@ -5,24 +5,50 @@
   "initialState": "idle",
   "active": true,
   "states": {
-    "completed": {
-      "transitions": []
-    },
-    "failed": {
-      "transitions": [
-        {
-          "manual": true,
-          "name": "retry",
-          "next": "syncing"
-        }
-      ]
-    },
     "idle": {
       "transitions": [
         {
           "manual": true,
           "name": "start_sync",
-          "next": "syncing"
+          "next": "validating"
+        }
+      ]
+    },
+    "validating": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "validation_passed",
+          "next": "syncing",
+          "processors": [
+            {
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              },
+              "executionMode": "SYNC",
+              "name": "PreflightCheck"
+            }
+          ]
+        },
+        {
+          "manual": false,
+          "name": "validation_failed",
+          "next": "failed",
+          "processors": [
+            {
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              },
+              "executionMode": "SYNC",
+              "name": "PreflightCheck"
+            }
+          ]
         }
       ]
     },
@@ -59,6 +85,18 @@
           "manual": false,
           "name": "fail",
           "next": "failed"
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "manual": true,
+          "name": "retry",
+          "next": "validating"
         }
       ]
     }
