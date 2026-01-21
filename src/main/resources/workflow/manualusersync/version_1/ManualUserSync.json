@@ -1,75 +1,64 @@
 {
   "version": "1",
   "name": "ManualUserSync",
-  "desc": "Manual workflow to synchronize users from Auth0 and merge into the local store (Auth0 authoritative)",
+  "description": "Manual workflow to synchronize users from Auth0 and merge into the local store (Auth0 authoritative)",
   "initialState": "idle",
   "active": true,
   "states": {
+    "completed": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "manual": true,
+          "name": "retry",
+          "next": "syncing"
+        }
+      ]
+    },
     "idle": {
       "transitions": [
         {
+          "manual": true,
           "name": "start_sync",
-          "next": "syncing",
-          "manual": true
+          "next": "syncing"
         }
       ]
     },
     "syncing": {
       "transitions": [
         {
+          "manual": false,
           "name": "complete",
           "next": "completed",
-          "manual": false,
           "processors": [
             {
-              "name": "Auth0Fetch",
-              "executionMode": "SYNC",
               "config": {
-                "calculationNodesTags": "cyoda_application",
                 "attachEntity": false,
+                "calculationNodesTags": "cyoda_application",
                 "responseTimeoutMs": 60000,
                 "retryPolicy": "FIXED"
-              }
+              },
+              "executionMode": "SYNC",
+              "name": "Auth0Fetch"
             },
             {
-              "name": "MergeUsers",
-              "executionMode": "SYNC",
               "config": {
-                "calculationNodesTags": "cyoda_application",
                 "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
                 "responseTimeoutMs": 120000,
                 "retryPolicy": "EXPONENTIAL"
-              }
+              },
+              "executionMode": "SYNC",
+              "name": "MergeUsers"
             }
           ]
         },
         {
+          "manual": false,
           "name": "fail",
-          "next": "failed",
-          "manual": false
-        }
-      ]
-    },
-    "completed": {
-      "transitions": [
-        {
-          "name": "idle",
-          "next": "idle",
-          "manual": false
-        }
-      ]
-    },
-    "failed": {
-      "transitions": [
-        {
-          "name": "retry",
-          "next": "syncing",
-          "manual": true
-        },
-        {
-          "name": "idle",
-          "next": "idle",
-          "manual": false
+          "next": "failed"
         }
       ]
     }
