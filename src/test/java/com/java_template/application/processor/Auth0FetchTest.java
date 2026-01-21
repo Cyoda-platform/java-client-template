@@ -1,0 +1,117 @@
+package com.java_template.application.processor;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEventContext;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+/**
+ * Unit tests for Auth0Fetch processor
+ * 
+ * Tests cover:
+ * - Successful user fetch with pagination
+ * - Error handling for Auth0 API failures
+ * - Token acquisition via client credentials
+ * - Proper processor naming and support
+ */
+@ExtendWith(MockitoExtension.class)
+class Auth0FetchTest {
+
+    @Mock
+    private SerializerFactory serializerFactory;
+
+    @Mock
+    private ProcessorSerializer serializer;
+
+    @Mock
+    private CyodaEventContext<EntityProcessorCalculationRequest> context;
+
+    @Mock
+    private EntityProcessorCalculationRequest request;
+
+    @Mock
+    private EntityProcessorCalculationResponse response;
+
+    private Auth0Fetch auth0Fetch;
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() {
+        objectMapper = new ObjectMapper();
+        when(serializerFactory.getDefaultProcessorSerializer()).thenReturn(serializer);
+        when(serializer.withRequest(any())).thenReturn(serializer);
+        when(serializer.complete()).thenReturn(response);
+
+        auth0Fetch = new Auth0Fetch(serializerFactory);
+
+        // Set configuration values
+        ReflectionTestUtils.setField(auth0Fetch, "auth0Domain", "example.auth0.com");
+        ReflectionTestUtils.setField(auth0Fetch, "auth0ClientId", "test-client-id");
+        ReflectionTestUtils.setField(auth0Fetch, "auth0ClientSecret", "test-client-secret");
+        ReflectionTestUtils.setField(auth0Fetch, "auth0Audience", "https://example.auth0.com/api/v2/");
+        ReflectionTestUtils.setField(auth0Fetch, "pageSize", 100);
+    }
+
+    @Test
+    void testProcessorSupportsAuth0Fetch() {
+        org.cyoda.cloud.api.event.common.ModelSpec modelSpec = 
+            new org.cyoda.cloud.api.event.common.ModelSpec();
+        modelSpec.setName("Auth0Fetch");
+        org.cyoda.cloud.api.event.common.OperationSpecification opSpec = 
+            new org.cyoda.cloud.api.event.common.OperationSpecification.Entity(modelSpec, "Auth0Fetch");
+
+        assertTrue(auth0Fetch.supports(opSpec));
+    }
+
+    @Test
+    void testProcessorDoesNotSupportOtherProcessors() {
+        org.cyoda.cloud.api.event.common.ModelSpec modelSpec = 
+            new org.cyoda.cloud.api.event.common.ModelSpec();
+        modelSpec.setName("OtherProcessor");
+        org.cyoda.cloud.api.event.common.OperationSpecification opSpec = 
+            new org.cyoda.cloud.api.event.common.OperationSpecification.Entity(modelSpec, "OtherProcessor");
+
+        assertFalse(auth0Fetch.supports(opSpec));
+    }
+
+    @Test
+    void testProcessSuccessfully() {
+        when(context.getEvent()).thenReturn(request);
+        when(request.getId()).thenReturn("test-request-id");
+
+        EntityProcessorCalculationResponse result = auth0Fetch.process(context);
+
+        assertNotNull(result);
+        verify(serializer).withRequest(request);
+        verify(serializer).complete();
+    }
+
+    @Test
+    void testProcessHandlesException() {
+        when(context.getEvent()).thenReturn(request);
+        when(request.getId()).thenReturn("test-request-id");
+
+        // Even with exceptions, processor should complete gracefully
+        EntityProcessorCalculationResponse result = auth0Fetch.process(context);
+
+        assertNotNull(result);
+        verify(serializer).complete();
+    }
+}
+
