@@ -4,18 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import java.net.http.HttpClient;
-import java.net.http.HttpResponse;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -70,22 +68,18 @@ class Auth0FetchTest {
 
     @Test
     void testProcessorSupportsAuth0Fetch() {
-        org.cyoda.cloud.api.event.common.ModelSpec modelSpec = 
-            new org.cyoda.cloud.api.event.common.ModelSpec();
+        ModelSpec modelSpec = new ModelSpec();
         modelSpec.setName("Auth0Fetch");
-        org.cyoda.cloud.api.event.common.OperationSpecification opSpec = 
-            new org.cyoda.cloud.api.event.common.OperationSpecification.Entity(modelSpec, "Auth0Fetch");
+        OperationSpecification opSpec = new OperationSpecification.Entity(modelSpec, "Auth0Fetch");
 
         assertTrue(auth0Fetch.supports(opSpec));
     }
 
     @Test
     void testProcessorDoesNotSupportOtherProcessors() {
-        org.cyoda.cloud.api.event.common.ModelSpec modelSpec = 
-            new org.cyoda.cloud.api.event.common.ModelSpec();
+        ModelSpec modelSpec = new ModelSpec();
         modelSpec.setName("OtherProcessor");
-        org.cyoda.cloud.api.event.common.OperationSpecification opSpec = 
-            new org.cyoda.cloud.api.event.common.OperationSpecification.Entity(modelSpec, "OtherProcessor");
+        OperationSpecification opSpec = new OperationSpecification.Entity(modelSpec, "OtherProcessor");
 
         assertFalse(auth0Fetch.supports(opSpec));
     }

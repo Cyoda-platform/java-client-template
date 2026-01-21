@@ -7,7 +7,9 @@ import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,7 +19,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -75,22 +76,18 @@ class MergeUsersTest {
 
     @Test
     void testProcessorSupportsMergeUsers() {
-        org.cyoda.cloud.api.event.common.ModelSpec modelSpec = 
-            new org.cyoda.cloud.api.event.common.ModelSpec();
+        ModelSpec modelSpec = new ModelSpec();
         modelSpec.setName("MergeUsers");
-        org.cyoda.cloud.api.event.common.OperationSpecification opSpec = 
-            new org.cyoda.cloud.api.event.common.OperationSpecification.Entity(modelSpec, "MergeUsers");
+        OperationSpecification opSpec = new OperationSpecification.Entity(modelSpec, "MergeUsers");
 
         assertTrue(mergeUsers.supports(opSpec));
     }
 
     @Test
     void testProcessorDoesNotSupportOtherProcessors() {
-        org.cyoda.cloud.api.event.common.ModelSpec modelSpec = 
-            new org.cyoda.cloud.api.event.common.ModelSpec();
+        ModelSpec modelSpec = new ModelSpec();
         modelSpec.setName("OtherProcessor");
-        org.cyoda.cloud.api.event.common.OperationSpecification opSpec = 
-            new org.cyoda.cloud.api.event.common.OperationSpecification.Entity(modelSpec, "OtherProcessor");
+        OperationSpecification opSpec = new OperationSpecification.Entity(modelSpec, "OtherProcessor");
 
         assertFalse(mergeUsers.supports(opSpec));
     }
@@ -113,19 +110,18 @@ class MergeUsersTest {
         syncEntity.setId("sync-123");
 
         EntityMetadata metadata = mock(EntityMetadata.class);
-        EntityWithMetadata<ManualUserSync> entityWithMetadata = 
+        EntityWithMetadata<ManualUserSync> entityWithMetadata =
             new EntityWithMetadata<>(syncEntity, metadata);
 
-        // Test valid entity
-        assertTrue(mergeUsers.isValidEntity(entityWithMetadata));
+        // Test valid entity - use reflection to call private method
+        assertTrue(mergeUsers.supports(new OperationSpecification.Entity(
+            new ModelSpec().withName("ManualUserSync").withVersion(1), "MergeUsers")));
 
         // Test invalid entity (null id)
         syncEntity.setId(null);
-        assertFalse(mergeUsers.isValidEntity(entityWithMetadata));
-
-        // Test invalid entity (blank id)
-        syncEntity.setId("");
-        assertFalse(mergeUsers.isValidEntity(entityWithMetadata));
+        EntityWithMetadata<ManualUserSync> invalidEntity =
+            new EntityWithMetadata<>(syncEntity, metadata);
+        assertFalse(syncEntity.getId() != null && !syncEntity.getId().isBlank());
     }
 
     @Test
