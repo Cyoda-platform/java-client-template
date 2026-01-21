@@ -1,0 +1,77 @@
+{
+  "version": "1",
+  "name": "ManualUserSync",
+  "desc": "Manual workflow to synchronize users from Auth0 and merge into the local store (Auth0 authoritative)",
+  "initialState": "idle",
+  "active": true,
+  "states": {
+    "idle": {
+      "transitions": [
+        {
+          "name": "start_sync",
+          "next": "syncing",
+          "manual": true
+        }
+      ]
+    },
+    "syncing": {
+      "transitions": [
+        {
+          "name": "complete",
+          "next": "completed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "Auth0Fetch",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": false,
+                "responseTimeoutMs": 60000,
+                "retryPolicy": "FIXED"
+              }
+            },
+            {
+              "name": "MergeUsers",
+              "executionMode": "SYNC",
+              "config": {
+                "calculationNodesTags": "cyoda_application",
+                "attachEntity": true,
+                "responseTimeoutMs": 120000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "fail",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": [
+        {
+          "name": "idle",
+          "next": "idle",
+          "manual": false
+        }
+      ]
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry",
+          "next": "syncing",
+          "manual": true
+        },
+        {
+          "name": "idle",
+          "next": "idle",
+          "manual": false
+        }
+      ]
+    }
+  }
+}
