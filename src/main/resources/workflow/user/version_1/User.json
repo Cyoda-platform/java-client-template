@@ -1,0 +1,43 @@
+{
+  "entityName": "User",
+  "modelVersion": 1,
+  "importMode": "REPLACE",
+  "workflows": [
+    {
+      "name": "Default for 'User.1'",
+      "initialState": "initial",
+      "active": true,
+      "states": {
+        "initial": {
+          "transitions": [
+            {
+              "name": "SYNC_FROM_AUTH0",
+              "next": "initial",
+              "manual": true,
+              "disabled": false,
+              "processors": [
+                {
+                  "name": "Auth0SyncProcessor",
+                  "executionMode": "SYNC",
+                  "config": {
+                    "attachEntity": true,
+                    "calculationNodesTags": "cyoda_application",
+                    "responseTimeoutMs": 30000,
+                    "retryPolicy": "FIXED"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "UPDATE",
+              "next": "initial",
+              "manual": true,
+              "disabled": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+
