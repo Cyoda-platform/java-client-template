@@ -10,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -32,51 +31,64 @@ public class ProductPerformanceReportController {
      */
     @PostMapping
     public ResponseEntity<EntityWithMetadata<ProductPerformanceReport>> create(
-            @RequestBody EntityWithMetadata<ProductPerformanceReport> request) {
-
-        EntityWithMetadata<ProductPerformanceReport> created = entityService.create(request);
-        return ResponseEntity.created(URI.create("/api/v1/product-performance-reports/" + created.metadata().getUuid()))
-                .body(created);
+            @RequestBody ProductPerformanceReport entity) {
+        try {
+            EntityWithMetadata<ProductPerformanceReport> created = entityService.create(entity);
+            return ResponseEntity.created(URI.create("/api/v1/product-performance-reports/" + created.metadata().getId()))
+                    .body(created);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 
     /**
      * Get ProductPerformanceReport by UUID
      */
-    @GetMapping("/{uuid}")
-    public ResponseEntity<EntityWithMetadata<ProductPerformanceReport>> getByUuid(@PathVariable String uuid) {
-        ModelSpec modelSpec = new ModelSpec()
-                .withName(ProductPerformanceReport.ENTITY_NAME)
-                .withVersion(ProductPerformanceReport.ENTITY_VERSION);
+    @GetMapping("/{id}")
+    public ResponseEntity<EntityWithMetadata<ProductPerformanceReport>> getById(@PathVariable UUID id) {
+        try {
+            ModelSpec modelSpec = new ModelSpec()
+                    .withName(ProductPerformanceReport.ENTITY_NAME)
+                    .withVersion(ProductPerformanceReport.ENTITY_VERSION);
 
-        Optional<EntityWithMetadata<ProductPerformanceReport>> report =
-                entityService.getByUuid(UUID.fromString(uuid), modelSpec, ProductPerformanceReport.class);
-        return report.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+            EntityWithMetadata<ProductPerformanceReport> report =
+                    entityService.getById(id, modelSpec, ProductPerformanceReport.class);
+
+            if (report == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(report);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 
     /**
      * Update ProductPerformanceReport
      */
-    @PutMapping("/{uuid}")
+    @PutMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<ProductPerformanceReport>> update(
-            @PathVariable String uuid,
-            @RequestBody EntityWithMetadata<ProductPerformanceReport> request) {
-
-        EntityWithMetadata<ProductPerformanceReport> updated = entityService.update(UUID.fromString(uuid), request);
-        return ResponseEntity.ok(updated);
+            @PathVariable UUID id,
+            @RequestBody ProductPerformanceReport entity) {
+        try {
+            EntityWithMetadata<ProductPerformanceReport> updated = entityService.update(id, entity, null);
+            return ResponseEntity.ok(updated);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 
     /**
      * Delete ProductPerformanceReport
      */
-    @DeleteMapping("/{uuid}")
-    public ResponseEntity<Void> delete(@PathVariable String uuid) {
-        ModelSpec modelSpec = new ModelSpec()
-                .withName(ProductPerformanceReport.ENTITY_NAME)
-                .withVersion(ProductPerformanceReport.ENTITY_VERSION);
-
-        entityService.delete(UUID.fromString(uuid), modelSpec, ProductPerformanceReport.class);
-        return ResponseEntity.noContent().build();
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+        try {
+            entityService.deleteById(id);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 
     /**
@@ -86,18 +98,21 @@ public class ProductPerformanceReportController {
     public ResponseEntity<Object> search(
             @RequestParam(defaultValue = "50") int pageSize,
             @RequestParam(defaultValue = "0") int pageNumber) {
+        try {
+            ModelSpec modelSpec = new ModelSpec()
+                    .withName(ProductPerformanceReport.ENTITY_NAME)
+                    .withVersion(ProductPerformanceReport.ENTITY_VERSION);
 
-        ModelSpec modelSpec = new ModelSpec()
-                .withName(ProductPerformanceReport.ENTITY_NAME)
-                .withVersion(ProductPerformanceReport.ENTITY_VERSION);
+            SearchAndRetrievalParams params = SearchAndRetrievalParams.builder()
+                    .pageSize(pageSize)
+                    .pageNumber(pageNumber)
+                    .build();
 
-        SearchAndRetrievalParams params = SearchAndRetrievalParams.builder()
-                .pageSize(pageSize)
-                .pageNumber(pageNumber)
-                .build();
-
-        var results = entityService.findAll(modelSpec, ProductPerformanceReport.class, params);
-        return ResponseEntity.ok(results);
+            var results = entityService.findAll(modelSpec, ProductPerformanceReport.class, params);
+            return ResponseEntity.ok(results);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
     }
 }
 
