@@ -1,0 +1,106 @@
+{
+  "version": "1.0",
+  "name": "ProductPerformanceReport Workflow",
+  "desc": "Workflow for automated product performance analysis and reporting",
+  "initialState": "initial",
+  "active": true,
+  "states": {
+    "initial": {
+      "transitions": [
+        {
+          "name": "extract_data",
+          "next": "data_extracted",
+          "manual": false,
+          "processors": [
+            {
+              "name": "DataExtractionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 30000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "data_extracted": {
+      "transitions": [
+        {
+          "name": "analyze_performance",
+          "next": "analyzed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "AnalysisProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 20000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "analyzed": {
+      "transitions": [
+        {
+          "name": "generate_report",
+          "next": "report_generated",
+          "manual": false,
+          "processors": [
+            {
+              "name": "ReportGenerationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 15000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "report_generated": {
+      "transitions": [
+        {
+          "name": "send_email",
+          "next": "email_sent",
+          "manual": false,
+          "processors": [
+            {
+              "name": "EmailNotificationProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "EXPONENTIAL_BACKOFF"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "email_sent": {
+      "transitions": [
+        {
+          "name": "complete",
+          "next": "completed",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
+

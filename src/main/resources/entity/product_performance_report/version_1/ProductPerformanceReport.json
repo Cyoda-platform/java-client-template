@@ -1,0 +1,72 @@
+{
+  "reportId": "PPR-2025-W05",
+  "reportWeek": "2025-W05",
+  "reportGeneratedAt": "2025-02-03T10:30:00",
+  "recipientEmail": "victoria.sagdieva@cyoda.com",
+  "productMetrics": [
+    {
+      "productId": "PROD-001",
+      "productName": "Dog Food Premium",
+      "category": "Food",
+      "salesVolume": 450,
+      "revenue": 4500.00,
+      "currentStock": 120,
+      "inventoryTurnover": 3.75,
+      "performanceStatus": "high"
+    },
+    {
+      "productId": "PROD-002",
+      "productName": "Cat Toys Bundle",
+      "category": "Toys",
+      "salesVolume": 180,
+      "revenue": 1800.00,
+      "currentStock": 45,
+      "inventoryTurnover": 4.0,
+      "performanceStatus": "high"
+    },
+    {
+      "productId": "PROD-003",
+      "productName": "Bird Cage Large",
+      "category": "Cages",
+      "salesVolume": 25,
+      "revenue": 2500.00,
+      "currentStock": 8,
+      "inventoryTurnover": 3.125,
+      "performanceStatus": "low"
+    }
+  ],
+  "categoryAnalyses": [
+    {
+      "categoryName": "Food",
+      "totalProducts": 12,
+      "categoryRevenue": 8500.00,
+      "averageTurnover": 3.5,
+      "topProducts": ["Dog Food Premium", "Cat Food Organic"]
+    },
+    {
+      "categoryName": "Toys",
+      "totalProducts": 8,
+      "categoryRevenue": 3200.00,
+      "averageTurnover": 2.8,
+      "topProducts": ["Cat Toys Bundle", "Dog Chew Toys"]
+    }
+  ],
+  "totalSalesVolume": 655,
+  "totalRevenue": 11800.00,
+  "averageInventoryTurnover": 3.6,
+  "topSellingProducts": ["Dog Food Premium", "Cat Toys Bundle", "Fish Tank Filter"],
+  "restockingRecommendations": [
+    {
+      "productId": "PROD-003",
+      "productName": "Bird Cage Large",
+      "recommendedQuantity": 15,
+      "urgency": "medium",
+      "reason": "Low stock with moderate sales velocity"
+    }
+  ],
+  "reportContent": "PDF_CONTENT_PLACEHOLDER",
+  "reportSummary": "Weekly report shows strong performance in Food and Toys categories with 655 total units sold and $11,800 revenue.",
+  "createdAt": "2025-02-03T10:30:00",
+  "updatedAt": "2025-02-03T10:30:00"
+}
+
