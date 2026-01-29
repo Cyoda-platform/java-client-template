@@ -1,1 +1,130 @@
-package com.java_template.application.processor;\n\nimport com.java_template.application.entity.product_performance_report.version_1.ProductPerformanceReport;\nimport com.java_template.common.dto.EntityWithMetadata;\nimport com.java_template.common.serializer.ProcessorSerializer;\nimport com.java_template.common.serializer.SerializerFactory;\nimport com.java_template.common.workflow.CyodaEventContext;\nimport com.java_template.common.workflow.CyodaProcessor;\nimport com.java_template.common.workflow.OperationSpecification;\nimport org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;\nimport org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;\nimport org.springframework.stereotype.Component;\nimport org.slf4j.Logger;\nimport org.slf4j.LoggerFactory;\n\nimport java.time.LocalDateTime;\nimport java.util.stream.Collectors;\n\n/**\n * ReportGenerationProcessor\n * Generates PDF report content from analyzed metrics\n */\n@Component\npublic class ReportGenerationProcessor implements CyodaProcessor {\n\n    private static final Logger logger = LoggerFactory.getLogger(ReportGenerationProcessor.class);\n    private final String className = this.getClass().getSimpleName();\n    private final ProcessorSerializer serializer;\n\n    public ReportGenerationProcessor(SerializerFactory serializerFactory) {\n        this.serializer = serializerFactory.getDefaultProcessorSerializer();\n    }\n\n    @Override\n    public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {\n        EntityProcessorCalculationRequest request = context.getEvent();\n        logger.info(\"Processing report generation for request: {}\", request.getId());\n\n        return serializer.withRequest(request)\n                .toEntityWithMetadata(ProductPerformanceReport.class)\n                .validate(this::isValidEntityWithMetadata, \"Invalid entity wrapper\")\n                .map(this::processReportGeneration)\n                .complete();\n    }\n\n    @Override\n    public boolean supports(OperationSpecification modelSpec) {\n        return className.equalsIgnoreCase(modelSpec.operationName());\n    }\n\n    private boolean isValidEntityWithMetadata(\n            EntityWithMetadata<ProductPerformanceReport> entityWithMetadata) {\n        ProductPerformanceReport entity = entityWithMetadata.entity();\n        return entity != null && entity.isValid(entityWithMetadata.metadata());\n    }\n\n    private EntityWithMetadata<ProductPerformanceReport> processReportGeneration(\n            ProcessorSerializer.ProcessorEntityResponseExecutionContext<ProductPerformanceReport> context) {\n\n        EntityWithMetadata<ProductPerformanceReport> entityWithMetadata = context.entityResponse();\n        ProductPerformanceReport report = entityWithMetadata.entity();\n\n        logger.debug(\"Generating report for: {}\", report.getReportId());\n\n        // Generate report content\n        String reportContent = generateReportContent(report);\n        report.setReportContent(reportContent);\n\n        // Generate summary for email\n        String summary = generateReportSummary(report);\n        report.setReportSummary(summary);\n\n        report.setUpdatedAt(LocalDateTime.now());\n        logger.info(\"Report generation completed for: {}\", report.getReportId());\n        return entityWithMetadata;\n    }\n\n    private String generateReportContent(ProductPerformanceReport report) {\n        StringBuilder content = new StringBuilder();\n        content.append(\"=== PRODUCT PERFORMANCE REPORT ===\").append(\"\\n\\n\");\n        content.append(\"Report Week: \").append(report.getReportWeek()).append(\"\\n\");\n        content.append(\"Generated: \").append(report.getReportGeneratedAt()).append(\"\\n\\n\");\n\n        // Executive Summary\n        content.append(\"EXECUTIVE SUMMARY\\n\");\n        content.append(\"-----------------\\n\");\n        content.append(\"Total Sales Volume: \").append(report.getTotalSalesVolume()).append(\" units\\n\");\n        content.append(\"Total Revenue: $\").append(String.format(\"%.2f\", report.getTotalRevenue())).append(\"\\n\");\n        content.append(\"Average Inventory Turnover: \").append(String.format(\"%.2f\", report.getAverageInventoryTurnover())).append(\"\\n\\n\");\n\n        // Top Selling Products\n        content.append(\"TOP SELLING PRODUCTS\\n\");\n        content.append(\"-------------------\\n\");\n        if (report.getTopSellingProducts() != null) {\n            report.getTopSellingProducts().forEach(p -> content.append(\"- \").append(p).append(\"\\n\"));\n        }\n        content.append(\"\\n\");\n\n        // Category Analysis\n        content.append(\"CATEGORY ANALYSIS\\n\");\n        content.append(\"-----------------\\n\");\n        if (report.getCategoryAnalyses() != null) {\n            report.getCategoryAnalyses().forEach(ca -> {\n                content.append(\"Category: \").append(ca.getCategoryName()).append(\"\\n\");\n                content.append(\"  Products: \").append(ca.getTotalProducts()).append(\"\\n\");\n                content.append(\"  Revenue: $\").append(String.format(\"%.2f\", ca.getCategoryRevenue())).append(\"\\n\");\n                content.append(\"  Avg Turnover: \").append(String.format(\"%.2f\", ca.getAverageTurnover())).append(\"\\n\\n\");\n            });\n        }\n\n        // Restocking Recommendations\n        content.append(\"RESTOCKING RECOMMENDATIONS\\n\");\n        content.append(\"--------------------------\\n\");\n        if (report.getRestockingRecommendations() != null) {\n            report.getRestockingRecommendations().forEach(rec -> {\n                content.append(\"- \").append(rec.getProductName()).append(\" [\").append(rec.getUrgency().toUpperCase()).append(\"]\\n\");\n                content.append(\"  Recommended Qty: \").append(rec.getRecommendedQuantity()).append(\"\\n\");\n                content.append(\"  Reason: \").append(rec.getReason()).append(\"\\n\\n\");\n            });\n        }\n\n        return content.toString();\n    }\n\n    private String generateReportSummary(ProductPerformanceReport report) {\n        return String.format(\n                \"Weekly Performance Summary for %s: Total Revenue: $%.2f | Sales Volume: %.0f units | Top Product: %s\",\n                report.getReportWeek(),\n                report.getTotalRevenue(),\n                report.getTotalSalesVolume(),\n                report.getTopSellingProducts() != null && !report.getTopSellingProducts().isEmpty()\n                        ? report.getTopSellingProducts().get(0)\n                        : \"N/A\"\n        );\n    }\n}\n"
+package com.java_template.application.processor;
+
+import com.java_template.application.entity.product_performance_report.version_1.ProductPerformanceReport;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.serializer.ProcessorSerializer;
+import com.java_template.common.serializer.SerializerFactory;
+import com.java_template.common.workflow.CyodaEventContext;
+import com.java_template.common.workflow.CyodaProcessor;
+import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.springframework.stereotype.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.LocalDateTime;
+
+/**
+ * ReportGenerationProcessor
+ * Generates PDF report content from analyzed metrics
+ */
+@Component
+public class ReportGenerationProcessor implements CyodaProcessor {
+
+    private static final Logger logger = LoggerFactory.getLogger(ReportGenerationProcessor.class);
+    private final String className = this.getClass().getSimpleName();
+    private final ProcessorSerializer serializer;
+
+    public ReportGenerationProcessor(SerializerFactory serializerFactory) {
+        this.serializer = serializerFactory.getDefaultProcessorSerializer();
+    }
+
+    @Override
+    public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
+        EntityProcessorCalculationRequest request = context.getEvent();
+        logger.info("Processing report generation for request: {}", request.getId());
+
+        return serializer.withRequest(request)
+                .toEntityWithMetadata(ProductPerformanceReport.class)
+                .validate(this::isValidEntityWithMetadata, "Invalid entity wrapper")
+                .map(this::processReportGeneration)
+                .complete();
+    }
+
+    @Override
+    public boolean supports(OperationSpecification modelSpec) {
+        return className.equalsIgnoreCase(modelSpec.operationName());
+    }
+
+    private boolean isValidEntityWithMetadata(
+            EntityWithMetadata<ProductPerformanceReport> entityWithMetadata) {
+        ProductPerformanceReport entity = entityWithMetadata.entity();
+        return entity != null && entity.isValid(entityWithMetadata.metadata());
+    }
+
+    private EntityWithMetadata<ProductPerformanceReport> processReportGeneration(
+            ProcessorSerializer.ProcessorEntityResponseExecutionContext<ProductPerformanceReport> context) {
+
+        EntityWithMetadata<ProductPerformanceReport> entityWithMetadata = context.entityResponse();
+        ProductPerformanceReport report = entityWithMetadata.entity();
+
+        logger.debug("Generating report for: {}", report.getReportId());
+
+        String reportContent = generateReportContent(report);
+        report.setReportContent(reportContent);
+
+        String summary = generateReportSummary(report);
+        report.setReportSummary(summary);
+
+        report.setUpdatedAt(LocalDateTime.now());
+        logger.info("Report generation completed for: {}", report.getReportId());
+        return entityWithMetadata;
+    }
+
+    private String generateReportContent(ProductPerformanceReport report) {
+        StringBuilder content = new StringBuilder();
+        content.append("=== PRODUCT PERFORMANCE REPORT ===\n\n");
+        content.append("Report Week: ").append(report.getReportWeek()).append("\n");
+        content.append("Generated: ").append(report.getReportGeneratedAt()).append("\n\n");
+
+        content.append("EXECUTIVE SUMMARY\n");
+        content.append("-----------------\n");
+        content.append("Total Sales Volume: ").append(report.getTotalSalesVolume()).append(" units\n");
+        content.append("Total Revenue: $").append(String.format("%.2f", report.getTotalRevenue())).append("\n");
+        content.append("Average Inventory Turnover: ").append(String.format("%.2f", report.getAverageInventoryTurnover())).append("\n\n");
+
+        content.append("TOP SELLING PRODUCTS\n");
+        content.append("-------------------\n");
+        if (report.getTopSellingProducts() != null) {
+            report.getTopSellingProducts().forEach(p -> content.append("- ").append(p).append("\n"));
+        }
+        content.append("\n");
+
+        content.append("CATEGORY ANALYSIS\n");
+        content.append("-----------------\n");
+        if (report.getCategoryAnalyses() != null) {
+            report.getCategoryAnalyses().forEach(ca -> {
+                content.append("Category: ").append(ca.getCategoryName()).append("\n");
+                content.append("  Products: ").append(ca.getTotalProducts()).append("\n");
+                content.append("  Revenue: $").append(String.format("%.2f", ca.getCategoryRevenue())).append("\n");
+                content.append("  Avg Turnover: ").append(String.format("%.2f", ca.getAverageTurnover())).append("\n\n");
+            });
+        }
+
+        content.append("RESTOCKING RECOMMENDATIONS\n");
+        content.append("--------------------------\n");
+        if (report.getRestockingRecommendations() != null) {
+            report.getRestockingRecommendations().forEach(rec -> {
+                content.append("- ").append(rec.getProductName()).append(" [").append(rec.getUrgency().toUpperCase()).append("]\n");
+                content.append("  Recommended Qty: ").append(rec.getRecommendedQuantity()).append("\n");
+                content.append("  Reason: ").append(rec.getReason()).append("\n\n");
+            });
+        }
+
+        return content.toString();
+    }
+
+    private String generateReportSummary(ProductPerformanceReport report) {
+        return String.format(
+                "Weekly Performance Summary for %s: Total Revenue: $%.2f | Sales Volume: %.0f units | Top Product: %s",
+                report.getReportWeek(),
+                report.getTotalRevenue(),
+                report.getTotalSalesVolume(),
+                report.getTopSellingProducts() != null && !report.getTopSellingProducts().isEmpty()
+                        ? report.getTopSellingProducts().get(0)
+                        : "N/A"
+        );
+    }
+}
+
