@@ -2,15 +2,16 @@ package com.java_template.application.controller;
 
 import com.java_template.application.entity.product_performance_report.version_1.ProductPerformanceReport;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
-import com.java_template.common.service.SearchAndRetrievalParams;
+import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * ProductPerformanceReportController
@@ -32,18 +33,6 @@ public class ProductPerformanceReportController {
     @PostMapping
     public ResponseEntity<EntityWithMetadata<ProductPerformanceReport>> create(
             @RequestBody EntityWithMetadata<ProductPerformanceReport> request) {
-        
-        ProductPerformanceReport report = request.entity();
-        
-        // Check for duplicate business ID
-        List<EntityWithMetadata<ProductPerformanceReport>> existing = entityService.search(
-                ProductPerformanceReport.class,
-                new SearchAndRetrievalParams()
-        );
-        
-        if (existing.stream().anyMatch(e -> e.entity().getReportId().equals(report.getReportId()))) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
-        }
 
         EntityWithMetadata<ProductPerformanceReport> created = entityService.create(request);
         return ResponseEntity.created(URI.create("/api/v1/product-performance-reports/" + created.metadata().getUuid()))
@@ -55,26 +44,12 @@ public class ProductPerformanceReportController {
      */
     @GetMapping("/{uuid}")
     public ResponseEntity<EntityWithMetadata<ProductPerformanceReport>> getByUuid(@PathVariable String uuid) {
-        Optional<EntityWithMetadata<ProductPerformanceReport>> report = 
-                entityService.getByUuid(uuid, ProductPerformanceReport.class);
-        return report.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
-    }
+        ModelSpec modelSpec = new ModelSpec()
+                .withName(ProductPerformanceReport.ENTITY_NAME)
+                .withVersion(ProductPerformanceReport.ENTITY_VERSION);
 
-    /**
-     * Get ProductPerformanceReport by business ID (reportId)
-     */
-    @GetMapping("/by-report-id/{reportId}")
-    public ResponseEntity<EntityWithMetadata<ProductPerformanceReport>> getByReportId(@PathVariable String reportId) {
-        List<EntityWithMetadata<ProductPerformanceReport>> results = entityService.search(
-                ProductPerformanceReport.class,
-                new SearchAndRetrievalParams()
-        );
-        
-        Optional<EntityWithMetadata<ProductPerformanceReport>> report = results.stream()
-                .filter(r -> r.entity().getReportId().equals(reportId))
-                .findFirst();
-        
+        Optional<EntityWithMetadata<ProductPerformanceReport>> report =
+                entityService.getByUuid(UUID.fromString(uuid), modelSpec, ProductPerformanceReport.class);
         return report.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -86,8 +61,8 @@ public class ProductPerformanceReportController {
     public ResponseEntity<EntityWithMetadata<ProductPerformanceReport>> update(
             @PathVariable String uuid,
             @RequestBody EntityWithMetadata<ProductPerformanceReport> request) {
-        
-        EntityWithMetadata<ProductPerformanceReport> updated = entityService.update(uuid, request);
+
+        EntityWithMetadata<ProductPerformanceReport> updated = entityService.update(UUID.fromString(uuid), request);
         return ResponseEntity.ok(updated);
     }
 
@@ -96,7 +71,11 @@ public class ProductPerformanceReportController {
      */
     @DeleteMapping("/{uuid}")
     public ResponseEntity<Void> delete(@PathVariable String uuid) {
-        entityService.delete(uuid, ProductPerformanceReport.class);
+        ModelSpec modelSpec = new ModelSpec()
+                .withName(ProductPerformanceReport.ENTITY_NAME)
+                .withVersion(ProductPerformanceReport.ENTITY_VERSION);
+
+        entityService.delete(UUID.fromString(uuid), modelSpec, ProductPerformanceReport.class);
         return ResponseEntity.noContent().build();
     }
 
@@ -104,17 +83,20 @@ public class ProductPerformanceReportController {
      * Search ProductPerformanceReports with pagination
      */
     @GetMapping
-    public ResponseEntity<List<EntityWithMetadata<ProductPerformanceReport>>> search(
-            @RequestParam(defaultValue = "10") int pageSize,
+    public ResponseEntity<Object> search(
+            @RequestParam(defaultValue = "50") int pageSize,
             @RequestParam(defaultValue = "0") int pageNumber) {
-        
-        SearchAndRetrievalParams params = new SearchAndRetrievalParams();
-        params.setPageSize(pageSize);
-        params.setPageNumber(pageNumber);
-        
-        List<EntityWithMetadata<ProductPerformanceReport>> results = 
-                entityService.search(ProductPerformanceReport.class, params);
-        
+
+        ModelSpec modelSpec = new ModelSpec()
+                .withName(ProductPerformanceReport.ENTITY_NAME)
+                .withVersion(ProductPerformanceReport.ENTITY_VERSION);
+
+        SearchAndRetrievalParams params = SearchAndRetrievalParams.builder()
+                .pageSize(pageSize)
+                .pageNumber(pageNumber)
+                .build();
+
+        var results = entityService.findAll(modelSpec, ProductPerformanceReport.class, params);
         return ResponseEntity.ok(results);
     }
 }
