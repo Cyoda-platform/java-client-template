@@ -1,0 +1,42 @@
+{
+  "modelVersion": 1,
+  "entityName": "Trade",
+  "id": "8a1b2c3d-0000-4000-8000-000000000001",
+  "orderId": "d3c9f7a0-1111-4222-8333-123456789abc",
+  "instrumentId": "f7a1e2d3-2222-4333-9444-abcdefabcdef",
+  "executionId": "exec-0001",
+  "price": 125.5,
+  "quantity": 100,
+  "venue": "NYSE",
+  "tradeTimestamp": "2026-01-15T14:32:00Z",
+  "settlementDate": "2026-01-17",
+  "counterpartyId": "cp-9999",
+  "fees": 12.5,
+  "currency": "USD",
+  "audit": {
+    "createdAt": "2026-01-15T14:32:01Z",
+    "updatedAt": "2026-01-15T14:32:01Z",
+    "createdBy": "system"
+  },
+  "validation": {
+    "required": ["id","orderId","instrumentId","executionId","price","quantity","tradeTimestamp","currency"],
+    "constraints": {
+      "price": {"minimum": 0},
+      "quantity": {"minimum": 1}
+    }
+  },
+  "example": {
+    "id": "8a1b2c3d-0000-4000-8000-000000000001",
+    "orderId": "d3c9f7a0-1111-4222-8333-123456789abc",
+    "instrumentId": "f7a1e2d3-2222-4333-9444-abcdefabcdef",
+    "executionId": "exec-0001",
+    "price": 125.5,
+    "quantity": 100,
+    "venue": "NYSE",
+    "tradeTimestamp": "2026-01-15T14:32:00Z",
+    "settlementDate": "2026-01-17",
+    "counterpartyId": "cp-9999",
+    "fees": 12.5,
+    "currency": "USD"
+  }
+}
