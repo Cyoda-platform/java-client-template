@@ -1,0 +1,269 @@
+{
+  "version": "1",
+  "name": "order_lifecycle",
+  "desc": "Order lifecycle workflow: New -> Partial Fill -> Fill -> Settlement. Includes retry policies and audit processors.",
+  "initialState": "new",
+  "active": true,
+  "states": {
+    "new": {
+      "transitions": [
+        {
+          "name": "receive_order",
+          "next": "received",
+          "manual": false,
+          "processors": [
+            {
+              "name": "audit_log",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000
+              }
+            },
+            {
+              "name": "pre_trade_checks",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 2000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_order",
+          "next": "rejected",
+          "manual": false
+        }
+      ]
+    },
+    "received": {
+      "transitions": [
+        {
+          "name": "route_to_venue",
+          "next": "routed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "smart_routing",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 8000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "routed": {
+      "transitions": [
+        {
+          "name": "acknowledge",
+          "next": "acknowledged",
+          "manual": false
+        },
+        {
+          "name": "fill_partial",
+          "next": "partially_filled",
+          "manual": false,
+          "processors": [
+            {
+              "name": "update_fill",
+              "executionMode": "ASYNC_SAME_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000
+              }
+            }
+          ]
+        },
+        {
+          "name": "fill",
+          "next": "filled",
+          "manual": false,
+          "processors": [
+            {
+              "name": "update_fill",
+              "executionMode": "ASYNC_SAME_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000
+              }
+            },
+            {
+              "name": "trade_capture",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject",
+          "next": "rejected",
+          "manual": false
+        }
+      ]
+    },
+    "acknowledged": {
+      "transitions": [
+        {
+          "name": "partial_fill",
+          "next": "partially_filled",
+          "manual": false,
+          "processors": [
+            {
+              "name": "update_fill",
+              "executionMode": "ASYNC_SAME_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000
+              }
+            }
+          ]
+        },
+        {
+          "name": "fill",
+          "next": "filled",
+          "manual": false
+        },
+        {
+          "name": "cancel",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "partially_filled": {
+      "transitions": [
+        {
+          "name": "fill_remaining",
+          "next": "filled",
+          "manual": false,
+          "processors": [
+            {
+              "name": "update_fill",
+              "executionMode": "ASYNC_SAME_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000
+              }
+            }
+          ]
+        },
+        {
+          "name": "cancel_remaining",
+          "next": "cancelled",
+          "manual": true
+        }
+      ]
+    },
+    "filled": {
+      "transitions": [
+        {
+          "name": "settle",
+          "next": "settlement",
+          "manual": false,
+          "processors": [
+            {
+              "name": "settlement_processor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "EXPONENTIAL"
+              }
+            },
+            {
+              "name": "audit_log",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 2000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "settlement": {
+      "transitions": [
+        {
+          "name": "settlement_confirmed",
+          "next": "completed",
+          "manual": false
+        },
+        {
+          "name": "settlement_failed",
+          "next": "settlement_failed",
+          "manual": false,
+          "processors": [
+            {
+              "name": "retry_settlement",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 8000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "settlement_failed": {
+      "transitions": [
+        {
+          "name": "retry",
+          "next": "settlement",
+          "manual": false
+        },
+        {
+          "name": "manual_intervention",
+          "next": "manual_review",
+          "manual": true
+        }
+      ]
+    },
+    "manual_review": {
+      "transitions": [
+        {
+          "name": "resolve",
+          "next": "completed",
+          "manual": true
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "cancelled": {
+      "transitions": []
+    },
+    "rejected": {
+      "transitions": []
+    }
+  }
+}
