@@ -45,64 +45,47 @@ public class CustomerValidationCriterion implements CyodaCriterion {
         return className.equalsIgnoreCase(modelSpec.operationName());
     }
 
-    private EvaluationOutcome validateCustomer(Customer customer) {
+    private EvaluationOutcome validateCustomer(CriterionSerializer.CriterionEntityEvaluationContext<Customer> context) {
+        Customer customer = context.entityWithMetadata().entity();
         log.debug("Validating customer: {}", customer.getCustomerId());
+
+        // Check if entity is null
+        if (customer == null) {
+            log.warn("Customer is null");
+            return EvaluationOutcome.fail("Customer is null", StandardEvalReasonCategories.STRUCTURAL_FAILURE);
+        }
 
         // Check required fields
         if (customer.getCustomerId() == null) {
-            return EvaluationOutcome.fail(
-                StandardEvalReasonCategories.VALIDATION_FAILED,
-                "Customer ID is required"
-            );
+            return EvaluationOutcome.fail("Customer ID is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         if (customer.getEmail() == null || customer.getEmail().isBlank()) {
-            return EvaluationOutcome.fail(
-                StandardEvalReasonCategories.VALIDATION_FAILED,
-                "Email is required"
-            );
+            return EvaluationOutcome.fail("Email is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         if (customer.getFirstName() == null || customer.getFirstName().isBlank()) {
-            return EvaluationOutcome.fail(
-                StandardEvalReasonCategories.VALIDATION_FAILED,
-                "First name is required"
-            );
+            return EvaluationOutcome.fail("First name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         if (customer.getLastName() == null || customer.getLastName().isBlank()) {
-            return EvaluationOutcome.fail(
-                StandardEvalReasonCategories.VALIDATION_FAILED,
-                "Last name is required"
-            );
+            return EvaluationOutcome.fail("Last name is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         if (customer.getPhone() == null || customer.getPhone().isBlank()) {
-            return EvaluationOutcome.fail(
-                StandardEvalReasonCategories.VALIDATION_FAILED,
-                "Phone is required"
-            );
+            return EvaluationOutcome.fail("Phone is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         if (customer.getDateOfBirth() == null) {
-            return EvaluationOutcome.fail(
-                StandardEvalReasonCategories.VALIDATION_FAILED,
-                "Date of birth is required"
-            );
+            return EvaluationOutcome.fail("Date of birth is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         if (customer.getAddress() == null) {
-            return EvaluationOutcome.fail(
-                StandardEvalReasonCategories.VALIDATION_FAILED,
-                "Address is required"
-            );
+            return EvaluationOutcome.fail("Address is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         if (customer.getKyc() == null) {
-            return EvaluationOutcome.fail(
-                StandardEvalReasonCategories.VALIDATION_FAILED,
-                "KYC information is required"
-            );
+            return EvaluationOutcome.fail("KYC information is required", StandardEvalReasonCategories.VALIDATION_FAILURE);
         }
 
         log.info("Customer {} validation passed", customer.getCustomerId());

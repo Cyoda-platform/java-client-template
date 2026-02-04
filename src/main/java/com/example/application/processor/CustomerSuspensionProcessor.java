@@ -1,7 +1,6 @@
 package com.example.application.processor;
 
 import com.example.application.entity.customer.version_1.Customer;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
@@ -52,27 +51,29 @@ public class CustomerSuspensionProcessor implements CyodaProcessor {
 
     private boolean isValidEntityWithMetadata(EntityWithMetadata<Customer> entityWithMetadata) {
         Customer customer = entityWithMetadata.entity();
-        return customer != null && 
+        return customer != null &&
                customer.getCustomerId() != null &&
                customer.getEmail() != null && !customer.getEmail().isBlank();
     }
 
-    private EntityWithMetadata<Customer> processSuspension(EntityWithMetadata<Customer> entityWithMetadata) {
+    private EntityWithMetadata<Customer> processSuspension(
+            ProcessorSerializer.ProcessorEntityResponseExecutionContext<Customer> context) {
+        EntityWithMetadata<Customer> entityWithMetadata = context.entityResponse();
         Customer customer = entityWithMetadata.entity();
-        
+
         log.debug("Suspending customer: {} with email: {}", customer.getCustomerId(), customer.getEmail());
-        
+
         // Update customer status to SUSPENDED
         customer.setStatus(Customer.CustomerStatus.SUSPENDED);
-        
+
         // Mark as soft deleted
         customer.setSoftDeleted(true);
-        
+
         // Update timestamp
         customer.setUpdatedAt(LocalDateTime.now());
-        
+
         log.info("Customer {} suspended successfully", customer.getCustomerId());
-        
+
         return entityWithMetadata;
     }
 }

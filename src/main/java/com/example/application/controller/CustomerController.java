@@ -137,7 +137,7 @@ public class CustomerController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCustomer(@PathVariable UUID id) {
         try {
-            entityService.delete(id);
+            entityService.deleteById(id);
             log.info("Customer deleted with ID: {}", id);
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
