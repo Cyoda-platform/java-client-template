@@ -1,0 +1,90 @@
+{
+  "version": "1.0",
+  "name": "Customer",
+  "desc": "Customer lifecycle workflow with states for NEW, VERIFIED, and SUSPENDED",
+  "initialState": "NEW",
+  "active": true,
+  "states": {
+    "NEW": {
+      "transitions": [
+        {
+          "name": "verify_customer",
+          "next": "VERIFIED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CustomerVerificationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "reject_customer",
+          "next": "SUSPENDED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CustomerSuspensionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "VERIFIED": {
+      "transitions": [
+        {
+          "name": "suspend_customer",
+          "next": "SUSPENDED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CustomerSuspensionProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SUSPENDED": {
+      "transitions": [
+        {
+          "name": "reactivate_customer",
+          "next": "VERIFIED",
+          "manual": true,
+          "processors": [
+            {
+              "name": "CustomerVerificationProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "cyoda_application",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+
