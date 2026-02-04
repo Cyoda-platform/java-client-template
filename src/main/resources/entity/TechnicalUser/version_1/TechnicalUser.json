@@ -1,0 +1,10 @@
+{
+  "id": "9f8b7a6e-4c3d-11ec-81d3-0242ac130003",
+  "clientId": "svc-analytics-01",
+  "clientSecretHash": "$2a$12$EXAMPLEHASHEDSECRETloremipsumabcdefghijk",
+  "scopes": ["customer:read", "customer:write"],
+  "ownerCustomerId": "3a2f1e0d-4c3d-11ec-81d3-0242ac130004",
+  "createdAt": "2026-02-04T12:00:00Z",
+  "expiresAt": null,
+  "revoked": false
+}
