@@ -1,5 +1,6 @@
 package com.java_template.common.config;
 
+import com.cyoda.app.oauth.service.TokenService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +11,8 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -67,12 +70,20 @@ public class SecurityConfig {
             // Disable OAuth2 login for web endpoints (but keep OAuth2 client for gRPC)
             .oauth2Login(AbstractHttpConfigurer::disable)
 
-            // Allow all requests without authentication
+            // Authorization rules
             .authorizeHttpRequests(authz -> authz
+                // Allow token endpoint without authentication
+                .requestMatchers("/v1/oauth/token").permitAll()
+                // Allow all other requests for now (can be restricted later)
                 .anyRequest().permitAll()
             );
 
         return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
     @Bean
