@@ -1,4 +1,4 @@
-package com.example.application.processor;
+package com.java_template.application.processor;
 
 import com.example.application.entity.customer.version_1.Customer;
 import com.java_template.common.dto.EntityWithMetadata;

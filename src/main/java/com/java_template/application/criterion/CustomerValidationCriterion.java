@@ -1,4 +1,4 @@
-package com.example.application.criterion;
+package com.java_template.application.criterion;
 
 import com.example.application.entity.customer.version_1.Customer;
 import com.java_template.common.serializer.CriterionSerializer;
