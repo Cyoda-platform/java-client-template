@@ -100,10 +100,11 @@ public class CatFactScheduledService {
 
     private List<EntityWithMetadata<Subscriber>> getActiveSubscribers() {
         ModelSpec modelSpec = new ModelSpec().withName(Subscriber.ENTITY_NAME).withVersion(Subscriber.ENTITY_VERSION);
+        com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
         SimpleCondition statusCondition = new SimpleCondition()
                 .withJsonPath("$.status")
                 .withOperation(Operation.EQUALS)
-                .withValue("active");
+                .withValue(objectMapper.valueToTree("active"));
 
         GroupCondition condition = new GroupCondition()
                 .withOperator(GroupCondition.Operator.AND)
