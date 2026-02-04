@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "name": "Event Workflow",
+  "desc": "Workflow for managing event lifecycle",
+  "initialState": "recorded",
+  "active": true,
+  "states": {
+    "recorded": {
+      "transitions": [
+        {
+          "name": "UPDATE",
+          "next": "recorded",
+          "manual": true,
+          "disabled": false
+        }
+      ]
+    }
+  }
+}
+
