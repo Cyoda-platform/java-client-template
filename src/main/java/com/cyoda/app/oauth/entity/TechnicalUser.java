@@ -41,6 +41,7 @@ public class TechnicalUser {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "technical_user_scopes", joinColumns = @JoinColumn(name = "technical_user_id"))
     @Column(name = "scope")
+    @Builder.Default
     private Set<String> scopes = new HashSet<>();
 
     @Column(name = "owner_customer_id", nullable = false)
@@ -53,6 +54,7 @@ public class TechnicalUser {
     private Instant expiresAt;
 
     @Column(name = "revoked", nullable = false)
+    @Builder.Default
     private Boolean revoked = false;
 
     @PrePersist
