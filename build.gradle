@@ -97,7 +97,16 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter' // Version managed by Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client' // Version managed by Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-validation' // Jakarta validation
+    implementation 'org.springframework.boot:spring-boot-starter-security' // Spring Security
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // JPA/Hibernate
+    implementation 'com.h2database:h2:2.2.224' // H2 in-memory database
     implementation 'org.springframework.data:spring-data-commons' // For Page and Pageable
+
+    // JWT and Security
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+    implementation 'org.springframework.security:spring-security-crypto' // BCrypt support
 
 
     implementation 'com.google.protobuf:protobuf-java:4.31.1'
