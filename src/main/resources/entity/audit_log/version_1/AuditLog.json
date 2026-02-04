@@ -1,0 +1,10 @@
+{
+  "auditLogId": "660e8400-e29b-41d4-a716-446655440001",
+  "entityId": "550e8400-e29b-41d4-a716-446655440000",
+  "entityType": "Customer",
+  "action": "CREATE",
+  "performedBy": "admin@example.com",
+  "performedAt": "2024-01-15T10:30:00",
+  "details": "Customer record created with initial status NEW and KYC status PENDING"
+}
+

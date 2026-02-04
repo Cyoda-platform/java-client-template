@@ -1,0 +1,25 @@
+{
+  "customerId": "550e8400-e29b-41d4-a716-446655440000",
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "phone": "+14155552671",
+  "dateOfBirth": "1990-05-15",
+  "status": "NEW",
+  "address": {
+    "street": "123 Main Street",
+    "city": "San Francisco",
+    "state": "California",
+    "postalCode": "94102",
+    "country": "United States"
+  },
+  "kyc": {
+    "kycStatus": "PENDING",
+    "kycDocumentType": "PASSPORT",
+    "kycDocumentId": "US123456789"
+  },
+  "createdAt": "2024-01-15T10:30:00",
+  "updatedAt": "2024-01-15T10:30:00",
+  "softDeleted": false
+}
+
