@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "name": "CatFact Workflow",
+  "desc": "Workflow for managing cat fact lifecycle",
+  "initialState": "retrieved",
+  "active": true,
+  "states": {
+    "retrieved": {
+      "transitions": [
+        {
+          "name": "UPDATE",
+          "next": "retrieved",
+          "manual": true,
+          "disabled": false
+        },
+        {
+          "name": "SEND_CAMPAIGN",
+          "next": "sent",
+          "manual": true,
+          "disabled": false
+        }
+      ]
+    },
+    "sent": {
+      "transitions": [
+        {
+          "name": "UPDATE",
+          "next": "sent",
+          "manual": true,
+          "disabled": false
+        }
+      ]
+    }
+  }
+}
+

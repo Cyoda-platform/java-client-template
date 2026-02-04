@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "name": "Subscriber Workflow",
+  "desc": "Workflow for managing subscriber lifecycle",
+  "initialState": "active",
+  "active": true,
+  "states": {
+    "active": {
+      "transitions": [
+        {
+          "name": "UPDATE",
+          "next": "active",
+          "manual": true,
+          "disabled": false
+        },
+        {
+          "name": "UNSUBSCRIBE",
+          "next": "unsubscribed",
+          "manual": true,
+          "disabled": false
+        }
+      ]
+    },
+    "unsubscribed": {
+      "transitions": [
+        {
+          "name": "RESUBSCRIBE",
+          "next": "active",
+          "manual": true,
+          "disabled": false
+        }
+      ]
+    }
+  }
+}
+
