@@ -22,6 +22,7 @@
           "processors": [
             {
               "name": "example_function_name",
+              "type": "externalized",
               "executionMode": "ASYNC_NEW_TX",
               "config": {
                 "attachEntity": true,
@@ -42,6 +43,7 @@
           "processors": [
             {
               "name": "example_function_name",
+              "type": "externalized",
               "executionMode": "ASYNC_NEW_TX",
               "config": {
                 "attachEntity": true,

@@ -13,7 +13,8 @@
     },
     "entityId": {
       "type": "string",
-      "description": "Entity ID."
+      "description": "Entity ID.",
+      "format": "uuid"
     },
     "processorId": {
       "type": "string",

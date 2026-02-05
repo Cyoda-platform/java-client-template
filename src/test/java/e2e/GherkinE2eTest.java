@@ -15,8 +15,8 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.cucumber.spring.CucumberContextConfiguration;
 import org.awaitility.Awaitility;
+import org.cyoda.cloud.api.common.model.GroupConditionDto;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.junit.jupiter.api.Assertions;
 import org.junit.platform.suite.api.ConfigurationParameter;
 import org.junit.platform.suite.api.IncludeEngines;
@@ -242,7 +242,7 @@ public class GherkinE2eTest {
     @When("I fetching of models {string} version {int} by condition:")
     public void i_fetching_by_condition(String modelName, Integer modelVersion, String conditionJson)
             throws JsonProcessingException {
-        final var condition = objectMapper.readValue(conditionJson, GroupCondition.class);
+        final var condition = objectMapper.readValue(conditionJson, GroupConditionDto.class);
         final var modelSpec = new ModelSpec();
         modelSpec.setName(modelName);
         modelSpec.setVersion(modelVersion);

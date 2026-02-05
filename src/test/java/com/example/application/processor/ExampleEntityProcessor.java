@@ -1,24 +1,26 @@
 package com.example.application.processor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.application.entity.example_entity.version_1.ExampleEntity;
 import com.example.application.entity.example_entity.version_1.OtherEntity;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.serializer.ProcessorSerializer;
 import com.java_template.common.serializer.SerializerFactory;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.CyodaProcessor;
 import com.java_template.common.workflow.OperationSpecification;
+import org.cyoda.cloud.api.common.model.GroupConditionDto;
+import org.cyoda.cloud.api.common.model.GroupOperatorDto;
+import org.cyoda.cloud.api.common.model.OperatorTypeDto;
+import org.cyoda.cloud.api.common.model.SimpleConditionDto;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
-import org.cyoda.cloud.api.event.common.condition.Operation;
-import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
-import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -86,7 +88,7 @@ public class ExampleEntityProcessor implements CyodaProcessor {
      * Validates the EntityWithMetadata wrapper
      * This method checks both the entity and metadata are valid
      */
-    private boolean isValidEntityWithMetadata(com.java_template.common.dto.EntityWithMetadata<ExampleEntity> entityWithMetadata) {
+    private boolean isValidEntityWithMetadata(EntityWithMetadata<ExampleEntity> entityWithMetadata) {
         ExampleEntity entity = entityWithMetadata.entity();
         java.util.UUID technicalId = entityWithMetadata.metadata().getId();
         return entity != null && entity.isValid(entityWithMetadata.metadata()) && technicalId != null;
@@ -174,19 +176,19 @@ public class ExampleEntityProcessor implements CyodaProcessor {
         // Example: Update related other entities using streaming API for memory efficiency
         ModelSpec modelSpec = new ModelSpec().withName(OtherEntity.ENTITY_NAME).withVersion(OtherEntity.ENTITY_VERSION);
         ObjectMapper objectMapper = new ObjectMapper();
-        SimpleCondition simpleCondition = new SimpleCondition()
-                .withJsonPath("$.someField")
-                .withOperation(Operation.EQUALS)
-                .withValue(objectMapper.valueToTree("someValue"));
+        SimpleConditionDto simpleCondition = new SimpleConditionDto()
+                .jsonPath("$.someField")
+                .operation(OperatorTypeDto.EQUALS)
+                .value(objectMapper.valueToTree("someValue"));
 
-        GroupCondition condition = new GroupCondition()
-                .withOperator(GroupCondition.Operator.AND)
-                .withConditions(List.of(simpleCondition));
+        GroupConditionDto condition = new GroupConditionDto()
+                .operator(GroupOperatorDto.AND)
+                .conditions(List.of(simpleCondition));
 
         // Use streaming API for memory-efficient processing of related entities
         // Process each entity as it's retrieved without loading all into memory
         try (var stream = entityService.searchAsStream(modelSpec, condition, OtherEntity.class,
-                com.java_template.common.repository.SearchAndRetrievalParams.builder()
+                SearchAndRetrievalParams.builder()
                         .pageSize(100)
                         .inMemory(true)
                         .build())) {

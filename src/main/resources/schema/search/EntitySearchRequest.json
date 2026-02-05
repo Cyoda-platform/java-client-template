@@ -12,7 +12,8 @@
       "description": "Entity model to use for building this snapshot."
     },
     "condition": {
-      "$ref": "../common/condition/GroupCondition.json",
+      "type": "object",
+      "existingJavaType": "org.cyoda.cloud.api.common.model.GroupConditionDto",
       "description": "Query condition to use for building this snapshot."
     },
     "pointInTime": {

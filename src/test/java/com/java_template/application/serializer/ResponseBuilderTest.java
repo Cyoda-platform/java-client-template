@@ -12,9 +12,12 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.cyoda.uuid.SimpleSystemClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -26,6 +29,7 @@ import static org.mockito.Mockito.when;
  */
 class ResponseBuilderTest {
 
+    public static final UUID ENTITY_ID = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
     private EntityCriteriaCalculationRequest criteriaRequest;
     private EntityProcessorCalculationRequest processorRequest;
     private ObjectMapper objectMapper;
@@ -39,11 +43,11 @@ class ResponseBuilderTest {
         // Setup common mock behavior
         when(criteriaRequest.getId()).thenReturn("criteria-123");
         when(criteriaRequest.getRequestId()).thenReturn("req-456");
-        when(criteriaRequest.getEntityId()).thenReturn("entity-789");
+        when(criteriaRequest.getEntityId()).thenReturn(ENTITY_ID);
 
         when(processorRequest.getId()).thenReturn("processor-123");
         when(processorRequest.getRequestId()).thenReturn("req-456");
-        when(processorRequest.getEntityId()).thenReturn("entity-789");
+        when(processorRequest.getEntityId()).thenReturn(ENTITY_ID);
         when(processorRequest.getPayload()).thenReturn(mock(org.cyoda.cloud.api.event.common.DataPayload.class));
     }
 
@@ -62,7 +66,7 @@ class ResponseBuilderTest {
         assertNotNull(response);
         assertEquals("criteria-123", response.getId());
         assertEquals("req-456", response.getRequestId());
-        assertEquals("entity-789", response.getEntityId());
+        assertEquals(ENTITY_ID, response.getEntityId());
         assertTrue(response.getSuccess());
         assertTrue(response.getMatches());
     }

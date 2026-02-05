@@ -9,8 +9,11 @@ import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.cyoda.uuid.SimpleSystemClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,7 +40,8 @@ class SimpleContextTest {
         // Create test request with metadata
         EntityCriteriaCalculationRequest request = new EntityCriteriaCalculationRequest();
         request.setId("test-id");
-        request.setEntityId("entity-123");
+        UUID entityId1 = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
+        request.setEntityId(entityId1);
         request.setTransactionId("txn-456");
         request.setCriteriaId("criteria-789");
         request.setCriteriaName("TestCriteria");
@@ -57,7 +61,7 @@ class SimpleContextTest {
                     System.out.println("Context evaluation called!");
 
                     // Access request metadata
-                    String entityId = context.request().getEntityId();
+                    UUID entityId = context.request().getEntityId();
                     String transactionId = context.request().getTransactionId();
 
                     // Access payload data
@@ -71,7 +75,7 @@ class SimpleContextTest {
                     System.out.println("Numeric field: " + numericField);
 
                     // Validation logic using both metadata and payload
-                    if ("entity-123".equals(entityId) && "testValue".equals(testField) && numericField > 40) {
+                    if (entityId1.equals(entityId) && "testValue".equals(testField) && numericField > 40) {
                         System.out.println("Returning success");
                         return EvaluationOutcome.success();
                     } else {
@@ -95,7 +99,8 @@ class SimpleContextTest {
         // Create test request
         EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
         request.setId("test-id");
-        request.setEntityId("entity-789");
+        UUID entityId = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
+        request.setEntityId(entityId);
         request.setTransactionId("txn-123");
         request.setProcessorId("processor-456");
         request.setProcessorName("TestProcessor");
@@ -113,17 +118,17 @@ class SimpleContextTest {
                     System.out.println("Processor context evaluation called!");
 
                     // Access request metadata
-                    String entityId = context.request().getEntityId();
+                    UUID entityId1 = context.request().getEntityId();
                     String transactionId = context.request().getTransactionId();
 
-                    System.out.println("Entity ID: " + entityId);
+                    System.out.println("Entity ID: " + entityId1);
                     System.out.println("Transaction ID: " + transactionId);
 
                     // Access and modify payload data
                     JsonNode data = context.payload();
                     return objectMapper.createObjectNode()
                             .put("originalField", data.get("originalField").asText())
-                            .put("entityId", entityId)
+                            .put("entityId", entityId1.toString())
                             .put("transactionId", transactionId)
                             .put("processedAt", System.currentTimeMillis());
                 })
@@ -137,7 +142,7 @@ class SimpleContextTest {
         assertTrue(response.getSuccess());
         JsonNode resultData = response.getPayload().getData();
         assertEquals("originalValue", resultData.get("originalField").asText());
-        assertEquals("entity-789", resultData.get("entityId").asText());
+        assertEquals(entityId.toString(), resultData.get("entityId").asText());
         assertEquals("txn-123", resultData.get("transactionId").asText());
         assertTrue(resultData.has("processedAt"));
     }

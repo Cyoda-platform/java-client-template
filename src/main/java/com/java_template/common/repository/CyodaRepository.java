@@ -2,9 +2,9 @@ package com.java_template.common.repository;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.Streams;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.java_template.common.config.Config;
@@ -14,15 +14,16 @@ import com.java_template.common.grpc.client.event_handling.CloudEventParser;
 import io.cloudevents.v1.proto.CloudEvent;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.NotNull;
+import org.cyoda.cloud.api.common.model.GroupConditionDto;
+import org.cyoda.cloud.api.common.model.GroupOperatorDto;
 import org.cyoda.cloud.api.event.common.BaseEvent;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.entity.*;
 import org.cyoda.cloud.api.event.search.*;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
@@ -135,7 +136,7 @@ public class CyodaRepository implements CrudRepository {
     @Override
     public CompletableFuture<PageResult<DataPayload>> findAllByCriteria(
             @NotNull final ModelSpec modelSpec,
-            @NotNull final GroupCondition condition,
+            @NotNull final GroupConditionDto condition,
             @NotNull final SearchAndRetrievalParams params
     ) {
         return params.inMemory()
@@ -147,7 +148,7 @@ public class CyodaRepository implements CrudRepository {
             @NotNull final ModelSpec modelSpec,
             final int pageSize,
             final int pageNumber,
-            @NotNull final GroupCondition condition,
+            @NotNull final GroupConditionDto condition,
             @Nullable final Date pointInTime,
             @Nullable final UUID searchId, int awaitLimitMs, int pollIntervalMs
     ) {
@@ -217,7 +218,7 @@ public class CyodaRepository implements CrudRepository {
     private CompletableFuture<PageResult<DataPayload>> findAllByConditionInMemory(
             @NotNull final ModelSpec modelSpec,
             final int pageSize,
-            @NotNull final GroupCondition condition,
+            @NotNull final GroupConditionDto condition,
             @Nullable final Date pointInTime
     ) {
         return sendAndGetCollection(
@@ -241,9 +242,9 @@ public class CyodaRepository implements CrudRepository {
             @NotNull final SearchAndRetrievalParams params
     ) {
         // Create an empty condition to match all entities
-        GroupCondition matchAllCondition = new GroupCondition()
-                .withOperator(GroupCondition.Operator.AND)
-                .withConditions(List.of());
+        GroupConditionDto matchAllCondition = new GroupConditionDto()
+                .operator(GroupOperatorDto.AND)
+                .conditions(List.of());
 
         return findAllByCondition(modelSpec, params.pageSize(), params.pageNumber(), matchAllCondition, params.pointInTime(), params.searchId(), params.awaitLimitMs(), params.pollIntervalMs());
     }
@@ -483,7 +484,7 @@ public class CyodaRepository implements CrudRepository {
 
     private CompletableFuture<SearchSnapshotStatus> createSnapshotSearch(
             final ModelSpec modelSpec,
-            final GroupCondition condition,
+            final GroupConditionDto condition,
             @Nullable final Date pointInTime
     ) {
         return sendAndGet(
@@ -664,6 +665,6 @@ public class CyodaRepository implements CrudRepository {
     /**
      * Cache key for snapshot searches. Combines model spec, condition, point in time, and search ID.
      */
-    private record SearchCacheKey(ModelSpec modelSpec, GroupCondition condition, Date pointInTime, UUID searchId) {}
+    private record SearchCacheKey(ModelSpec modelSpec, GroupConditionDto condition, Date pointInTime, UUID searchId) {}
 
 }

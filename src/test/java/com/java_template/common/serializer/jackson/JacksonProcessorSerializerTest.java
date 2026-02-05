@@ -9,9 +9,12 @@ import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
+import org.cyoda.uuid.SimpleSystemClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class JacksonProcessorSerializerTest {
 
+    public static final UUID ENTITY_ID = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
     private ObjectMapper objectMapper;
     private JacksonProcessorSerializer serializer;
 
@@ -51,7 +55,7 @@ class JacksonProcessorSerializerTest {
         assertEquals("available", entity.getStatus());
 
         // Verify metadata
-        assertEquals("550e8400-e29b-41d4-a716-446655440000", entityWithMetadata.metadata().getId().toString());
+        assertEquals(ENTITY_ID, entityWithMetadata.metadata().getId());
         assertEquals("ACTIVE", entityWithMetadata.metadata().getState());
         assertNotNull(entityWithMetadata.metadata().getCreationDate());
     }
@@ -86,7 +90,7 @@ class JacksonProcessorSerializerTest {
     void testExtractEntityWithMetadataWithInvalidData() {
         // Given - Create request with invalid entity data
         EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
-        request.setEntityId("test-entity-id");
+        request.setEntityId(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros());
 
         // Create invalid payload that cannot be converted to TestEntity
         ObjectNode invalidData = objectMapper.createObjectNode();
@@ -106,7 +110,7 @@ class JacksonProcessorSerializerTest {
     void testExtractEntityWithMetadataWithNullPayload() {
         // Given - Create request with null payload
         EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
-        request.setEntityId("test-entity-id");
+        request.setEntityId(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros());
         request.setPayload(null);
 
         // When & Then - Should throw exception for null payload
@@ -116,7 +120,7 @@ class JacksonProcessorSerializerTest {
     private EntityProcessorCalculationRequest createRequestWithMetadata() {
         EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
         request.setId("test-request-123");
-        request.setEntityId("550e8400-e29b-41d4-a716-446655440000");
+        request.setEntityId(ENTITY_ID);
 
         // Create test payload with both data and metadata
         ObjectNode testData = objectMapper.createObjectNode();
@@ -125,7 +129,7 @@ class JacksonProcessorSerializerTest {
         testData.put("status", "available");
 
         ObjectNode testMeta = objectMapper.createObjectNode();
-        testMeta.put("id", "550e8400-e29b-41d4-a716-446655440000");
+        testMeta.put("id", ENTITY_ID.toString());
         testMeta.put("state", "ACTIVE");
         testMeta.put("creationDate", "2023-01-01T00:00:00Z");
 
@@ -140,7 +144,7 @@ class JacksonProcessorSerializerTest {
     private EntityProcessorCalculationRequest createRequestWithoutMetadata() {
         EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
         request.setId("test-request-123");
-        request.setEntityId("entity-789");
+        request.setEntityId(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros());
 
         // Create test payload with only data, no metadata
         ObjectNode testData = objectMapper.createObjectNode();

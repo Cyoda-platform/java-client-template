@@ -11,10 +11,13 @@ import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
+import org.cyoda.uuid.SimpleSystemClock;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -26,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class EvaluationChainTest {
 
+    public static final @NotNull UUID ENTITY_ID = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
     private ObjectMapper objectMapper;
     private JacksonCriterionSerializer serializer;
     private EntityCriteriaCalculationRequest request;
@@ -74,7 +78,7 @@ class EvaluationChainTest {
         request = new EntityCriteriaCalculationRequest();
         request.setId("test-criteria-123");
         request.setRequestId("req-456");
-        request.setEntityId("entity-789");
+        request.setEntityId(ENTITY_ID);
         request.setCriteriaId("criterion-123");
         request.setCriteriaName("TestCriterion");
 
@@ -391,7 +395,7 @@ class EvaluationChainTest {
 
             // Access request metadata
             assertEquals("test-criteria-123", context.request().getId());
-            assertEquals("entity-789", context.request().getEntityId());
+            assertEquals(ENTITY_ID, context.request().getEntityId());
             assertEquals("TestCriterion", context.request().getCriteriaName());
 
             // Access payload data

@@ -10,6 +10,7 @@ plugins {
     id 'com.google.protobuf' version '0.9.4'
     id 'se.thinkcode.cucumber-runner' version '0.0.11'
     id 'jacoco'
+    id 'org.openapi.generator' version '7.12.0'
 }
 
 java {
@@ -41,7 +42,6 @@ task cucumberTest(type: Test) {
 
   // Force test profile and cucumber env file
   systemProperty 'spring.profiles.active', 'cucumber'
-  systemProperty 'spring.config.import', 'optional:file:.env.cucumber'
 
   testLogging {
     events "passed", "skipped", "failed"
@@ -75,9 +75,13 @@ sourceSets {
             srcDirs += "$buildDir/generated/source/proto/main/java"
             srcDirs += "$buildDir/generated/source/proto/main/grpc"
             srcDirs += "$buildDir/generated-sources/js2p"
+            srcDirs += "$buildDir/generated-sources/openapi/src/main/java"
         }
         kotlin {
             srcDirs += "src/main/kotlin"
+        }
+        proto {
+            srcDir 'src/main/resources/proto'
         }
     }
     test {
@@ -179,10 +183,104 @@ protobuf {
     }
 }
 
+// OpenAPI Generator tasks for generating Java models from OpenAPI YAML files
+// Package structure matches Cyoda client library: org.cyoda.cloud.api.*.model with Dto suffix
+def openapiFiles = [
+    [name: 'common', file: 'openapi-common.yml', modelPackage: 'org.cyoda.cloud.api.common.model'],
+    [name: 'workflow', file: 'openapi-workflow.yml', modelPackage: 'org.cyoda.cloud.api.workflow.model',
+        // Schema mappings to reuse common DTOs for criterion and processor types
+        schemaMappings: [
+            'WorkflowConfiguration_criterion': 'QueryConditionDto',
+            'TransitionDefinition_criterion': 'QueryConditionDto',
+            'ScheduledTransitionProcessorDefinition_allOf_config': 'ScheduledTransitionConfigDto',
+        ],
+        extraImportMappings: [
+            'QueryConditionDto': 'org.cyoda.cloud.api.common.model.QueryConditionDto',
+            'ScheduledTransitionConfigDto': 'org.cyoda.cloud.api.common.model.ScheduledTransitionConfigDto',
+        ]
+    ],
+    [name: 'entitySearch', file: 'openapi-entity-search.yml', modelPackage: 'org.cyoda.cloud.api.search.model'],
+    [name: 'audit', file: 'openapi-audit.yml', modelPackage: 'org.cyoda.cloud.api.audit.model'],
+    [name: 'iam', file: 'openapi-iam.yml', modelPackage: 'org.cyoda.cloud.api.iam.model'],
+]
+
+openapiFiles.each { spec ->
+    tasks.register("generateOpenApi${spec.name.capitalize()}", org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+        generatorName = 'spring'
+        inputSpec = "$projectDir/src/main/resources/api/${spec.file}"
+        outputDir = "$buildDir/generated-sources/openapi"
+        modelPackage = spec.modelPackage
+        apiPackage = spec.modelPackage
+        modelNameSuffix = 'Dto'
+        generateApiTests = false
+        generateModelTests = false
+        generateApiDocumentation = false
+        generateModelDocumentation = false
+        configOptions = [
+            dateLibrary: 'java8',
+            useJakartaEe: 'true',
+            openApiNullable: 'false',
+            serializationLibrary: 'jackson',
+            interfaceOnly: 'true',
+            useSpringBoot3: 'true',
+            useBeanValidation: 'true',
+        ]
+        globalProperties = [
+            models: '',  // Generate all models
+            apis: 'false',  // Don't generate API classes
+            supportingFiles: '',  // No supporting files needed
+        ]
+        // Map 'any' and 'object' types to JsonNode (matching Cyoda client library)
+        typeMappings = [
+            'object': 'JsonNode',
+            'any': 'JsonNode',
+        ]
+        // Base import mappings
+        def imports = [
+            'JsonNode': 'com.fasterxml.jackson.databind.JsonNode',
+        ]
+        // Add spec-specific import mappings if defined
+        if (spec.extraImportMappings) {
+            imports.putAll(spec.extraImportMappings)
+        }
+        importMappings = imports
+
+        // Add spec-specific schema mappings if defined
+        if (spec.schemaMappings) {
+            schemaMappings = spec.schemaMappings
+        }
+    }
+}
+
+tasks.register('generateOpenApi') {
+    dependsOn openapiFiles.collect { "generateOpenApi${it.name.capitalize()}" }
+    description = 'Generates Java models from all OpenAPI YAML files'
+    group = 'openapi tools'
+
+    // Post-process to fix @JsonAlias annotation syntax from upstream YAML files
+    // The YAML has: @JsonAlias("a", "b") but valid Java requires: @JsonAlias({"a", "b"})
+    doLast {
+        def openApiDir = file("$buildDir/generated-sources/openapi/src/main/java")
+        if (openApiDir.exists()) {
+            fileTree(openApiDir).matching { include '**/*.java' }.each { javaFile ->
+                def content = javaFile.text
+                def fixed = content.replaceAll(
+                    /@com\.fasterxml\.jackson\.annotation\.JsonAlias\(("[^"]+"),\s*("[^"]+")\)/,
+                    '@com.fasterxml.jackson.annotation.JsonAlias({$1, $2})'
+                )
+                if (fixed != content) {
+                    javaFile.text = fixed
+                }
+            }
+        }
+    }
+}
+
 ["bootRun", "build", "compileJava", "compileKotlin"].each { taskName ->
     tasks.named(taskName).configure {
         dependsOn("generateProto")
         dependsOn("generateJsonSchema2Pojo")
+        dependsOn("generateOpenApi")
     }
 }
 

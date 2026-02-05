@@ -7,9 +7,9 @@ import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
 import com.java_template.common.util.CyodaExceptionUtil;
 import com.java_template.common.workflow.CyodaEntity;
+import org.cyoda.cloud.api.common.model.*;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.*;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.springframework.http.HttpStatus;
@@ -375,25 +375,25 @@ public class EntityCrudOperations<T extends CyodaEntity> {
             OffsetDateTime pointInTime) {
         try {
             Date pointInTimeDate = toDate(pointInTime);
-            List<QueryCondition> conditions = new ArrayList<>();
+            List<QueryConditionDto> conditions = new ArrayList<>();
 
             // Build search conditions from filters
             for (FieldFilter filter : filters) {
                 if (filter.value() != null && !filter.value().trim().isEmpty()) {
-                    SimpleCondition condition = new SimpleCondition()
-                            .withJsonPath("$." + filter.fieldName())
-                            .withOperation(filter.operation())
-                            .withValue(objectMapper.valueToTree(filter.value()));
+                    SimpleConditionDto condition = new SimpleConditionDto()
+                            .jsonPath("$." + filter.fieldName())
+                            .operation(filter.operation())
+                            .value(objectMapper.valueToTree(filter.value()));
                     conditions.add(condition);
                 }
             }
 
             // Add state filter as LifecycleCondition if provided
             if (stateFilter != null && !stateFilter.trim().isEmpty()) {
-                LifecycleCondition stateCondition = new LifecycleCondition()
-                        .withField("state")
-                        .withOperation(Operation.EQUALS)
-                        .withValue(objectMapper.valueToTree(stateFilter));
+                LifecycleConditionDto stateCondition = new LifecycleConditionDto()
+                        .field("state")
+                        .operation(OperatorTypeDto.EQUALS)
+                        .value(objectMapper.valueToTree(stateFilter));
                 conditions.add(stateCondition);
             }
 
@@ -410,9 +410,9 @@ public class EntityCrudOperations<T extends CyodaEntity> {
                 ));
             } else {
                 // For filtered results, get all matching results then manually paginate
-                GroupCondition groupCondition = new GroupCondition()
-                        .withOperator(GroupCondition.Operator.AND)
-                        .withConditions(conditions);
+                GroupConditionDto groupCondition = new GroupConditionDto()
+                        .operator(GroupOperatorDto.AND)
+                        .conditions(conditions);
                 PageResult<EntityWithMetadata<T>> pageResult = entityService.search(
                         modelSpec(), groupCondition, entityClass, SearchAndRetrievalParams.builder()
                                 .pageSize(pageSize)
@@ -445,14 +445,14 @@ public class EntityCrudOperations<T extends CyodaEntity> {
             String searchValue,
             OffsetDateTime pointInTime) {
         try {
-            SimpleCondition condition = new SimpleCondition()
-                    .withJsonPath("$." + fieldName)
-                    .withOperation(Operation.CONTAINS)
-                    .withValue(objectMapper.valueToTree(searchValue));
+            SimpleConditionDto condition = new SimpleConditionDto()
+                    .jsonPath("$." + fieldName)
+                    .operation(OperatorTypeDto.CONTAINS)
+                    .value(objectMapper.valueToTree(searchValue));
 
-            GroupCondition groupCondition = new GroupCondition()
-                    .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(List.of(condition));
+            GroupConditionDto groupCondition = new GroupConditionDto()
+                    .operator(GroupOperatorDto.AND)
+                    .conditions(List.of(condition));
 
             PageResult<EntityWithMetadata<T>> pageResult = entityService.search(
                     modelSpec(), groupCondition, entityClass, SearchAndRetrievalParams.builder()
@@ -636,21 +636,21 @@ public class EntityCrudOperations<T extends CyodaEntity> {
      * @param operation The comparison operation
      * @param value     The value to compare against
      */
-    public record FieldFilter(String fieldName, Operation operation, String value) {
+    public record FieldFilter(String fieldName, OperatorTypeDto operation, String value) {
         public static FieldFilter equals(String fieldName, String value) {
-            return new FieldFilter(fieldName, Operation.EQUALS, value);
+            return new FieldFilter(fieldName, OperatorTypeDto.EQUALS, value);
         }
 
         public static FieldFilter contains(String fieldName, String value) {
-            return new FieldFilter(fieldName, Operation.CONTAINS, value);
+            return new FieldFilter(fieldName, OperatorTypeDto.CONTAINS, value);
         }
 
         public static FieldFilter greaterThan(String fieldName, String value) {
-            return new FieldFilter(fieldName, Operation.GREATER_THAN, value);
+            return new FieldFilter(fieldName, OperatorTypeDto.GREATER_THAN, value);
         }
 
         public static FieldFilter lessThan(String fieldName, String value) {
-            return new FieldFilter(fieldName, Operation.LESS_THAN, value);
+            return new FieldFilter(fieldName, OperatorTypeDto.LESS_THAN, value);
         }
     }
 }

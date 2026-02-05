@@ -1,0 +1,518 @@
+openapi: 3.1.0
+info:
+  title: Cyoda Cloud Audit API
+  version: 1.0.0
+  description: |
+    API for Cyoda Cloud audit events providing access to audit events search.
+  contact:
+    name: Cyoda Support
+    url: https://cyoda.com/support
+
+security:
+  - bearerAuth: [ ]
+
+paths:
+  /audit/entity/{entityId}:
+    get:
+      summary: Search audit events for entity
+      description: |
+        Retrieves audit events for a specific entity with cursor-based pagination.
+        Results are ordered by event utc time (newest first).
+        Maximum search period is 180 days. Default period is 10 days when one of the boundaries is not defined.
+      operationId: searchEntityAuditEvents
+      tags:
+        - Entity, Audit
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          description: Identifier of the entity to retrieve audit events for
+          schema:
+            type: string
+            format: uuid
+        - name: eventType
+          in: query
+          required: false
+          description: |
+            Filter by specific audit event types. If not specified, defaults to all event types except System.
+            Note: Including System events may increase latency and load on the system. Use System events filtering with caution.
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/AuditEventType'
+        - name: severity
+          in: query
+          required: false
+          description: Filter by event severity level
+          schema:
+            $ref: '#/components/schemas/AuditEventSeverity'
+        - name: fromUtcTime
+          in: query
+          required: false
+          description: Filter events from this timestamp (inclusive)
+          schema:
+            type: string
+            format: date-time
+        - name: toUtcTime
+          in: query
+          required: false
+          description: Filter events until this timestamp (exclusive)
+          schema:
+            type: string
+            format: date-time
+        - name: transactionId
+          in: query
+          required: false
+          description: Filter by transaction identifier
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          description: |
+            Cursor for pagination. Use the `nextCursor` value from the previous response
+            to fetch the next page of results. Omit for the first page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of audit events to return per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: Audit events retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityAuditEventsResponse'
+              examples:
+                AuditEventsWithPagination:
+                  summary: Audit events with pagination
+                  description: Example response showing audit events with cursor for next page
+                  value: |
+                    {
+                      "pagination": {
+                        "hasNext": false
+                      },
+                      "items": [
+                        {
+                          "auditEventType": "System",
+                          "severity": "INFO",
+                          "utcTime": "2025-09-10T14:17:15.372Z",
+                          "doneTime": "2025-09-10T14:17:15.384Z",
+                          "queueName": "TRANSACTION_EXEC_1_PHASE_VERSION_CHECK",
+                          "shardId": "5",
+                          "status": "PROCESSED",
+                          "data": {
+                            "core": {
+                              "userId": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
+                              "processIds": [
+                                {
+                                  "directProcessKey": 11,
+                                  "type": "DIRECT"
+                                }
+                              ],
+                              "actionType": "UPDATE"
+                            },
+                            "client": {
+                              "traceId": -2937193041649101088,
+                              "traceIdHigh": 7548464447717679239
+                            }
+                          },
+                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
+                          "entityType": "Product.2",
+                          "system": true
+                        },
+                        {
+                          "auditEventType": "EntityChange",
+                          "changeType": "CREATED",
+                          "severity": "INFO",
+                          "utcTime": "2025-09-10T14:17:15.371Z",
+                          "changes": {
+                            "after": {
+                              "name": "Panel",
+                              "year": 2020,
+                              "size": 3
+                            }
+                          },
+                          "consistencyTime": "2025-09-10T14:17:14.858Z",
+                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
+                          "entityType": "Product.2",
+                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
+                          "actor": {
+                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
+                            "legalId": "TEST",
+                            "name": "User"
+                          }
+                        },
+                        {
+                          "auditEventType": "StateMachine",
+                          "state": "CREATED",
+                          "eventType": "STATE_MACHINE_FINISH",
+                          "severity": "INFO",
+                          "utcTime": "2025-09-10T14:17:15.364Z",
+                          "consistencyTime": "2025-09-10T14:17:14.858Z",
+                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
+                          "entityType": "Product.2",
+                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
+                          "actor": {
+                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
+                            "legalId": "6d908b23-4754-487f-9c07-f749cb972ca1",
+                            "name": "User"
+                          },
+                          "details": "State machine finished with result: true"
+                        },
+                        {
+                          "auditEventType": "StateMachine",
+                          "state": "None",
+                          "eventType": "TRANSITION_MAKE",
+                          "severity": "DEBUG",
+                          "utcTime": "2025-09-10T14:17:15.364Z",
+                          "workflowName": "Default for 'Product.2'",
+                          "transitionName": "NEW",
+                          "targetState": "CREATED",
+                          "consistencyTime": "2025-09-10T14:17:14.858Z",
+                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
+                          "entityType": "Product.2",
+                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
+                          "actor": {
+                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
+                            "legalId": "TEST",
+                            "name": "User"
+                          },
+                          "details": "Making State machine transition[NEW] of workflow[Default for 'Product.2']. New state: CREATED"
+                        },
+                        {
+                          "auditEventType": "StateMachine",
+                          "state": "None",
+                          "eventType": "TRANSITION_MAKE",
+                          "severity": "DEBUG",
+                          "utcTime": "2025-09-10T14:17:15.364Z",
+                          "workflowName": "Default for 'Product.2'",
+                          "transitionName": "LOOPBACK",
+                          "targetState": "None",
+                          "consistencyTime": "2025-09-10T14:17:14.858Z",
+                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
+                          "entityType": "Product.2",
+                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
+                          "actor": {
+                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
+                            "legalId": "6d908b23-4754-487f-9c07-f749cb972ca1",
+                            "name": "User"
+                          },
+                          "details": "Making State machine transition[LOOPBACK] of workflow[Default for 'Product.2']. New state: None"
+                        },
+                        {
+                          "auditEventType": "StateMachine",
+                          "state": "None",
+                          "eventType": "WORKFLOW_FOUND",
+                          "severity": "DEBUG",
+                          "utcTime": "2025-09-10T14:17:15.364Z",
+                          "workflowName": "Default for 'Product.2'",
+                          "consistencyTime": "2025-09-10T14:17:14.858Z",
+                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
+                          "entityType": "Product.2",
+                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
+                          "actor": {
+                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
+                            "legalId": "6d908b23-4754-487f-9c07-f749cb972ca1",
+                            "name": "User"
+                          },
+                          "details": "State machine workflow found: Default for 'Product.2'"
+                        },
+                        {
+                          "auditEventType": "StateMachine",
+                          "state": "None",
+                          "eventType": "STATE_MACHINE_START",
+                          "severity": "INFO",
+                          "utcTime": "2025-09-10T14:17:15.356Z",
+                          "consistencyTime": "2025-09-10T14:17:14.858Z",
+                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
+                          "entityType": "Product.2",
+                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
+                          "actor": {
+                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
+                            "legalId": "6d908b23-4754-487f-9c07-f749cb972ca1",
+                            "name": "User"
+                          },
+                          "details": "State machine started"
+                        }
+                      ]
+                    }
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  responses:
+    ErrorResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from the authentication endpoint
+
+  schemas:
+    # ErrorResponse schema - same object as defined in the main openapi.yml
+    ErrorResponse:
+      $ref: './openapi.yml#/components/schemas/ErrorResponse'
+
+    CursorPaginationInfo:
+      type: object
+      description: Pagination information for cursor-based pagination
+      properties:
+        hasNext:
+          type: boolean
+          description: Indicates whether there are more results available
+        nextCursor:
+          type: string
+          nullable: true
+          description: |
+            Cursor to use for fetching the next page of results.
+            Can be omit when hasNext is false.
+      required:
+        - hasNext
+
+    EntityAuditEventsResponse:
+      type: object
+      description: Response with entity audit events
+      properties:
+        items:
+          type: array
+          description: Audit events for the entity
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+        pagination:
+          $ref: '#/components/schemas/CursorPaginationInfo'
+      required:
+        - pagination
+
+    AuditEventType:
+      type: string
+      description: Type of audit event indicating the source or category of the event
+      enum:
+        - StateMachine
+        - EntityChange
+        - System
+
+    AuditEventSeverity:
+      type: string
+      description: Severity level of an audit event
+      enum:
+        - ERROR
+        - INFO
+        - WARN
+        - DEBUG
+
+    AuditSearchFilter:
+      type: object
+      description: Filter criteria for searching audit events
+      properties:
+        entityId:
+          description: Identifier of the entity to retrieve audit events for
+          type: string
+          format: uuid
+        entityType:
+          type: string
+          description: Type of the entity related to this event (model.version)
+        eventType:
+          type: array
+          description: Filter by specific audit event types
+          items:
+            $ref: '#/components/schemas/AuditEventType'
+        severity:
+          $ref: '#/components/schemas/AuditEventSeverity'
+          description: Filter by event severity level
+        fromUtcTime:
+          type: string
+          format: date-time
+          description: Filter events from this timestamp (inclusive)
+        toUtcTime:
+          type: string
+          format: date-time
+          description: Filter events until this timestamp (exclusive)
+        transactionId:
+          type: string
+          description: Filter by transaction identifier
+
+
+    AuditActorInfo:
+      type: object
+      description: Actor related to this event
+      properties:
+        id:
+          type: string
+          description: Identifier of the actor
+        legalId:
+          type: string
+          description: Legal entity identifier of the actor
+        name:
+          type: string
+          description: Name of the actor
+      required:
+        - id
+        - legalId
+
+    AuditEvent:
+      type: object
+      description: Base audit event information common for all types of the event
+      discriminator:
+        propertyName: auditEventType
+        mapping:
+          StateMachine: '#/components/schemas/StateMachineEvent'
+          EntityChange: '#/components/schemas/EntityChangeEvent'
+          System: '#/components/schemas/SystemEvent'
+      properties:
+        auditEventType:
+          $ref: '#/components/schemas/AuditEventType'
+          description: Type of the audit event, used as discriminator for inherited types
+        severity:
+          $ref: '#/components/schemas/AuditEventSeverity'
+          description: Severity level of the event
+        consistencyTime:
+          type: string
+          format: date-time
+          description: Cyoda consistency time
+        utcTime:
+          type: string
+          format: date-time
+          description: UTC time when the event occurred
+        microsTime:
+          type: integer
+          format: int64
+          description: time in microseconds when the event occurred
+        entityId:
+          type: string
+          description: Identifier of the entity related to this event
+        entityType:
+          type: string
+          description: Type of the entity related to this event (model.version)
+        transactionId:
+          type: string
+          description: Transaction identifier related to this event
+        actor:
+          $ref: '#/components/schemas/AuditActorInfo'
+          description: Actor related to this event
+        details:
+          type: string
+          description: Details of the event
+        system:
+          type: boolean
+          description: Flag indicating whether this is a system-level event
+      required:
+        - auditEventType
+        - severity
+        - utcTime
+        - microsTime
+
+    StateMachineEvent:
+      description: Audit event for state machine operations
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AuditEvent'
+        - type: object
+          properties:
+            state:
+              type: string
+              description: State of the entity where the event occurred within the state machine
+            eventType:
+              type: string
+              description: Type of the state machine event
+            workflowName:
+              type: string
+              description: Name of the related workflow, if any
+            transitionName:
+              type: string
+              description: Name of the related transition, if any
+            processorName:
+              type: string
+              description: Name of the related processor, if any
+            criteriaName:
+              type: string
+              description: Name of the related criteria, if any
+            targetState:
+              type: string
+              description: Name of the target state, if any
+            resultType:
+              type: string
+              description: Result of the state machine execution, if any
+          required:
+            - state
+            - eventType
+
+    EntityChangeEvent:
+      description: Audit event for entity changes
+      allOf:
+        - $ref: '#/components/schemas/AuditEvent'
+        - type: object
+          properties:
+            changeType:
+              type: string
+              description: Type of change that occurred
+              enum:
+                - CREATED
+                - UPDATED
+                - DELETED
+            changes:
+              $ref: '#/components/schemas/EntityChanges'
+              description: Changes made to the entity
+          required:
+            - changeType
+
+    EntityChanges:
+      type: object
+      description: Changes made to the entity
+      properties:
+        before:
+          type: object
+          description: Entity before changes
+        after:
+          type: object
+          description: Entity after changes
+
+    SystemEvent:
+      description: System audit event
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AuditEvent'
+        - type: object
+          properties:
+            errorTime:
+              type: string
+              format: date-time
+              description: Time when an error occurred, if applicable
+            doneTime:
+              type: string
+              format: date-time
+              description: Time when the operation completed, if applicable
+            queueName:
+              type: string
+              description: Name of the queue involved in the operation, if applicable
+            shardId:
+              type: string
+              description: Identifier of the shard involved in the operation, if applicable
+            status:
+              type: string
+              description: Status of the system operation, if applicable
+            data:
+              type: object
+              description: Object containing specific event data with technical information

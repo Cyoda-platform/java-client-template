@@ -7,10 +7,10 @@ import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.dto.PageResult;
 import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.common.model.GroupConditionDto;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -303,7 +303,7 @@ class ExampleEntityControllerTest {
         PageResult<EntityWithMetadata<ExampleEntity>> pageResult = PageResult.of(
                 UUID.randomUUID(), entities, 0, 1000, 2);
 
-        when(entityService.search(any(ModelSpec.class), any(GroupCondition.class),
+        when(entityService.search(any(ModelSpec.class), any(GroupConditionDto.class),
                 eq(ExampleEntity.class), any(SearchAndRetrievalParams.class)))
                 .thenReturn(pageResult);
 
@@ -312,7 +312,7 @@ class ExampleEntityControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)));
 
-        verify(entityService).search(any(ModelSpec.class), any(GroupCondition.class),
+        verify(entityService).search(any(ModelSpec.class), any(GroupConditionDto.class),
                 eq(ExampleEntity.class), any(SearchAndRetrievalParams.class));
     }
 
@@ -332,7 +332,7 @@ class ExampleEntityControllerTest {
         PageResult<EntityWithMetadata<ExampleEntity>> pageResult = PageResult.of(
                 searchId, entities, 0, 50, 1);
 
-        when(entityService.search(any(ModelSpec.class), any(GroupCondition.class),
+        when(entityService.search(any(ModelSpec.class), any(GroupConditionDto.class),
                 eq(ExampleEntity.class), any(SearchAndRetrievalParams.class)))
                 .thenReturn(pageResult);
 
@@ -344,7 +344,7 @@ class ExampleEntityControllerTest {
                 .andExpect(jsonPath("$.searchId").value(searchId.toString()))
                 .andExpect(jsonPath("$.data", hasSize(1)));
 
-        verify(entityService).search(any(ModelSpec.class), any(GroupCondition.class),
+        verify(entityService).search(any(ModelSpec.class), any(GroupConditionDto.class),
                 eq(ExampleEntity.class), any(SearchAndRetrievalParams.class));
     }
 

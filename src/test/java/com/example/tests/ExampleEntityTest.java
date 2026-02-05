@@ -1,6 +1,7 @@
 package com.example.tests;
 
 import com.example.application.entity.example_entity.version_1.ExampleEntity;
+import com.java_template.common.workflow.OperationSpecification;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,9 +47,9 @@ class ExampleEntityTest {
     void testGetModelKey() {
         var modelKey = entity.getModelKey();
         assertNotNull(modelKey);
-        assertTrue(modelKey instanceof com.java_template.common.workflow.OperationSpecification.Entity);
-        
-        var entitySpec = (com.java_template.common.workflow.OperationSpecification.Entity) modelKey;
+        assertInstanceOf(OperationSpecification.Entity.class, modelKey);
+
+        var entitySpec = (OperationSpecification.Entity) modelKey;
         ModelSpec modelSpec = entitySpec.modelKey();
         assertEquals("ExampleEntity", modelSpec.getName());
         assertEquals(1, modelSpec.getVersion());
@@ -99,7 +100,7 @@ class ExampleEntityTest {
     @DisplayName("Should handle items list")
     void testItemsList() {
         List<ExampleEntity.ExampleItem> items = new ArrayList<>();
-        
+
         ExampleEntity.ExampleItem item1 = new ExampleEntity.ExampleItem();
         item1.setItemId("ITEM-001");
         item1.setItemName("Item 1");
@@ -122,7 +123,7 @@ class ExampleEntityTest {
 
         assertNotNull(entity.getItems());
         assertEquals(2, entity.getItems().size());
-        assertEquals("ITEM-001", entity.getItems().get(0).getItemId());
+        assertEquals("ITEM-001", entity.getItems().getFirst().getItemId());
         assertEquals("ITEM-002", entity.getItems().get(1).getItemId());
     }
 
@@ -149,7 +150,7 @@ class ExampleEntityTest {
         assertEquals("John Doe", entity.getContact().getName());
         assertEquals("john.doe@example.com", entity.getContact().getEmail());
         assertEquals("+1-555-1234", entity.getContact().getPhone());
-        
+
         assertNotNull(entity.getContact().getAddress());
         assertEquals("123 Main St", entity.getContact().getAddress().getLine1());
         assertEquals("Springfield", entity.getContact().getAddress().getCity());
@@ -253,7 +254,7 @@ class ExampleEntityTest {
     void testToString() {
         entity.setExampleId("TEST-001");
         entity.setName("Test Entity");
-        
+
         String toString = entity.toString();
         assertNotNull(toString);
         assertTrue(toString.contains("ExampleEntity"));

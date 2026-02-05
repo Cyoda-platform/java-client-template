@@ -1,15 +1,15 @@
 package com.java_template.common.repository;
 
 import com.java_template.common.dto.PageResult;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.NotNull;
+import org.cyoda.cloud.api.common.model.GroupConditionDto;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransitionResponse;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Date;
@@ -151,7 +151,7 @@ public interface CrudRepository {
      */
     CompletableFuture<PageResult<DataPayload>> findAllByCriteria(
             @NotNull ModelSpec modelSpec,
-            @NotNull GroupCondition criteria,
+            @NotNull GroupConditionDto criteria,
             @NotNull SearchAndRetrievalParams params
     );
 
