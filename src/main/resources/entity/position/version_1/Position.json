@@ -1,0 +1,9 @@
+{
+  "id": "POS-001",
+  "portfolioId": "PORT-001",
+  "instrumentId": "INST-001",
+  "quantity": 5000.00,
+  "marketValue": 628750.00,
+  "valuationDate": "2024-02-05"
+}
+

@@ -1,0 +1,10 @@
+{
+  "id": "INST-001",
+  "isin": "US0378331005",
+  "ticker": "AAPL",
+  "type": "EQUITY",
+  "currency": "USD",
+  "issuer": "Apple Inc.",
+  "maturityDate": null
+}
+

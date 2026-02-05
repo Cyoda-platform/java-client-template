@@ -1,0 +1,14 @@
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "tradeDate": "2024-02-05",
+  "instrumentId": "INST-001",
+  "quantity": 1000.50,
+  "price": 125.75,
+  "tradeType": "BUY",
+  "counterpartyId": "CP-001",
+  "currency": "USD",
+  "status": "RECEIVED",
+  "source": "FIX",
+  "createdAt": "2024-02-05T10:30:00Z"
+}
+

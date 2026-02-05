@@ -1,0 +1,9 @@
+{
+  "id": "CP-001",
+  "name": "Goldman Sachs International",
+  "legalEntityId": "LEI-0001",
+  "country": "GB",
+  "rating": "A",
+  "defaultProbability": 0.0025
+}
+
