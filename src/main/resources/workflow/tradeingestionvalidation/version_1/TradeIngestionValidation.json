@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "name": "TradeIngestionValidation",
+  "desc": "Ingest and validate trade messages, enrich with reference data, and route valid trades to downstream systems. Invalid messages are rejected with reasons.",
+  "initialState": "received",
+  "active": true,
+  "states": {
+    "received": {
+      "transitions": [
+        {
+          "name": "validate_schema",
+          "next": "validated",
+          "manual": false
+        },
+        {
+          "name": "reject",
+          "next": "rejected",
+          "manual": false
+        }
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {
+          "name": "enrich",
+          "next": "enriched",
+          "manual": false
+        },
+        {
+          "name": "reject",
+          "next": "rejected",
+          "manual": false
+        }
+      ]
+    },
+    "enriched": {
+      "transitions": [
+        {
+          "name": "route",
+          "next": "routed",
+          "manual": false
+        },
+        {
+          "name": "enrichment_fail",
+          "next": "failed",
+          "manual": false
+        }
+      ]
+    },
+    "routed": {
+      "transitions": [
+        {
+          "name": "complete",
+          "next": "completed",
+          "manual": false
+        }
+      ]
+    },
+    "completed": {
+      "transitions": []
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "failed": {
+      "transitions": [
+        {
+          "name": "retry_enrichment",
+          "next": "enriched",
+          "manual": true
+        },
+        {
+          "name": "cancel",
+          "next": "rejected",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
