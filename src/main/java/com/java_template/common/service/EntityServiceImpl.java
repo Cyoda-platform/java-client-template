@@ -1,5 +1,6 @@
 package com.java_template.common.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.dto.EntityWithMetadata;
@@ -399,11 +400,21 @@ public class EntityServiceImpl implements EntityService {
         return update(technicalId, entity, transition);
     }
 
-    private <T extends CyodaEntity> String getBusinessIdValue(T entity, String businessIdField) {
+    private <T extends CyodaEntity> @NotNull String getBusinessIdValue(T entity, String businessIdField) {
         // Use Jackson to convert entity to JsonNode and extract the field
         var entityNode = objectMapper.valueToTree(entity);
         var fieldValue = entityNode.get(businessIdField);
-        return fieldValue != null ? fieldValue.asText() : null;
+        if (fieldValue == null) {
+            String entityString;
+            try {
+                entityString = objectMapper.writeValueAsString(entityNode);
+            } catch (JsonProcessingException e) {
+                entityString = "cannot convert entity to JSON: " + e.getMessage();
+            }
+            throw new IllegalStateException("Business ID value is null for field: " + businessIdField +
+                    " for entity " + entityString);
+        }
+        return fieldValue.asText();
     }
 
     @Override
