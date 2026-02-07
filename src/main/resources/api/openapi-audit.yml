@@ -4,6 +4,22 @@ info:
   version: 1.0.0
   description: |
     API for Cyoda Cloud audit events providing access to audit events search.
+
+    ## Audit Event Types
+
+    The API provides access to three main categories of audit events:
+
+    - **EntityChange**: Tracks data modifications to entities including creation, updates, and deletions.
+      Each event captures the before/after state of the entity, enabling full change history reconstruction
+      and data lineage tracking.
+
+    - **StateMachine**: Records workflow execution events as entities progress through their lifecycle states.
+      Includes workflow discovery, state transitions, processor execution results, and completion status.
+      Useful for debugging workflow behavior and understanding entity processing history.
+
+    - **System**: Captures low-level platform operations such as transaction processing, queue operations,
+      and shard activity. These events contain technical details primarily useful for platform diagnostics.
+      Note: System events are excluded from queries by default due to their volume and specialized nature.
   contact:
     name: Cyoda Support
     url: https://cyoda.com/support
@@ -96,153 +112,201 @@ paths:
                   description: Example response showing audit events with cursor for next page
                   value: |
                     {
-                      "pagination": {
-                        "hasNext": false
+                      "pagination" : {
+                        "hasNext" : false
                       },
-                      "items": [
-                        {
-                          "auditEventType": "System",
-                          "severity": "INFO",
-                          "utcTime": "2025-09-10T14:17:15.372Z",
-                          "doneTime": "2025-09-10T14:17:15.384Z",
-                          "queueName": "TRANSACTION_EXEC_1_PHASE_VERSION_CHECK",
-                          "shardId": "5",
-                          "status": "PROCESSED",
-                          "data": {
-                            "core": {
-                              "userId": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
-                              "processIds": [
-                                {
-                                  "directProcessKey": 11,
-                                  "type": "DIRECT"
-                                }
-                              ],
-                              "actionType": "UPDATE"
-                            },
-                            "client": {
-                              "traceId": -2937193041649101088,
-                              "traceIdHigh": 7548464447717679239
-                            }
+                      "items" : [ {
+                        "auditEventType" : "System",
+                        "severity" : "INFO",
+                        "utcTime" : "2026-02-06T21:11:19.934Z",
+                        "microsTime" : 1770412279934000,
+                        "doneTime" : "2026-02-06T21:11:19.941Z",
+                        "queueName" : "TRANSACTION_EXEC_1_PHASE_VERSION_CHECK",
+                        "shardId" : "6",
+                        "status" : "PROCESSED",
+                        "data" : {
+                          "core" : {
+                            "userId" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                            "processIds" : [ {
+                              "directProcessKey" : 11,
+                              "type" : "DIRECT"
+                            } ],
+                            "transactionId" : null,
+                            "workflowExecId" : null,
+                            "workflowStackDepth" : 0,
+                            "resubmitMetaInfo" : null,
+                            "submittedTransactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                            "entitiesCountInTransaction" : 1,
+                            "transactionConsistencyTime" : "61a91e36-03a0-11f1-7f7f-7f7f7f7f7f7f",
+                            "transactionSubmitTime" : "6204d2d0-03a0-11f1-a2ff-ae468cd3ed16",
+                            "parentTransactionsIds" : [ ],
+                            "currentExpectedEntityVersion" : null,
+                            "transEntityClassIndex" : 1190,
+                            "transEntityIdSerialized" : "B/ZOUCLTEbKgqq7WNXjmVA==",
+                            "actionType" : "UPDATE",
+                            "eventTypeIndex" : 7
                           },
-                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
-                          "entityType": "Product.2",
-                          "system": true
-                        },
-                        {
-                          "auditEventType": "EntityChange",
-                          "changeType": "CREATED",
-                          "severity": "INFO",
-                          "utcTime": "2025-09-10T14:17:15.371Z",
-                          "changes": {
-                            "after": {
-                              "name": "Panel",
-                              "year": 2020,
-                              "size": 3
-                            }
-                          },
-                          "consistencyTime": "2025-09-10T14:17:14.858Z",
-                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
-                          "entityType": "Product.2",
-                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
-                          "actor": {
-                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
-                            "legalId": "TEST",
-                            "name": "User"
+                          "client" : {
+                            "traceId" : -7561544248689871273,
+                            "traceIdHigh" : 7603862840665887685
                           }
                         },
-                        {
-                          "auditEventType": "StateMachine",
-                          "state": "CREATED",
-                          "eventType": "STATE_MACHINE_FINISH",
-                          "severity": "INFO",
-                          "utcTime": "2025-09-10T14:17:15.364Z",
-                          "consistencyTime": "2025-09-10T14:17:14.858Z",
-                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
-                          "entityType": "Product.2",
-                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
-                          "actor": {
-                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
-                            "legalId": "6d908b23-4754-487f-9c07-f749cb972ca1",
-                            "name": "User"
-                          },
-                          "details": "State machine finished with result: true"
+                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "entityModel" : "User.1",
+                        "actor" : {
+                          "id" : "00000866-0000-1000-8080-808080808080",
+                          "legalId" : "SYSTEM",
+                          "name" : "SYSTEM"
                         },
-                        {
-                          "auditEventType": "StateMachine",
-                          "state": "None",
-                          "eventType": "TRANSITION_MAKE",
-                          "severity": "DEBUG",
-                          "utcTime": "2025-09-10T14:17:15.364Z",
-                          "workflowName": "Default for 'Product.2'",
-                          "transitionName": "NEW",
-                          "targetState": "CREATED",
-                          "consistencyTime": "2025-09-10T14:17:14.858Z",
-                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
-                          "entityType": "Product.2",
-                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
-                          "actor": {
-                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
-                            "legalId": "TEST",
-                            "name": "User"
-                          },
-                          "details": "Making State machine transition[NEW] of workflow[Default for 'Product.2']. New state: CREATED"
+                        "system" : true
+                      }, {
+                        "auditEventType" : "EntityChange",
+                        "changeType" : "CREATED",
+                        "severity" : "INFO",
+                        "utcTime" : "2026-02-06T21:11:19.933Z",
+                        "microsTime" : 1770412279933000,
+                        "changes" : {
+                          "after" : {
+                            "name" : "Alice",
+                            "age" : 30,
+                            "active" : false
+                          }
                         },
-                        {
-                          "auditEventType": "StateMachine",
-                          "state": "None",
-                          "eventType": "TRANSITION_MAKE",
-                          "severity": "DEBUG",
-                          "utcTime": "2025-09-10T14:17:15.364Z",
-                          "workflowName": "Default for 'Product.2'",
-                          "transitionName": "LOOPBACK",
-                          "targetState": "None",
-                          "consistencyTime": "2025-09-10T14:17:14.858Z",
-                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
-                          "entityType": "Product.2",
-                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
-                          "actor": {
-                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
-                            "legalId": "6d908b23-4754-487f-9c07-f749cb972ca1",
-                            "name": "User"
-                          },
-                          "details": "Making State machine transition[LOOPBACK] of workflow[Default for 'Product.2']. New state: None"
-                        },
-                        {
-                          "auditEventType": "StateMachine",
-                          "state": "None",
-                          "eventType": "WORKFLOW_FOUND",
-                          "severity": "DEBUG",
-                          "utcTime": "2025-09-10T14:17:15.364Z",
-                          "workflowName": "Default for 'Product.2'",
-                          "consistencyTime": "2025-09-10T14:17:14.858Z",
-                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
-                          "entityType": "Product.2",
-                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
-                          "actor": {
-                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
-                            "legalId": "6d908b23-4754-487f-9c07-f749cb972ca1",
-                            "name": "User"
-                          },
-                          "details": "State machine workflow found: Default for 'Product.2'"
-                        },
-                        {
-                          "auditEventType": "StateMachine",
-                          "state": "None",
-                          "eventType": "STATE_MACHINE_START",
-                          "severity": "INFO",
-                          "utcTime": "2025-09-10T14:17:15.356Z",
-                          "consistencyTime": "2025-09-10T14:17:14.858Z",
-                          "entityId": "d1005ec2-2633-11b2-8948-765bb12c3f41",
-                          "entityType": "Product.2",
-                          "transactionId": "d9f1dd80-8e50-11f0-a3e5-f612184f3c02",
-                          "actor": {
-                            "id": "d77da93a-8e50-11f0-a3e5-f612184f3c02",
-                            "legalId": "6d908b23-4754-487f-9c07-f749cb972ca1",
-                            "name": "User"
-                          },
-                          "details": "State machine started"
+                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
+                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "entityModel" : "User.1",
+                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "actor" : {
+                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "legalId" : "TEST",
+                          "name" : "TEST_USER"
                         }
-                      ]
+                      }, {
+                        "auditEventType" : "StateMachine",
+                        "state" : "CREATED",
+                        "eventType" : "FINISHED",
+                        "severity" : "INFO",
+                        "utcTime" : "2026-02-06T21:11:19.928004Z",
+                        "microsTime" : 1770412279928004,
+                        "data" : {
+                          "eventType" : "FINISHED",
+                          "success" : true
+                        },
+                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
+                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "entityModel" : "User.1",
+                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "actor" : {
+                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "legalId" : "TEST",
+                          "name" : "TEST_USER"
+                        }
+                      }, {
+                        "auditEventType" : "StateMachine",
+                        "state" : "CREATED",
+                        "eventType" : "TRANSITION_NOT_FOUND",
+                        "severity" : "DEBUG",
+                        "utcTime" : "2026-02-06T21:11:19.928003Z",
+                        "microsTime" : 1770412279928003,
+                        "data" : {
+                          "eventType" : "TRANSITION_NOT_FOUND",
+                          "workflowName" : "Default for 'User.1'",
+                          "transition" : ""
+                        },
+                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
+                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "entityModel" : "User.1",
+                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "actor" : {
+                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "legalId" : "TEST",
+                          "name" : "TEST_USER"
+                        }
+                      }, {
+                        "auditEventType" : "StateMachine",
+                        "state" : "None",
+                        "eventType" : "TRANSITION_MADE",
+                        "severity" : "DEBUG",
+                        "utcTime" : "2026-02-06T21:11:19.928002Z",
+                        "microsTime" : 1770412279928002,
+                        "data" : {
+                          "eventType" : "TRANSITION_MADE",
+                          "workflowName" : "Default for 'User.1'",
+                          "transition" : "NEW",
+                          "newState" : "CREATED"
+                        },
+                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
+                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "entityModel" : "User.1",
+                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "actor" : {
+                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "legalId" : "TEST",
+                          "name" : "TEST_USER"
+                        }
+                      }, {
+                        "auditEventType" : "StateMachine",
+                        "state" : "None",
+                        "eventType" : "TRANSITION_MADE",
+                        "severity" : "DEBUG",
+                        "utcTime" : "2026-02-06T21:11:19.928001Z",
+                        "microsTime" : 1770412279928001,
+                        "data" : {
+                          "eventType" : "TRANSITION_MADE",
+                          "workflowName" : "Default for 'User.1'",
+                          "transition" : "LOOPBACK",
+                          "newState" : "None"
+                        },
+                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
+                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "entityModel" : "User.1",
+                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "actor" : {
+                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "legalId" : "TEST",
+                          "name" : "TEST_USER"
+                        }
+                      }, {
+                        "auditEventType" : "StateMachine",
+                        "state" : "None",
+                        "eventType" : "WORKFLOW_FOUND",
+                        "severity" : "DEBUG",
+                        "utcTime" : "2026-02-06T21:11:19.928Z",
+                        "microsTime" : 1770412279928000,
+                        "data" : {
+                          "eventType" : "WORKFLOW_FOUND",
+                          "workflowName" : "Default for 'User.1'"
+                        },
+                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
+                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "entityModel" : "User.1",
+                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "actor" : {
+                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "legalId" : "TEST",
+                          "name" : "TEST_USER"
+                        }
+                      }, {
+                        "auditEventType" : "StateMachine",
+                        "state" : "None",
+                        "eventType" : "STARTED",
+                        "severity" : "INFO",
+                        "utcTime" : "2026-02-06T21:11:19.924001Z",
+                        "microsTime" : 1770412279924001,
+                        "data" : {
+                          "eventType" : "STARTED",
+                          "state" : "None"
+                        },
+                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
+                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "entityModel" : "User.1",
+                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "actor" : {
+                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "legalId" : "TEST",
+                          "name" : "TEST_USER"
+                        }
+                      } ]
                     }
         '400':
           $ref: '#/components/responses/ErrorResponse'
@@ -331,7 +395,7 @@ components:
           description: Identifier of the entity to retrieve audit events for
           type: string
           format: uuid
-        entityType:
+        entityModel:
           type: string
           description: Type of the entity related to this event (model.version)
         eventType:
@@ -378,9 +442,9 @@ components:
       discriminator:
         propertyName: auditEventType
         mapping:
-          StateMachine: '#/components/schemas/StateMachineEvent'
-          EntityChange: '#/components/schemas/EntityChangeEvent'
-          System: '#/components/schemas/SystemEvent'
+          StateMachine: '#/components/schemas/StateMachineAuditEvent'
+          EntityChange: '#/components/schemas/EntityChangeAuditEvent'
+          System: '#/components/schemas/SystemAuditEvent'
       properties:
         auditEventType:
           $ref: '#/components/schemas/AuditEventType'
@@ -403,7 +467,7 @@ components:
         entityId:
           type: string
           description: Identifier of the entity related to this event
-        entityType:
+        entityModel:
           type: string
           description: Type of the entity related to this event (model.version)
         transactionId:
@@ -424,8 +488,12 @@ components:
         - utcTime
         - microsTime
 
-    StateMachineEvent:
-      description: Audit event for state machine operations
+    StateMachineAuditEvent:
+      description: |
+        Audit event for state machine operations.
+
+        The 'details' field inherited from AuditEvent contains the structured eventDescription object
+        from the state machine event, providing detailed context about the operation that occurred.
       type: object
       allOf:
         - $ref: '#/components/schemas/AuditEvent'
@@ -437,29 +505,27 @@ components:
             eventType:
               type: string
               description: Type of the state machine event
-            workflowName:
-              type: string
-              description: Name of the related workflow, if any
-            transitionName:
-              type: string
-              description: Name of the related transition, if any
-            processorName:
-              type: string
-              description: Name of the related processor, if any
-            criteriaName:
-              type: string
-              description: Name of the related criteria, if any
-            targetState:
-              type: string
-              description: Name of the target state, if any
-            resultType:
-              type: string
-              description: Result of the state machine execution, if any
+              enum:
+                - STARTED
+                - FINISHED
+                - CANCELLED
+                - FORCED_SUCCESS
+                - WORKFLOW_FOUND
+                - WORKFLOW_NOT_FOUND
+                - WORKFLOW_SKIPPED
+                - TRANSITION_MADE
+                - TRANSITION_NOT_FOUND
+                - TRANSITION_CRITERION_NOT_MATCHED
+                - PROCESS_CRITERION_NOT_MATCHED
+                - PROCESSING_PAUSED
+                - STATE_PROCESS_RESULT
+            data:
+              $ref: '#/components/schemas/StateMachineEvent'
           required:
             - state
             - eventType
 
-    EntityChangeEvent:
+    EntityChangeAuditEvent:
       description: Audit event for entity changes
       allOf:
         - $ref: '#/components/schemas/AuditEvent'
@@ -489,7 +555,7 @@ components:
           type: object
           description: Entity after changes
 
-    SystemEvent:
+    SystemAuditEvent:
       description: System audit event
       type: object
       allOf:
@@ -516,3 +582,279 @@ components:
             data:
               type: object
               description: Object containing specific event data with technical information
+
+    # State Machine Event Types
+    StateMachineEventType:
+      type: string
+      description: Type of state machine event for polymorphic discriminator
+      enum:
+        - STARTED
+        - FINISHED
+        - CANCELLED
+        - FORCED_SUCCESS
+        - WORKFLOW_FOUND
+        - WORKFLOW_NOT_FOUND
+        - WORKFLOW_SKIPPED
+        - TRANSITION_MADE
+        - TRANSITION_NOT_FOUND
+        - TRANSITION_CRITERION_NOT_MATCHED
+        - PROCESS_CRITERION_NOT_MATCHED
+        - PROCESSING_PAUSED
+        - STATE_PROCESS_RESULT
+
+    StateMachineEvent:
+      type: object
+      description: Base type for state machine event using polymorphic discrimination
+      discriminator:
+        propertyName: eventType
+        mapping:
+          STARTED: '#/components/schemas/StateMachineStarted'
+          FINISHED: '#/components/schemas/StateMachineFinished'
+          CANCELLED: '#/components/schemas/StateMachineCancelled'
+          FORCED_SUCCESS: '#/components/schemas/StateMachineForcedSuccess'
+          WORKFLOW_FOUND: '#/components/schemas/StateMachineWorkflowFound'
+          WORKFLOW_NOT_FOUND: '#/components/schemas/StateMachineWorkflowNotFound'
+          WORKFLOW_SKIPPED: '#/components/schemas/StateMachineWorkflowSkipped'
+          TRANSITION_MADE: '#/components/schemas/StateMachineTransitionMade'
+          TRANSITION_NOT_FOUND: '#/components/schemas/StateMachineTransitionNotFound'
+          TRANSITION_CRITERION_NOT_MATCHED: '#/components/schemas/StateMachineTransitionCriterionNotMatched'
+          PROCESS_CRITERION_NOT_MATCHED: '#/components/schemas/StateMachineProcessCriterionNotMatched'
+          PROCESSING_PAUSED: '#/components/schemas/StateMachineProcessingPaused'
+          STATE_PROCESS_RESULT: '#/components/schemas/StateMachineStateProcessResult'
+      properties:
+        eventType:
+          $ref: '#/components/schemas/StateMachineEventType'
+      required:
+        - eventType
+
+    StateMachineStarted:
+      type: object
+      description: State machine started event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+      properties:
+        state:
+          type: string
+          description: The state of the entity when the state machine flow was started
+      required:
+        - state
+
+    StateMachineFinished:
+      description: State machine finished event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            success:
+              type: boolean
+              description: Whether the state machine execution was successful
+          required:
+            - success
+
+    StateMachineCancelled:
+      description: State machine cancelled event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            reason:
+              type: string
+              description: Reason for cancellation
+          required:
+            - reason
+
+    StateMachineForcedSuccess:
+      description: State machine forced success event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+
+    StateMachineWorkflowFound:
+      description: Workflow found event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            workflowName:
+              type: string
+              description: Name of the workflow that was found
+          required:
+            - workflowName
+
+    StateMachineWorkflowNotFound:
+      description: Workflow not found event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+
+    StateMachineWorkflowSkipped:
+      description: Workflow skipped event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            workflowName:
+              type: string
+              description: Name of the workflow that was skipped
+            reason:
+              type: string
+              description: Reason for skipping the workflow
+          required:
+            - workflowName
+            - reason
+
+    StateMachineTransitionMade:
+      description: Transition made event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            workflowName:
+              type: string
+              description: Name of the workflow
+            transition:
+              type: string
+              description: Name of the transition that was made
+            newState:
+              type: string
+              description: New state after the transition
+          required:
+            - workflowName
+            - transition
+            - newState
+
+    StateMachineTransitionNotFound:
+      description: Transition not found event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            workflowName:
+              type: string
+              description: Name of the workflow
+            transition:
+              type: string
+              description: Name of the transition that was not found
+              nullable: true
+          required:
+            - workflowName
+
+    StateMachineTransitionCriterionNotMatched:
+      description: Transition criterion not matched event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            workflowName:
+              type: string
+              description: Name of the workflow
+            transition:
+              type: string
+              description: Name of the transition
+            criterion:
+              type: string
+              description: Name of the criterion that was not matched
+            reason:
+              type: string
+              description: Reason why the criterion was not matched
+              nullable: true
+          required:
+            - workflowName
+            - transition
+            - criterion
+
+    StateMachineProcessCriterionNotMatched:
+      description: Process criterion not matched event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            workflowName:
+              type: string
+              description: Name of the workflow
+            processorClassName:
+              type: string
+              description: Fully qualified class name of the processor
+            criterion:
+              type: string
+              description: Name of the criterion that was not matched
+            reason:
+              type: string
+              description: Reason why the criterion was not matched
+              nullable: true
+          required:
+            - workflowName
+            - processorClassName
+            - criterion
+
+    StateMachineProcessingPaused:
+      description: Processing paused event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            workflowName:
+              type: string
+              description: Name of the workflow
+            transition:
+              type: string
+              description: Name of the transition
+            processNames:
+              type: array
+              description: List of process names that are paused
+              items:
+                type: string
+          required:
+            - workflowName
+            - transition
+            - processNames
+
+    StateMachineStateProcessResult:
+      description: State process result event
+      allOf:
+        - $ref: '#/components/schemas/StateMachineEvent'
+        - type: object
+          properties:
+            stateProcessId:
+              $ref: '#/components/schemas/StateProcessId'
+            stateProcessClassName:
+              type: string
+              description: Fully qualified class name of the state process
+            stateProcessType:
+              $ref: '#/components/schemas/StateProcessResultType'
+            failReason:
+              type: string
+              description: Reason for failure, if applicable
+              nullable: true
+          required:
+            - stateProcessId
+            - stateProcessClassName
+            - stateProcessType
+
+    StateProcessId:
+      type: object
+      description: Identifier for a state process
+      properties:
+        persisted:
+          type: boolean
+          description: Whether the process is persisted
+          default: false
+        persistedId:
+          type: string
+          format: uuid
+          description: Persisted identifier, if applicable
+          nullable: true
+        runtimeId:
+          type: integer
+          description: Runtime identifier
+          default: 0
+      required:
+        - persisted
+        - runtimeId
+
+    StateProcessResultType:
+      type: string
+      description: Type of state process result
+      enum:
+        - SUCCESS
+        - FAIL
+        - RESUBMIT
+        - UNKNOWN
