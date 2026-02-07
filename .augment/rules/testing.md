@@ -1,6 +1,6 @@
 ---
 type: "agent_requested"
-description: "Example description"
+description: "Rules for writing and running unit and integration tests"
 ---
 
 # Testing Rules

@@ -1,3 +1,8 @@
+---
+type: "always_apply"
+description: "General coding practices rules"
+---
+
 # Coding Practices Rules
 
 > **SCOPE**: Apply these rules anytime you write code.

@@ -1,6 +1,6 @@
 ---
 type: "agent_requested"
-description: "Example description"
+description: "Rules for writing comments in code."
 ---
 
 # Code Comments Rules
