@@ -77,8 +77,8 @@ paths:
                                   "manual": false,
                                   "processors": [
                                     {
-                                      "name": "validate_customer_data",
                                       "type": "externalized",
+                                      "name": "validate_customer_data",
                                       "executionMode": "SYNC",
                                       "config": {
                                         "attachEntity": true,
@@ -122,8 +122,8 @@ paths:
                                   },
                                   "processors": [
                                     {
-                                      "name": "setup_premium_features",
                                       "type": "externalized",
+                                      "name": "setup_premium_features",
                                       "executionMode": "ASYNC_NEW_TX",
                                       "config": {
                                         "attachEntity": true,
@@ -358,8 +358,8 @@ paths:
                                 "manual": true,
                                 "processors": [
                                   {
-                                    "name": "validate_enterprise_data",
                                     "type": "externalized",
+                                    "name": "validate_enterprise_data",
                                     "executionMode": "SYNC",
                                     "config": {
                                       "attachEntity": true,
@@ -369,6 +369,7 @@ paths:
                                     }
                                   },
                                   {
+                                    "type": "externalized",
                                     "name": "notify_review_team",
                                     "executionMode": "ASYNC_NEW_TX",
                                     "config": {
@@ -436,8 +437,8 @@ paths:
                                 "manual": false,
                                 "processors": [
                                   {
-                                    "name": "setup_enterprise_features",
                                     "type": "externalized",
+                                    "name": "setup_enterprise_features",
                                     "executionMode": "ASYNC_NEW_TX",
                                     "config": {
                                       "attachEntity": true,

@@ -118,15 +118,15 @@ paths:
                       "items" : [ {
                         "auditEventType" : "System",
                         "severity" : "INFO",
-                        "utcTime" : "2026-02-06T21:11:19.934Z",
-                        "microsTime" : 1770412279934000,
-                        "doneTime" : "2026-02-06T21:11:19.941Z",
+                        "utcTime" : "2026-02-09T18:07:58.879002Z",
+                        "microsTime" : 1770660478879002,
+                        "doneTime" : "2026-02-09T18:07:58.883Z",
                         "queueName" : "TRANSACTION_EXEC_1_PHASE_VERSION_CHECK",
-                        "shardId" : "6",
+                        "shardId" : "4",
                         "status" : "PROCESSED",
                         "data" : {
                           "core" : {
-                            "userId" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                            "userId" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
                             "processIds" : [ {
                               "directProcessKey" : 11,
                               "type" : "DIRECT"
@@ -135,23 +135,23 @@ paths:
                             "workflowExecId" : null,
                             "workflowStackDepth" : 0,
                             "resubmitMetaInfo" : null,
-                            "submittedTransactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                            "submittedTransactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
                             "entitiesCountInTransaction" : 1,
-                            "transactionConsistencyTime" : "61a91e36-03a0-11f1-7f7f-7f7f7f7f7f7f",
-                            "transactionSubmitTime" : "6204d2d0-03a0-11f1-a2ff-ae468cd3ed16",
+                            "transactionConsistencyTime" : "43c81586-05e2-11f1-7f7f-7f7f7f7f7f7f",
+                            "transactionSubmitTime" : "441e72f0-05e2-11f1-903f-ae468cd3ed16",
                             "parentTransactionsIds" : [ ],
                             "currentExpectedEntityVersion" : null,
                             "transEntityClassIndex" : 1190,
-                            "transEntityIdSerialized" : "B/ZOUCLTEbKgqq7WNXjmVA==",
+                            "transEntityIdSerialized" : "DPhBYiRrEbKfj/pEP+BbsQ==",
                             "actionType" : "UPDATE",
                             "eventTypeIndex" : 7
                           },
                           "client" : {
-                            "traceId" : -7561544248689871273,
-                            "traceIdHigh" : 7603862840665887685
+                            "traceId" : -7320170933065850375,
+                            "traceIdHigh" : 7604928849563958455
                           }
                         },
-                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
                         "entityModel" : "User.1",
                         "actor" : {
                           "id" : "00000866-0000-1000-8080-808080808080",
@@ -163,8 +163,8 @@ paths:
                         "auditEventType" : "EntityChange",
                         "changeType" : "CREATED",
                         "severity" : "INFO",
-                        "utcTime" : "2026-02-06T21:11:19.933Z",
-                        "microsTime" : 1770412279933000,
+                        "utcTime" : "2026-02-09T18:07:58.879Z",
+                        "microsTime" : 1770660478879000,
                         "changes" : {
                           "after" : {
                             "name" : "Alice",
@@ -172,12 +172,12 @@ paths:
                             "active" : false
                           }
                         },
-                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
-                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
                         "entityModel" : "User.1",
-                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
                         "actor" : {
-                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
                           "legalId" : "TEST",
                           "name" : "TEST_USER"
                         }
@@ -186,126 +186,136 @@ paths:
                         "state" : "CREATED",
                         "eventType" : "FINISHED",
                         "severity" : "INFO",
-                        "utcTime" : "2026-02-06T21:11:19.928004Z",
-                        "microsTime" : 1770412279928004,
+                        "utcTime" : "2026-02-09T18:07:58.869004Z",
+                        "microsTime" : 1770660478869004,
                         "data" : {
                           "eventType" : "FINISHED",
-                          "success" : true
+                          "success" : true,
+                          "stopReason" : {
+                            "type" : "COMPLETED_NO_AUTO_TRANSITIONS",
+                            "description" : "Workflow completed - no auto-transitions available from current state"
+                          }
                         },
-                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
-                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
                         "entityModel" : "User.1",
-                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
                         "actor" : {
-                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
                           "legalId" : "TEST",
                           "name" : "TEST_USER"
-                        }
+                        },
+                        "details" : "State machine finished with result: true. Stop reason: Workflow completed - no auto-transitions available from current state"
                       }, {
                         "auditEventType" : "StateMachine",
                         "state" : "CREATED",
                         "eventType" : "TRANSITION_NOT_FOUND",
                         "severity" : "DEBUG",
-                        "utcTime" : "2026-02-06T21:11:19.928003Z",
-                        "microsTime" : 1770412279928003,
+                        "utcTime" : "2026-02-09T18:07:58.869003Z",
+                        "microsTime" : 1770660478869003,
                         "data" : {
                           "eventType" : "TRANSITION_NOT_FOUND",
                           "workflowName" : "Default for 'User.1'",
                           "transition" : ""
                         },
-                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
-                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
                         "entityModel" : "User.1",
-                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
                         "actor" : {
-                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
                           "legalId" : "TEST",
                           "name" : "TEST_USER"
-                        }
+                        },
+                        "details" : "State machine transition [] from state [CREATED] of workflow [Default for 'User.1'] not found"
                       }, {
                         "auditEventType" : "StateMachine",
                         "state" : "None",
                         "eventType" : "TRANSITION_MADE",
                         "severity" : "DEBUG",
-                        "utcTime" : "2026-02-06T21:11:19.928002Z",
-                        "microsTime" : 1770412279928002,
+                        "utcTime" : "2026-02-09T18:07:58.869002Z",
+                        "microsTime" : 1770660478869002,
                         "data" : {
                           "eventType" : "TRANSITION_MADE",
                           "workflowName" : "Default for 'User.1'",
                           "transition" : "NEW",
                           "newState" : "CREATED"
                         },
-                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
-                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
                         "entityModel" : "User.1",
-                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
                         "actor" : {
-                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
                           "legalId" : "TEST",
                           "name" : "TEST_USER"
-                        }
+                        },
+                        "details" : "Making State machine transition[NEW] of workflow[Default for 'User.1']. New state: CREATED"
                       }, {
                         "auditEventType" : "StateMachine",
                         "state" : "None",
                         "eventType" : "TRANSITION_MADE",
                         "severity" : "DEBUG",
-                        "utcTime" : "2026-02-06T21:11:19.928001Z",
-                        "microsTime" : 1770412279928001,
+                        "utcTime" : "2026-02-09T18:07:58.869001Z",
+                        "microsTime" : 1770660478869001,
                         "data" : {
                           "eventType" : "TRANSITION_MADE",
                           "workflowName" : "Default for 'User.1'",
                           "transition" : "LOOPBACK",
                           "newState" : "None"
                         },
-                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
-                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
                         "entityModel" : "User.1",
-                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
                         "actor" : {
-                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
                           "legalId" : "TEST",
                           "name" : "TEST_USER"
-                        }
+                        },
+                        "details" : "Making State machine transition[LOOPBACK] of workflow[Default for 'User.1']. New state: None"
                       }, {
                         "auditEventType" : "StateMachine",
                         "state" : "None",
                         "eventType" : "WORKFLOW_FOUND",
                         "severity" : "DEBUG",
-                        "utcTime" : "2026-02-06T21:11:19.928Z",
-                        "microsTime" : 1770412279928000,
+                        "utcTime" : "2026-02-09T18:07:58.869Z",
+                        "microsTime" : 1770660478869000,
                         "data" : {
                           "eventType" : "WORKFLOW_FOUND",
                           "workflowName" : "Default for 'User.1'"
                         },
-                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
-                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
                         "entityModel" : "User.1",
-                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
                         "actor" : {
-                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
                           "legalId" : "TEST",
                           "name" : "TEST_USER"
-                        }
+                        },
+                        "details" : "State machine workflow found: Default for 'User.1'"
                       }, {
                         "auditEventType" : "StateMachine",
                         "state" : "None",
                         "eventType" : "STARTED",
                         "severity" : "INFO",
-                        "utcTime" : "2026-02-06T21:11:19.924001Z",
-                        "microsTime" : 1770412279924001,
+                        "utcTime" : "2026-02-09T18:07:58.861001Z",
+                        "microsTime" : 1770660478861001,
                         "data" : {
                           "eventType" : "STARTED",
                           "state" : "None"
                         },
-                        "consistencyTime" : "2026-02-06T21:11:19.331Z",
-                        "entityId" : "07f64e50-22d3-11b2-a0aa-aed63578e654",
+                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
                         "entityModel" : "User.1",
-                        "transactionId" : "6202fe10-03a0-11f1-a2ff-ae468cd3ed16",
+                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
                         "actor" : {
-                          "id" : "5f50884a-03a0-11f1-a2ff-ae468cd3ed16",
+                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
                           "legalId" : "TEST",
                           "name" : "TEST_USER"
-                        }
+                        },
+                        "details" : "State machine started"
                       } ]
                     }
         '400':
@@ -316,6 +326,148 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '404':
           $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /audit/entity/{entityId}/workflow/{transactionId}/finished:
+    get:
+      summary: Get latest workflow finished event for transaction
+      description: |
+        Retrieves the StateMachine Finished event for a specific entity and transaction.
+        This endpoint provides quick access to the workflow outcome for that transaction without needing to
+        search through all audit events.
+
+        Both entityId and transactionId must be valid time-based UUIDs (version 1).
+      operationId: getStateMachineFinishedEvent
+      tags:
+        - Entity, Audit
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          description: |
+            Identifier of the entity. Must be a valid time-based UUID (version 1).
+          schema:
+            type: string
+            format: uuid
+        - name: transactionId
+          in: path
+          required: true
+          description: |
+            Identifier of the transaction. Must be a valid time-based UUID (version 1).
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workflow finished event retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateMachineFinished'
+              examples:
+                SuccessfulCompletion:
+                  summary: Workflow completed successfully
+                  description: Example of a successful workflow completion with no auto-transitions available
+                  value: |
+                    {
+                      "eventType" : "FINISHED",
+                      "success" : true,
+                      "state" : "VALIDATED",
+                      "stopReason" : {
+                        "type" : "COMPLETED_NO_AUTO_TRANSITIONS",
+                        "description" : "Workflow completed - no auto-transitions available from current state"
+                      }
+                    }
+                FailedWithCriteriaRejection:
+                  summary: Workflow stopped due to criteria rejection
+                  description: Example of a workflow that stopped because all transition criteria failed
+                  value: |
+                    {
+                      "eventType" : "FINISHED",
+                      "success" : false,
+                      "state" : "INELIGIBLE",
+                      "stopReason" : {
+                        "type" : "COMPLETED_ALL_CRITERIA_REJECTED",
+                        "description" : "Workflow stopped - all available transitions had their criteria rejected",
+                        "rejectedTransitions" : [ {
+                          "transitionName" : "approve",
+                          "criterion" : "isEligible",
+                          "reason" : "Entity does not meet eligibility requirements"
+                        } ]
+                      }
+                    }
+        '400':
+          description: Invalid request - UUID is not time-based
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                EntityIdNotTimeBased:
+                  summary: Entity ID is not a time-based UUID
+                  value: |
+                    {
+                      "type" : "about:blank",
+                      "title" : "Bad Request",
+                      "status" : 400,
+                      "detail" : "id=550e8400-e29b-41d4-a716-446655440000 is not a time-based UUID (version 1)",
+                      "instance" : "/audit/entity/550e8400-e29b-41d4-a716-446655440000/workflow/441b65b0-05e2-11f1-903f-ae468cd3ed16/finished",
+                      "properties" : {
+                        "id" : "550e8400-e29b-41d4-a716-446655440000"
+                      }
+                    }
+                TransactionIdNotTimeBased:
+                  summary: Transaction ID is not a time-based UUID
+                  value: |
+                    {
+                      "type" : "about:blank",
+                      "title" : "Bad Request",
+                      "status" : 400,
+                      "detail" : "id=550e8400-e29b-41d4-a716-446655440000 is not a time-based UUID (version 1)",
+                      "instance" : "/audit/entity/0cf84162-246b-11b2-9f8f-fa443fe05bb1/workflow/550e8400-e29b-41d4-a716-446655440000/finished",
+                      "properties" : {
+                        "id" : "550e8400-e29b-41d4-a716-446655440000"
+                      }
+                    }
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          description: Entity or transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                EntityNotFound:
+                  summary: Entity not found
+                  value: |
+                    {
+                      "type" : "about:blank",
+                      "title" : "Not Found",
+                      "status" : 404,
+                      "detail" : "entity id=0cf84162-246b-11b2-9f8f-fa443fe05bb1 not found",
+                      "instance" : "/audit/entity/0cf84162-246b-11b2-9f8f-fa443fe05bb1/workflow/441b65b0-05e2-11f1-903f-ae468cd3ed16/finished",
+                      "properties" : {
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1"
+                      }
+                    }
+                TransactionNotFound:
+                  summary: No finished event found for transaction
+                  value: |
+                    {
+                      "type" : "about:blank",
+                      "title" : "Not Found",
+                      "status" : 404,
+                      "detail" : "No finished event found for entity id=0cf84162-246b-11b2-9f8f-fa443fe05bb1 and transactionId=441b65b0-05e2-11f1-903f-ae468cd3ed16",
+                      "instance" : "/audit/entity/0cf84162-246b-11b2-9f8f-fa443fe05bb1/workflow/441b65b0-05e2-11f1-903f-ae468cd3ed16/finished",
+                      "properties" : {
+                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
+                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16"
+                      }
+                    }
         '500':
           $ref: '#/components/responses/ErrorResponse'
 
@@ -589,7 +741,7 @@ components:
       description: The reason why a workflow stopped
       enum:
         - COMPLETED_NO_AUTO_TRANSITIONS
-        - COMPLETED_ALL_CRITERIA_FAILED
+        - COMPLETED_ALL_CRITERIA_REJECTED
         - PAUSED_FOR_PROCESSING
         - CANCELED
         - NO_WORKFLOW_FOUND
@@ -607,28 +759,32 @@ components:
         description:
           type: string
           description: Human-readable description of why the workflow stopped
-        failedTransitions:
+        rejectedTransitions:
           type: array
-          description: If stopped due to criteria failures, the transitions that were evaluated
+          description: If stopped due to criteria rejections, the transitions that were rejected
           items:
-            $ref: '#/components/schemas/FailedTransitionCriterion'
+            $ref: '#/components/schemas/RejectedTransitionCriterion'
       required:
         - type
         - description
 
-    FailedTransitionCriterion:
+    RejectedTransitionCriterion:
       type: object
-      description: Represents a transition that was evaluated but its criterion returned false
+      description: Represents a transition that could not be applied because its criterion returned false
       properties:
         transitionName:
           type: string
           description: The name of the transition
-        criterionReason:
+        criterion:
           type: string
-          description: The reason returned by the criteria checker
+          description: The name of the criterion
+        reason:
+          type: string
+          description: The reason why the criterion returned false
       required:
         - transitionName
-        - criterionReason
+        - criterion
+        - reason
 
     # State Machine Event Types
     StateMachineEventType:
@@ -692,12 +848,16 @@ components:
         - $ref: '#/components/schemas/StateMachineEvent'
         - type: object
           properties:
+            state:
+              type: string
+              description: The state of the entity when the state machine flow was finished
             success:
               type: boolean
               description: Whether the state machine execution was successful
             stopReason:
               $ref: '#/components/schemas/WorkflowStopReason'
           required:
+            - state
             - success
             - stopReason
 
