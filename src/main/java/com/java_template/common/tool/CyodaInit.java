@@ -38,7 +38,7 @@ import java.util.stream.Stream;
 public class CyodaInit {
     private static final Logger logger = LoggerFactory.getLogger(CyodaInit.class);
     private static final Path WORKFLOW_DTO_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/resources/workflow");
-    private static final Path ENTITY_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/java/com/riskblocs/application/entity");
+    private static final Path ENTITY_DIR = Paths.get(System.getProperty("user.dir")).resolve("src/main/java/com/java_template/application/entity");
     public static final int THREAD_POOL_SIZE = 20;
 
     private final HttpUtils httpUtils;
@@ -143,7 +143,7 @@ public class CyodaInit {
             String relativePath = ENTITY_DIR.relativize(javaFile).toString();
             String className = relativePath.replace(File.separator, ".")
                     .replace(".java", "");
-            String fullClassName = "com.riskblocs.application.entity." + className;
+            String fullClassName = "com.java_template.application.entity." + className;
 
             // Load the class
             Class<?> clazz = Class.forName(fullClassName);
