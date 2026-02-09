@@ -583,6 +583,53 @@ components:
               type: object
               description: Object containing specific event data with technical information
 
+    # State Machine Stop Reason Types
+    StopReasonType:
+      type: string
+      description: The reason why a workflow stopped
+      enum:
+        - COMPLETED_NO_AUTO_TRANSITIONS
+        - COMPLETED_ALL_CRITERIA_FAILED
+        - PAUSED_FOR_PROCESSING
+        - CANCELED
+        - NO_WORKFLOW_FOUND
+        - WORKFLOW_SKIPPED
+        - FORCE_SUCCESS
+        - INCOMPLETE_TRANSACTION
+        - UNKNOWN
+
+    WorkflowStopReason:
+      type: object
+      description: Detailed information about why a workflow stopped
+      properties:
+        type:
+          $ref: '#/components/schemas/StopReasonType'
+        description:
+          type: string
+          description: Human-readable description of why the workflow stopped
+        failedTransitions:
+          type: array
+          description: If stopped due to criteria failures, the transitions that were evaluated
+          items:
+            $ref: '#/components/schemas/FailedTransitionCriterion'
+      required:
+        - type
+        - description
+
+    FailedTransitionCriterion:
+      type: object
+      description: Represents a transition that was evaluated but its criterion returned false
+      properties:
+        transitionName:
+          type: string
+          description: The name of the transition
+        criterionReason:
+          type: string
+          description: The reason returned by the criteria checker
+      required:
+        - transitionName
+        - criterionReason
+
     # State Machine Event Types
     StateMachineEventType:
       type: string
@@ -648,8 +695,11 @@ components:
             success:
               type: boolean
               description: Whether the state machine execution was successful
+            stopReason:
+              $ref: '#/components/schemas/WorkflowStopReason'
           required:
             - success
+            - stopReason
 
     StateMachineCancelled:
       description: State machine cancelled event
