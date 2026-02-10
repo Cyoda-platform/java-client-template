@@ -82,6 +82,7 @@ paths:
           description: Filter by transaction identifier
           schema:
             type: string
+            format: uuid
         - name: cursor
           in: query
           required: false
@@ -568,6 +569,7 @@ components:
           description: Filter events until this timestamp (exclusive)
         transactionId:
           type: string
+          format: uuid
           description: Filter by transaction identifier
 
 
@@ -618,12 +620,14 @@ components:
           description: time in microseconds when the event occurred
         entityId:
           type: string
+          format: uuid
           description: Identifier of the entity related to this event
         entityModel:
           type: string
           description: Type of the entity related to this event (model.version)
         transactionId:
           type: string
+          format: uuid
           description: Transaction identifier related to this event
         actor:
           $ref: '#/components/schemas/AuditActorInfo'
