@@ -1,0 +1,8 @@
+{
+  "entityName": "Subscriber",
+  "modelVersion": 1,
+  "email": "", 
+  "optInTimestamp": null,
+  "unsubscribed": false,
+  "unsubscribeTimestamp": null
+}
