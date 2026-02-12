@@ -1,0 +1,12 @@
+{
+  "name": "Customer",
+  "modelVersion": 1,
+  "properties": {
+    "id": { "type": "UUID" },
+    "firstName": { "type": "String", "required": true },
+    "lastName": { "type": "String", "required": true },
+    "email": { "type": "String", "required": true, "format": "email", "unique": true },
+    "createdAt": { "type": "Instant" },
+    "updatedAt": { "type": "Instant" }
+  }
+}
