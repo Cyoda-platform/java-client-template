@@ -1,0 +1,9 @@
+{
+  "entityName": "DeliveryReport",
+  "modelVersion": 1,
+  "weekStartDate": "",
+  "totalSubscribers": 0,
+  "emailsSent": 0,
+  "bounces": 0,
+  "failures": 0
+}
