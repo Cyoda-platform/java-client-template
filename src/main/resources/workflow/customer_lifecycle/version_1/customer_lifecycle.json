@@ -1,0 +1,37 @@
+{
+  "version": "1",
+  "name": "customer_lifecycle",
+  "desc": "Lifecycle for Customer entity: creation, verification, activation, suspension, deletion",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        { "name": "verify_email", "next": "verified", "manual": false },
+        { "name": "delete", "next": "deleted", "manual": true }
+      ]
+    },
+    "verified": {
+      "transitions": [
+        { "name": "activate", "next": "active", "manual": true },
+        { "name": "suspend", "next": "suspended", "manual": true },
+        { "name": "delete", "next": "deleted", "manual": true }
+      ]
+    },
+    "active": {
+      "transitions": [
+        { "name": "suspend", "next": "suspended", "manual": true },
+        { "name": "deactivate", "next": "deleted", "manual": true }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        { "name": "reactivate", "next": "active", "manual": true },
+        { "name": "delete", "next": "deleted", "manual": true }
+      ]
+    },
+    "deleted": {
+      "transitions": []
+    }
+  }
+}
