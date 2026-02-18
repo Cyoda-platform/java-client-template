@@ -1,0 +1,38 @@
+{
+  "version": "1",
+  "name": "content_workflow",
+  "description": "Workflow for article creation with review loops",
+  "initialState": "draft",
+  "active": true,
+  "states": {
+    "draft": {
+      "transitions": [
+        { "manual": true, "name": "start_working", "next": "in_progress" }
+      ]
+    },
+    "in_progress": {
+      "transitions": [
+        { "manual": true, "name": "send_to_review", "next": "in_review" },
+        { "manual": true, "name": "put_on_hold", "next": "on_hold" } 
+      ]
+    },
+    "on_hold": {
+      "transitions": [
+        { "manual": true, "name": "resume", "next": "in_progress" }
+      ]
+    },
+    "in_review": {
+      "transitions": [
+        { "manual": true, "name": "approve", "next": "published" },
+        { "manual": true, "name": "reject_for_fixes", "next": "in_progress" }, 
+        { "manual": false, "name": "re_review_loop", "next": "in_review" }
+      ]
+    },
+    "published": {
+      "transitions": [
+        { "manual": true, "name": "archive", "next": "archived" }
+      ]
+    },
+    "archived": { "transitions": [] }
+  }
+}
