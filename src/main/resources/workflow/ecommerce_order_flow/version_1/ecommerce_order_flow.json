@@ -1,0 +1,99 @@
+{
+  "version": "2",
+  "name": "ecommerce_order_flow",
+  "description": "Order flow with conditional logic based on risk score",
+  "initialState": "order_created",
+  "active": true,
+  "states": {
+    "order_created": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "check_risk",
+          "next": "risk_assessment",
+          "processors": [
+            {
+              "config": {
+                "service": "risk_engine_v2",
+                "responseTimeoutMs": 5000,
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "SYNC",
+              "name": "risk_calculator_processor"
+            }
+          ]
+        }
+      ]
+    },
+    "risk_assessment": {
+      "transitions": [
+        {
+          "criterion": {
+            "jsonPath": "$.riskScore",
+            "operation": "GREATER_THAN",
+            "type": "simple",
+            "value": 80
+          },
+          "manual": false,
+          "name": "flag_high_risk",
+          "next": "manual_review"
+        },
+        {
+          "criterion": {
+            "jsonPath": "$.riskScore",
+            "operation": "LESS_OR_EQUAL",
+            "type": "simple",
+            "value": 80
+          },
+          "manual": false,
+          "name": "auto_approve",
+          "next": "awaiting_payment"
+        }
+      ]
+    },
+    "manual_review": {
+      "transitions": [
+        {
+          "manual": true,
+          "name": "approve_manually",
+          "next": "awaiting_payment"
+        },
+        {
+          "manual": true,
+          "name": "reject_fraud",
+          "next": "canceled"
+        }
+      ]
+    },
+    "awaiting_payment": {
+      "transitions": [
+        {
+          "manual": false,
+          "name": "payment_received",
+          "next": "paid",
+          "processors": [
+            {
+              "config": {
+                "gateway": "stripe",
+                "responseTimeoutMs": 15000,
+                "calculationNodesTags": "cyoda_application"
+              },
+              "executionMode": "ASYNC_NEW_TX",
+              "name": "capture_funds_processor"
+            }
+          ]
+        }
+      ]
+    },
+    "paid": {
+      "isFinal": true,
+      "name": "Paid & Ready",
+      "transitions": []
+    },
+    "canceled": {
+      "isFinal": true,
+      "name": "Canceled",
+      "transitions": []
+    }
+  }
+}
