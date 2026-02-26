@@ -1,0 +1,9 @@
+{
+  "id": "trade-{{uuid}}",
+  "orderId": "order-{{uuid}}",
+  "venue": "NYSE",
+  "execPrice": 150.25,
+  "execQuantity": 100,
+  "fees": 1.25,
+  "timestamp": "{{now}}"
+}
