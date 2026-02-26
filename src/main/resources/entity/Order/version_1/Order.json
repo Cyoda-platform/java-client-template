@@ -1,0 +1,13 @@
+{
+  "id": "order-{{uuid}}",
+  "clientId": "client-123",
+  "symbol": "AAPL",
+  "side": "BUY",
+  "quantity": 100,
+  "price": 150.0,
+  "type": "LIMIT",
+  "legs": null,
+  "status": "NEW",
+  "createdAt": "{{now}}",
+  "updatedAt": "{{now}}"
+}
