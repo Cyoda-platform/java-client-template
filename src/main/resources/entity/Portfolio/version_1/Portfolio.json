@@ -1,0 +1,7 @@
+{
+  "portfolioId": "portfolio-123",
+  "owner": "institution-xyz",
+  "positions": [
+    {"symbol": "AAPL", "netQuantity": 100, "avgPrice": 149.5}
+  ]
+}
