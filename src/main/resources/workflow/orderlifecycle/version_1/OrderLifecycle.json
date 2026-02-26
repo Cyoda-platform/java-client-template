@@ -1,0 +1,59 @@
+{
+  "version": "1",
+  "name": "OrderLifecycle",
+  "desc": "Order lifecycle for institutional orders: create -> validate -> route -> execute -> settle -> report -> complete",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        {"name": "validate", "next": "validated", "manual": false},
+        {"name": "cancel", "next": "cancelled", "manual": true}
+      ]
+    },
+    "validated": {
+      "transitions": [
+        {"name": "pre_trade_checks", "next": "pre_trade_cleared", "manual": false},
+        {"name": "reject", "next": "rejected", "manual": true},
+        {"name": "cancel", "next": "cancelled", "manual": true}
+      ]
+    },
+    "pre_trade_cleared": {
+      "transitions": [
+        {"name": "route", "next": "routed", "manual": false}
+      ]
+    },
+    "routed": {
+      "transitions": [
+        {"name": "execute", "next": "executed", "manual": false},
+        {"name": "fail", "next": "failed", "manual": false}
+      ]
+    },
+    "executed": {
+      "transitions": [
+        {"name": "settle", "next": "settled", "manual": false},
+        {"name": "amend", "next": "amended", "manual": true}
+      ]
+    },
+    "amended": {
+      "transitions": [
+        {"name": "validate_amend", "next": "validated", "manual": false},
+        {"name": "cancel", "next": "cancelled", "manual": true}
+      ]
+    },
+    "settled": {
+      "transitions": [
+        {"name": "report", "next": "reported", "manual": false}
+      ]
+    },
+    "reported": {
+      "transitions": [
+        {"name": "complete", "next": "completed", "manual": false}
+      ]
+    },
+    "completed": {"transitions": []},
+    "rejected": {"transitions": []},
+    "failed": {"transitions": [{"name": "retry", "next": "routed", "manual": true}, {"name": "cancel", "next": "cancelled", "manual": true}]},
+    "cancelled": {"transitions": []}
+  }
+}
