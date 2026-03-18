@@ -1,98 +1,136 @@
-# Test Management System (TMS) — MVP v1.0 Specification
+# [cite_start]TMS Architecture (MVP v1.0) for Cyoda AI 
 
-## 1. Project Objective
-To build a lightweight, fast, and straightforward Test Management System. It covers the fundamental QA lifecycle: **"Write tests -> Group -> Execute -> Show results,"** while ensuring data integrity and professional reporting.
+## [cite_start]1. Entities [cite: 2]
 
----
-
-## 2. General Requirements & Modules
-
-### Module 1: Workspace & Access Control
-* **Authentication:** Restricted to predefined accounts (Admin/Tester). No open registration.
-* **Data Isolation:** Projects act as isolated containers. Database queries are restricted by `Project ID`.
-* **RBAC:**
-    * **Admin:** Full CRUD for all entities.
-    * **Tester:** Read-only for repository; execute-only for test runs.
-
-### Module 2: Test Repository
-* **Grouping:** Single-level Suites (no nested folders).
-* **Structure:** Title, Description, Pre-conditions, Priority, and an Array of Steps (Action + Expected Result).
-* **Attachments:** Managed via EdgeMessage API.
-* **Search:** Deep search across all text fields (Titles, Steps, etc.).
-* **Import/Export:** Support for CSV and XML formats.
-
-### Module 3: Test Execution
-* **Snapshots:** Creating a Run captures an immutable version of the test cases.
-* **Atomic Failure:** If one step fails, the entire case is marked as "Failed."
-* **Evidence:** Attach logs/screenshots to specific steps. Link external Bug URLs.
-* **Locking:** Completed runs are read-only unless unlocked by an Admin.
+* [cite_start]**User**: System user. [cite: 3] [cite_start]Registration is disabled; access is restricted to predefined admin and tester accounts with fixed passwords. [cite: 3]
+* [cite_start]**Project**: Isolated container where all data is strictly bound to a Project ID to ensure no cross-project leakage. [cite: 4]
+* [cite_start]**Suite**: Single-level folder used to group test cases within a project; nested folders are prohibited. [cite: 5]
+* [cite_start]**TestCase**: Core repository entity containing a Title, Description, Pre-conditions, and Priority (High, Medium, Low). [cite: 6]
+* [cite_start]**TestStep**: A specific, sequential step within a TestCase consisting of an Action and an Expected Result. [cite: 7]
+* [cite_start]**Attachment**: Record of an uploaded file (image, log, etc.) containing the URL generated via the EdgeMessage API. [cite: 8]
+* [cite_start]**TestRun**: Execution instance for a set of tests, tracking the Title, Environment, and aggregated real-time metrics. [cite: 9]
+* [cite_start]**TestRunCase**: A "snapshot" copy of a test case at the start of a run, including a Bug URL field. [cite: 10]
+* [cite_start]**TestRunStep**: A "snapshot" copy of a step for execution, tracking individual statuses (Passed, Failed, Skipped, Untested). [cite: 11]
 
 ---
 
-## 3. Functional Requirements (FR)
+## [cite_start]2. Integrated Workflows [cite: 12]
 
-### Workspace & Projects
-* **FR 1.1:** Restrict access to hardcoded `admin` and `tester` accounts.
-* **FR 1.2:** All operations must occur within a single workspace context.
-* **FR 1.3:** Strict data isolation between projects.
+### [cite_start]Workflow: Project [cite: 13]
+* [cite_start]**States**: Active, Deleted. [cite: 14]
+* **Transitions**: 
+    * [cite_start]Create Project (Initializes workspace) [cite: 17][cite_start], Update Project [cite: 18][cite_start], Delete Project[cite: 20].
+    * [cite_start]Import Test Data (Bulk-generates entities from CSV/XML). [cite: 21]
+* **Rules**: 
+    * [cite_start]**Criteria**: RequireAdmin Role. [cite: 23]
+    * [cite_start]**Processor**: DataImport Export Processor. [cite: 25]
 
-### Management
-* **FR 2.1:** Support for single-level Suites only.
-* **FR 2.2:** Mandatory Title and Step fields (Action/Expected Result).
-* **FR 2.3:** Soft Delete: Hidden from UI but preserved in historical Run snapshots.
-* **FR 2.4:** Deep keyword search across all test case metadata.
+### [cite_start]Workflow: Suite [cite: 26]
+* [cite_start]**States**: Active, Deleted. [cite: 27]
+* [cite_start]**Transitions**: Create Suite, Update Suite, Delete Suite. [cite: 28]
+* **Rules**: 
+    * [cite_start]**Criteria**: RequireAdmin Role, ProjectIsolationCheck, PreventNestedSuites. [cite: 31]
 
-### Execution & Reporting
-* **FR 3.1:** Step-level status tracking (Passed, Failed, Skipped).
-* **FR 3.2:** Automatic status aggregation (Atomic Failure logic).
-* **FR 3.3:** Real-time metrics calculation (Total, %, Status counts).
-* **FR 3.4:** Export execution reports to PDF/CSV.
+### [cite_start]Workflow: TestCase & TestStep [cite: 32]
+* [cite_start]**States**: Active, Deleted (Soft Delete). [cite: 33]
+* [cite_start]**Transitions**: Create, Update, Soft Delete. [cite: 34]
+* **Rules**: 
+    * [cite_start]**Criteria**: RequireAdmin Role, ProjectIsolationCheck. [cite: 36]
+
+### [cite_start]Workflow: TestRun [cite: 37]
+* [cite_start]**States**: Active, Completed (Locked). [cite: 38]
+* [cite_start]**Transitions**: Initialize Run [cite: 41][cite_start], Complete Run [cite: 42][cite_start], Unlock Run. [cite: 43]
+* **Rules**: 
+    * [cite_start]**Criteria**: Require Tester OrAdminRole (for Initialize/Complete), RequireAdmin Role (for Unlock), ProjectIsolationCheck. [cite: 45]
+    * [cite_start]**Processors**: Snapshot Processor, MetricsAggregator Processor. [cite: 46]
+
+### [cite_start]Workflow: TestRunStep [cite: 47]
+* [cite_start]**States**: Untested, Passed, Failed, Skipped. [cite: 48]
+* [cite_start]**Transitions**: Update Status. [cite: 49]
+* **Rules**: 
+    * [cite_start]**Criteria**: Require Tester OrAdmin Role, RunIsNotLocked. [cite: 52]
+    * [cite_start]**Processor**: Atomic Failure Processor (fails case if any step fails). [cite: 53]
+
+### [cite_start]Workflow: TestRunCase [cite: 54]
+* [cite_start]**States**: Untested, Passed, Failed, Skipped. [cite: 55]
+* [cite_start]**Transitions**: Update Case Status (Automatic) [cite: 57][cite_start], Link Bug Defect. [cite: 58]
+* **Rules**: 
+    * [cite_start]**Criteria**: SystemActionOnly (for Status), Require TesterOrAdmin Role (for Link Bug), Runis NotLocked. [cite: 60]
+
+### [cite_start]Workflow: Attachment [cite: 61]
+* [cite_start]**States**: Active, Deleted. [cite: 62]
+* [cite_start]**Transitions**: Upload File, Delete File. [cite: 63]
+* **Rules**: 
+    * [cite_start]**Criteria**: Require Tester OrAdmin Role, RunIsNotLocked. [cite: 66]
+    * [cite_start]**Processor**: EdgeMessage Processor (/message/* API). [cite: 67]
 
 ---
 
-## 4. Agile User Stories
+## 3. Detailed Workflow Tables
 
-### Epic: Workspace
-* **US 1.1:** As a user, I want to log in with predefined credentials for simplicity.
-* **US 1.2:** As an Admin, I want to create isolated projects to separate different products.
+### [cite_start]1. Workflow: Project [cite: 68, 69]
+| Transition | Type | Description | Rules (Criteria & Processors) |
+| :--- | :--- | :--- | :--- |
+| **Create Project** | [cite_start]Manual [cite: 70] | [cite_start]Initializes a new isolated project workspace. [cite: 70] | [cite_start]Criteria: RequireAdmin Role. [cite: 70] |
+| **Update Project** | [cite_start]Manual [cite: 70] | [cite_start]Modifies project name or description. [cite: 70] | [cite_start]Criteria: RequireAdmin Role. [cite: 70] |
+| **Delete Project** | [cite_start]Manual [cite: 70] | [cite_start]Removes the project container from active view. [cite: 70] | [cite_start]Criteria: RequireAdmin Role. [cite: 70] |
+| **Import Test Data**| [cite_start]Manual [cite: 70] | [cite_start]Triggers the bulk generation of TestCases and Steps from external files. [cite: 70] | [cite_start]Processor: DataImportExportProcessor. [cite: 70] |
 
-### Epic: Repository
-* **US 2.1:** As an Admin, I want to create structured test cases with sequential steps for clarity.
-* **US 2.2:** As any user, I want to use deep search to find tests by specific actions or expected results.
-* **US 2.3:** As an Admin, I want to bulk import cases from CSV to speed up migration.
+### [cite_start]2. Workflow: Suite [cite: 71, 72]
+| Transition | Type | Description | Rules (Criteria & Processors) |
+| :--- | :--- | :--- | :--- |
+| **Create Suite** | [cite_start]Manual [cite: 73] | [cite_start]Creates a new folder within a project. [cite: 73] | [cite_start]Criteria: RequireAdmin Role, ProjectIsolationCheck, Prevent Nested Suites. [cite: 73] |
+| **Update Suite** | [cite_start]Manual [cite: 73] | [cite_start]Renames or modifies suite details. [cite: 73] | [cite_start]Criteria: RequireAdmin Role, ProjectIsolationCheck. [cite: 73] |
+| **Delete Suite** | [cite_start]Manual [cite: 73] | [cite_start]Removes the suite. [cite: 73] | [cite_start]Criteria: RequireAdminRole, ProjectIsolationCheck. [cite: 73] |
 
-### Epic: Execution
-* **US 3.1:** As a Tester, I want to execute runs based on a snapshot to ensure data integrity.
-* **US 3.2:** As a Tester, I want to link Bug URLs to failed steps for better traceability.
+### [cite_start]3. Workflow: TestCase & TestStep [cite: 74, 75]
+| Transition | Type | Description | Rules (Criteria & Processors) |
+| :--- | :--- | :--- | :--- |
+| **Create** | [cite_start]Manual [cite: 76] | [cite_start]Defines a new case with header data and sequential steps. [cite: 76] | [cite_start]Criteria: RequireAdminRole, ProjectIsolationCheck. [cite: 76] |
+| **Update** | [cite_start]Manual [cite: 76] | [cite_start]Modifies the case metadata or step content. [cite: 76] | [cite_start]Criteria: Require Admin Role, ProjectIsolationCheck. [cite: 76] |
+| **Soft Delete** | [cite_start]Manual [cite: 76] | [cite_start]Hides case while keeping history in run snapshots. [cite: 76] | [cite_start]Criteria: RequireAdminRole, ProjectIsolationCheck. [cite: 76] |
+
+### [cite_start]4. Workflow: TestRun [cite: 77, 78]
+| Transition | Type | Description | Rules (Criteria & Processors) |
+| :--- | :--- | :--- | :--- |
+| **Initialize Run** | [cite_start]Manual [cite: 79] | [cite_start]Starts a run and captures a repository snapshot. [cite: 79] | Criteria: Require Tester OrAdminRole, ProjectIsolationCheck. [cite_start]Processor: Snapshot Processor. [cite: 79] |
+| **Complete Run** | [cite_start]Manual [cite: 79] | [cite_start]Marks execution as finished and locks data. [cite: 79] | Criteria: Require Tester OrAdminRole. [cite_start]Processor: MetricsAggregator Processor. [cite: 79] |
+| **Unlock Run** | [cite_start]Manual [cite: 79] | [cite_start]Returns a locked run to an active state for edits. [cite: 79] | [cite_start]Criteria: RequireAdminRole. [cite: 79] |
+
+### [cite_start]5. Workflow: TestRunStep [cite: 80, 81]
+| Transition | Type | Description | Rules (Criteria & Processors) |
+| :--- | :--- | :--- | :--- |
+| **Update Status** | [cite_start]Manual [cite: 82] | [cite_start]Testers set step to Passed, Failed, or Skipped. [cite: 82] | Criteria: Require Tester OrAdminRole, RunIsNotLocked. [cite_start]Processor: Atomic Failure Processor. [cite: 82] |
+
+### [cite_start]6. Workflow: TestRunCase [cite: 83, 84]
+| Transition | Type | Description | Rules (Criteria & Processors) |
+| :--- | :--- | :--- | :--- |
+| **Update Case Status** | [cite_start]Automatic [cite: 85] | [cite_start]Changes status based on aggregated step results. [cite: 85] | [cite_start]Criteria: SystemActionOnly. [cite: 85] |
+| **Link Bug Defect** | [cite_start]Manual [cite: 85] | [cite_start]Adds a URL to an external bug tracker. [cite: 85] | [cite_start]Criteria: Require TesterOrAdminRole, Runis NotLocked. [cite: 85] |
+
+### [cite_start]7. Workflow: Attachment [cite: 86, 87]
+| Transition | Type | Description | Rules (Criteria & Processors) |
+| :--- | :--- | :--- | :--- |
+| **Upload File** | [cite_start]Manual [cite: 88] | [cite_start]Uploads and links a file via EdgeMessage. [cite: 88] | Criteria: Require Tester OrAdminRole, RunlsNotLocked. [cite_start]Processor: Edge Message Processor. [cite: 88] |
+| **Delete File** | [cite_start]Manual [cite: 88] | [cite_start]Removes an attachment record. [cite: 88] | [cite_start]Criteria: Require Tester OrAdminRole, RunIsNotLocked. [cite: 88] |
 
 ---
 
-## 5. System Architecture & Workflows
+## [cite_start]4. User Story Coverage Mapping [cite: 89, 90]
 
-### 5.1 Entities
-* **Project:** Isolated data container.
-* **Suite:** Logical grouping (No nesting).
-* **TestCase / TestStep:** The "Golden Master" in the repository.
-* **TestRunCase / TestRunStep:** The "Snapshot" used for execution.
-* **Attachment:** File metadata linked via EdgeMessage API.
-
-### 5.2 Key Workflows
-
-#### TestRun Lifecycle
-| Transition | Actor | Rules |
+| User Story | Status | [cite_start]Cyoda Architecture Coverage [cite: 89, 90] |
 | :--- | :--- | :--- |
-| **Initialize Run** | Admin/Tester | Triggers `SnapshotProcessor`. |
-| **Update Step** | Tester | Triggers `AtomicFailureProcessor`. |
-| **Complete Run** | Admin/Tester | Locks data; triggers `MetricsAggregator`. |
-| **Unlock Run** | Admin | Allows modifications to a locked run. |
-
-#### Case Management
-| Transition | Actor | Rules |
-| :--- | :--- | :--- |
-| **Soft Delete** | Admin | Hides entity; `ProjectIsolationCheck` required. |
-| **Import Data** | Admin | Uses `DataImportExportProcessor`. |
-
-#### Attachments
-| Transition | Actor | Rules |
-| :--- | :--- | :--- |
-| **Upload File** | Admin/Tester | Integrated with `/message/*` API via `EdgeMessageProcessor`. |
+| **US 1.1: Predefined Access** | Covered | Entity: User. [cite_start]Seed Data handles accounts. [cite: 89] |
+| **US 1.2: Roles & Permissions**| Covered | [cite_start]Criteria: RequireAdmin and Require TesterOrAdmin roles. [cite: 89] |
+| **US 1.3: Create Isolated Project**| Covered | Entity: Project. [cite_start]Criteria: ProjectIsolationCheck. [cite: 89] |
+| **US 2.1: Single-Level Suites** | Covered | Entity: Suite. [cite_start]Criteria: Prevent NestedSuites. [cite: 89] |
+| **US 2.2: Structured Test Cases**| Covered | Entities: TestCase, TestStep. [cite_start]Workflows: Create, Update. [cite: 89] |
+| **US 2.3: Attachments** | Covered | Entity: Attachment. [cite_start]Processor: Edge Message Processor. [cite: 89] |
+| **US 2.4: Deep Search** | Covered | [cite_start]Handled by Read API (Queries) with project context. [cite: 89] |
+| **US 2.5: Bulk Import/Export** | Covered | Workflow: Import Test Data. [cite_start]Processor: Datalmport Export Processor. [cite: 89] |
+| **US 3.1: Initialize Targeted Run**| Covered | Entity: TestRun. [cite_start]Processor: SnapshotProcessor. [cite: 89] |
+| **US 3.2: Step-Level Validation** | Covered | Workflows: Update Status (step/case). [cite_start]Processor: Atomic Failure Processor. [cite: 89] |
+| **US 3.3: Execution Evidence** | Covered | [cite_start]Workflows: Upload File, Link Bug Defect. [cite: 89] |
+| **US 3.4: Lock and Unlock** | Covered | [cite_start]Workflows: Complete Run (locks), Unlock Run. [cite: 89] |
+| **US 4.1: Real-time Metrics** | Covered | [cite_start]Processor: MetricsAggregator Processor. [cite: 89] |
+| **US 4.2: Exportable Reports** | Covered | [cite_start]Dynamic generation via Read API requests. [cite: 90] |
