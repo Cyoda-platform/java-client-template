@@ -1,0 +1,65 @@
+{
+  "version": "1.0",
+  "name": "AttachmentFlow",
+  "desc": "Workflow for managing attachment lifecycle from upload to linking with entities",
+  "initialState": "AwaitingUpload",
+  "active": true,
+  "states": {
+    "AwaitingUpload": {
+      "transitions": [
+        {
+          "name": "upload_file",
+          "next": "Uploaded",
+          "manual": true,
+          "processors": [
+            {
+              "name": "EdgeMessageProcessor",
+              "executionMode": "ASYNC_SAME_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "attachment_management",
+                "responseTimeoutMs": 15000,
+                "retryPolicy": "EXPONENTIAL_BACKOFF",
+                "retryAttempts": 3,
+                "retryDelayMs": 2000,
+                "edgeEndpoint": "/message/upload",
+                "errorHandling": {
+                  "retryOnNetworkError": true,
+                  "retryOnTimeout": true,
+                  "failOnValidationError": true
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "Uploaded": {
+      "transitions": [
+        {
+          "name": "link_to_entity",
+          "next": "Linked",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AttachmentLinker",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "attachment_management",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "FIXED",
+                "linkingStrategy": "direct",
+                "validateEntityExists": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "Linked": {
+      "transitions": []
+    }
+  }
+}
+

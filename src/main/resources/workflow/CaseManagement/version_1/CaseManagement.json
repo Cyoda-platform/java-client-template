@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "name": "CaseManagement",
+  "desc": "Workflow for managing test cases with soft delete, restore, and import capabilities",
+  "initialState": "Active",
+  "active": true,
+  "states": {
+    "Active": {
+      "transitions": [
+        {
+          "name": "soft_delete",
+          "next": "SoftDeleted",
+          "manual": true,
+          "processors": [
+            {
+              "name": "ProjectIsolationCheck",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "case_management",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "import",
+          "next": "Imported",
+          "manual": true,
+          "processors": [
+            {
+              "name": "DataImportExportProcessor",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "case_management",
+                "responseTimeoutMs": 10000,
+                "retryPolicy": "EXPONENTIAL_BACKOFF",
+                "validationRules": {
+                  "rejectPartialImports": true,
+                  "validateDataIntegrity": true,
+                  "checkDuplicates": true
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "SoftDeleted": {
+      "transitions": [
+        {
+          "name": "restore",
+          "next": "Active",
+          "manual": true
+        }
+      ]
+    },
+    "Imported": {
+      "transitions": [
+        {
+          "name": "soft_delete",
+          "next": "SoftDeleted",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
+

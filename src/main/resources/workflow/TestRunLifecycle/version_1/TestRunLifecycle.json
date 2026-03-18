@@ -1,0 +1,89 @@
+{
+  "version": "1.0",
+  "name": "TestRunLifecycle",
+  "desc": "Workflow for managing test run lifecycle with execution, completion, and locking states",
+  "initialState": "Initialized",
+  "active": true,
+  "states": {
+    "Initialized": {
+      "transitions": [
+        {
+          "name": "create_run",
+          "next": "Executing",
+          "manual": false,
+          "processors": [
+            {
+              "name": "SnapshotProcessor",
+              "executionMode": "SYNC",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "test_management",
+                "responseTimeoutMs": 5000,
+                "retryPolicy": "EXPONENTIAL_BACKOFF",
+                "retryAttempts": 3,
+                "retryDelayMs": 1000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "Executing": {
+      "transitions": [
+        {
+          "name": "step_update",
+          "next": "Executing",
+          "manual": true,
+          "processors": [
+            {
+              "name": "AtomicFailureProcessor",
+              "executionMode": "ASYNC_SAME_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "test_management",
+                "responseTimeoutMs": 3000,
+                "retryPolicy": "FIXED"
+              }
+            }
+          ]
+        },
+        {
+          "name": "complete_run",
+          "next": "Completed",
+          "manual": true,
+          "processors": [
+            {
+              "name": "MetricsAggregator",
+              "executionMode": "ASYNC_NEW_TX",
+              "config": {
+                "attachEntity": true,
+                "calculationNodesTags": "test_management",
+                "responseTimeoutMs": 8000,
+                "retryPolicy": "LINEAR_BACKOFF"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "Completed": {
+      "transitions": [
+        {
+          "name": "lock",
+          "next": "Locked",
+          "manual": true
+        }
+      ]
+    },
+    "Locked": {
+      "transitions": [
+        {
+          "name": "unlock",
+          "next": "Executing",
+          "manual": true
+        }
+      ]
+    }
+  }
+}
+
