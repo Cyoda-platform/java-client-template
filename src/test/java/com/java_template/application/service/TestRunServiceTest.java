@@ -34,15 +34,16 @@ public class TestRunServiceTest {
         projectId = UUID.randomUUID();
         testRun = new TestRunDTO();
         testRun.setProjectId(projectId);
-        testRun.setName("Test Run 1");
+        testRun.setTitle("Test Run 1");
+        testRun.setEnvironment("STAGING");
     }
 
     @Test
     public void testCreateTestRun() {
         TestRunDTO created = testRunService.createTestRun(testRun);
         assertNotNull(created.getId());
-        assertEquals("Test Run 1", created.getName());
-        assertEquals("CREATED", created.getStatus());
+        assertEquals("Test Run 1", created.getTitle());
+        assertEquals("ACTIVE", created.getStatus());
         assertNotNull(created.getStartedAt());
     }
 

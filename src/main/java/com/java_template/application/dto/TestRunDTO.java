@@ -15,6 +15,8 @@ import java.util.UUID;
 public class TestRunDTO {
     private UUID id;
     private UUID projectId;
+    private String title;
+    private String environment;
     private String status;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
