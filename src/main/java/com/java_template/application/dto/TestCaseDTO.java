@@ -14,6 +14,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class TestCaseDTO {
     private UUID id;
+    private UUID projectId;
     private UUID suiteId;
     private String name;
     private String description;
