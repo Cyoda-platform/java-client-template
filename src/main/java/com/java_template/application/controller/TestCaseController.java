@@ -1,0 +1,69 @@
+package com.java_template.application.controller;
+
+import com.java_template.application.dto.TestCaseDTO;
+import com.java_template.application.service.TestCaseService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * REST controller for Test Case operations
+ */
+@RestController
+@RequestMapping("/projects/{projectId}/suites/{suiteId}/cases")
+@Tag(name = "Test Cases", description = "Test case management endpoints")
+public class TestCaseController {
+    private final TestCaseService testCaseService;
+
+    public TestCaseController(TestCaseService testCaseService) {
+        this.testCaseService = testCaseService;
+    }
+
+    @PostMapping
+    @Operation(summary = "Create a new test case")
+    public ResponseEntity<TestCaseDTO> createTestCase(@PathVariable UUID projectId, @PathVariable UUID suiteId, @RequestBody TestCaseDTO testCase) {
+        testCase.setSuiteId(suiteId);
+        TestCaseDTO created = testCaseService.createTestCase(testCase);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @GetMapping("/{caseId}")
+    @Operation(summary = "Get test case by ID")
+    public ResponseEntity<TestCaseDTO> getTestCase(@PathVariable UUID projectId, @PathVariable UUID suiteId, @PathVariable UUID caseId) {
+        return testCaseService.getTestCaseById(caseId)
+                .filter(tc -> tc.getSuiteId().equals(suiteId))
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping
+    @Operation(summary = "Get all test cases for a suite")
+    public ResponseEntity<List<TestCaseDTO>> getTestCasesBySuite(@PathVariable UUID projectId, @PathVariable UUID suiteId) {
+        return ResponseEntity.ok(testCaseService.getTestCasesBySuiteId(suiteId));
+    }
+
+    @PutMapping("/{caseId}")
+    @Operation(summary = "Update a test case")
+    public ResponseEntity<TestCaseDTO> updateTestCase(@PathVariable UUID projectId, @PathVariable UUID suiteId, @PathVariable UUID caseId, @RequestBody TestCaseDTO testCase) {
+        if (!testCaseService.testCaseExists(caseId)) {
+            return ResponseEntity.notFound().build();
+        }
+        testCase.setSuiteId(suiteId);
+        TestCaseDTO updated = testCaseService.updateTestCase(caseId, testCase);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{caseId}")
+    @Operation(summary = "Soft delete a test case")
+    public ResponseEntity<Void> deleteTestCase(@PathVariable UUID projectId, @PathVariable UUID suiteId, @PathVariable UUID caseId) {
+        if (testCaseService.softDeleteTestCase(caseId)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+}
+
