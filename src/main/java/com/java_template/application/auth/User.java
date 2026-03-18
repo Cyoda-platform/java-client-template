@@ -4,10 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Set;
-
 /**
- * User model for TMS authentication
+ * Simple POJO for user authentication
  */
 @Data
 @NoArgsConstructor
@@ -15,14 +13,6 @@ import java.util.Set;
 public class User {
     private String username;
     private String password;
-    private Set<String> roles;
-    private boolean enabled;
-
-    public User(String username, String password, Set<String> roles) {
-        this.username = username;
-        this.password = password;
-        this.roles = roles;
-        this.enabled = true;
-    }
+    private String role;
 }
 

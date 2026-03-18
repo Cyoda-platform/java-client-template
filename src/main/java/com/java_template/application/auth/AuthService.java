@@ -3,45 +3,53 @@ package com.java_template.application.auth;
 import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 
 /**
- * Authentication service with hardcoded users for TMS prototype
+ * Authentication service with hardcoded users
+ * Supports ADMIN and TESTER roles
  */
 @Service
 public class AuthService {
+    private final JwtTokenProvider tokenProvider;
     private final Map<String, User> users = new HashMap<>();
 
-    public AuthService() {
+    public AuthService(JwtTokenProvider tokenProvider) {
+        this.tokenProvider = tokenProvider;
         // Initialize hardcoded users
-        users.put("admin", new User("admin", "admin123", Set.of("ROLE_ADMIN", "ROLE_USER")));
-        users.put("tester", new User("tester", "tester123", Set.of("ROLE_USER")));
+        users.put("admin", new User("admin", "admin123", "ADMIN"));
+        users.put("tester", new User("tester", "tester123", "TESTER"));
     }
 
     /**
-     * Authenticate user with username and password
+     * Authenticate user and return LoginResponse with token
      */
-    public Optional<User> authenticate(String username, String password) {
-        return Optional.ofNullable(users.get(username))
-                .filter(user -> user.isEnabled() && user.getPassword().equals(password));
+    public LoginResponse authenticate(String username, String password) {
+        User user = users.get(username);
+        if (user == null || !user.getPassword().equals(password)) {
+            return null;
+        }
+
+        String token = tokenProvider.generateToken(username, user.getRole());
+        long expiresAt = System.currentTimeMillis() + (24 * 60 * 60 * 1000); // 24 hours
+
+        return new LoginResponse(token, username, user.getRole(), expiresAt);
     }
 
     /**
-     * Get user by username
+     * LoginResponse DTO
      */
-    public Optional<User> getUserByUsername(String username) {
-        return Optional.ofNullable(users.get(username))
-                .filter(User::isEnabled);
-    }
+    public static class LoginResponse {
+        public String token;
+        public String username;
+        public String role;
+        public long expiresAt;
 
-    /**
-     * Check if user has role
-     */
-    public boolean hasRole(String username, String role) {
-        return getUserByUsername(username)
-                .map(user -> user.getRoles().contains(role))
-                .orElse(false);
+        public LoginResponse(String token, String username, String role, long expiresAt) {
+            this.token = token;
+            this.username = username;
+            this.role = role;
+            this.expiresAt = expiresAt;
+        }
     }
 }
 

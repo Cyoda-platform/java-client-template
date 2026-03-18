@@ -4,53 +4,74 @@ import org.springframework.stereotype.Component;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 /**
- * Simple JWT token provider for TMS prototype
- * Uses Base64 encoding for simplicity (not production-grade)
+ * Simple JWT-like token provider using Base64 encoding
+ * Hardcoded secret key and 24-hour expiration
  */
 @Component
 public class JwtTokenProvider {
-    private static final String SECRET = "tms-secret-key-for-prototype";
-    private final Map<String, TokenInfo> tokenStore = new HashMap<>();
+    private static final String SECRET = "java-template-secret-key-12345";
+    private static final long EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24 hours
+    private final Map<String, TokenData> tokenStore = new HashMap<>();
 
     /**
-     * Generate a token for the given username
+     * Generate a token for the given username and role
      */
-    public String generateToken(String username) {
-        String tokenId = UUID.randomUUID().toString();
-        String payload = username + ":" + System.currentTimeMillis();
+    public String generateToken(String username, String role) {
+        long issuedAt = System.currentTimeMillis();
+        long expiresAt = issuedAt + EXPIRATION_TIME;
+
+        String payload = username + "|" + role + "|" + issuedAt + "|" + expiresAt;
         String token = Base64.getEncoder().encodeToString(payload.getBytes());
-        
-        tokenStore.put(token, new TokenInfo(username, System.currentTimeMillis() + 3600000)); // 1 hour
+
+        tokenStore.put(token, new TokenData(username, role, issuedAt, expiresAt));
         return token;
     }
 
     /**
-     * Validate token and extract username
+     * Validate token
      */
-    public String validateAndGetUsername(String token) {
-        TokenInfo info = tokenStore.get(token);
-        if (info == null || info.expiresAt < System.currentTimeMillis()) {
-            return null;
+    public boolean validateToken(String token) {
+        TokenData data = tokenStore.get(token);
+        if (data == null) {
+            return false;
         }
-        return info.username;
+        return data.expiresAt > System.currentTimeMillis();
     }
 
     /**
-     * Revoke token
+     * Get username from token
      */
-    public void revokeToken(String token) {
-        tokenStore.remove(token);
+    public String getUsernameFromToken(String token) {
+        TokenData data = tokenStore.get(token);
+        if (data == null || data.expiresAt <= System.currentTimeMillis()) {
+            return null;
+        }
+        return data.username;
     }
 
-    private static class TokenInfo {
+    /**
+     * Get role from token
+     */
+    public String getRoleFromToken(String token) {
+        TokenData data = tokenStore.get(token);
+        if (data == null || data.expiresAt <= System.currentTimeMillis()) {
+            return null;
+        }
+        return data.role;
+    }
+
+    private static class TokenData {
         String username;
+        String role;
+        long issuedAt;
         long expiresAt;
 
-        TokenInfo(String username, long expiresAt) {
+        TokenData(String username, String role, long issuedAt, long expiresAt) {
             this.username = username;
+            this.role = role;
+            this.issuedAt = issuedAt;
             this.expiresAt = expiresAt;
         }
     }

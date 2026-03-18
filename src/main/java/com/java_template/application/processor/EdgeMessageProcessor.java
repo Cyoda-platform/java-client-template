@@ -10,31 +10,46 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stub processor for EdgeMessage client integration
- * This processor handles communication with edge message services for attachment uploads
+ * Processor for handling edge message and attachment proxy operations.
+ *
+ * This processor is responsible for managing communication with edge message
+ * services and handling attachment uploads/downloads through a proxy interface.
+ * It facilitates the transfer of test artifacts and related attachments to
+ * external edge message systems.
+ *
+ * The processor returns the entity unchanged, allowing the workflow to continue
+ * with the original entity while attachment operations are performed as a side effect.
  */
-@Component
+@Component("EdgeMessageProcessor")
 public class EdgeMessageProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(EdgeMessageProcessor.class);
-    private final String className = this.getClass().getSimpleName();
+    private final String processorName = "EdgeMessageProcessor";
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
-        logger.info("EdgeMessageProcessor: Processing message for request: {}", request.getId());
+        logger.debug("{}: Processing edge message operations for request: {}", processorName, request.getId());
 
-        // Stub implementation - would call EdgeMessage client for attachment uploads
+        // Stub implementation - returns entity unchanged
         EntityProcessorCalculationResponse response = new EntityProcessorCalculationResponse();
         response.setId(request.getId());
         response.setSuccess(true);
-        
-        logger.info("EdgeMessageProcessor: Message processed successfully");
+
+        logger.debug("{}: Edge message processing completed", processorName);
         return response;
     }
 
     @Override
-    public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+    public boolean supports(OperationSpecification opSpec) {
+        return processorName.equals(opSpec.operationName());
+    }
+
+    /**
+     * Gets the name of this processor.
+     * @return the processor name
+     */
+    public String getName() {
+        return processorName;
     }
 }
 

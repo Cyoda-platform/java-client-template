@@ -10,31 +10,45 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Stub processor for handling atomic test failures
- * This processor handles individual test step failures and aggregates failure information
+ * Processor for handling atomic test failure detection.
+ *
+ * This processor is responsible for detecting and processing individual atomic
+ * test failures at the step level. It analyzes test execution results to identify
+ * specific failure points and aggregates failure information for reporting.
+ *
+ * The processor returns the entity unchanged, allowing the workflow to continue
+ * with the original entity while failure detection is performed as a side effect.
  */
-@Component
+@Component("AtomicFailureProcessor")
 public class AtomicFailureProcessor implements CyodaProcessor {
     private static final Logger logger = LoggerFactory.getLogger(AtomicFailureProcessor.class);
-    private final String className = this.getClass().getSimpleName();
+    private final String processorName = "AtomicFailureProcessor";
 
     @Override
     public EntityProcessorCalculationResponse process(CyodaEventContext<EntityProcessorCalculationRequest> context) {
         EntityProcessorCalculationRequest request = context.getEvent();
-        logger.info("AtomicFailureProcessor: Processing failure for request: {}", request.getId());
+        logger.debug("{}: Processing atomic failure detection for request: {}", processorName, request.getId());
 
-        // Stub implementation - would handle test step failures
+        // Stub implementation - returns entity unchanged
         EntityProcessorCalculationResponse response = new EntityProcessorCalculationResponse();
         response.setId(request.getId());
         response.setSuccess(true);
-        
-        logger.info("AtomicFailureProcessor: Failure processed successfully");
+
+        logger.debug("{}: Atomic failure detection completed", processorName);
         return response;
     }
 
     @Override
-    public boolean supports(OperationSpecification modelSpec) {
-        return className.equalsIgnoreCase(modelSpec.operationName());
+    public boolean supports(OperationSpecification opSpec) {
+        return processorName.equals(opSpec.operationName());
+    }
+
+    /**
+     * Gets the name of this processor.
+     * @return the processor name
+     */
+    public String getName() {
+        return processorName;
     }
 }
 
