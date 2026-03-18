@@ -91,5 +91,19 @@ public class TestRunService {
         }
         return Optional.empty();
     }
+
+    /**
+     * Checks if a test run exists by ID
+     */
+    public boolean testRunExists(UUID id) {
+        return testRunRepository.exists(id);
+    }
+
+    /**
+     * Deletes a test run by ID
+     */
+    public boolean deleteTestRun(UUID id) {
+        return testRunRepository.delete(id);
+    }
 }
 
