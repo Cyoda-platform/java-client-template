@@ -1,0 +1,8 @@
+{
+  "id": "660e8400-e29b-41d4-a716-446655440001",
+  "projectId": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Checkout Flow Tests",
+  "description": "Test suite covering the complete checkout process including cart management, shipping address validation, and payment processing",
+  "createdAt": "2024-01-15T10:15:00Z"
+}
+

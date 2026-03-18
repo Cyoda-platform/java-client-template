@@ -1,0 +1,21 @@
+{
+  "id": "aa0e8400-e29b-41d4-a716-446655440006",
+  "projectId": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Checkout Flow - Release 2.1 Regression Testing",
+  "environment": "STAGING",
+  "createdBy": "tester",
+  "createdAt": "2024-01-16T08:00:00Z",
+  "snapshotReference": "snapshot-2024-01-16-checkout-v2.1",
+  "status": "ACTIVE",
+  "metrics": {
+    "total": 5,
+    "passed": 3,
+    "failed": 1,
+    "untested": 1,
+    "skipped": 0,
+    "passPercentage": 60.0,
+    "failPercentage": 20.0,
+    "untestedPercentage": 20.0
+  }
+}
+
