@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for TestRunService
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.auth.filter.enabled=false")
 public class TestRunServiceTest {
     @Autowired
     private TestRunService testRunService;

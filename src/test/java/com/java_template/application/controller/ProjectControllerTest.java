@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * Unit tests for ProjectController
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.auth.filter.enabled=false")
 @AutoConfigureMockMvc
 public class ProjectControllerTest {
     @Autowired

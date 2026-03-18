@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for ProjectService
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.auth.filter.enabled=false")
 public class ProjectServiceTest {
     @Autowired
     private ProjectService projectService;
