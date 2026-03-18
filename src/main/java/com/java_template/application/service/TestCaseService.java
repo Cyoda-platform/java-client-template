@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Service for Test Case operations
@@ -18,34 +19,58 @@ public class TestCaseService {
         this.testCaseRepository = testCaseRepository;
     }
 
+    /**
+     * Creates a new test case with ACTIVE status
+     */
     public TestCaseDTO createTestCase(TestCaseDTO testCase) {
         testCase.setStatus("ACTIVE");
         testCase.setDeleted(false);
         return testCaseRepository.create(testCase);
     }
 
+    /**
+     * Retrieves a test case by ID
+     */
     public Optional<TestCaseDTO> getTestCaseById(UUID id) {
         return testCaseRepository.findById(id);
     }
 
+    /**
+     * Retrieves all test cases for a specific suite
+     */
     public List<TestCaseDTO> getTestCasesBySuiteId(UUID suiteId) {
         return testCaseRepository.findBySuiteId(suiteId);
     }
 
+    /**
+     * Retrieves all test cases
+     */
     public List<TestCaseDTO> getAllTestCases() {
         return testCaseRepository.findAll();
     }
 
+    /**
+     * Updates an existing test case
+     */
     public TestCaseDTO updateTestCase(UUID id, TestCaseDTO testCase) {
         return testCaseRepository.update(id, testCase);
     }
 
-    public boolean softDeleteTestCase(UUID id) {
+    /**
+     * Soft deletes a test case by ID
+     */
+    public boolean deleteTestCase(UUID id) {
         return testCaseRepository.softDelete(id);
     }
 
-    public boolean testCaseExists(UUID id) {
-        return testCaseRepository.exists(id);
+    /**
+     * Searches test cases by name or description (case-insensitive)
+     */
+    public List<TestCaseDTO> searchTestCases(String query) {
+        return testCaseRepository.findAll().stream()
+                .filter(tc -> (tc.getName() != null && tc.getName().toLowerCase().contains(query.toLowerCase())) ||
+                             (tc.getDescription() != null && tc.getDescription().toLowerCase().contains(query.toLowerCase())))
+                .collect(Collectors.toList());
     }
 }
 

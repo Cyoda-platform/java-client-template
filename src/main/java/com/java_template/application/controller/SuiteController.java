@@ -14,7 +14,7 @@ import java.util.UUID;
  * REST controller for Test Suite operations
  */
 @RestController
-@RequestMapping("/projects/{projectId}/suites")
+@RequestMapping("/api/projects/{projectId}/suites")
 @Tag(name = "Test Suites", description = "Test suite management endpoints")
 public class SuiteController {
     private final SuiteService suiteService;
@@ -31,36 +31,36 @@ public class SuiteController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @GetMapping("/{suiteId}")
-    @Operation(summary = "Get test suite by ID")
-    public ResponseEntity<SuiteDTO> getSuite(@PathVariable UUID projectId, @PathVariable UUID suiteId) {
-        return suiteService.getSuiteById(suiteId)
-                .filter(s -> s.getProjectId().equals(projectId))
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
     @GetMapping
     @Operation(summary = "Get all test suites for a project")
     public ResponseEntity<List<SuiteDTO>> getSuitesByProject(@PathVariable UUID projectId) {
         return ResponseEntity.ok(suiteService.getSuitesByProjectId(projectId));
     }
 
-    @PutMapping("/{suiteId}")
+    @GetMapping("/{id}")
+    @Operation(summary = "Get test suite by ID")
+    public ResponseEntity<SuiteDTO> getSuite(@PathVariable UUID projectId, @PathVariable UUID id) {
+        return suiteService.getSuiteById(id)
+                .filter(s -> s.getProjectId().equals(projectId))
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}")
     @Operation(summary = "Update a test suite")
-    public ResponseEntity<SuiteDTO> updateSuite(@PathVariable UUID projectId, @PathVariable UUID suiteId, @RequestBody SuiteDTO suite) {
-        if (!suiteService.suiteExists(suiteId)) {
+    public ResponseEntity<SuiteDTO> updateSuite(@PathVariable UUID projectId, @PathVariable UUID id, @RequestBody SuiteDTO suite) {
+        if (!suiteService.suiteExists(id)) {
             return ResponseEntity.notFound().build();
         }
         suite.setProjectId(projectId);
-        SuiteDTO updated = suiteService.updateSuite(suiteId, suite);
+        SuiteDTO updated = suiteService.updateSuite(id, suite);
         return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping("/{suiteId}")
+    @DeleteMapping("/{id}")
     @Operation(summary = "Delete a test suite")
-    public ResponseEntity<Void> deleteSuite(@PathVariable UUID projectId, @PathVariable UUID suiteId) {
-        if (suiteService.deleteSuite(suiteId)) {
+    public ResponseEntity<Void> deleteSuite(@PathVariable UUID projectId, @PathVariable UUID id) {
+        if (suiteService.deleteSuite(id)) {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();

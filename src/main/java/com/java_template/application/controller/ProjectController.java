@@ -14,7 +14,7 @@ import java.util.UUID;
  * REST controller for Project operations
  */
 @RestController
-@RequestMapping("/projects")
+@RequestMapping("/api/projects")
 @Tag(name = "Projects", description = "Project management endpoints")
 public class ProjectController {
     private final ProjectService projectService;
@@ -30,18 +30,18 @@ public class ProjectController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    @GetMapping
+    @Operation(summary = "Get all projects")
+    public ResponseEntity<List<ProjectDTO>> getAllProjects() {
+        return ResponseEntity.ok(projectService.getAllProjects());
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get project by ID")
     public ResponseEntity<ProjectDTO> getProject(@PathVariable UUID id) {
         return projectService.getProjectById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
-    }
-
-    @GetMapping
-    @Operation(summary = "Get all projects")
-    public ResponseEntity<List<ProjectDTO>> getAllProjects() {
-        return ResponseEntity.ok(projectService.getAllProjects());
     }
 
     @PutMapping("/{id}")
@@ -61,6 +61,18 @@ public class ProjectController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/search")
+    @Operation(summary = "Search projects by query parameter")
+    public ResponseEntity<List<ProjectDTO>> searchProjects(@RequestParam String query) {
+        // Filter projects by name or description containing query
+        List<ProjectDTO> allProjects = projectService.getAllProjects();
+        List<ProjectDTO> filtered = allProjects.stream()
+                .filter(p -> p.getName().toLowerCase().contains(query.toLowerCase()) ||
+                        (p.getDescription() != null && p.getDescription().toLowerCase().contains(query.toLowerCase())))
+                .toList();
+        return ResponseEntity.ok(filtered);
     }
 }
 
