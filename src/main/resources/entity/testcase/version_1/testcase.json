@@ -1,0 +1,11 @@
+{
+  "id": "tc-001",
+  "projectId": "ecommerce-v2",
+  "suiteId": "suite-001",
+  "title": "Verify successful checkout with valid payment",
+  "description": "User adds items to cart and completes checkout with valid credit card",
+  "preConditions": "User is logged in, cart contains at least one item, payment gateway is operational",
+  "priority": "High",
+  "createdAt": "2024-02-10T14:20:00Z"
+}
+

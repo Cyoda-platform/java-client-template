@@ -1,0 +1,8 @@
+{
+  "id": "usr-001",
+  "username": "admin",
+  "passwordHash": "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcg7b3XeKeUxWdeS86E36P4/KFm",
+  "role": "Admin",
+  "disabledRegistration": true
+}
+

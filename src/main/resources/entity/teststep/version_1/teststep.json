@@ -1,0 +1,8 @@
+{
+  "id": "ts-001",
+  "testCaseId": "tc-001",
+  "sequence": 1,
+  "action": "Click on 'Proceed to Checkout' button",
+  "expectedResult": "User is redirected to the checkout page with order summary displayed"
+}
+

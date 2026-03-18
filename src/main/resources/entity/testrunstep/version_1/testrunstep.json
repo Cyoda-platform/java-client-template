@@ -1,0 +1,9 @@
+{
+  "id": "trs-001",
+  "testRunCaseId": "trc-001",
+  "sequence": 1,
+  "action": "Click on 'Proceed to Checkout' button",
+  "expectedResult": "User is redirected to the checkout page with order summary displayed",
+  "status": "Passed"
+}
+

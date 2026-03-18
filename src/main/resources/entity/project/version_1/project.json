@@ -1,0 +1,8 @@
+{
+  "id": "proj-001",
+  "name": "E-Commerce Platform",
+  "description": "Testing suite for the e-commerce platform including checkout, payment, and inventory management",
+  "projectId": "ecommerce-v2",
+  "createdAt": "2024-01-15T10:30:00Z"
+}
+

@@ -1,0 +1,8 @@
+{
+  "id": "suite-001",
+  "projectId": "ecommerce-v2",
+  "name": "Checkout Flow",
+  "description": "Test suite covering the complete checkout process from cart to order confirmation",
+  "parentSuiteId": null
+}
+

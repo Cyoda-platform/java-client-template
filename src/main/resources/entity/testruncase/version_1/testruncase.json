@@ -1,0 +1,26 @@
+{
+  "id": "trc-001",
+  "testRunId": "tr-001",
+  "originalTestCaseId": "tc-001",
+  "snapshot": {
+    "title": "Verify successful checkout with valid payment",
+    "description": "User adds items to cart and completes checkout with valid credit card",
+    "preConditions": "User is logged in, cart contains at least one item, payment gateway is operational",
+    "priority": "High",
+    "steps": [
+      {
+        "sequence": 1,
+        "action": "Click on 'Proceed to Checkout' button",
+        "expectedResult": "User is redirected to the checkout page with order summary displayed"
+      },
+      {
+        "sequence": 2,
+        "action": "Enter valid credit card details",
+        "expectedResult": "Card details are accepted and validated"
+      }
+    ]
+  },
+  "bugUrl": null,
+  "status": "Passed"
+}
+
