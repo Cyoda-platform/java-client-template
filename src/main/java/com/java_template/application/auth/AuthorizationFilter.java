@@ -18,7 +18,6 @@ import java.lang.reflect.Method;
  * Validates JWT tokens and checks @RequireRole annotations
  * Allows public endpoints like /api/login without token
  */
-@Component
 public class AuthorizationFilter implements Filter {
     private final JwtTokenProvider tokenProvider;
 
