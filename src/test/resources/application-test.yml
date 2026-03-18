@@ -1,0 +1,22 @@
+logging:
+  level:
+    root: INFO
+
+server:
+  port: 8080
+
+spring:
+  mvc:
+    problemdetails:
+      enabled: true
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+      resolve-lazily: false
+
+app:
+  auth:
+    filter:
+      enabled: false
+

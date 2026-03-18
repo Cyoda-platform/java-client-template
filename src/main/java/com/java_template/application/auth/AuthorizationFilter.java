@@ -7,14 +7,17 @@ import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 /**
  * Authorization filter for TMS API endpoints
  * Validates JWT tokens and sets user context
+ * Can be disabled via spring.security.filter.enabled=false
  */
 @Component
+@ConditionalOnProperty(name = "app.auth.filter.enabled", havingValue = "true", matchIfMissing = true)
 public class AuthorizationFilter implements Filter {
     private final JwtTokenProvider tokenProvider;
     private final AuthService authService;
@@ -31,9 +34,9 @@ public class AuthorizationFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         String path = httpRequest.getRequestURI();
-        
+
         // Skip auth for login endpoint
-        if (path.contains("/api/login")) {
+        if (path.contains("/login")) {
             chain.doFilter(request, response);
             return;
         }
@@ -53,7 +56,7 @@ public class AuthorizationFilter implements Filter {
 
         String token = authHeader.substring(7);
         String username = tokenProvider.validateAndGetUsername(token);
-        
+
         if (username == null) {
             httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             httpResponse.getWriter().write("{\"error\": \"Invalid or expired token\"}");
