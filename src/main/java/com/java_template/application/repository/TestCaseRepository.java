@@ -35,6 +35,12 @@ public class TestCaseRepository {
                 .collect(Collectors.toList());
     }
 
+    public List<TestCaseDTO> findByProjectId(UUID projectId) {
+        return testCases.values().stream()
+                .filter(tc -> tc.getProjectId() != null && tc.getProjectId().equals(projectId) && !tc.isDeleted())
+                .collect(Collectors.toList());
+    }
+
     public List<TestCaseDTO> findAll() {
         return testCases.values().stream()
                 .filter(tc -> !tc.isDeleted())

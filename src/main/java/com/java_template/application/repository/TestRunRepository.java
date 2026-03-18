@@ -33,6 +33,12 @@ public class TestRunRepository {
                 .collect(Collectors.toList());
     }
 
+    public List<TestRunDTO> findByStatus(String status) {
+        return testRuns.values().stream()
+                .filter(tr -> tr.getStatus().equals(status))
+                .collect(Collectors.toList());
+    }
+
     public List<TestRunDTO> findAll() {
         return new ArrayList<>(testRuns.values());
     }

@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * In-memory repository for Projects
@@ -28,6 +29,12 @@ public class ProjectRepository {
 
     public List<ProjectDTO> findAll() {
         return new ArrayList<>(projects.values());
+    }
+
+    public Optional<ProjectDTO> findByName(String name) {
+        return projects.values().stream()
+                .filter(p -> p.getName().equals(name))
+                .findFirst();
     }
 
     public ProjectDTO update(UUID id, ProjectDTO project) {

@@ -3,7 +3,7 @@ package com.java_template.application.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -14,9 +14,10 @@ import java.util.UUID;
 @AllArgsConstructor
 public class TestRunCaseDTO {
     private UUID id;
-    private UUID runId;
-    private UUID caseId;
+    private UUID testRunId;
+    private UUID testCaseId;
     private String status;
-    private List<TestRunStepDTO> steps;
+    private LocalDateTime startedAt;
+    private LocalDateTime completedAt;
 }
 

@@ -15,10 +15,9 @@ import java.util.UUID;
 public class AttachmentDTO {
     private UUID id;
     private UUID projectId;
-    private String filename;
-    private String contentType;
-    private long size;
-    private String url;
+    private String fileName;
+    private String fileType;
+    private long fileSize;
     private LocalDateTime uploadedAt;
 }
 
