@@ -30,14 +30,14 @@ public class AuthController {
     @Operation(summary = "Login with username and password", description = "Authenticate user and return JWT token")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
         var user = authService.authenticate(request.getUsername(), request.getPassword());
-        
+
         if (user.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new LoginResponse(null, request.getUsername(), "Invalid credentials"));
+                    .body(new LoginResponse(null, request.getUsername(), null, null));
         }
 
         String token = tokenProvider.generateToken(request.getUsername());
-        return ResponseEntity.ok(new LoginResponse(token, request.getUsername(), "Login successful"));
+        return ResponseEntity.ok(new LoginResponse(token, request.getUsername(), "TESTER", java.time.LocalDateTime.now().plusHours(1)));
     }
 }
 

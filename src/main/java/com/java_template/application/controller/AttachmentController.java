@@ -29,10 +29,9 @@ public class AttachmentController {
         try {
             AttachmentDTO attachment = new AttachmentDTO();
             attachment.setProjectId(projectId);
-            attachment.setFilename(file.getOriginalFilename());
-            attachment.setContentType(file.getContentType());
-            attachment.setSize(file.getSize());
-            attachment.setUrl("/attachments/" + UUID.randomUUID());
+            attachment.setFileName(file.getOriginalFilename());
+            attachment.setFileType(file.getContentType());
+            attachment.setFileSize(file.getSize());
 
             AttachmentDTO uploaded = attachmentService.uploadAttachment(attachment);
             return ResponseEntity.status(HttpStatus.CREATED).body(uploaded);
