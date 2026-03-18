@@ -14,7 +14,7 @@ import java.util.UUID;
  * REST controller for Test Suite operations
  */
 @RestController
-@RequestMapping("/api/projects/{projectId}/suites")
+@RequestMapping("/projects/{projectId}/suites")
 @Tag(name = "Test Suites", description = "Test suite management endpoints")
 public class SuiteController {
     private final SuiteService suiteService;

@@ -12,7 +12,7 @@ import java.util.Map;
  * REST controller for Search operations
  */
 @RestController
-@RequestMapping("/api/search")
+@RequestMapping("/search")
 @Tag(name = "Search", description = "Search endpoints")
 public class SearchController {
 

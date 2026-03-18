@@ -14,7 +14,7 @@ import java.util.UUID;
  * REST controller for Test Run Step operations
  */
 @RestController
-@RequestMapping("/api/projects/{projectId}/runs/{runId}/cases/{caseId}/steps")
+@RequestMapping("/projects/{projectId}/runs/{runId}/cases/{caseId}/steps")
 @Tag(name = "Test Run Steps", description = "Test run step management endpoints")
 public class TestRunStepController {
     private final TestRunStepService testRunStepService;

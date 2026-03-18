@@ -15,7 +15,7 @@ import java.util.UUID;
  * REST controller for Attachment operations
  */
 @RestController
-@RequestMapping("/api/projects/{projectId}/attachments")
+@RequestMapping("/projects/{projectId}/attachments")
 @Tag(name = "Attachments", description = "Attachment management endpoints")
 public class AttachmentController {
     private final AttachmentService attachmentService;

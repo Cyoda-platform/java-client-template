@@ -14,7 +14,7 @@ import java.util.UUID;
  * REST controller for Project operations
  */
 @RestController
-@RequestMapping("/api/projects")
+@RequestMapping("/projects")
 @Tag(name = "Projects", description = "Project management endpoints")
 public class ProjectController {
     private final ProjectService projectService;

@@ -13,7 +13,7 @@ import java.util.UUID;
  * REST controller for Export operations
  */
 @RestController
-@RequestMapping("/api/projects/{projectId}/export")
+@RequestMapping("/projects/{projectId}/export")
 @Tag(name = "Export", description = "Export endpoints")
 public class ExportController {
 
