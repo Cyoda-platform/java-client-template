@@ -26,13 +26,13 @@ public class TestRunCaseRepository {
 
     public List<TestRunCaseDTO> findByTestRunId(UUID testRunId) {
         return testRunCases.values().stream()
-                .filter(trc -> trc.getRunId().equals(testRunId))
+                .filter(trc -> trc.getTestRunId().equals(testRunId))
                 .collect(Collectors.toList());
     }
 
     public List<TestRunCaseDTO> findByTestCaseId(UUID testCaseId) {
         return testRunCases.values().stream()
-                .filter(trc -> trc.getCaseId().equals(testCaseId))
+                .filter(trc -> trc.getTestCaseId().equals(testCaseId))
                 .collect(Collectors.toList());
     }
 

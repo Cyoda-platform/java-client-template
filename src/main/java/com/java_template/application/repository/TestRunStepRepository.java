@@ -26,7 +26,7 @@ public class TestRunStepRepository {
 
     public List<TestRunStepDTO> findByTestRunCaseId(UUID testRunCaseId) {
         return testRunSteps.values().stream()
-                .filter(trs -> trs.getRunCaseId().equals(testRunCaseId))
+                .filter(trs -> trs.getTestRunCaseId().equals(testRunCaseId))
                 .collect(Collectors.toList());
     }
 

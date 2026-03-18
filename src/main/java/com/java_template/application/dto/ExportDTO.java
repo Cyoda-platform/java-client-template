@@ -7,17 +7,16 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Bug Link DTO for TMS
+ * Export DTO for TMS
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class BugLinkDTO {
+public class ExportDTO {
     private UUID id;
-    private UUID testRunStepId;
-    private String bugUrl;
-    private String bugId;
-    private String description;
+    private String format;
+    private String status;
     private LocalDateTime createdAt;
+    private String downloadUrl;
 }
 
