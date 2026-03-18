@@ -9,10 +9,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Security configuration for TMS API
+ * TMS API Authorization configuration
  */
 @Configuration
-public class SecurityConfig {
+public class TMSAuthConfig {
 
     @Bean
     @ConditionalOnProperty(name = "app.auth.filter.enabled", havingValue = "true", matchIfMissing = true)
