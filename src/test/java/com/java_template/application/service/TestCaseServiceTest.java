@@ -13,7 +13,15 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Unit tests for TestCaseService
  */
-@SpringBootTest(properties = "app.auth.filter.enabled=false")
+@SpringBootTest(properties = {
+    "app.auth.filter.enabled=false",
+    "app.config.cyoda-client-id=test-client",
+    "app.config.cyoda-client-secret=test-secret",
+    "app.config.cyoda-host=localhost",
+    "app.config.cyoda-api-url=http://localhost:8080/api",
+    "app.config.grpc-address=localhost",
+    "app.config.grpc-server-port=50051"
+})
 public class TestCaseServiceTest {
     @Autowired
     private TestCaseService testCaseService;
