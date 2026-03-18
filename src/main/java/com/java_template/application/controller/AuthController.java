@@ -2,7 +2,6 @@ package com.java_template.application.controller;
 
 import com.java_template.application.auth.AuthService;
 import com.java_template.application.auth.JwtTokenProvider;
-import com.java_template.application.auth.User;
 import com.java_template.application.dto.LoginRequest;
 import com.java_template.application.dto.LoginResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,10 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Authentication controller for TMS
+ * REST controller for Authentication operations
  */
 @RestController
-@RequestMapping("/login")
+@RequestMapping("/api/login")
 @Tag(name = "Authentication", description = "Authentication endpoints")
 public class AuthController {
     private final AuthService authService;

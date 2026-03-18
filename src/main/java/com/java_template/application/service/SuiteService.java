@@ -18,33 +18,47 @@ public class SuiteService {
         this.suiteRepository = suiteRepository;
     }
 
+    /**
+     * Creates a new suite with ACTIVE status
+     */
     public SuiteDTO createSuite(SuiteDTO suite) {
         suite.setStatus("ACTIVE");
         return suiteRepository.create(suite);
     }
 
+    /**
+     * Retrieves a suite by ID
+     */
     public Optional<SuiteDTO> getSuiteById(UUID id) {
         return suiteRepository.findById(id);
     }
 
+    /**
+     * Retrieves all suites for a specific project
+     */
     public List<SuiteDTO> getSuitesByProjectId(UUID projectId) {
         return suiteRepository.findByProjectId(projectId);
     }
 
+    /**
+     * Retrieves all suites
+     */
     public List<SuiteDTO> getAllSuites() {
         return suiteRepository.findAll();
     }
 
+    /**
+     * Updates an existing suite
+     */
     public SuiteDTO updateSuite(UUID id, SuiteDTO suite) {
         return suiteRepository.update(id, suite);
     }
 
+    /**
+     * Deletes a suite by ID
+     */
     public boolean deleteSuite(UUID id) {
         return suiteRepository.delete(id);
-    }
-
-    public boolean suiteExists(UUID id) {
-        return suiteRepository.exists(id);
     }
 }
 
