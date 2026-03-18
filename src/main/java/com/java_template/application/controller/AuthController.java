@@ -1,7 +1,6 @@
 package com.java_template.application.controller;
 
 import com.java_template.application.auth.AuthService;
-import com.java_template.application.auth.JwtTokenProvider;
 import com.java_template.application.dto.LoginRequest;
 import com.java_template.application.dto.LoginResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,6 +8,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * REST controller for Authentication operations
@@ -18,25 +20,32 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Authentication", description = "Authentication endpoints")
 public class AuthController {
     private final AuthService authService;
-    private final JwtTokenProvider tokenProvider;
 
-    public AuthController(AuthService authService, JwtTokenProvider tokenProvider) {
+    public AuthController(AuthService authService) {
         this.authService = authService;
-        this.tokenProvider = tokenProvider;
     }
 
     @PostMapping
     @Operation(summary = "Login with username and password", description = "Authenticate user and return JWT token")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-        var user = authService.authenticate(request.getUsername(), request.getPassword());
+        AuthService.LoginResponse authResponse = authService.authenticate(request.getUsername(), request.getPassword());
 
-        if (user.isEmpty()) {
+        if (authResponse == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new LoginResponse(null, request.getUsername(), null, null));
         }
 
-        String token = tokenProvider.generateToken(request.getUsername());
-        return ResponseEntity.ok(new LoginResponse(token, request.getUsername(), "TESTER", java.time.LocalDateTime.now().plusHours(1)));
+        LocalDateTime expiresAt = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(authResponse.expiresAt),
+                ZoneId.systemDefault()
+        );
+
+        return ResponseEntity.ok(new LoginResponse(
+                authResponse.token,
+                authResponse.username,
+                authResponse.role,
+                expiresAt
+        ));
     }
 }
 
