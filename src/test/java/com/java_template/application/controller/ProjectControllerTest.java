@@ -40,7 +40,7 @@ public class ProjectControllerTest {
         project.setName("Test Project");
         project.setDescription("A test project");
 
-        mockMvc.perform(post("/api/projects")
+        mockMvc.perform(post("/projects")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(project)))
                 .andExpect(status().isCreated())
@@ -50,7 +50,7 @@ public class ProjectControllerTest {
 
     @Test
     public void testGetAllProjects() throws Exception {
-        mockMvc.perform(get("/api/projects")
+        mockMvc.perform(get("/projects")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray());
@@ -59,8 +59,8 @@ public class ProjectControllerTest {
     @Test
     public void testGetProjectNotFound() throws Exception {
         UUID nonExistentId = UUID.randomUUID();
-        
-        mockMvc.perform(get("/api/projects/" + nonExistentId)
+
+        mockMvc.perform(get("/projects/" + nonExistentId)
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound());
     }

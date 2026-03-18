@@ -39,8 +39,8 @@ public class AuthControllerTest {
     @Test
     public void testLoginWithValidCredentials() throws Exception {
         LoginRequest request = new LoginRequest("admin", "admin123");
-        
-        mockMvc.perform(post("/api/login")
+
+        mockMvc.perform(post("/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -51,8 +51,8 @@ public class AuthControllerTest {
     @Test
     public void testLoginWithInvalidCredentials() throws Exception {
         LoginRequest request = new LoginRequest("admin", "wrongpassword");
-        
-        mockMvc.perform(post("/api/login")
+
+        mockMvc.perform(post("/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized());
