@@ -14,15 +14,16 @@ import java.io.IOException;
 /**
  * Authorization filter for TMS API endpoints
  * Validates JWT tokens and sets user context
- * Can be disabled via spring.security.filter.enabled=false
+ * Can be disabled via app.auth.filter.enabled=false
  */
-@Component
-@ConditionalOnProperty(name = "app.auth.filter.enabled", havingValue = "true", matchIfMissing = true)
 public class AuthorizationFilter implements Filter {
     private final JwtTokenProvider tokenProvider;
     private final AuthService authService;
 
     public AuthorizationFilter(JwtTokenProvider tokenProvider, AuthService authService) {
+        if (tokenProvider == null || authService == null) {
+            throw new IllegalArgumentException("tokenProvider and authService must not be null");
+        }
         this.tokenProvider = tokenProvider;
         this.authService = authService;
     }
