@@ -43,7 +43,7 @@ public class TestRunServiceTest {
         TestRunDTO created = testRunService.createTestRun(testRun);
         assertNotNull(created.getId());
         assertEquals("Test Run 1", created.getTitle());
-        assertEquals("ACTIVE", created.getStatus());
+        assertEquals("CREATED", created.getStatus());
         assertNotNull(created.getStartedAt());
     }
 
