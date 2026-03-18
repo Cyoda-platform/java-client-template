@@ -60,5 +60,12 @@ public class SuiteService {
     public boolean deleteSuite(UUID id) {
         return suiteRepository.delete(id);
     }
+
+    /**
+     * Checks if a suite exists by ID
+     */
+    public boolean suiteExists(UUID id) {
+        return suiteRepository.exists(id);
+    }
 }
 

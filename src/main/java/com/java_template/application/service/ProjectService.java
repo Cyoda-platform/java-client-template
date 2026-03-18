@@ -63,5 +63,12 @@ public class ProjectService {
                 .filter(p -> p.getName() != null && p.getName().toLowerCase().contains(query.toLowerCase()))
                 .collect(Collectors.toList());
     }
+
+    /**
+     * Checks if a project exists by ID
+     */
+    public boolean projectExists(UUID id) {
+        return projectRepository.exists(id);
+    }
 }
 

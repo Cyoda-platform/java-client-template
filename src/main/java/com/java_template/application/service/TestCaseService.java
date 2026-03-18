@@ -72,5 +72,19 @@ public class TestCaseService {
                              (tc.getDescription() != null && tc.getDescription().toLowerCase().contains(query.toLowerCase())))
                 .collect(Collectors.toList());
     }
+
+    /**
+     * Checks if a test case exists by ID
+     */
+    public boolean testCaseExists(UUID id) {
+        return testCaseRepository.exists(id);
+    }
+
+    /**
+     * Soft deletes a test case by ID
+     */
+    public boolean softDeleteTestCase(UUID id) {
+        return testCaseRepository.softDelete(id);
+    }
 }
 
