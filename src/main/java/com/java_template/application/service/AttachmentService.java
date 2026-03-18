@@ -18,28 +18,32 @@ public class AttachmentService {
         this.attachmentRepository = attachmentRepository;
     }
 
+    /**
+     * Uploads a new attachment
+     */
     public AttachmentDTO uploadAttachment(AttachmentDTO attachment) {
         return attachmentRepository.create(attachment);
     }
 
+    /**
+     * Retrieves an attachment by ID
+     */
     public Optional<AttachmentDTO> getAttachmentById(UUID id) {
         return attachmentRepository.findById(id);
     }
 
+    /**
+     * Retrieves all attachments for a specific project
+     */
     public List<AttachmentDTO> getAttachmentsByProjectId(UUID projectId) {
         return attachmentRepository.findByProjectId(projectId);
     }
 
-    public List<AttachmentDTO> getAllAttachments() {
-        return attachmentRepository.findAll();
-    }
-
+    /**
+     * Deletes an attachment by ID
+     */
     public boolean deleteAttachment(UUID id) {
         return attachmentRepository.delete(id);
-    }
-
-    public boolean attachmentExists(UUID id) {
-        return attachmentRepository.exists(id);
     }
 }
 

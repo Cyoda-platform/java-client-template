@@ -7,15 +7,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
  * REST controller for Test Run operations
  */
 @RestController
-@RequestMapping("/projects/{projectId}/runs")
+@RequestMapping("/api/projects/{projectId}/runs")
 @Tag(name = "Test Runs", description = "Test run management endpoints")
 public class TestRunController {
     private final TestRunService testRunService;
@@ -32,43 +32,63 @@ public class TestRunController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @GetMapping("/{runId}")
-    @Operation(summary = "Get test run by ID")
-    public ResponseEntity<TestRunDTO> getTestRun(@PathVariable UUID projectId, @PathVariable UUID runId) {
-        return testRunService.getTestRunById(runId)
-                .filter(tr -> tr.getProjectId().equals(projectId))
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
     @GetMapping
     @Operation(summary = "Get all test runs for a project")
     public ResponseEntity<List<TestRunDTO>> getTestRunsByProject(@PathVariable UUID projectId) {
         return ResponseEntity.ok(testRunService.getTestRunsByProjectId(projectId));
     }
 
-    @PutMapping("/{runId}")
+    @GetMapping("/{id}")
+    @Operation(summary = "Get test run by ID")
+    public ResponseEntity<TestRunDTO> getTestRun(@PathVariable UUID projectId, @PathVariable UUID id) {
+        return testRunService.getTestRunById(id)
+                .filter(tr -> tr.getProjectId().equals(projectId))
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}")
     @Operation(summary = "Update a test run")
-    public ResponseEntity<TestRunDTO> updateTestRun(@PathVariable UUID projectId, @PathVariable UUID runId, @RequestBody TestRunDTO testRun) {
-        if (!testRunService.testRunExists(runId)) {
+    public ResponseEntity<TestRunDTO> updateTestRun(@PathVariable UUID projectId, @PathVariable UUID id, @RequestBody TestRunDTO testRun) {
+        if (!testRunService.testRunExists(id)) {
             return ResponseEntity.notFound().build();
         }
         testRun.setProjectId(projectId);
-        TestRunDTO updated = testRunService.updateTestRun(runId, testRun);
+        TestRunDTO updated = testRunService.updateTestRun(id, testRun);
         return ResponseEntity.ok(updated);
     }
 
-    @PostMapping("/{runId}/cases/{runCaseId}/steps/{runStepId}/status")
-    @Operation(summary = "Update test run step status")
-    public ResponseEntity<Void> updateStepStatus(@PathVariable UUID projectId, @PathVariable UUID runId, @PathVariable UUID runCaseId, @PathVariable UUID runStepId, @RequestBody Map<String, String> statusUpdate) {
-        // Stub implementation - would update step status in actual implementation
-        return ResponseEntity.ok().build();
+    @PostMapping("/{id}/complete")
+    @Operation(summary = "Complete a test run")
+    public ResponseEntity<TestRunDTO> completeTestRun(@PathVariable UUID projectId, @PathVariable UUID id) {
+        var testRun = testRunService.getTestRunById(id);
+        if (testRun.isEmpty() || !testRun.get().getProjectId().equals(projectId)) {
+            return ResponseEntity.notFound().build();
+        }
+        TestRunDTO run = testRun.get();
+        run.setStatus("COMPLETED");
+        run.setCompletedAt(LocalDateTime.now());
+        TestRunDTO updated = testRunService.updateTestRun(id, run);
+        return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping("/{runId}")
+    @PostMapping("/{id}/unlock")
+    @Operation(summary = "Unlock a test run")
+    public ResponseEntity<TestRunDTO> unlockTestRun(@PathVariable UUID projectId, @PathVariable UUID id) {
+        var testRun = testRunService.getTestRunById(id);
+        if (testRun.isEmpty() || !testRun.get().getProjectId().equals(projectId)) {
+            return ResponseEntity.notFound().build();
+        }
+        TestRunDTO run = testRun.get();
+        run.setStatus("UNLOCKED");
+        TestRunDTO updated = testRunService.updateTestRun(id, run);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{id}")
     @Operation(summary = "Delete a test run")
-    public ResponseEntity<Void> deleteTestRun(@PathVariable UUID projectId, @PathVariable UUID runId) {
-        if (testRunService.deleteTestRun(runId)) {
+    public ResponseEntity<Void> deleteTestRun(@PathVariable UUID projectId, @PathVariable UUID id) {
+        if (testRunService.deleteTestRun(id)) {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();
