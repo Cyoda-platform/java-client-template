@@ -1,0 +1,22 @@
+{
+  "id": "dd0e8400-e29b-41d4-a716-446655440010",
+  "testRunCaseId": "bb0e8400-e29b-41d4-a716-446655440007",
+  "testStepId": "880e8400-e29b-41d4-a716-446655440003",
+  "index": 1,
+  "action": "Navigate to the checkout page and verify the cart summary is displayed",
+  "expectedResult": "Cart summary shows all items with correct quantities and prices; subtotal and tax are calculated correctly",
+  "status": "PASSED",
+  "executedBy": "tester",
+  "executedAt": "2024-01-16T09:15:00Z",
+  "attachments": [
+    {
+      "id": "770e8400-e29b-41d4-a716-446655440002",
+      "filename": "checkout_flow_screenshot.png",
+      "contentType": "image/png",
+      "edgeMessageId": "msg-edge-12345-abcde",
+      "uploadedBy": "tester",
+      "uploadedAt": "2024-01-16T09:15:00Z"
+    }
+  ]
+}
+

@@ -1,0 +1,31 @@
+{
+  "id": "bb0e8400-e29b-41d4-a716-446655440007",
+  "testRunId": "aa0e8400-e29b-41d4-a716-446655440006",
+  "testCaseId": "990e8400-e29b-41d4-a716-446655440004",
+  "title": "Verify checkout cart summary and proceed to shipping",
+  "description": "Test the complete checkout flow from cart review through shipping address entry",
+  "preConditions": "User is logged in and has items in the shopping cart",
+  "priority": "HIGH",
+  "status": "PASSED",
+  "bugUrl": null,
+  "steps": [
+    {
+      "id": "cc0e8400-e29b-41d4-a716-446655440008",
+      "index": 1,
+      "action": "Navigate to the checkout page and verify the cart summary is displayed",
+      "expectedResult": "Cart summary shows all items with correct quantities and prices; subtotal and tax are calculated correctly",
+      "attachments": []
+    },
+    {
+      "id": "cc0e8400-e29b-41d4-a716-446655440009",
+      "index": 2,
+      "action": "Click on 'Proceed to Shipping' button",
+      "expectedResult": "User is redirected to the shipping address form with all required fields visible",
+      "attachments": []
+    }
+  ],
+  "attachments": [],
+  "createdAt": "2024-01-16T08:00:00Z",
+  "updatedAt": "2024-01-16T09:30:00Z"
+}
+
