@@ -25,7 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "app.config.cyoda-host=localhost",
     "app.config.cyoda-api-url=http://localhost:8080/api",
     "app.config.grpc-address=localhost",
-    "app.config.grpc-server-port=50051"
+    "app.config.grpc-server-port=50051",
+    "server.servlet.context-path=/api"
 })
 @AutoConfigureMockMvc
 public class AuthControllerTest {
