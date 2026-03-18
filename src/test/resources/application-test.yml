@@ -19,4 +19,11 @@ app:
   auth:
     filter:
       enabled: false
+  config:
+    cyoda-host: localhost
+    cyoda-api-url: http://localhost:8080/api
+    cyoda-client-id: test-client
+    cyoda-client-secret: test-secret
+    grpc-address: localhost
+    grpc-server-port: 50051
 
