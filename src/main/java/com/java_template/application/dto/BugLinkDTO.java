@@ -15,8 +15,9 @@ import java.util.UUID;
 public class BugLinkDTO {
     private UUID id;
     private UUID testRunStepId;
+    private String bugUrl;
     private String bugId;
-    private String bugTitle;
-    private LocalDateTime linkedAt;
+    private String description;
+    private LocalDateTime createdAt;
 }
 
