@@ -16,7 +16,7 @@ import java.time.ZoneId;
  * REST controller for Authentication operations
  */
 @RestController
-@RequestMapping("/api/login")
+@RequestMapping("/login")
 @Tag(name = "Authentication", description = "Authentication endpoints")
 public class AuthController {
     private final AuthService authService;
