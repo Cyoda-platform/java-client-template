@@ -71,7 +71,10 @@ public class AuthorizationFilter implements Filter {
                path.contains("/actuator") ||
                path.contains("/health") ||
                path.contains("/swagger") ||
-               path.contains("/api-docs");
+               path.contains("/api-docs") ||
+               path.contains("/webjars") ||
+               path.equals("/api") ||
+               path.equals("/api/");
     }
 }
 

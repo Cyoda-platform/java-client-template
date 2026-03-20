@@ -38,10 +38,20 @@ public class ProjectRepository {
     }
 
     public ProjectDTO update(UUID id, ProjectDTO project) {
-        project.setId(id);
-        project.setUpdatedAt(LocalDateTime.now());
-        projects.put(id, project);
-        return project;
+        return projects.computeIfPresent(id, (k, existing) -> {
+            // Merge: update only non-null fields
+            if (project.getName() != null) {
+                existing.setName(project.getName());
+            }
+            if (project.getDescription() != null) {
+                existing.setDescription(project.getDescription());
+            }
+            if (project.getStatus() != null) {
+                existing.setStatus(project.getStatus());
+            }
+            existing.setUpdatedAt(LocalDateTime.now());
+            return existing;
+        });
     }
 
     public boolean delete(UUID id) {

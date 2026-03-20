@@ -24,8 +24,18 @@ public class AttachmentController {
         this.attachmentService = attachmentService;
     }
 
-    @PostMapping
-    @Operation(summary = "Upload attachment")
+    @PostMapping(consumes = "application/json")
+    @Operation(summary = "Create attachment metadata")
+    public ResponseEntity<AttachmentDTO> createAttachment(
+            @PathVariable UUID projectId,
+            @RequestBody AttachmentDTO attachment) {
+        attachment.setProjectId(projectId);
+        AttachmentDTO created = attachmentService.uploadAttachment(attachment);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PostMapping(consumes = "multipart/form-data")
+    @Operation(summary = "Upload attachment file")
     public ResponseEntity<AttachmentDTO> uploadAttachment(
             @PathVariable UUID projectId,
             @RequestParam("file") MultipartFile file) {

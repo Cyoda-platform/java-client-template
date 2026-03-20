@@ -35,9 +35,25 @@ public class TestRunStepRepository {
     }
 
     public TestRunStepDTO update(UUID id, TestRunStepDTO testRunStep) {
-        testRunStep.setId(id);
-        testRunSteps.put(id, testRunStep);
-        return testRunStep;
+        return testRunSteps.computeIfPresent(id, (k, existing) -> {
+            // Merge: update only non-null fields
+            if (testRunStep.getStatus() != null) {
+                existing.setStatus(testRunStep.getStatus());
+            }
+            if (testRunStep.getTestRunCaseId() != null) {
+                existing.setTestRunCaseId(testRunStep.getTestRunCaseId());
+            }
+            if (testRunStep.getActualResult() != null) {
+                existing.setActualResult(testRunStep.getActualResult());
+            }
+            if (testRunStep.getStartedAt() != null) {
+                existing.setStartedAt(testRunStep.getStartedAt());
+            }
+            if (testRunStep.getCompletedAt() != null) {
+                existing.setCompletedAt(testRunStep.getCompletedAt());
+            }
+            return existing;
+        });
     }
 
     public boolean delete(UUID id) {

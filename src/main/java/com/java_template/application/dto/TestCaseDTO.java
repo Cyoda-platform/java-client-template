@@ -1,5 +1,6 @@
 package com.java_template.application.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,6 +17,7 @@ public class TestCaseDTO {
     private UUID id;
     private UUID projectId;
     private UUID suiteId;
+    @JsonProperty("title")
     private String name;
     private String description;
     private String status;

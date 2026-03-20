@@ -38,10 +38,23 @@ public class SuiteRepository {
     }
 
     public SuiteDTO update(UUID id, SuiteDTO suite) {
-        suite.setId(id);
-        suite.setUpdatedAt(LocalDateTime.now());
-        suites.put(id, suite);
-        return suite;
+        return suites.computeIfPresent(id, (k, existing) -> {
+            // Merge: update only non-null fields
+            if (suite.getName() != null) {
+                existing.setName(suite.getName());
+            }
+            if (suite.getDescription() != null) {
+                existing.setDescription(suite.getDescription());
+            }
+            if (suite.getStatus() != null) {
+                existing.setStatus(suite.getStatus());
+            }
+            if (suite.getProjectId() != null) {
+                existing.setProjectId(suite.getProjectId());
+            }
+            existing.setUpdatedAt(LocalDateTime.now());
+            return existing;
+        });
     }
 
     public boolean delete(UUID id) {

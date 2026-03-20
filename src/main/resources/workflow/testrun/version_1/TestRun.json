@@ -37,7 +37,7 @@
               {
                 "type": "simple",
                 "jsonPath": "$.project.projectId",
-                "operation": "NOT_EQUALS",
+                "operation": "EQUALS",
                 "value": ""
               }
             ]

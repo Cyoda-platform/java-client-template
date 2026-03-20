@@ -57,6 +57,19 @@ public class TestRunStepController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Update test run step")
+    public ResponseEntity<TestRunStepDTO> updateTestRunStep(
+            @PathVariable UUID projectId,
+            @PathVariable UUID runId,
+            @PathVariable UUID caseId,
+            @PathVariable UUID id,
+            @RequestBody TestRunStepDTO testRunStep) {
+        return testRunStepService.updateTestRunStepStatus(id, testRunStep.getStatus())
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @PutMapping("/{id}/status")
     @Operation(summary = "Update test run step status")
     public ResponseEntity<TestRunStepDTO> updateTestRunStepStatus(

@@ -35,9 +35,25 @@ public class TestStepRepository {
     }
 
     public TestStepDTO update(UUID id, TestStepDTO testStep) {
-        testStep.setId(id);
-        testSteps.put(id, testStep);
-        return testStep;
+        return testSteps.computeIfPresent(id, (k, existing) -> {
+            // Merge: update only non-null fields
+            if (testStep.getAction() != null) {
+                existing.setAction(testStep.getAction());
+            }
+            if (testStep.getExpectedResult() != null) {
+                existing.setExpectedResult(testStep.getExpectedResult());
+            }
+            if (testStep.getStatus() != null) {
+                existing.setStatus(testStep.getStatus());
+            }
+            if (testStep.getStepNumber() != null) {
+                existing.setStepNumber(testStep.getStepNumber());
+            }
+            if (testStep.getTestCaseId() != null) {
+                existing.setTestCaseId(testStep.getTestCaseId());
+            }
+            return existing;
+        });
     }
 
     public boolean delete(UUID id) {

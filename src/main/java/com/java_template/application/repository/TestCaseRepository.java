@@ -48,10 +48,26 @@ public class TestCaseRepository {
     }
 
     public TestCaseDTO update(UUID id, TestCaseDTO testCase) {
-        testCase.setId(id);
-        testCase.setUpdatedAt(LocalDateTime.now());
-        testCases.put(id, testCase);
-        return testCase;
+        return testCases.computeIfPresent(id, (k, existing) -> {
+            // Merge: update only non-null fields
+            if (testCase.getName() != null) {
+                existing.setName(testCase.getName());
+            }
+            if (testCase.getDescription() != null) {
+                existing.setDescription(testCase.getDescription());
+            }
+            if (testCase.getStatus() != null) {
+                existing.setStatus(testCase.getStatus());
+            }
+            if (testCase.getProjectId() != null) {
+                existing.setProjectId(testCase.getProjectId());
+            }
+            if (testCase.getSuiteId() != null) {
+                existing.setSuiteId(testCase.getSuiteId());
+            }
+            existing.setUpdatedAt(LocalDateTime.now());
+            return existing;
+        });
     }
 
     public boolean softDelete(UUID id) {

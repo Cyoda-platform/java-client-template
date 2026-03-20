@@ -41,9 +41,19 @@ public class TestRunCaseRepository {
     }
 
     public TestRunCaseDTO update(UUID id, TestRunCaseDTO testRunCase) {
-        testRunCase.setId(id);
-        testRunCases.put(id, testRunCase);
-        return testRunCase;
+        return testRunCases.computeIfPresent(id, (k, existing) -> {
+            // Merge: update only non-null fields
+            if (testRunCase.getStatus() != null) {
+                existing.setStatus(testRunCase.getStatus());
+            }
+            if (testRunCase.getTestCaseId() != null) {
+                existing.setTestCaseId(testRunCase.getTestCaseId());
+            }
+            if (testRunCase.getTestRunId() != null) {
+                existing.setTestRunId(testRunCase.getTestRunId());
+            }
+            return existing;
+        });
     }
 
     public boolean delete(UUID id) {

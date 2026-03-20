@@ -44,10 +44,29 @@ public class TestRunRepository {
     }
 
     public TestRunDTO update(UUID id, TestRunDTO testRun) {
-        testRun.setId(id);
-        testRun.setUpdatedAt(LocalDateTime.now());
-        testRuns.put(id, testRun);
-        return testRun;
+        return testRuns.computeIfPresent(id, (k, existing) -> {
+            // Merge: update only non-null fields
+            if (testRun.getTitle() != null) {
+                existing.setTitle(testRun.getTitle());
+            }
+            if (testRun.getEnvironment() != null) {
+                existing.setEnvironment(testRun.getEnvironment());
+            }
+            if (testRun.getStatus() != null) {
+                existing.setStatus(testRun.getStatus());
+            }
+            if (testRun.getStartedAt() != null) {
+                existing.setStartedAt(testRun.getStartedAt());
+            }
+            if (testRun.getCompletedAt() != null) {
+                existing.setCompletedAt(testRun.getCompletedAt());
+            }
+            if (testRun.getProjectId() != null) {
+                existing.setProjectId(testRun.getProjectId());
+            }
+            existing.setUpdatedAt(LocalDateTime.now());
+            return existing;
+        });
     }
 
     public boolean delete(UUID id) {

@@ -1,5 +1,6 @@
 package com.java_template.application.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,6 +16,7 @@ import java.util.UUID;
 public class TestRunDTO {
     private UUID id;
     private UUID projectId;
+    @JsonProperty("name")
     private String title;
     private String environment;
     private String status;
