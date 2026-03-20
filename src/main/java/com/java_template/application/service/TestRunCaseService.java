@@ -81,5 +81,12 @@ public class TestRunCaseService {
             return withId(entityService.update(id, trc, null));
         });
     }
+
+    public Optional<TestRunCaseDTO> linkBug(UUID id, String bugUrl) {
+        return getTestRunCaseById(id).map(trc -> {
+            trc.setBugUrl(bugUrl);
+            return withId(entityService.update(id, trc, null));
+        });
+    }
 }
 

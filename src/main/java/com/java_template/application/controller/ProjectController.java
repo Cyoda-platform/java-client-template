@@ -7,7 +7,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import com.java_template.common.dto.PageResult;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
@@ -59,8 +61,12 @@ public class ProjectController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete a project")
-    public ResponseEntity<Void> deleteProject(@PathVariable UUID id) {
+    @Operation(summary = "Delete a project (Admin only)")
+    public ResponseEntity<Void> deleteProject(@PathVariable UUID id, HttpServletRequest request) {
+        String role = (String) request.getAttribute("role");
+        if (!"Admin".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         if (projectService.deleteProject(id)) {
             return ResponseEntity.noContent().build();
         }

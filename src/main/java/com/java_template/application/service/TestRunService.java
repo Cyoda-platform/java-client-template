@@ -57,9 +57,10 @@ public class TestRunService {
     }
 
     public TestRunDTO createTestRun(TestRunDTO testRun) {
-        testRun.setStatus("CREATED");
         testRun.setStartedAt(LocalDateTime.now());
-        return withId(entityService.create(testRun));
+        TestRunDTO created = withId(entityService.create(testRun));
+        // Trigger initialize_run workflow transition to activate SnapshotProcessor
+        return withId(entityService.update(created.getId(), created, "initialize_run"));
     }
 
     public Optional<TestRunDTO> getTestRunById(UUID id) {
@@ -93,17 +94,15 @@ public class TestRunService {
 
     public Optional<TestRunDTO> completeTestRun(UUID id) {
         return getTestRunById(id).map(run -> {
-            run.setStatus("COMPLETED");
             run.setCompletedAt(LocalDateTime.now());
-            return withId(entityService.update(id, run, null));
+            return withId(entityService.update(id, run, "complete_run"));
         });
     }
 
     public Optional<TestRunDTO> unlockTestRun(UUID id) {
-        return getTestRunById(id).map(run -> {
-            run.setStatus("ACTIVE");
-            return withId(entityService.update(id, run, null));
-        });
+        return getTestRunById(id).map(run ->
+                withId(entityService.update(id, run, "unlock_run"))
+        );
     }
 
     public boolean testRunExists(UUID id) {

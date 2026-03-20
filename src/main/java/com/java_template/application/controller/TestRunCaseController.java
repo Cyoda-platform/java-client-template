@@ -80,5 +80,17 @@ public class TestRunCaseController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PostMapping("/{id}/link-bug")
+    @Operation(summary = "Link a bug URL to a test run case")
+    public ResponseEntity<TestRunCaseDTO> linkBug(
+            @PathVariable UUID projectId,
+            @PathVariable UUID runId,
+            @PathVariable UUID id,
+            @RequestParam String bugUrl) {
+        return testRunCaseService.linkBug(id, bugUrl)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
 

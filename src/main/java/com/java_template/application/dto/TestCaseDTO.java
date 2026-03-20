@@ -42,6 +42,11 @@ public class TestCaseDTO implements CyodaEntity {
     @Size(max = 2000, message = "Description must not exceed 2000 characters")
     private String description;
 
+    @Size(max = 2000, message = "Preconditions must not exceed 2000 characters")
+    private String preconditions;
+
+    private Priority priority;
+
     private String status;
     private boolean deleted;
     private LocalDateTime createdAt;

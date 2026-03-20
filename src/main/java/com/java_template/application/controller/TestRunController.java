@@ -4,12 +4,12 @@ import com.java_template.application.dto.TestRunDTO;
 import com.java_template.application.service.TestRunService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import com.java_template.common.dto.PageResult;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -63,30 +63,30 @@ public class TestRunController {
     }
 
     @PostMapping("/{id}/complete")
-    @Operation(summary = "Complete a test run")
+    @Operation(summary = "Complete a test run (Tester, Admin)")
     public ResponseEntity<TestRunDTO> completeTestRun(@PathVariable UUID projectId, @PathVariable UUID id) {
-        var testRun = testRunService.getTestRunById(id);
-        if (testRun.isEmpty() || !testRun.get().getProjectId().equals(projectId)) {
-            return ResponseEntity.notFound().build();
-        }
-        TestRunDTO run = testRun.get();
-        run.setStatus("COMPLETED");
-        run.setCompletedAt(LocalDateTime.now());
-        TestRunDTO updated = testRunService.updateTestRun(id, run);
-        return ResponseEntity.ok(updated);
+        return testRunService.getTestRunById(id)
+                .filter(tr -> tr.getProjectId().equals(projectId))
+                .flatMap(tr -> testRunService.completeTestRun(id))
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/{id}/unlock")
-    @Operation(summary = "Unlock a test run")
-    public ResponseEntity<TestRunDTO> unlockTestRun(@PathVariable UUID projectId, @PathVariable UUID id) {
-        var testRun = testRunService.getTestRunById(id);
-        if (testRun.isEmpty() || !testRun.get().getProjectId().equals(projectId)) {
-            return ResponseEntity.notFound().build();
+    @Operation(summary = "Unlock a completed test run (Admin only)")
+    public ResponseEntity<TestRunDTO> unlockTestRun(
+            @PathVariable UUID projectId,
+            @PathVariable UUID id,
+            HttpServletRequest request) {
+        String role = (String) request.getAttribute("role");
+        if (!"Admin".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        TestRunDTO run = testRun.get();
-        run.setStatus("UNLOCKED");
-        TestRunDTO updated = testRunService.updateTestRun(id, run);
-        return ResponseEntity.ok(updated);
+        return testRunService.getTestRunById(id)
+                .filter(tr -> tr.getProjectId().equals(projectId))
+                .flatMap(tr -> testRunService.unlockTestRun(id))
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")

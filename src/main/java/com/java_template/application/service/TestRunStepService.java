@@ -82,11 +82,6 @@ public class TestRunStepService {
         });
     }
 
-    public Optional<TestRunStepDTO> linkBug(UUID id, String bugUrl) {
-        return getTestRunStepById(id).map(trs -> {
-            trs.setActualResult(bugUrl);
-            return withId(entityService.update(id, trs, null));
-        });
-    }
+
 }
 

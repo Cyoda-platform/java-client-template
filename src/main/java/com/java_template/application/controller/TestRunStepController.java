@@ -1,6 +1,8 @@
 package com.java_template.application.controller;
 
+import com.java_template.application.dto.AttachmentDTO;
 import com.java_template.application.dto.TestRunStepDTO;
+import com.java_template.application.service.AttachmentService;
 import com.java_template.application.service.TestRunStepService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -8,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import com.java_template.common.dto.PageResult;
 import java.util.UUID;
 
@@ -19,9 +22,11 @@ import java.util.UUID;
 @Tag(name = "Test Run Steps", description = "Test run step management endpoints")
 public class TestRunStepController {
     private final TestRunStepService testRunStepService;
+    private final AttachmentService attachmentService;
 
-    public TestRunStepController(TestRunStepService testRunStepService) {
+    public TestRunStepController(TestRunStepService testRunStepService, AttachmentService attachmentService) {
         this.testRunStepService = testRunStepService;
+        this.attachmentService = attachmentService;
     }
 
     @PostMapping
@@ -86,17 +91,20 @@ public class TestRunStepController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/{id}/link-bug")
-    @Operation(summary = "Link a bug to a test run step")
-    public ResponseEntity<TestRunStepDTO> linkBug(
+    @PostMapping(value = "/{id}/evidence", consumes = "multipart/form-data")
+    @Operation(summary = "Attach evidence (screenshot/log) to a test run step")
+    public ResponseEntity<AttachmentDTO> uploadEvidence(
             @PathVariable UUID projectId,
             @PathVariable UUID runId,
             @PathVariable UUID caseId,
             @PathVariable UUID id,
-            @RequestParam String bugUrl) {
-        return testRunStepService.linkBug(id, bugUrl)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+            @RequestParam("file") MultipartFile file) {
+        try {
+            AttachmentDTO uploaded = attachmentService.uploadAttachment(projectId, file);
+            return ResponseEntity.status(HttpStatus.CREATED).body(uploaded);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }
 

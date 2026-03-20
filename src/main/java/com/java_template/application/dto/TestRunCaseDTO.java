@@ -34,6 +34,7 @@ public class TestRunCaseDTO implements CyodaEntity {
     private UUID testCaseId;
 
     private String status;
+    private String bugUrl;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
 

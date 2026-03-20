@@ -61,12 +61,13 @@ public class TestRunServiceTest {
     public void testCreateTestRun() {
         when(entityService.create(any(TestRunDTO.class)))
                 .thenAnswer(inv -> entityWithMetadata(inv.getArgument(0), runId));
+        when(entityService.update(eq(runId), any(TestRunDTO.class), eq("initialize_run")))
+                .thenAnswer(inv -> entityWithMetadata(inv.getArgument(1), runId));
 
         TestRunDTO created = testRunService.createTestRun(testRun);
 
         assertNotNull(created.getId());
         assertEquals("Test Run 1", created.getTitle());
-        assertEquals("CREATED", created.getStatus());
         assertNotNull(created.getStartedAt());
     }
 
