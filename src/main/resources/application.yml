@@ -51,11 +51,11 @@ app:
     path-pattern: /**
   config:
     # Cyoda Platform Connection
-    # Override these via environment variables or profile-specific YAML files
-    # MUST SET cyoda-host, cyoda-client-id, cyoda-client-secret. Get them from Cyoda AI Studio, for example
-    cyoda-host: client-a680fca7878e4c73854cfce50b42a108-dev.eu.cyoda.net
-    cyoda-client-id: kLXY45
-    cyoda-client-secret: OAIsUzQMP4LoW19JTwoi
+    # Set CYODA_HOST, CYODA_CLIENT_ID, CYODA_CLIENT_SECRET in your .env file or environment variables
+    # Get credentials from Cyoda AI Studio
+    cyoda-host: ${CYODA_HOST}
+    cyoda-client-id: ${CYODA_CLIENT_ID}
+    cyoda-client-secret: ${CYODA_CLIENT_SECRET}
     cyoda-api-url: https://${app.config.cyoda-host}/api
 
     # gRPC Configuration
