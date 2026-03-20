@@ -1,10 +1,15 @@
 package com.java_template.application.service;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.dto.AttachmentDTO;
-import com.java_template.application.repository.AttachmentRepository;
+import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.service.EdgeMessageService;
+import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,17 +30,35 @@ public class AttachmentService {
 
     private static final Logger logger = LoggerFactory.getLogger(AttachmentService.class);
     private static final String EDGE_MESSAGE_SUBJECT = "attachment";
+    private static final ModelSpec MODEL_SPEC =
+            new ModelSpec().withName(AttachmentDTO.ENTITY_NAME).withVersion(AttachmentDTO.ENTITY_VERSION);
 
-    private final AttachmentRepository attachmentRepository;
+    private final EntityService entityService;
     private final EdgeMessageService edgeMessageService;
     private final ObjectMapper objectMapper;
 
-    public AttachmentService(AttachmentRepository attachmentRepository,
+    public AttachmentService(EntityService entityService,
                              EdgeMessageService edgeMessageService,
                              ObjectMapper objectMapper) {
-        this.attachmentRepository = attachmentRepository;
+        this.entityService = entityService;
         this.edgeMessageService = edgeMessageService;
         this.objectMapper = objectMapper;
+    }
+
+    private AttachmentDTO withId(EntityWithMetadata<AttachmentDTO> result) {
+        AttachmentDTO entity = result.entity();
+        entity.setId(result.getId());
+        return entity;
+    }
+
+    private GroupCondition conditionByField(String fieldName, Object value) {
+        SimpleCondition condition = new SimpleCondition()
+                .withJsonPath("$." + fieldName)
+                .withOperation(Operation.EQUALS)
+                .withValue(objectMapper.valueToTree(value));
+        return new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of(condition));
     }
 
     /**
@@ -64,28 +87,32 @@ public class AttachmentService {
         attachment.setFileSize(file.getSize());
         attachment.setMessageId(messageId);
 
-        return attachmentRepository.create(attachment);
+        return withId(entityService.create(attachment));
     }
 
     /**
      * Creates attachment metadata only (without file content).
      */
     public AttachmentDTO uploadAttachment(AttachmentDTO attachment) {
-        return attachmentRepository.create(attachment);
+        return withId(entityService.create(attachment));
     }
 
     /**
      * Retrieves attachment metadata by ID.
      */
     public Optional<AttachmentDTO> getAttachmentById(UUID id) {
-        return attachmentRepository.findById(id);
+        try {
+            return Optional.of(withId(entityService.getById(id, MODEL_SPEC, AttachmentDTO.class)));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     /**
      * Retrieves the raw file content (base64-decoded) from Cyoda EdgeMessage.
      */
     public Optional<byte[]> getAttachmentContent(UUID id) throws Exception {
-        return attachmentRepository.findById(id)
+        return getAttachmentById(id)
                 .filter(a -> a.getMessageId() != null)
                 .map(a -> {
                     try {
@@ -102,19 +129,21 @@ public class AttachmentService {
      * Retrieves all attachments for a specific project.
      */
     public List<AttachmentDTO> getAttachmentsByProjectId(UUID projectId) {
-        return attachmentRepository.findByProjectId(projectId);
+        return entityService.search(MODEL_SPEC, conditionByField("projectId", projectId.toString()), AttachmentDTO.class)
+                .data().stream().map(this::withId).toList();
     }
 
     /**
      * Deletes attachment metadata and the corresponding EdgeMessage.
      */
     public boolean deleteAttachment(UUID id) {
-        return attachmentRepository.findById(id).map(attachment -> {
+        return getAttachmentById(id).map(attachment -> {
             if (attachment.getMessageId() != null) {
                 edgeMessageService.deleteMessage(attachment.getMessageId());
                 logger.info("Deleted EdgeMessage: {}", attachment.getMessageId());
             }
-            return attachmentRepository.delete(id);
+            entityService.deleteById(id);
+            return true;
         }).orElse(false);
     }
 }

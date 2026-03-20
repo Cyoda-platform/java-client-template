@@ -1,36 +1,55 @@
 package com.java_template.application.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.TestRunDTO;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
+import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for TestRunService
  */
-@SpringBootTest(properties = {
-    "app.auth.filter.enabled=false",
-    "app.config.cyoda-client-id=test-client",
-    "app.config.cyoda-client-secret=test-secret",
-    "app.config.cyoda-host=localhost",
-    "app.config.cyoda-api-url=http://localhost:8080/api",
-    "app.config.grpc-address=localhost",
-    "app.config.grpc-server-port=50051"
-})
+@ExtendWith(MockitoExtension.class)
 public class TestRunServiceTest {
-    @Autowired
+
+    @Mock
+    private EntityService entityService;
+
+    @Spy
+    private ObjectMapper objectMapper;
+
+    @InjectMocks
     private TestRunService testRunService;
 
     private TestRunDTO testRun;
+    private UUID runId;
     private UUID projectId;
+
+    private EntityWithMetadata<TestRunDTO> entityWithMetadata(TestRunDTO dto, UUID id) {
+        EntityMetadata metadata = new EntityMetadata();
+        metadata.setId(id);
+        return new EntityWithMetadata<>(dto, metadata);
+    }
 
     @BeforeEach
     public void setUp() {
+        runId = UUID.randomUUID();
         projectId = UUID.randomUUID();
         testRun = new TestRunDTO();
         testRun.setProjectId(projectId);
@@ -40,7 +59,11 @@ public class TestRunServiceTest {
 
     @Test
     public void testCreateTestRun() {
+        when(entityService.create(any(TestRunDTO.class)))
+                .thenAnswer(inv -> entityWithMetadata(inv.getArgument(0), runId));
+
         TestRunDTO created = testRunService.createTestRun(testRun);
+
         assertNotNull(created.getId());
         assertEquals("Test Run 1", created.getTitle());
         assertEquals("CREATED", created.getStatus());
@@ -49,26 +72,36 @@ public class TestRunServiceTest {
 
     @Test
     public void testGetTestRunById() {
-        TestRunDTO created = testRunService.createTestRun(testRun);
-        Optional<TestRunDTO> retrieved = testRunService.getTestRunById(created.getId());
-        
+        testRun.setId(runId);
+        when(entityService.getById(eq(runId), any(), eq(TestRunDTO.class)))
+                .thenReturn(entityWithMetadata(testRun, runId));
+
+        Optional<TestRunDTO> retrieved = testRunService.getTestRunById(runId);
+
         assertTrue(retrieved.isPresent());
-        assertEquals(created.getId(), retrieved.get().getId());
+        assertEquals(runId, retrieved.get().getId());
     }
 
     @Test
     public void testGetTestRunsByProjectId() {
-        testRunService.createTestRun(testRun);
+        PageResult<EntityWithMetadata<TestRunDTO>> page =
+                PageResult.of(null, List.of(entityWithMetadata(testRun, runId)), 0, 10, 1);
+        when(entityService.search(any(), any(), eq(TestRunDTO.class))).thenReturn(page);
+
         var runs = testRunService.getTestRunsByProjectId(projectId);
+
         assertFalse(runs.isEmpty());
+        assertEquals(1, runs.size());
     }
 
     @Test
     public void testDeleteTestRun() {
-        TestRunDTO created = testRunService.createTestRun(testRun);
-        boolean deleted = testRunService.deleteTestRun(created.getId());
+        when(entityService.deleteById(runId)).thenReturn(runId);
+
+        boolean deleted = testRunService.deleteTestRun(runId);
+
         assertTrue(deleted);
-        assertFalse(testRunService.testRunExists(created.getId()));
+        verify(entityService).deleteById(runId);
     }
 }
 

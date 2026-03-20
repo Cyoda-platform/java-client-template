@@ -1,43 +1,49 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.auth.AuthService;
 import com.java_template.application.auth.JwtTokenProvider;
 import com.java_template.application.dto.LoginRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Unit tests for AuthController
  */
-@SpringBootTest(properties = {
-    "app.auth.filter.enabled=false",
-    "app.config.cyoda-client-id=test-client",
-    "app.config.cyoda-client-secret=test-secret",
-    "app.config.cyoda-host=localhost",
-    "app.config.cyoda-api-url=http://localhost:8080/api",
-    "app.config.grpc-address=localhost",
-    "app.config.grpc-server-port=50051",
-    "server.servlet.context-path=/api"
-})
-@AutoConfigureMockMvc
+@WebMvcTest(controllers = AuthController.class,
+        excludeAutoConfiguration = {SecurityAutoConfiguration.class, SecurityFilterAutoConfiguration.class})
 public class AuthControllerTest {
+
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
 
+    @MockBean
+    private AuthService authService;
+
+    @MockBean
+    private JwtTokenProvider jwtTokenProvider;
+
     @Test
     public void testLoginWithValidCredentials() throws Exception {
+        AuthService.LoginResponse response =
+                new AuthService.LoginResponse("mock-jwt-token", "admin", "ADMIN",
+                        System.currentTimeMillis() + 86400000);
+        when(authService.authenticate("admin", "admin123")).thenReturn(response);
+
         LoginRequest request = new LoginRequest("admin", "admin123");
 
         mockMvc.perform(post("/login")
@@ -50,6 +56,8 @@ public class AuthControllerTest {
 
     @Test
     public void testLoginWithInvalidCredentials() throws Exception {
+        when(authService.authenticate("admin", "wrongpassword")).thenReturn(null);
+
         LoginRequest request = new LoginRequest("admin", "wrongpassword");
 
         mockMvc.perform(post("/login")

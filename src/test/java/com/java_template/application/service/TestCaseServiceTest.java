@@ -1,36 +1,53 @@
 package com.java_template.application.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.TestCaseDTO;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for TestCaseService
  */
-@SpringBootTest(properties = {
-    "app.auth.filter.enabled=false",
-    "app.config.cyoda-client-id=test-client",
-    "app.config.cyoda-client-secret=test-secret",
-    "app.config.cyoda-host=localhost",
-    "app.config.cyoda-api-url=http://localhost:8080/api",
-    "app.config.grpc-address=localhost",
-    "app.config.grpc-server-port=50051"
-})
+@ExtendWith(MockitoExtension.class)
 public class TestCaseServiceTest {
-    @Autowired
+
+    @Mock
+    private EntityService entityService;
+
+    @Spy
+    private ObjectMapper objectMapper;
+
+    @InjectMocks
     private TestCaseService testCaseService;
 
     private TestCaseDTO testCase;
+    private UUID caseId;
     private UUID suiteId;
+
+    private EntityWithMetadata<TestCaseDTO> entityWithMetadata(TestCaseDTO dto, UUID id) {
+        EntityMetadata metadata = new EntityMetadata();
+        metadata.setId(id);
+        return new EntityWithMetadata<>(dto, metadata);
+    }
 
     @BeforeEach
     public void setUp() {
+        caseId = UUID.randomUUID();
         suiteId = UUID.randomUUID();
         testCase = new TestCaseDTO();
         testCase.setSuiteId(suiteId);
@@ -40,7 +57,11 @@ public class TestCaseServiceTest {
 
     @Test
     public void testCreateTestCase() {
+        when(entityService.create(any(TestCaseDTO.class)))
+                .thenAnswer(inv -> entityWithMetadata(inv.getArgument(0), caseId));
+
         TestCaseDTO created = testCaseService.createTestCase(testCase);
+
         assertNotNull(created.getId());
         assertEquals("Test Case 1", created.getName());
         assertEquals("ACTIVE", created.getStatus());
@@ -49,19 +70,29 @@ public class TestCaseServiceTest {
 
     @Test
     public void testGetTestCaseById() {
-        TestCaseDTO created = testCaseService.createTestCase(testCase);
-        Optional<TestCaseDTO> retrieved = testCaseService.getTestCaseById(created.getId());
-        
+        testCase.setId(caseId);
+        when(entityService.getById(eq(caseId), any(), eq(TestCaseDTO.class)))
+                .thenReturn(entityWithMetadata(testCase, caseId));
+
+        Optional<TestCaseDTO> retrieved = testCaseService.getTestCaseById(caseId);
+
         assertTrue(retrieved.isPresent());
-        assertEquals(created.getId(), retrieved.get().getId());
+        assertEquals(caseId, retrieved.get().getId());
     }
 
     @Test
     public void testSoftDeleteTestCase() {
-        TestCaseDTO created = testCaseService.createTestCase(testCase);
-        boolean deleted = testCaseService.softDeleteTestCase(created.getId());
+        testCase.setId(caseId);
+        when(entityService.getById(eq(caseId), any(), eq(TestCaseDTO.class)))
+                .thenReturn(entityWithMetadata(testCase, caseId))
+                .thenThrow(new RuntimeException("Not found"));
+        when(entityService.update(eq(caseId), any(TestCaseDTO.class), isNull()))
+                .thenReturn(entityWithMetadata(testCase, caseId));
+
+        boolean deleted = testCaseService.softDeleteTestCase(caseId);
+
         assertTrue(deleted);
-        assertFalse(testCaseService.testCaseExists(created.getId()));
+        verify(entityService).update(eq(caseId), argThat((TestCaseDTO tc) -> tc.isDeleted()), isNull());
     }
 }
 

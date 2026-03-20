@@ -1,22 +1,50 @@
 package com.java_template.application.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.TestCaseDTO;
-import com.java_template.application.repository.TestCaseRepository;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Service for Test Case operations
  */
 @Service
 public class TestCaseService {
-    private final TestCaseRepository testCaseRepository;
 
-    public TestCaseService(TestCaseRepository testCaseRepository) {
-        this.testCaseRepository = testCaseRepository;
+    private static final ModelSpec MODEL_SPEC =
+            new ModelSpec().withName(TestCaseDTO.ENTITY_NAME).withVersion(TestCaseDTO.ENTITY_VERSION);
+
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public TestCaseService(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
+    }
+
+    private TestCaseDTO withId(EntityWithMetadata<TestCaseDTO> result) {
+        TestCaseDTO entity = result.entity();
+        entity.setId(result.getId());
+        return entity;
+    }
+
+    private GroupCondition conditionByField(String fieldName, Object value) {
+        SimpleCondition condition = new SimpleCondition()
+                .withJsonPath("$." + fieldName)
+                .withOperation(Operation.EQUALS)
+                .withValue(objectMapper.valueToTree(value));
+        return new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of(condition));
     }
 
     /**
@@ -25,66 +53,45 @@ public class TestCaseService {
     public TestCaseDTO createTestCase(TestCaseDTO testCase) {
         testCase.setStatus("ACTIVE");
         testCase.setDeleted(false);
-        return testCaseRepository.create(testCase);
+        return withId(entityService.create(testCase));
     }
 
-    /**
-     * Retrieves a test case by ID
-     */
     public Optional<TestCaseDTO> getTestCaseById(UUID id) {
-        return testCaseRepository.findById(id);
+        try {
+            return Optional.of(withId(entityService.getById(id, MODEL_SPEC, TestCaseDTO.class)));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
-    /**
-     * Retrieves all test cases for a specific suite
-     */
     public List<TestCaseDTO> getTestCasesBySuiteId(UUID suiteId) {
-        return testCaseRepository.findBySuiteId(suiteId);
+        return entityService.search(MODEL_SPEC, conditionByField("suiteId", suiteId.toString()), TestCaseDTO.class)
+                .data().stream().map(this::withId).toList();
     }
 
-    /**
-     * Retrieves all test cases
-     */
     public List<TestCaseDTO> getAllTestCases() {
-        return testCaseRepository.findAll();
+        return entityService.findAll(MODEL_SPEC, TestCaseDTO.class).data()
+                .stream().map(this::withId).toList();
     }
 
-    /**
-     * Updates an existing test case
-     */
     public TestCaseDTO updateTestCase(UUID id, TestCaseDTO testCase) {
-        return testCaseRepository.update(id, testCase);
+        return withId(entityService.update(id, testCase, null));
     }
 
-    /**
-     * Soft deletes a test case by ID
-     */
     public boolean deleteTestCase(UUID id) {
-        return testCaseRepository.softDelete(id);
+        return softDeleteTestCase(id);
     }
 
-    /**
-     * Searches test cases by name or description (case-insensitive)
-     */
-    public List<TestCaseDTO> searchTestCases(String query) {
-        return testCaseRepository.findAll().stream()
-                .filter(tc -> (tc.getName() != null && tc.getName().toLowerCase().contains(query.toLowerCase())) ||
-                             (tc.getDescription() != null && tc.getDescription().toLowerCase().contains(query.toLowerCase())))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Checks if a test case exists by ID
-     */
     public boolean testCaseExists(UUID id) {
-        return testCaseRepository.exists(id);
+        return getTestCaseById(id).isPresent();
     }
 
-    /**
-     * Soft deletes a test case by ID
-     */
     public boolean softDeleteTestCase(UUID id) {
-        return testCaseRepository.softDelete(id);
+        return getTestCaseById(id).map(tc -> {
+            tc.setDeleted(true);
+            entityService.update(id, tc, null);
+            return true;
+        }).orElse(false);
     }
 }
 

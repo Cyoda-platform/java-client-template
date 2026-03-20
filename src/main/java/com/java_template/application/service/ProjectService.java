@@ -1,74 +1,87 @@
 package com.java_template.application.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.ProjectDTO;
-import com.java_template.application.repository.ProjectRepository;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Service for Project operations
  */
 @Service
 public class ProjectService {
-    private final ProjectRepository projectRepository;
 
-    public ProjectService(ProjectRepository projectRepository) {
-        this.projectRepository = projectRepository;
+    private static final ModelSpec MODEL_SPEC =
+            new ModelSpec().withName(ProjectDTO.ENTITY_NAME).withVersion(ProjectDTO.ENTITY_VERSION);
+
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public ProjectService(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    /**
-     * Creates a new project with ACTIVE status
-     */
+    private ProjectDTO withId(EntityWithMetadata<ProjectDTO> result) {
+        ProjectDTO entity = result.entity();
+        entity.setId(result.getId());
+        return entity;
+    }
+
+    private GroupCondition conditionByField(String fieldName, Object value) {
+        SimpleCondition condition = new SimpleCondition()
+                .withJsonPath("$." + fieldName)
+                .withOperation(Operation.EQUALS)
+                .withValue(objectMapper.valueToTree(value));
+        return new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of(condition));
+    }
+
     public ProjectDTO createProject(ProjectDTO project) {
         project.setStatus("ACTIVE");
-        return projectRepository.create(project);
+        return withId(entityService.create(project));
     }
 
-    /**
-     * Retrieves a project by ID
-     */
     public Optional<ProjectDTO> getProjectById(UUID id) {
-        return projectRepository.findById(id);
+        try {
+            return Optional.of(withId(entityService.getById(id, MODEL_SPEC, ProjectDTO.class)));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
-    /**
-     * Retrieves all projects
-     */
     public List<ProjectDTO> getAllProjects() {
-        return projectRepository.findAll();
+        return entityService.findAll(MODEL_SPEC, ProjectDTO.class).data()
+                .stream().map(this::withId).toList();
     }
 
-    /**
-     * Updates an existing project
-     */
     public ProjectDTO updateProject(UUID id, ProjectDTO project) {
-        return projectRepository.update(id, project);
+        return withId(entityService.update(id, project, null));
     }
 
-    /**
-     * Deletes a project by ID
-     */
     public boolean deleteProject(UUID id) {
-        return projectRepository.delete(id);
+        entityService.deleteById(id);
+        return true;
     }
 
-    /**
-     * Searches projects by name (case-insensitive)
-     */
     public List<ProjectDTO> searchProjects(String query) {
-        return projectRepository.findAll().stream()
-                .filter(p -> p.getName() != null && p.getName().toLowerCase().contains(query.toLowerCase()))
-                .collect(Collectors.toList());
+        GroupCondition condition = conditionByField("name", query);
+        return entityService.search(MODEL_SPEC, condition, ProjectDTO.class).data()
+                .stream().map(this::withId).toList();
     }
 
-    /**
-     * Checks if a project exists by ID
-     */
     public boolean projectExists(UUID id) {
-        return projectRepository.exists(id);
+        return getProjectById(id).isPresent();
     }
 }
 

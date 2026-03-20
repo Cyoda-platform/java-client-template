@@ -1,8 +1,15 @@
 package com.java_template.application.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.TestRunStepDTO;
-import com.java_template.application.repository.TestRunStepRepository;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,60 +19,64 @@ import java.util.UUID;
  */
 @Service
 public class TestRunStepService {
-    private final TestRunStepRepository testRunStepRepository;
 
-    public TestRunStepService(TestRunStepRepository testRunStepRepository) {
-        this.testRunStepRepository = testRunStepRepository;
+    private static final ModelSpec MODEL_SPEC =
+            new ModelSpec().withName(TestRunStepDTO.ENTITY_NAME).withVersion(TestRunStepDTO.ENTITY_VERSION);
+
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public TestRunStepService(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    /**
-     * Creates a new test run step
-     */
+    private TestRunStepDTO withId(EntityWithMetadata<TestRunStepDTO> result) {
+        TestRunStepDTO entity = result.entity();
+        entity.setId(result.getId());
+        return entity;
+    }
+
+    private GroupCondition conditionByField(String fieldName, Object value) {
+        SimpleCondition condition = new SimpleCondition()
+                .withJsonPath("$." + fieldName)
+                .withOperation(Operation.EQUALS)
+                .withValue(objectMapper.valueToTree(value));
+        return new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of(condition));
+    }
+
     public TestRunStepDTO createTestRunStep(TestRunStepDTO testRunStep) {
         testRunStep.setStatus("UNTESTED");
-        return testRunStepRepository.create(testRunStep);
+        return withId(entityService.create(testRunStep));
     }
 
-    /**
-     * Retrieves a test run step by ID
-     */
     public Optional<TestRunStepDTO> getTestRunStepById(UUID id) {
-        return testRunStepRepository.findById(id);
+        try {
+            return Optional.of(withId(entityService.getById(id, MODEL_SPEC, TestRunStepDTO.class)));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
-    /**
-     * Retrieves all test run steps for a specific test run case
-     */
     public List<TestRunStepDTO> getTestRunStepsByTestRunCaseId(UUID testRunCaseId) {
-        return testRunStepRepository.findByTestRunCaseId(testRunCaseId);
+        return entityService.search(MODEL_SPEC, conditionByField("testRunCaseId", testRunCaseId.toString()), TestRunStepDTO.class)
+                .data().stream().map(this::withId).toList();
     }
 
-    /**
-     * Updates the status of a test run step (UNTESTED, PASSED, FAILED, SKIPPED)
-     */
     public Optional<TestRunStepDTO> updateTestRunStepStatus(UUID id, String status) {
-        Optional<TestRunStepDTO> testRunStep = testRunStepRepository.findById(id);
-        if (testRunStep.isPresent()) {
-            TestRunStepDTO trs = testRunStep.get();
+        return getTestRunStepById(id).map(trs -> {
             trs.setStatus(status);
-            testRunStepRepository.update(id, trs);
-            return Optional.of(trs);
-        }
-        return Optional.empty();
+            return withId(entityService.update(id, trs, null));
+        });
     }
 
-    /**
-     * Links a bug to a test run step
-     */
     public Optional<TestRunStepDTO> linkBug(UUID id, String bugUrl) {
-        Optional<TestRunStepDTO> testRunStep = testRunStepRepository.findById(id);
-        if (testRunStep.isPresent()) {
-            TestRunStepDTO trs = testRunStep.get();
-            // Store bug URL in actualResult or create a dedicated field if needed
-            testRunStepRepository.update(id, trs);
-            return Optional.of(trs);
-        }
-        return Optional.empty();
+        return getTestRunStepById(id).map(trs -> {
+            trs.setActualResult(bugUrl);
+            return withId(entityService.update(id, trs, null));
+        });
     }
 }
 

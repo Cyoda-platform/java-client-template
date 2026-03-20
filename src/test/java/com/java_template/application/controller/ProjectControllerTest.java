@@ -1,44 +1,54 @@
 package com.java_template.application.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.ProjectDTO;
+import com.java_template.application.service.ProjectService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
-import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Unit tests for ProjectController
  */
-@SpringBootTest(properties = {
-    "app.auth.filter.enabled=false",
-    "app.config.cyoda-client-id=test-client",
-    "app.config.cyoda-client-secret=test-secret",
-    "app.config.cyoda-host=localhost",
-    "app.config.cyoda-api-url=http://localhost:8080/api",
-    "app.config.grpc-address=localhost",
-    "app.config.grpc-server-port=50051",
-    "server.servlet.context-path=/api"
-})
-@AutoConfigureMockMvc
+@WebMvcTest(controllers = ProjectController.class,
+        excludeAutoConfiguration = {SecurityAutoConfiguration.class, SecurityFilterAutoConfiguration.class})
 public class ProjectControllerTest {
+
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
 
+    @MockBean
+    private ProjectService projectService;
+
     @Test
     public void testCreateProject() throws Exception {
         ProjectDTO project = new ProjectDTO();
         project.setName("Test Project");
         project.setDescription("A test project");
+
+        ProjectDTO created = new ProjectDTO();
+        created.setId(UUID.randomUUID());
+        created.setName("Test Project");
+        created.setStatus("ACTIVE");
+
+        when(projectService.createProject(any(ProjectDTO.class))).thenReturn(created);
 
         mockMvc.perform(post("/projects")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -50,6 +60,8 @@ public class ProjectControllerTest {
 
     @Test
     public void testGetAllProjects() throws Exception {
+        when(projectService.getAllProjects()).thenReturn(List.of());
+
         mockMvc.perform(get("/projects")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -59,6 +71,7 @@ public class ProjectControllerTest {
     @Test
     public void testGetProjectNotFound() throws Exception {
         UUID nonExistentId = UUID.randomUUID();
+        when(projectService.getProjectById(nonExistentId)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/projects/" + nonExistentId)
                 .contentType(MediaType.APPLICATION_JSON))

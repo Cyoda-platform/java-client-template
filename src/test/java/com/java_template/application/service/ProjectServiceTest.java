@@ -1,39 +1,54 @@
 package com.java_template.application.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.ProjectDTO;
-import com.java_template.application.repository.ProjectRepository;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
+import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for ProjectService
  */
-@SpringBootTest(properties = {
-    "app.auth.filter.enabled=false",
-    "app.config.cyoda-client-id=test-client",
-    "app.config.cyoda-client-secret=test-secret",
-    "app.config.cyoda-host=localhost",
-    "app.config.cyoda-api-url=http://localhost:8080/api",
-    "app.config.grpc-address=localhost",
-    "app.config.grpc-server-port=50051"
-})
+@ExtendWith(MockitoExtension.class)
 public class ProjectServiceTest {
-    @Autowired
+
+    @Mock
+    private EntityService entityService;
+
+    @Spy
+    private ObjectMapper objectMapper;
+
+    @InjectMocks
     private ProjectService projectService;
 
-    @Autowired
-    private ProjectRepository projectRepository;
-
     private ProjectDTO testProject;
+    private UUID projectId;
+
+    private EntityWithMetadata<ProjectDTO> entityWithMetadata(ProjectDTO dto, UUID id) {
+        EntityMetadata metadata = new EntityMetadata();
+        metadata.setId(id);
+        return new EntityWithMetadata<>(dto, metadata);
+    }
 
     @BeforeEach
     public void setUp() {
+        projectId = UUID.randomUUID();
         testProject = new ProjectDTO();
         testProject.setName("Test Project");
         testProject.setDescription("A test project");
@@ -41,34 +56,59 @@ public class ProjectServiceTest {
 
     @Test
     public void testCreateProject() {
+        when(entityService.create(any(ProjectDTO.class)))
+                .thenAnswer(inv -> entityWithMetadata(inv.getArgument(0), projectId));
+
         ProjectDTO created = projectService.createProject(testProject);
+
         assertNotNull(created.getId());
+        assertEquals(projectId, created.getId());
         assertEquals("Test Project", created.getName());
         assertEquals("ACTIVE", created.getStatus());
     }
 
     @Test
     public void testGetProjectById() {
-        ProjectDTO created = projectService.createProject(testProject);
-        Optional<ProjectDTO> retrieved = projectService.getProjectById(created.getId());
-        
+        testProject.setId(projectId);
+        when(entityService.getById(eq(projectId), any(), eq(ProjectDTO.class)))
+                .thenReturn(entityWithMetadata(testProject, projectId));
+
+        Optional<ProjectDTO> retrieved = projectService.getProjectById(projectId);
+
         assertTrue(retrieved.isPresent());
-        assertEquals(created.getId(), retrieved.get().getId());
+        assertEquals(projectId, retrieved.get().getId());
+    }
+
+    @Test
+    public void testGetProjectById_notFound() {
+        when(entityService.getById(any(), any(), eq(ProjectDTO.class)))
+                .thenThrow(new RuntimeException("Not found"));
+
+        Optional<ProjectDTO> retrieved = projectService.getProjectById(projectId);
+
+        assertFalse(retrieved.isPresent());
     }
 
     @Test
     public void testGetAllProjects() {
-        projectService.createProject(testProject);
+        PageResult<EntityWithMetadata<ProjectDTO>> page =
+                PageResult.of(null, List.of(entityWithMetadata(testProject, projectId)), 0, 10, 1);
+        when(entityService.findAll(any(), eq(ProjectDTO.class))).thenReturn(page);
+
         var projects = projectService.getAllProjects();
+
         assertFalse(projects.isEmpty());
+        assertEquals(1, projects.size());
     }
 
     @Test
     public void testDeleteProject() {
-        ProjectDTO created = projectService.createProject(testProject);
-        boolean deleted = projectService.deleteProject(created.getId());
+        when(entityService.deleteById(projectId)).thenReturn(projectId);
+
+        boolean deleted = projectService.deleteProject(projectId);
+
         assertTrue(deleted);
-        assertFalse(projectService.projectExists(created.getId()));
+        verify(entityService).deleteById(projectId);
     }
 }
 

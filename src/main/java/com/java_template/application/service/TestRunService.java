@@ -1,8 +1,15 @@
 package com.java_template.application.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.TestRunDTO;
-import com.java_template.application.repository.TestRunRepository;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.springframework.stereotype.Service;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -13,97 +20,89 @@ import java.util.UUID;
  */
 @Service
 public class TestRunService {
-    private final TestRunRepository testRunRepository;
 
-    public TestRunService(TestRunRepository testRunRepository) {
-        this.testRunRepository = testRunRepository;
+    private static final ModelSpec MODEL_SPEC =
+            new ModelSpec().withName(TestRunDTO.ENTITY_NAME).withVersion(TestRunDTO.ENTITY_VERSION);
+
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public TestRunService(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    /**
-     * Creates a new test run with CREATED status
-     */
+    private TestRunDTO withId(EntityWithMetadata<TestRunDTO> result) {
+        TestRunDTO entity = result.entity();
+        entity.setId(result.getId());
+        return entity;
+    }
+
+    private GroupCondition conditionByField(String fieldName, Object value) {
+        SimpleCondition condition = new SimpleCondition()
+                .withJsonPath("$." + fieldName)
+                .withOperation(Operation.EQUALS)
+                .withValue(objectMapper.valueToTree(value));
+        return new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of(condition));
+    }
+
     public TestRunDTO createTestRun(TestRunDTO testRun) {
         testRun.setStatus("CREATED");
         testRun.setStartedAt(LocalDateTime.now());
-        return testRunRepository.create(testRun);
+        return withId(entityService.create(testRun));
     }
 
-    /**
-     * Retrieves a test run by ID
-     */
     public Optional<TestRunDTO> getTestRunById(UUID id) {
-        return testRunRepository.findById(id);
+        try {
+            return Optional.of(withId(entityService.getById(id, MODEL_SPEC, TestRunDTO.class)));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
-    /**
-     * Retrieves all test runs for a specific project
-     */
     public List<TestRunDTO> getTestRunsByProjectId(UUID projectId) {
-        return testRunRepository.findByProjectId(projectId);
+        return entityService.search(MODEL_SPEC, conditionByField("projectId", projectId.toString()), TestRunDTO.class)
+                .data().stream().map(this::withId).toList();
     }
 
-    /**
-     * Retrieves all test runs with a specific status
-     */
     public List<TestRunDTO> getTestRunsByStatus(String status) {
-        return testRunRepository.findByStatus(status);
+        return entityService.search(MODEL_SPEC, conditionByField("status", status), TestRunDTO.class)
+                .data().stream().map(this::withId).toList();
     }
 
-    /**
-     * Retrieves all test runs
-     */
     public List<TestRunDTO> getAllTestRuns() {
-        return testRunRepository.findAll();
+        return entityService.findAll(MODEL_SPEC, TestRunDTO.class).data()
+                .stream().map(this::withId).toList();
     }
 
-    /**
-     * Updates an existing test run
-     */
     public TestRunDTO updateTestRun(UUID id, TestRunDTO testRun) {
-        return testRunRepository.update(id, testRun);
+        return withId(entityService.update(id, testRun, null));
     }
 
-    /**
-     * Completes a test run by setting status to COMPLETED and completedAt timestamp
-     */
     public Optional<TestRunDTO> completeTestRun(UUID id) {
-        Optional<TestRunDTO> testRun = testRunRepository.findById(id);
-        if (testRun.isPresent()) {
-            TestRunDTO run = testRun.get();
+        return getTestRunById(id).map(run -> {
             run.setStatus("COMPLETED");
             run.setCompletedAt(LocalDateTime.now());
-            testRunRepository.update(id, run);
-            return Optional.of(run);
-        }
-        return Optional.empty();
+            return withId(entityService.update(id, run, null));
+        });
     }
 
-    /**
-     * Unlocks a test run by setting status to ACTIVE
-     */
     public Optional<TestRunDTO> unlockTestRun(UUID id) {
-        Optional<TestRunDTO> testRun = testRunRepository.findById(id);
-        if (testRun.isPresent()) {
-            TestRunDTO run = testRun.get();
+        return getTestRunById(id).map(run -> {
             run.setStatus("ACTIVE");
-            testRunRepository.update(id, run);
-            return Optional.of(run);
-        }
-        return Optional.empty();
+            return withId(entityService.update(id, run, null));
+        });
     }
 
-    /**
-     * Checks if a test run exists by ID
-     */
     public boolean testRunExists(UUID id) {
-        return testRunRepository.exists(id);
+        return getTestRunById(id).isPresent();
     }
 
-    /**
-     * Deletes a test run by ID
-     */
     public boolean deleteTestRun(UUID id) {
-        return testRunRepository.delete(id);
+        entityService.deleteById(id);
+        return true;
     }
 }
 

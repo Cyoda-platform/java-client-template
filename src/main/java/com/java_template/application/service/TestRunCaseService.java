@@ -1,8 +1,15 @@
 package com.java_template.application.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.TestRunCaseDTO;
-import com.java_template.application.repository.TestRunCaseRepository;
+import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.service.EntityService;
+import org.cyoda.cloud.api.event.common.ModelSpec;
+import org.cyoda.cloud.api.event.common.condition.GroupCondition;
+import org.cyoda.cloud.api.event.common.condition.Operation;
+import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,46 +19,57 @@ import java.util.UUID;
  */
 @Service
 public class TestRunCaseService {
-    private final TestRunCaseRepository testRunCaseRepository;
 
-    public TestRunCaseService(TestRunCaseRepository testRunCaseRepository) {
-        this.testRunCaseRepository = testRunCaseRepository;
+    private static final ModelSpec MODEL_SPEC =
+            new ModelSpec().withName(TestRunCaseDTO.ENTITY_NAME).withVersion(TestRunCaseDTO.ENTITY_VERSION);
+
+    private final EntityService entityService;
+    private final ObjectMapper objectMapper;
+
+    public TestRunCaseService(EntityService entityService, ObjectMapper objectMapper) {
+        this.entityService = entityService;
+        this.objectMapper = objectMapper;
     }
 
-    /**
-     * Creates a new test run case
-     */
+    private TestRunCaseDTO withId(EntityWithMetadata<TestRunCaseDTO> result) {
+        TestRunCaseDTO entity = result.entity();
+        entity.setId(result.getId());
+        return entity;
+    }
+
+    private GroupCondition conditionByField(String fieldName, Object value) {
+        SimpleCondition condition = new SimpleCondition()
+                .withJsonPath("$." + fieldName)
+                .withOperation(Operation.EQUALS)
+                .withValue(objectMapper.valueToTree(value));
+        return new GroupCondition()
+                .withOperator(GroupCondition.Operator.AND)
+                .withConditions(List.of(condition));
+    }
+
     public TestRunCaseDTO createTestRunCase(TestRunCaseDTO testRunCase) {
         testRunCase.setStatus("UNTESTED");
-        return testRunCaseRepository.create(testRunCase);
+        return withId(entityService.create(testRunCase));
     }
 
-    /**
-     * Retrieves a test run case by ID
-     */
     public Optional<TestRunCaseDTO> getTestRunCaseById(UUID id) {
-        return testRunCaseRepository.findById(id);
-    }
-
-    /**
-     * Retrieves all test run cases for a specific test run
-     */
-    public List<TestRunCaseDTO> getTestRunCasesByTestRunId(UUID testRunId) {
-        return testRunCaseRepository.findByTestRunId(testRunId);
-    }
-
-    /**
-     * Updates the status of a test run case (UNTESTED, PASSED, FAILED, SKIPPED)
-     */
-    public Optional<TestRunCaseDTO> updateTestRunCaseStatus(UUID id, String status) {
-        Optional<TestRunCaseDTO> testRunCase = testRunCaseRepository.findById(id);
-        if (testRunCase.isPresent()) {
-            TestRunCaseDTO trc = testRunCase.get();
-            trc.setStatus(status);
-            testRunCaseRepository.update(id, trc);
-            return Optional.of(trc);
+        try {
+            return Optional.of(withId(entityService.getById(id, MODEL_SPEC, TestRunCaseDTO.class)));
+        } catch (Exception e) {
+            return Optional.empty();
         }
-        return Optional.empty();
+    }
+
+    public List<TestRunCaseDTO> getTestRunCasesByTestRunId(UUID testRunId) {
+        return entityService.search(MODEL_SPEC, conditionByField("testRunId", testRunId.toString()), TestRunCaseDTO.class)
+                .data().stream().map(this::withId).toList();
+    }
+
+    public Optional<TestRunCaseDTO> updateTestRunCaseStatus(UUID id, String status) {
+        return getTestRunCaseById(id).map(trc -> {
+            trc.setStatus(status);
+            return withId(entityService.update(id, trc, null));
+        });
     }
 }
 
