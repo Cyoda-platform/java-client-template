@@ -3,6 +3,8 @@ package com.java_template.application.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.TestCaseDTO;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -37,6 +39,12 @@ public class TestCaseService {
         return entity;
     }
 
+    private PageResult<TestCaseDTO> toPage(PageResult<EntityWithMetadata<TestCaseDTO>> result) {
+        return PageResult.of(result.searchId(),
+                result.data().stream().map(this::withId).toList(),
+                result.pageNumber(), result.pageSize(), result.totalElements());
+    }
+
     private GroupCondition conditionByField(String fieldName, Object value) {
         SimpleCondition condition = new SimpleCondition()
                 .withJsonPath("$." + fieldName)
@@ -64,9 +72,11 @@ public class TestCaseService {
         }
     }
 
-    public List<TestCaseDTO> getTestCasesBySuiteId(UUID suiteId) {
-        return entityService.search(MODEL_SPEC, conditionByField("suiteId", suiteId.toString()), TestCaseDTO.class)
-                .data().stream().map(this::withId).toList();
+    public PageResult<TestCaseDTO> getTestCasesBySuiteId(UUID suiteId, int page, int size) {
+        SearchAndRetrievalParams params = SearchAndRetrievalParams.builder()
+                .pageNumber(page).pageSize(size).build();
+        return toPage(entityService.search(MODEL_SPEC, conditionByField("suiteId", suiteId.toString()),
+                TestCaseDTO.class, params));
     }
 
     public List<TestCaseDTO> getAllTestCases() {

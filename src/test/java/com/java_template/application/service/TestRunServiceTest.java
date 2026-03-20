@@ -85,13 +85,13 @@ public class TestRunServiceTest {
     @Test
     public void testGetTestRunsByProjectId() {
         PageResult<EntityWithMetadata<TestRunDTO>> page =
-                PageResult.of(null, List.of(entityWithMetadata(testRun, runId)), 0, 10, 1);
-        when(entityService.search(any(), any(), eq(TestRunDTO.class))).thenReturn(page);
+                PageResult.of(null, List.of(entityWithMetadata(testRun, runId)), 0, 20, 1);
+        when(entityService.search(any(), any(), eq(TestRunDTO.class), any())).thenReturn(page);
 
-        var runs = testRunService.getTestRunsByProjectId(projectId);
+        var result = testRunService.getTestRunsByProjectId(projectId, 0, 20);
 
-        assertFalse(runs.isEmpty());
-        assertEquals(1, runs.size());
+        assertFalse(result.data().isEmpty());
+        assertEquals(1, result.data().size());
     }
 
     @Test

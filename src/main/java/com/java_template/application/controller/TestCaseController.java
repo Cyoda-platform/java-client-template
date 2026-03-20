@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import com.java_template.common.dto.PageResult;
 import java.util.UUID;
 
 /**
@@ -34,8 +34,12 @@ public class TestCaseController {
 
     @GetMapping
     @Operation(summary = "Get all test cases for a suite")
-    public ResponseEntity<List<TestCaseDTO>> getTestCasesBySuite(@PathVariable UUID projectId, @PathVariable UUID suiteId) {
-        return ResponseEntity.ok(testCaseService.getTestCasesBySuiteId(suiteId));
+    public ResponseEntity<PageResult<TestCaseDTO>> getTestCasesBySuite(
+            @PathVariable UUID projectId,
+            @PathVariable UUID suiteId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(testCaseService.getTestCasesBySuiteId(suiteId, page, size));
     }
 
     @GetMapping("/{id}")

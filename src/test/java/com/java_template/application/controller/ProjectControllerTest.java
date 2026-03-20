@@ -12,6 +12,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.java_template.common.dto.PageResult;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,12 +61,13 @@ public class ProjectControllerTest {
 
     @Test
     public void testGetAllProjects() throws Exception {
-        when(projectService.getAllProjects()).thenReturn(List.of());
+        PageResult<ProjectDTO> emptyPage = PageResult.of(null, List.of(), 0, 20, 0);
+        when(projectService.getAllProjects(0, 20)).thenReturn(emptyPage);
 
         mockMvc.perform(get("/projects")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
+                .andExpect(jsonPath("$.data").isArray());
     }
 
     @Test

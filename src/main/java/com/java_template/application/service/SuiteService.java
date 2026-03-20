@@ -3,6 +3,8 @@ package com.java_template.application.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.SuiteDTO;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -37,6 +39,12 @@ public class SuiteService {
         return entity;
     }
 
+    private PageResult<SuiteDTO> toPage(PageResult<EntityWithMetadata<SuiteDTO>> result) {
+        return PageResult.of(result.searchId(),
+                result.data().stream().map(this::withId).toList(),
+                result.pageNumber(), result.pageSize(), result.totalElements());
+    }
+
     private GroupCondition conditionByField(String fieldName, Object value) {
         SimpleCondition condition = new SimpleCondition()
                 .withJsonPath("$." + fieldName)
@@ -69,9 +77,11 @@ public class SuiteService {
     /**
      * Retrieves all suites for a specific project
      */
-    public List<SuiteDTO> getSuitesByProjectId(UUID projectId) {
-        return entityService.search(MODEL_SPEC, conditionByField("projectId", projectId.toString()), SuiteDTO.class)
-                .data().stream().map(this::withId).toList();
+    public PageResult<SuiteDTO> getSuitesByProjectId(UUID projectId, int page, int size) {
+        SearchAndRetrievalParams params = SearchAndRetrievalParams.builder()
+                .pageNumber(page).pageSize(size).build();
+        return toPage(entityService.search(MODEL_SPEC, conditionByField("projectId", projectId.toString()),
+                SuiteDTO.class, params));
     }
 
     /**

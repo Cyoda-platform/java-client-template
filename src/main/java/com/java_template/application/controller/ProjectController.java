@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.java_template.common.dto.PageResult;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -33,8 +34,10 @@ public class ProjectController {
 
     @GetMapping
     @Operation(summary = "Get all projects")
-    public ResponseEntity<List<ProjectDTO>> getAllProjects() {
-        return ResponseEntity.ok(projectService.getAllProjects());
+    public ResponseEntity<PageResult<ProjectDTO>> getAllProjects(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(projectService.getAllProjects(page, size));
     }
 
     @GetMapping("/{id}")
@@ -67,13 +70,7 @@ public class ProjectController {
     @GetMapping("/search")
     @Operation(summary = "Search projects by query parameter")
     public ResponseEntity<List<ProjectDTO>> searchProjects(@RequestParam String query) {
-        // Filter projects by name or description containing query
-        List<ProjectDTO> allProjects = projectService.getAllProjects();
-        List<ProjectDTO> filtered = allProjects.stream()
-                .filter(p -> p.getName().toLowerCase().contains(query.toLowerCase()) ||
-                        (p.getDescription() != null && p.getDescription().toLowerCase().contains(query.toLowerCase())))
-                .toList();
-        return ResponseEntity.ok(filtered);
+        return ResponseEntity.ok(projectService.searchProjects(query));
     }
 }
 

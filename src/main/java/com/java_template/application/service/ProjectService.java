@@ -3,6 +3,8 @@ package com.java_template.application.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.ProjectDTO;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -37,6 +39,12 @@ public class ProjectService {
         return entity;
     }
 
+    private PageResult<ProjectDTO> toPage(PageResult<EntityWithMetadata<ProjectDTO>> result) {
+        return PageResult.of(result.searchId(),
+                result.data().stream().map(this::withId).toList(),
+                result.pageNumber(), result.pageSize(), result.totalElements());
+    }
+
     private GroupCondition conditionByField(String fieldName, Object value) {
         SimpleCondition condition = new SimpleCondition()
                 .withJsonPath("$." + fieldName)
@@ -60,9 +68,10 @@ public class ProjectService {
         }
     }
 
-    public List<ProjectDTO> getAllProjects() {
-        return entityService.findAll(MODEL_SPEC, ProjectDTO.class).data()
-                .stream().map(this::withId).toList();
+    public PageResult<ProjectDTO> getAllProjects(int page, int size) {
+        SearchAndRetrievalParams params = SearchAndRetrievalParams.builder()
+                .pageNumber(page).pageSize(size).build();
+        return toPage(entityService.findAll(MODEL_SPEC, ProjectDTO.class, params));
     }
 
     public ProjectDTO updateProject(UUID id, ProjectDTO project) {

@@ -3,6 +3,8 @@ package com.java_template.application.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.application.dto.TestRunCaseDTO;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.common.condition.GroupCondition;
@@ -37,6 +39,12 @@ public class TestRunCaseService {
         return entity;
     }
 
+    private PageResult<TestRunCaseDTO> toPage(PageResult<EntityWithMetadata<TestRunCaseDTO>> result) {
+        return PageResult.of(result.searchId(),
+                result.data().stream().map(this::withId).toList(),
+                result.pageNumber(), result.pageSize(), result.totalElements());
+    }
+
     private GroupCondition conditionByField(String fieldName, Object value) {
         SimpleCondition condition = new SimpleCondition()
                 .withJsonPath("$." + fieldName)
@@ -60,9 +68,11 @@ public class TestRunCaseService {
         }
     }
 
-    public List<TestRunCaseDTO> getTestRunCasesByTestRunId(UUID testRunId) {
-        return entityService.search(MODEL_SPEC, conditionByField("testRunId", testRunId.toString()), TestRunCaseDTO.class)
-                .data().stream().map(this::withId).toList();
+    public PageResult<TestRunCaseDTO> getTestRunCasesByTestRunId(UUID testRunId, int page, int size) {
+        SearchAndRetrievalParams params = SearchAndRetrievalParams.builder()
+                .pageNumber(page).pageSize(size).build();
+        return toPage(entityService.search(MODEL_SPEC, conditionByField("testRunId", testRunId.toString()),
+                TestRunCaseDTO.class, params));
     }
 
     public Optional<TestRunCaseDTO> updateTestRunCaseStatus(UUID id, String status) {

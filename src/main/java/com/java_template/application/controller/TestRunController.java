@@ -8,8 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import com.java_template.common.dto.PageResult;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -35,8 +35,11 @@ public class TestRunController {
 
     @GetMapping
     @Operation(summary = "Get all test runs for a project")
-    public ResponseEntity<List<TestRunDTO>> getTestRunsByProject(@PathVariable UUID projectId) {
-        return ResponseEntity.ok(testRunService.getTestRunsByProjectId(projectId));
+    public ResponseEntity<PageResult<TestRunDTO>> getTestRunsByProject(
+            @PathVariable UUID projectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(testRunService.getTestRunsByProjectId(projectId, page, size));
     }
 
     @GetMapping("/{id}")

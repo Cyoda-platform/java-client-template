@@ -6,9 +6,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import com.java_template.common.dto.PageResult;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -34,8 +34,11 @@ public class SuiteController {
 
     @GetMapping
     @Operation(summary = "Get all test suites for a project")
-    public ResponseEntity<List<SuiteDTO>> getSuitesByProject(@PathVariable UUID projectId) {
-        return ResponseEntity.ok(suiteService.getSuitesByProjectId(projectId));
+    public ResponseEntity<PageResult<SuiteDTO>> getSuitesByProject(
+            @PathVariable UUID projectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(suiteService.getSuitesByProjectId(projectId, page, size));
     }
 
     @GetMapping("/{id}")

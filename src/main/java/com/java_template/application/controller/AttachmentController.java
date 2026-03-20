@@ -11,7 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import com.java_template.common.dto.PageResult;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -55,8 +55,11 @@ public class AttachmentController {
 
     @GetMapping
     @Operation(summary = "Get all attachments for a project")
-    public ResponseEntity<List<AttachmentDTO>> getAttachmentsByProject(@PathVariable UUID projectId) {
-        return ResponseEntity.ok(attachmentService.getAttachmentsByProjectId(projectId));
+    public ResponseEntity<PageResult<AttachmentDTO>> getAttachmentsByProject(
+            @PathVariable UUID projectId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(attachmentService.getAttachmentsByProjectId(projectId, page, size));
     }
 
     @GetMapping("/{id}")

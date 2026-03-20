@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.application.dto.AttachmentDTO;
 import com.java_template.common.dto.EntityWithMetadata;
+import com.java_template.common.dto.PageResult;
+import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.service.EdgeMessageService;
 import com.java_template.common.service.EntityService;
 import org.cyoda.cloud.api.event.common.ModelSpec;
@@ -49,6 +51,12 @@ public class AttachmentService {
         AttachmentDTO entity = result.entity();
         entity.setId(result.getId());
         return entity;
+    }
+
+    private PageResult<AttachmentDTO> toPage(PageResult<EntityWithMetadata<AttachmentDTO>> result) {
+        return PageResult.of(result.searchId(),
+                result.data().stream().map(this::withId).toList(),
+                result.pageNumber(), result.pageSize(), result.totalElements());
     }
 
     private GroupCondition conditionByField(String fieldName, Object value) {
@@ -128,9 +136,11 @@ public class AttachmentService {
     /**
      * Retrieves all attachments for a specific project.
      */
-    public List<AttachmentDTO> getAttachmentsByProjectId(UUID projectId) {
-        return entityService.search(MODEL_SPEC, conditionByField("projectId", projectId.toString()), AttachmentDTO.class)
-                .data().stream().map(this::withId).toList();
+    public PageResult<AttachmentDTO> getAttachmentsByProjectId(UUID projectId, int page, int size) {
+        SearchAndRetrievalParams params = SearchAndRetrievalParams.builder()
+                .pageNumber(page).pageSize(size).build();
+        return toPage(entityService.search(MODEL_SPEC, conditionByField("projectId", projectId.toString()),
+                AttachmentDTO.class, params));
     }
 
     /**

@@ -92,13 +92,13 @@ public class ProjectServiceTest {
     @Test
     public void testGetAllProjects() {
         PageResult<EntityWithMetadata<ProjectDTO>> page =
-                PageResult.of(null, List.of(entityWithMetadata(testProject, projectId)), 0, 10, 1);
-        when(entityService.findAll(any(), eq(ProjectDTO.class))).thenReturn(page);
+                PageResult.of(null, List.of(entityWithMetadata(testProject, projectId)), 0, 20, 1);
+        when(entityService.findAll(any(), eq(ProjectDTO.class), any())).thenReturn(page);
 
-        var projects = projectService.getAllProjects();
+        var result = projectService.getAllProjects(0, 20);
 
-        assertFalse(projects.isEmpty());
-        assertEquals(1, projects.size());
+        assertFalse(result.data().isEmpty());
+        assertEquals(1, result.data().size());
     }
 
     @Test
