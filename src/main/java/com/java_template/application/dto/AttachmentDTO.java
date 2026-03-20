@@ -19,5 +19,7 @@ public class AttachmentDTO {
     private String fileType;
     private long fileSize;
     private LocalDateTime uploadedAt;
+    /** ID of the corresponding EdgeMessage in Cyoda that holds the file content */
+    private UUID messageId;
 }
 
