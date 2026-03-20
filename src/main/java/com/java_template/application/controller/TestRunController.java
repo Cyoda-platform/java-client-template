@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,7 +27,7 @@ public class TestRunController {
 
     @PostMapping
     @Operation(summary = "Create a new test run (snapshot)")
-    public ResponseEntity<TestRunDTO> createTestRun(@PathVariable UUID projectId, @RequestBody TestRunDTO testRun) {
+    public ResponseEntity<TestRunDTO> createTestRun(@PathVariable UUID projectId, @Valid @RequestBody TestRunDTO testRun) {
         testRun.setProjectId(projectId);
         TestRunDTO created = testRunService.createTestRun(testRun);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -49,7 +50,7 @@ public class TestRunController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a test run")
-    public ResponseEntity<TestRunDTO> updateTestRun(@PathVariable UUID projectId, @PathVariable UUID id, @RequestBody TestRunDTO testRun) {
+    public ResponseEntity<TestRunDTO> updateTestRun(@PathVariable UUID projectId, @PathVariable UUID id, @Valid @RequestBody TestRunDTO testRun) {
         if (!testRunService.testRunExists(id)) {
             return ResponseEntity.notFound().build();
         }

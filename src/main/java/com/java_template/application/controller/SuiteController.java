@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
@@ -25,7 +26,7 @@ public class SuiteController {
 
     @PostMapping
     @Operation(summary = "Create a new test suite")
-    public ResponseEntity<SuiteDTO> createSuite(@PathVariable UUID projectId, @RequestBody SuiteDTO suite) {
+    public ResponseEntity<SuiteDTO> createSuite(@PathVariable UUID projectId, @Valid @RequestBody SuiteDTO suite) {
         suite.setProjectId(projectId);
         SuiteDTO created = suiteService.createSuite(suite);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -48,7 +49,7 @@ public class SuiteController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a test suite")
-    public ResponseEntity<SuiteDTO> updateSuite(@PathVariable UUID projectId, @PathVariable UUID id, @RequestBody SuiteDTO suite) {
+    public ResponseEntity<SuiteDTO> updateSuite(@PathVariable UUID projectId, @PathVariable UUID id, @Valid @RequestBody SuiteDTO suite) {
         if (!suiteService.suiteExists(id)) {
             return ResponseEntity.notFound().build();
         }

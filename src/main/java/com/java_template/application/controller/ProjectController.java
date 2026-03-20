@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
@@ -25,7 +26,7 @@ public class ProjectController {
 
     @PostMapping
     @Operation(summary = "Create a new project")
-    public ResponseEntity<ProjectDTO> createProject(@RequestBody ProjectDTO project) {
+    public ResponseEntity<ProjectDTO> createProject(@Valid @RequestBody ProjectDTO project) {
         ProjectDTO created = projectService.createProject(project);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -46,7 +47,7 @@ public class ProjectController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a project")
-    public ResponseEntity<ProjectDTO> updateProject(@PathVariable UUID id, @RequestBody ProjectDTO project) {
+    public ResponseEntity<ProjectDTO> updateProject(@PathVariable UUID id, @Valid @RequestBody ProjectDTO project) {
         if (!projectService.projectExists(id)) {
             return ResponseEntity.notFound().build();
         }

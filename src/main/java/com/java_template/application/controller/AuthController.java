@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -27,7 +28,7 @@ public class AuthController {
 
     @PostMapping
     @Operation(summary = "Login with username and password", description = "Authenticate user and return JWT token")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthService.LoginResponse authResponse = authService.authenticate(request.getUsername(), request.getPassword());
 
         if (authResponse == null) {

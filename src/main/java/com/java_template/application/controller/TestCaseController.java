@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
@@ -25,7 +26,7 @@ public class TestCaseController {
 
     @PostMapping
     @Operation(summary = "Create a new test case")
-    public ResponseEntity<TestCaseDTO> createTestCase(@PathVariable UUID projectId, @PathVariable UUID suiteId, @RequestBody TestCaseDTO testCase) {
+    public ResponseEntity<TestCaseDTO> createTestCase(@PathVariable UUID projectId, @PathVariable UUID suiteId, @Valid @RequestBody TestCaseDTO testCase) {
         testCase.setSuiteId(suiteId);
         TestCaseDTO created = testCaseService.createTestCase(testCase);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -48,7 +49,7 @@ public class TestCaseController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a test case")
-    public ResponseEntity<TestCaseDTO> updateTestCase(@PathVariable UUID projectId, @PathVariable UUID suiteId, @PathVariable UUID id, @RequestBody TestCaseDTO testCase) {
+    public ResponseEntity<TestCaseDTO> updateTestCase(@PathVariable UUID projectId, @PathVariable UUID suiteId, @PathVariable UUID id, @Valid @RequestBody TestCaseDTO testCase) {
         if (!testCaseService.testCaseExists(id)) {
             return ResponseEntity.notFound().build();
         }

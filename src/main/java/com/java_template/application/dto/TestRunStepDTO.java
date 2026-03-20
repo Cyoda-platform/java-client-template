@@ -8,6 +8,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -24,10 +27,18 @@ public class TestRunStepDTO implements CyodaEntity {
     private static final ModelSpec MODEL_SPEC = new ModelSpec().withName(ENTITY_NAME).withVersion(ENTITY_VERSION);
 
     private UUID id;
+
+    @NotNull(message = "Test run case ID is required")
     private UUID testRunCaseId;
+
+    @NotNull(message = "Test step ID is required")
     private UUID testStepId;
+
     private String status;
+
+    @Size(max = 2000, message = "Actual result must not exceed 2000 characters")
     private String actualResult;
+
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
 

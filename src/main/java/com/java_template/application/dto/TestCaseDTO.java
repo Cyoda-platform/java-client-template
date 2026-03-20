@@ -9,6 +9,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -26,10 +30,18 @@ public class TestCaseDTO implements CyodaEntity {
 
     private UUID id;
     private UUID projectId;
+
+    @NotNull(message = "Suite ID is required")
     private UUID suiteId;
+
     @JsonProperty("title")
+    @NotBlank(message = "Test case title is required")
+    @Size(max = 255, message = "Title must not exceed 255 characters")
     private String name;
+
+    @Size(max = 2000, message = "Description must not exceed 2000 characters")
     private String description;
+
     private String status;
     private boolean deleted;
     private LocalDateTime createdAt;

@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
@@ -28,7 +29,7 @@ public class TestRunCaseController {
     public ResponseEntity<TestRunCaseDTO> createTestRunCase(
             @PathVariable UUID projectId,
             @PathVariable UUID runId,
-            @RequestBody TestRunCaseDTO testRunCase) {
+            @Valid @RequestBody TestRunCaseDTO testRunCase) {
         testRunCase.setTestRunId(runId);
         TestRunCaseDTO created = testRunCaseService.createTestRunCase(testRunCase);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);

@@ -8,6 +8,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -24,8 +27,14 @@ public class ProjectDTO implements CyodaEntity {
     private static final ModelSpec MODEL_SPEC = new ModelSpec().withName(ENTITY_NAME).withVersion(ENTITY_VERSION);
 
     private UUID id;
+
+    @NotBlank(message = "Project name is required")
+    @Size(max = 255, message = "Project name must not exceed 255 characters")
     private String name;
+
+    @Size(max = 1000, message = "Description must not exceed 1000 characters")
     private String description;
+
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
