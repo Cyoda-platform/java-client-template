@@ -1,6 +1,6 @@
 ---
 type: "agent_requested"
-description: "Example description"
+description: "Rules for compilation and build"
 ---
 
 # Compilation and Build Lifecycle Rules

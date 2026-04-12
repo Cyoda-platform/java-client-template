@@ -1,11 +1,7 @@
 package com.example.application.criterion;
 
 import com.example.application.entity.example_entity.version_1.ExampleEntity;
-import com.java_template.common.serializer.CriterionSerializer;
-import com.java_template.common.serializer.EvaluationOutcome;
-import com.java_template.common.serializer.ReasonAttachmentStrategy;
-import com.java_template.common.serializer.SerializerFactory;
-import com.java_template.common.serializer.StandardEvalReasonCategories;
+import com.java_template.common.serializer.*;
 import com.java_template.common.workflow.CyodaCriterion;
 import com.java_template.common.workflow.CyodaEventContext;
 import com.java_template.common.workflow.OperationSpecification;
@@ -53,7 +49,6 @@ public class ExampleEntityCriterion implements CyodaCriterion {
 
         return serializer.withRequest(request)
             .evaluateEntity(ExampleEntity.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
 

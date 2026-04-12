@@ -13,25 +13,26 @@ import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
+import org.cyoda.uuid.SimpleSystemClock;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class AlwaysTrueCriterionTest {
+    public static final @NotNull UUID ENTITY_ID = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
     JacksonCriterionSerializer criterionSerializer = new JacksonCriterionSerializer(new ObjectMapper());
     SerializerFactory serializerFactory = new SerializerFactory(List.of(), List.of((CriterionSerializer) criterionSerializer));
 
     @Test
     void testSupports() {
-        // Given - when includeDefaultOperations is true, should support any operation
+        // Given
         Config config = mock(Config.class);
-        when(config.isIncludeDefaultOperations()).thenReturn(true);
-        AlwaysTrueCriterion criterion = new AlwaysTrueCriterion(serializerFactory,config);
+        AlwaysTrueCriterion criterion = new AlwaysTrueCriterion(serializerFactory, config);
         ModelSpec modeKey = new ModelSpec();
         modeKey.setName("model");
         modeKey.setVersion(1);
@@ -49,22 +50,7 @@ class AlwaysTrueCriterionTest {
         // Then
         assertTrue(supports);
 
-        // Given - when includeDefaultOperations is false, should only support matching operation name
-        when(config.isIncludeDefaultOperations()).thenReturn(false);
-        opsSpec = new OperationSpecification.Criterion(
-                modeKey,
-                "AlwaysTrueCriterion",
-                "state",
-                "transition",
-                "workflow"
-        );
-
-        supports = criterion.supports(opsSpec);
-
-        // Then
-        assertTrue(supports);
-
-        // Given - when includeDefaultOperations is false and name doesn't match
+        // Given
         opsSpec = new OperationSpecification.Criterion(
                 modeKey,
                 "xxx",
@@ -84,8 +70,7 @@ class AlwaysTrueCriterionTest {
     void testCheck() {
         // Given
         Config config = mock(Config.class);
-        when(config.isIncludeDefaultOperations()).thenReturn(true);
-        AlwaysTrueCriterion criterion = new AlwaysTrueCriterion(serializerFactory,config);
+        AlwaysTrueCriterion criterion = new AlwaysTrueCriterion(serializerFactory, config);
 
         CyodaEventContext<EntityCriteriaCalculationRequest> context = getEventContext();
 
@@ -95,7 +80,7 @@ class AlwaysTrueCriterionTest {
         // Then
         assertTrue(response.getMatches());
         assertEquals("123", response.getId());
-        assertEquals("456", response.getEntityId());
+        assertEquals(ENTITY_ID, response.getEntityId());
         assertTrue(response.getSuccess());
     }
 
@@ -104,7 +89,7 @@ class AlwaysTrueCriterionTest {
         EntityCriteriaCalculationRequest request = new EntityCriteriaCalculationRequest();
         request.setId("123");
         request.setRequestId("123");
-        request.setEntityId("456");
+        request.setEntityId(ENTITY_ID);
 
         // Add a proper payload to avoid extraction errors
         DataPayload payload = new DataPayload();

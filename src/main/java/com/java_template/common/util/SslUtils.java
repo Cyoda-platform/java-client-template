@@ -149,7 +149,7 @@ public class SslUtils {
         try {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             PermissiveTrustManager trustManager = new PermissiveTrustManager(shouldTrustAll);
-            sslContext.init(null, new TrustManager[] {trustManager}, new SecureRandom());
+            sslContext.init(null, new TrustManager[]{trustManager}, new SecureRandom());
 
             logger.info(
                     "Created permissive SSL context (trustAll={}, trustedHosts={})",
@@ -168,7 +168,7 @@ public class SslUtils {
      */
     @SuppressWarnings("unused")
     private static SSLContext createTrustAllSSLContext() throws NoSuchAlgorithmException, KeyManagementException {
-        TrustManager[] trustAllCerts = new TrustManager[] {
+        TrustManager[] trustAllCerts = new TrustManager[]{
                 new X509TrustManager() {
                     @Override
                     public X509Certificate[] getAcceptedIssuers() {
@@ -253,7 +253,7 @@ public class SslUtils {
         try {
             NettyChannelBuilder channelBuilder;
 
-            if (config.isSslTrustAll() || shouldTrustHost(host, config)) {
+            if (!avoidSsl && (config.isSslTrustAll() || shouldTrustHost(host, config))) {
                 logger.info("Configuring gRPC channel to trust host: {} (self-signed certificates allowed)", host);
 
                 // Create an SSL context that trusts all certificates
@@ -268,14 +268,10 @@ public class SslUtils {
                         .trustManager(InsecureTrustManagerFactory.INSTANCE)
                         .build();
 
-                if (avoidSsl) {
-                    channelBuilder = NettyChannelBuilder.forAddress(host, port);
-                } else {
-                    channelBuilder = NettyChannelBuilder.forAddress(host, port).sslContext(sslContext);
-                }
+                channelBuilder = NettyChannelBuilder.forAddress(host, port).sslContext(sslContext);
             } else {
                 if (avoidSsl) {
-                    logger.debug("Skip using security for host: {}", host);
+                    logger.info("Skip using security for host: {}", host);
                     channelBuilder = NettyChannelBuilder.forAddress(host, port).usePlaintext();
                 } else {
                     logger.debug("Using default transport security for host: {}", host);

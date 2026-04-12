@@ -9,13 +9,14 @@ import com.java_template.common.workflow.CyodaEntity;
 import com.java_template.common.workflow.OperationSpecification;
 import lombok.Getter;
 import lombok.Setter;
+import org.cyoda.cloud.api.common.model.GroupConditionDto;
+import org.cyoda.cloud.api.common.model.GroupOperatorDto;
+import org.cyoda.cloud.api.common.model.OperatorTypeDto;
+import org.cyoda.cloud.api.common.model.SimpleConditionDto;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
-import org.cyoda.cloud.api.event.common.condition.Operation;
-import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionInfo;
@@ -112,16 +113,16 @@ class EntityServiceImplTest {
         return response;
     }
 
-    private GroupCondition createActiveStatusCondition() {
+    private GroupConditionDto createActiveStatusCondition() {
         ObjectMapper objectMapper = new ObjectMapper();
-        SimpleCondition simpleCondition = new SimpleCondition()
-                .withJsonPath("$.status")
-                .withOperation(Operation.EQUALS)
-                .withValue(objectMapper.valueToTree("ACTIVE"));
+        SimpleConditionDto simpleCondition = new SimpleConditionDto()
+                .jsonPath("$.status")
+                .operation(OperatorTypeDto.EQUALS)
+                .value(objectMapper.valueToTree("ACTIVE"));
 
-        return new GroupCondition()
-                .withOperator(GroupCondition.Operator.AND)
-                .withConditions(List.of(simpleCondition));
+        return new GroupConditionDto()
+                .operator(GroupOperatorDto.AND)
+                .conditions(List.of(simpleCondition));
     }
 
     private ModelSpec createTestModelSpec() {
@@ -433,7 +434,7 @@ class EntityServiceImplTest {
     void testFindByBusinessIdRepositoryCall() {
         TestEntity entityWithBusinessId = new TestEntity(123L, "TEST-123", "ACTIVE");
         List<DataPayload> payloads = List.of(createTestDataPayload(entityWithBusinessId, testEntityId));
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.completedFuture(PageResult.of(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros(), payloads, 0, 1, payloads.size())));
 
         EntityWithMetadata<TestEntity> result = entityService.findByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class);
@@ -443,18 +444,18 @@ class EntityServiceImplTest {
         assertNotNull(result.metadata());
         assertEntityMatches(result.entity(), entityWithBusinessId);
         assertMetadata(result, testEntityId, entityWithBusinessId.getStatus());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
     }
 
     @Test
     @DisplayName("findByBusinessId should handle repository failure")
     void testFindByBusinessIdRepositoryFailure() {
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Search failed")));
 
         assertRepositoryFailure(() -> entityService.findByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class),
                 "Search failed");
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
     }
 
     @Test
@@ -487,9 +488,9 @@ class EntityServiceImplTest {
     @Test
     @DisplayName("search should call repository.findAllByCriteria with search condition")
     void testSearchRepositoryCall() {
-        GroupCondition condition = createActiveStatusCondition();
+        GroupConditionDto condition = createActiveStatusCondition();
         List<DataPayload> payloads = List.of(createTestDataPayload(testEntity, testEntityId));
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.completedFuture(PageResult.of(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros(), payloads, 0, 100, payloads.size())));
 
         PageResult<EntityWithMetadata<TestEntity>> result = entityService.search(createTestModelSpec(), condition, TestEntity.class);
@@ -499,18 +500,18 @@ class EntityServiceImplTest {
         EntityWithMetadata<TestEntity> entityWithMetadata = result.data().getFirst();
         assertEntityMatches(entityWithMetadata.entity(), testEntity);
         assertMetadata(entityWithMetadata, testEntityId, testEntity.getStatus());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
     }
 
     @Test
     @DisplayName("search should handle repository failure")
     void testSearchRepositoryFailure() {
-        GroupCondition condition = createActiveStatusCondition();
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        GroupConditionDto condition = createActiveStatusCondition();
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Search failed")));
 
         assertRepositoryFailure(() -> entityService.search(createTestModelSpec(), condition, TestEntity.class), "Search failed");
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
     }
 
     // ========================================
@@ -556,12 +557,12 @@ class EntityServiceImplTest {
     @DisplayName("updateByBusinessId should handle repository failure during find")
     void testUpdateByBusinessIdFindFailure() {
         testEntity.setName("TEST-123");
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find failed")));
 
         assertRepositoryFailure(() -> entityService.updateByBusinessId(testEntity, BUSINESS_ID_FIELD, TRANSITION_ACTIVATE),
                 "Find failed");
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
         verify(repository, never()).update(any(UUID.class), any(), anyString());
     }
 
@@ -569,13 +570,13 @@ class EntityServiceImplTest {
     @DisplayName("updateByBusinessId should handle entity not found")
     void testUpdateByBusinessIdEntityNotFound() {
         testEntity.setName("NONEXISTENT");
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.completedFuture(PageResult.of(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros(), List.of(), 0, 1, 0L)));
 
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> entityService.updateByBusinessId(testEntity, BUSINESS_ID_FIELD, TRANSITION_ACTIVATE));
         assertTrue(exception.getMessage().contains("Entity not found with business ID"));
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
         verify(repository, never()).update(any(UUID.class), any(), anyString());
     }
 
@@ -587,7 +588,7 @@ class EntityServiceImplTest {
 
         TestEntity foundEntity = new TestEntity(123L, "TEST-123", "ACTIVE");
         DataPayload foundPayload = createTestDataPayload(foundEntity, existingEntityTechnicalId);
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.completedFuture(PageResult.of(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros(), List.of(foundPayload), 0, 1, 1L)));
 
         EntityTransactionResponse updateResponse = createTransactionResponse(existingEntityTechnicalId);
@@ -610,32 +611,32 @@ class EntityServiceImplTest {
         assertNotNull(result.metadata());
         assertEntityMatches(result.entity(), testEntity);
         assertEquals(existingEntityTechnicalId, result.metadata().getId());
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
         verify(repository).update(eq(existingEntityTechnicalId), any(), eq(TRANSITION_ACTIVATE));
     }
 
     @Test
     @DisplayName("deleteByBusinessId should handle repository failure during find")
     void testDeleteByBusinessIdFindFailure() {
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Find failed")));
 
         assertRepositoryFailure(() -> entityService.deleteByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class),
                 "Find failed");
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
         verify(repository, never()).deleteById(any(UUID.class));
     }
 
     @Test
     @DisplayName("deleteByBusinessId should return false when entity not found")
     void testDeleteByBusinessIdEntityNotFound() {
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.completedFuture(PageResult.of(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros(), List.of(), 0, 1, 0L)));
 
         boolean result = entityService.deleteByBusinessId(createTestModelSpec(), "NONEXISTENT", BUSINESS_ID_FIELD, TestEntity.class);
 
         assertFalse(result);
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
         verify(repository, never()).deleteById(any(UUID.class));
     }
 
@@ -645,7 +646,7 @@ class EntityServiceImplTest {
         UUID entityTechnicalId = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
         TestEntity foundEntity = new TestEntity(123L, "TEST-123", "ACTIVE");
         DataPayload foundPayload = createTestDataPayload(foundEntity, entityTechnicalId);
-        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any()))
+        when(repository.findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any()))
                 .thenReturn(CompletableFuture.completedFuture(PageResult.of(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros(), List.of(foundPayload), 0, 1, 1L)));
 
         EntityDeleteResponse deleteResponse = createDeleteResponse(entityTechnicalId);
@@ -655,7 +656,7 @@ class EntityServiceImplTest {
         boolean result = entityService.deleteByBusinessId(createTestModelSpec(), "TEST-123", BUSINESS_ID_FIELD, TestEntity.class);
 
         assertTrue(result);
-        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupCondition.class), any());
+        verify(repository).findAllByCriteria(eq(createTestModelSpec()), any(GroupConditionDto.class), any());
         verify(repository).deleteById(entityTechnicalId);
     }
 

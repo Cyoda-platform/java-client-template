@@ -4,9 +4,9 @@ import com.java_template.common.dto.EntityWithMetadata;
 import com.java_template.common.dto.PageResult;
 import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.workflow.CyodaEntity;
+import org.cyoda.cloud.api.common.model.GroupConditionDto;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -136,7 +136,7 @@ public interface EntityService {
     /**
      * Find entity by composite business key (MEDIUM SPEED - use for multi-field unique identifiers)
      * Searches for an entity using multiple field values that together form a unique business identifier.
-     *<p>
+     *
      * Example: Finding a LoanTapeItem by dataset_id + loan_id
      * <pre>{@code
      * Map<String, Function<LoanTapeItem, Object>> extractors = Map.of(
@@ -231,14 +231,14 @@ public interface EntityService {
      */
     <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> search(
             @NotNull ModelSpec modelSpec,
-            @NotNull GroupCondition condition,
+            @NotNull GroupConditionDto condition,
             @NotNull Class<T> entityClass,
             @NotNull SearchAndRetrievalParams params
     );
 
     default <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> search(
             @NotNull ModelSpec modelSpec,
-            @NotNull GroupCondition condition,
+            @NotNull GroupConditionDto condition,
             @NotNull Class<T> entityClass
     ) {
         return search(modelSpec, condition, entityClass, SearchAndRetrievalParams.defaults());
@@ -257,7 +257,7 @@ public interface EntityService {
      */
     <T extends CyodaEntity> Stream<EntityWithMetadata<T>> searchAsStream(
             @NotNull ModelSpec modelSpec,
-            @NotNull GroupCondition condition,
+            @NotNull GroupConditionDto condition,
             @NotNull Class<T> entityClass,
             @NotNull SearchAndRetrievalParams params
     );
@@ -318,7 +318,7 @@ public interface EntityService {
      */
     java.util.Map<String, Long> getEntityStatsByState(
             @NotNull ModelSpec modelSpec,
-            @NotNull List<String> states,
+            @NotNull java.util.List<String> states,
             @Nullable java.util.Date pointInTime
     );
 

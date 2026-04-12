@@ -23,7 +23,18 @@ public interface ReasonAttachmentStrategy {
     void attachReason(EntityCriteriaCalculationResponse response, EvaluationReason reason);
 
     /**
-     * Default strategy that attaches failure reasons to warnings.
+     * Default strategy that attaches failure reasons to the response's reason field.
+     * This is the recommended strategy for criteria as the Cyoda backend uses this field
+     * to register why a criteria returned false.
+     *
+     * @return ReasonAttachmentStrategy that uses the reason field
+     */
+    static ReasonAttachmentStrategy toReason() {
+        return (response, reason) -> response.setReason(reason.formatReason());
+    }
+
+    /**
+     * Strategy that attaches failure reasons to warnings.
      *
      * @return ReasonAttachmentStrategy that uses warnings
      */

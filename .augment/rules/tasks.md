@@ -1,5 +1,6 @@
 ---
 type: "manual"
+description: "Rules for task decomposition"
 ---
 
 # **Task Decomposition Rules**

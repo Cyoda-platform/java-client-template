@@ -2,20 +2,17 @@ package com.java_template.common.grpc.client.event_handling;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.java_template.common.exception.CyodaOperationException;
 import io.cloudevents.v1.proto.CloudEvent;
-import java.util.Optional;
 import org.cyoda.cloud.api.event.common.BaseEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * ABOUTME: Component for parsing CloudEvent instances into BaseEvent objects
- * with JSON deserialization and error handling capabilities.
+ * Parses CloudEvent gRPC responses into typed BaseEvent subclasses.
+ * Throws CyodaOperationException if the response cannot be deserialized.
  */
 @Component
 public class CloudEventParser {
-    private final Logger log = LoggerFactory.getLogger(this.getClass());
 
     private final ObjectMapper objectMapper;
 
@@ -23,25 +20,19 @@ public class CloudEventParser {
         this.objectMapper = objectMapper;
     }
 
-    public <EVENT_TYPE extends BaseEvent> Optional<EVENT_TYPE> parseCloudEvent(
+    public <EVENT_TYPE extends BaseEvent> EVENT_TYPE parseCloudEvent(
             CloudEvent cloudEvent,
             Class<EVENT_TYPE> clazz
     ) {
         try {
-            return Optional.of(
-                    objectMapper.readValue(
-                        cloudEvent.getTextData(),
-                        clazz
-                    )
-            );
+            return objectMapper.readValue(cloudEvent.getTextData(), clazz);
         } catch (JsonProcessingException e) {
-            log.error(
-                    "Error parsing cloud event. This shouldn't happen unless the systems are misaligned {}",
-                    cloudEvent,
+            throw new CyodaOperationException(
+                    "PARSE_ERROR",
+                    "Failed to parse Cyoda response: " + e.getMessage(),
+                    false,
                     e
             );
-            return Optional.empty();
         }
     }
-
 }

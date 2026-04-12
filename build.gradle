@@ -10,6 +10,7 @@ plugins {
     id 'com.google.protobuf' version '0.9.4'
     id 'se.thinkcode.cucumber-runner' version '0.0.11'
     id 'jacoco'
+    id 'org.openapi.generator' version '7.12.0'
 }
 
 java {
@@ -41,7 +42,6 @@ task cucumberTest(type: Test) {
 
   // Force test profile and cucumber env file
   systemProperty 'spring.profiles.active', 'cucumber'
-  systemProperty 'spring.config.import', 'optional:file:.env.cucumber'
 
   testLogging {
     events "passed", "skipped", "failed"
@@ -69,15 +69,25 @@ repositories {
     mavenCentral()
 }
 
+// Separate configuration for the OTel Java agent — kept off the compile/runtime classpath
+// so it can be passed as -javaagent (JVM instrumentation), not a classpath entry.
+configurations {
+    otelAgent
+}
+
 sourceSets {
     main {
         java {
             srcDirs += "$buildDir/generated/source/proto/main/java"
             srcDirs += "$buildDir/generated/source/proto/main/grpc"
             srcDirs += "$buildDir/generated-sources/js2p"
+            srcDirs += "$buildDir/generated-sources/openapi/src/main/java"
         }
         kotlin {
             srcDirs += "src/main/kotlin"
+        }
+        proto {
+            srcDir 'src/main/resources/proto'
         }
     }
     test {
@@ -96,6 +106,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web:3.5.3'
     implementation 'org.springframework.boot:spring-boot-starter' // Version managed by Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client' // Version managed by Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server' // JWT validation; delete when switching to real IdP
     implementation 'org.springframework.boot:spring-boot-starter-validation' // Jakarta validation
     implementation 'org.springframework.data:spring-data-commons' // For Page and Pageable
 
@@ -120,7 +131,15 @@ dependencies {
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3'
     implementation 'com.fasterxml.uuid:java-uuid-generator:4.0.1'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // OpenTelemetry observability — API and annotations only (agent provides SDK at runtime)
+    implementation 'io.opentelemetry:opentelemetry-api:1.44.1'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.11.0'
+    // OTel Java agent — resolved to a file path for -javaagent, not placed on the classpath
+    otelAgent 'io.opentelemetry.javaagent:opentelemetry-javaagent:2.11.0'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+    // JSON structured logging for ELK/Kubernetes (logback encoder)
+    implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
 
     implementation 'com.eaio.uuid:uuid:3.2'
     implementation 'com.beust:jcommander:1.82'
@@ -133,6 +152,8 @@ dependencies {
     testImplementation("io.cucumber:cucumber-junit-platform-engine:7.18.0")
     testImplementation 'org.instancio:instancio-junit:5.5.1'
     testImplementation("org.junit.platform:junit-platform-suite")
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-testing:1.44.1'
+    testImplementation 'org.awaitility:awaitility:4.2.2'
 }
 
 test {
@@ -140,8 +161,11 @@ test {
 
     useJUnitPlatform()
 
-    // Pass system properties to tests (needed for conditional test execution)
+    // Pass system properties to tests (needed for conditional test execution).
+    // Override user.dir so relative File paths in tests resolve against the
+    // subproject directory, not the workspace root where gradlew was invoked.
     systemProperties = System.properties
+    systemProperty 'user.dir', project.projectDir.absolutePath
 }
 
 jsonSchema2Pojo {
@@ -179,10 +203,104 @@ protobuf {
     }
 }
 
+// OpenAPI Generator tasks for generating Java models from OpenAPI YAML files
+// Package structure matches Cyoda client library: org.cyoda.cloud.api.*.model with Dto suffix
+def openapiFiles = [
+    [name: 'common', file: 'openapi-common.yml', modelPackage: 'org.cyoda.cloud.api.common.model'],
+    [name: 'workflow', file: 'openapi-workflow.yml', modelPackage: 'org.cyoda.cloud.api.workflow.model',
+        // Schema mappings to reuse common DTOs for criterion and processor types
+        schemaMappings: [
+            'WorkflowConfiguration_criterion': 'QueryConditionDto',
+            'TransitionDefinition_criterion': 'QueryConditionDto',
+            'ScheduledTransitionProcessorDefinition_allOf_config': 'ScheduledTransitionConfigDto',
+        ],
+        extraImportMappings: [
+            'QueryConditionDto': 'org.cyoda.cloud.api.common.model.QueryConditionDto',
+            'ScheduledTransitionConfigDto': 'org.cyoda.cloud.api.common.model.ScheduledTransitionConfigDto',
+        ]
+    ],
+    [name: 'entitySearch', file: 'openapi-entity-search.yml', modelPackage: 'org.cyoda.cloud.api.search.model'],
+    [name: 'audit', file: 'openapi-audit.yml', modelPackage: 'org.cyoda.cloud.api.audit.model'],
+    [name: 'iam', file: 'openapi-iam.yml', modelPackage: 'org.cyoda.cloud.api.iam.model'],
+]
+
+openapiFiles.each { spec ->
+    tasks.register("generateOpenApi${spec.name.capitalize()}", org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+        generatorName = 'spring'
+        inputSpec = "$projectDir/src/main/resources/api/${spec.file}"
+        outputDir = "$buildDir/generated-sources/openapi"
+        modelPackage = spec.modelPackage
+        apiPackage = spec.modelPackage
+        modelNameSuffix = 'Dto'
+        generateApiTests = false
+        generateModelTests = false
+        generateApiDocumentation = false
+        generateModelDocumentation = false
+        configOptions = [
+            dateLibrary: 'java8',
+            useJakartaEe: 'true',
+            openApiNullable: 'false',
+            serializationLibrary: 'jackson',
+            interfaceOnly: 'true',
+            useSpringBoot3: 'true',
+            useBeanValidation: 'true',
+        ]
+        globalProperties = [
+            models: '',  // Generate all models
+            apis: 'false',  // Don't generate API classes
+            supportingFiles: '',  // No supporting files needed
+        ]
+        // Map 'any' and 'object' types to JsonNode (matching Cyoda client library)
+        typeMappings = [
+            'object': 'JsonNode',
+            'any': 'JsonNode',
+        ]
+        // Base import mappings
+        def imports = [
+            'JsonNode': 'com.fasterxml.jackson.databind.JsonNode',
+        ]
+        // Add spec-specific import mappings if defined
+        if (spec.extraImportMappings) {
+            imports.putAll(spec.extraImportMappings)
+        }
+        importMappings = imports
+
+        // Add spec-specific schema mappings if defined
+        if (spec.schemaMappings) {
+            schemaMappings = spec.schemaMappings
+        }
+    }
+}
+
+tasks.register('generateOpenApi') {
+    dependsOn openapiFiles.collect { "generateOpenApi${it.name.capitalize()}" }
+    description = 'Generates Java models from all OpenAPI YAML files'
+    group = 'openapi tools'
+
+    // Post-process to fix @JsonAlias annotation syntax from upstream YAML files
+    // The YAML has: @JsonAlias("a", "b") but valid Java requires: @JsonAlias({"a", "b"})
+    doLast {
+        def openApiDir = file("$buildDir/generated-sources/openapi/src/main/java")
+        if (openApiDir.exists()) {
+            fileTree(openApiDir).matching { include '**/*.java' }.each { javaFile ->
+                def content = javaFile.text
+                def fixed = content.replaceAll(
+                    /@com\.fasterxml\.jackson\.annotation\.JsonAlias\(("[^"]+"),\s*("[^"]+")\)/,
+                    '@com.fasterxml.jackson.annotation.JsonAlias({$1, $2})'
+                )
+                if (fixed != content) {
+                    javaFile.text = fixed
+                }
+            }
+        }
+    }
+}
+
 ["bootRun", "build", "compileJava", "compileKotlin"].each { taskName ->
     tasks.named(taskName).configure {
         dependsOn("generateProto")
         dependsOn("generateJsonSchema2Pojo")
+        dependsOn("generateOpenApi")
     }
 }
 
@@ -228,6 +346,34 @@ tasks.register('runApp', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     def requestedMain = project.findProperty('mainClass') ?: 'com.java_template.Application'
     mainClass.set(requestedMain.toString())
+    systemProperties = System.properties
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+    // Attach the OTel agent when the observability stack is running locally.
+    // Start the stack first: docker compose -f docker/observability/docker-compose.yml up -d
+    if (project.findProperty('otel') == 'true') {
+        jvmArgs "-javaagent:${configurations.otelAgent.asPath}"
+        environment 'OTEL_SERVICE_NAME', 'java-template-backend'
+        environment 'OTEL_METRICS_EXPORTER', 'prometheus'
+        environment 'OTEL_EXPORTER_PROMETHEUS_PORT', '9464'
+        environment 'OTEL_TRACES_EXPORTER', 'otlp'
+        environment 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT', 'http://localhost:4318'
+        environment 'OTEL_LOGS_EXPORTER', 'none'  // Tempo handles traces only; no log backend in local stack
+        environment 'OTEL_INSTRUMENTATION_GRPC_ENABLED', 'true'
+        environment 'OTEL_INSTRUMENTATION_SPRING_WEB_ENABLED', 'true'
+        environment 'OTEL_INSTRUMENTATION_JDBC_ENABLED', 'true'
+        environment 'OTEL_INSTRUMENTATION_EXECUTOR_ENABLED', 'true'
+    }
+}
+
+tasks.register('runTestApp', JavaExec) {
+    group = 'application'
+    description = 'Run arbitrary test class with Spring Boot context'
+    classpath = sourceSets.test.runtimeClasspath
+    def requestedMain = project.findProperty('mainClass') ?: 'com.java_template.Application'
+    mainClass.set(requestedMain.toString())
+    args = project.findProperty('args')?.toString()?.split(' ') ?: []
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
@@ -245,6 +391,38 @@ tasks.register('validateWorkflowImplementations', JavaExec) {
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
+}
+
+tasks.register('validateFunctionalRequirements', JavaExec) {
+    group = 'validation'
+    description = 'Validate that all processors/criteria in requirements are implemented in workflows. Usage: -Pargs="requirements.md workflow.json" (optional)'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('com.java_template.common.tool.FunctionalRequirementsValidator')
+    if (project.hasProperty('args')) {
+        args project.property('args').toString().split(' ')
+    }
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+}
+
+tasks.register('validateWorkflows', JavaExec) {
+    group = 'validation'
+    description = 'Run complete workflow validation suite'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('com.java_template.common.tool.WorkflowValidationSuite')
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+}
+
+// Prints the resolved OTel agent jar path — use this to configure IntelliJ VM options.
+tasks.register('printOtelAgentPath') {
+    group = 'help'
+    description = 'Print the resolved OTel Java agent jar path for use in IDE run configurations'
+    doLast {
+        println configurations.otelAgent.asPath
+    }
 }
 
 

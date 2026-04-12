@@ -16,6 +16,7 @@ import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.cyoda.uuid.SimpleSystemClock;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,9 +27,11 @@ import org.mockito.MockitoAnnotations;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for ExampleEntityProcessor
@@ -245,7 +248,8 @@ class ExampleEntityProcessorTest {
         EntityProcessorCalculationRequest request = createRequest(entity);
         request.setId("custom-id-123");
         request.setRequestId("custom-req-456");
-        request.setEntityId("custom-entity-789");
+        UUID entityId = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
+        request.setEntityId(entityId);
 
         CyodaEventContext<EntityProcessorCalculationRequest> context =
                 createContext(request);
@@ -255,7 +259,7 @@ class ExampleEntityProcessorTest {
         assertNotNull(response);
         assertEquals("custom-id-123", response.getId());
         assertEquals("custom-req-456", response.getRequestId());
-        assertEquals("custom-entity-789", response.getEntityId());
+        assertEquals(entityId, response.getEntityId());
     }
 
     @Test
@@ -314,7 +318,7 @@ class ExampleEntityProcessorTest {
         EntityProcessorCalculationRequest request = new EntityProcessorCalculationRequest();
         request.setId("test-request-123");
         request.setRequestId("req-456");
-        request.setEntityId("entity-789");
+        request.setEntityId(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros());
         request.setProcessorId("processor-123");
         request.setProcessorName("ExampleEntityProcessor");
 

@@ -41,8 +41,8 @@ public class AckEventStrategy implements EventHandlingStrategy<BaseEvent> {
                 cloudEvent.getTextData()
         );
 
-        cloudEventParser.parseCloudEvent(cloudEvent, EventAckResponse.class)
-                .ifPresent(eventTracker::trackAcknowledgeReceived);
+        EventAckResponse ackResponse = cloudEventParser.parseCloudEvent(cloudEvent, EventAckResponse.class);
+        eventTracker.trackAcknowledgeReceived(ackResponse);
 
         return null;
     }

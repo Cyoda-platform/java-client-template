@@ -3,12 +3,14 @@ package com.java_template.common.config;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -16,19 +18,22 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * ABOUTME: Spring Security configuration with externalized CORS settings.
- * CORS configuration is loaded from CorsProperties which supports environment-specific
- * settings via application.yml and environment variables.
+ * ABOUTME: Spring Boot auto-configuration providing permissive security and CORS defaults.
+ * Active only when no application-defined {@code SecurityFilterChain} / {@code CorsConfigurationSource} bean is present.
  *
- * <p>Security features:
- * <ul>
- *   <li>CORS configured via externalized properties (no hardcoded values)</li>
- *   <li>Validates that wildcards are not used with credentials</li>
- *   <li>Supports environment-specific configuration (dev/staging/prod)</li>
- * </ul>
+ * <p>This class is registered as auto-configuration so it is evaluated <em>after</em> all
+ * {@code @Configuration} beans in the application context. The {@code @ConditionalOnMissingBean}
+ * guards therefore work reliably: if the application supplies its own chain (e.g.
+ * {@code ApiSecurityConfig}) or its own CORS source, these defaults are silently skipped.
+ *
+ * <p>Default security policy: permit-all — suitable for local PoC development.
+ * Override by providing a {@code SecurityFilterChain} bean in your application package.
+ *
+ * <p>Default CORS policy: driven by {@code app.cors.*} properties (see {@link CorsProperties}).
+ * Override by providing a {@code CorsConfigurationSource} bean in your application package.
  */
-@Configuration
-@EnableWebSecurity
+@AutoConfiguration(before = SecurityAutoConfiguration.class)
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @EnableConfigurationProperties(CorsProperties.class)
 public class SecurityConfig {
 
@@ -50,6 +55,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @ConditionalOnMissingBean(SecurityFilterChain.class)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             // Enable CORS with custom configuration
@@ -76,6 +82,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    @ConditionalOnMissingBean(name = "corsConfigurationSource")
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 

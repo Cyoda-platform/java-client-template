@@ -2,7 +2,7 @@ package com.example.tests;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.cyoda.cloud.api.event.common.statemachine.conf.WorkflowConfiguration;
+import org.cyoda.cloud.api.workflow.model.WorkflowConfigurationDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -51,7 +51,7 @@ class WorkflowConfigurationMarshallingTest {
         // When/Then - Marshall each file with strict ObjectMapper
         for (File workflowFile : workflowFiles) {
             assertDoesNotThrow(
-                    () -> objectMapper.readValue(workflowFile, WorkflowConfiguration.class),
+                    () -> objectMapper.readValue(workflowFile, WorkflowConfigurationDto.class),
                     "Failed to marshall " + workflowFile.getName()
             );
         }

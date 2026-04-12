@@ -15,15 +15,20 @@ import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityCriteriaCalculationResponse;
+import org.cyoda.uuid.SimpleSystemClock;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for ExampleEntityCriterion
@@ -34,21 +39,27 @@ class ExampleEntityCriterionTest {
 
     private ExampleEntityCriterion criterion;
     private ObjectMapper objectMapper;
-    private CriterionSerializer serializer;
 
     @Mock
     private SerializerFactory serializerFactory;
 
+    AutoCloseable autoCloseable;
+
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        autoCloseable = MockitoAnnotations.openMocks(this);
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-        serializer = new JacksonCriterionSerializer(objectMapper);
+        CriterionSerializer serializer = new JacksonCriterionSerializer(objectMapper);
 
         when(serializerFactory.getDefaultCriteriaSerializer()).thenReturn(serializer);
 
         criterion = new ExampleEntityCriterion(serializerFactory);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        autoCloseable.close();
     }
 
     @Test
@@ -114,9 +125,8 @@ class ExampleEntityCriterionTest {
         assertNotNull(response);
         assertTrue(response.getSuccess()); // Evaluation succeeded
         assertFalse(response.getMatches()); // But entity doesn't match criteria
-        assertNotNull(response.getWarnings());
-        assertFalse(response.getWarnings().isEmpty());
-        assertTrue(response.getWarnings().get(0).contains("Entity is not valid"));
+        assertNotNull(response.getReason());
+        assertTrue(response.getReason().contains("Entity is not valid"));
     }
 
     @Test
@@ -126,7 +136,7 @@ class ExampleEntityCriterionTest {
         EntityCriteriaCalculationRequest request = new EntityCriteriaCalculationRequest();
         request.setId("test-request-123");
         request.setRequestId("req-456");
-        request.setEntityId("entity-789");
+        request.setEntityId(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros());
 
         DataPayload payload = new DataPayload();
         payload.setData(null);
@@ -211,7 +221,8 @@ class ExampleEntityCriterionTest {
         EntityCriteriaCalculationRequest request = createRequest(entity);
         request.setId("custom-id-123");
         request.setRequestId("custom-req-456");
-        request.setEntityId("custom-entity-789");
+        UUID entityId = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
+        request.setEntityId(entityId);
 
         CyodaEventContext<EntityCriteriaCalculationRequest> context = createContext(request);
 
@@ -220,7 +231,7 @@ class ExampleEntityCriterionTest {
         assertNotNull(response);
         assertEquals("custom-id-123", response.getId());
         assertEquals("custom-req-456", response.getRequestId());
-        assertEquals("custom-entity-789", response.getEntityId());
+        assertEquals(entityId, response.getEntityId());
         assertTrue(response.getMatches()); // Entity is valid
     }
 
@@ -249,7 +260,7 @@ class ExampleEntityCriterionTest {
         EntityCriteriaCalculationRequest request = new EntityCriteriaCalculationRequest();
         request.setId("test-request-123");
         request.setRequestId("req-456");
-        request.setEntityId("entity-789");
+        request.setEntityId(SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros());
 
         // Convert entity to JSON
         ObjectNode entityJson = objectMapper.valueToTree(entity);

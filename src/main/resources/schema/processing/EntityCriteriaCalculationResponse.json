@@ -13,11 +13,16 @@
     },
     "entityId": {
       "type": "string",
-      "description": "Entity ID."
+      "description": "Entity ID.",
+      "format": "uuid"
     },
     "matches": {
       "type": "boolean",
       "description": "Criteria check result."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Reason for the criteria check result."
     }
   },
   "required": [

@@ -118,7 +118,7 @@ public interface CriterionSerializer {
         private Boolean matches;
         private EvaluationReason evaluationReason;
         private BiFunction<Throwable, JsonNode, ErrorInfo> errorHandler;
-        private ReasonAttachmentStrategy reasonAttachmentStrategy = ReasonAttachmentStrategy.toWarnings();
+        private ReasonAttachmentStrategy reasonAttachmentStrategy = ReasonAttachmentStrategy.toReason();
 
         EvaluationChainImpl(CriterionSerializer serializer, EntityCriteriaCalculationRequest request) {
             this.serializer = serializer;

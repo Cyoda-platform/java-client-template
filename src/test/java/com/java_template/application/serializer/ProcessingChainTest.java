@@ -14,10 +14,12 @@ import org.cyoda.cloud.api.event.common.EntityMetadata;
 import org.cyoda.cloud.api.event.common.ModelSpec;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationRequest;
 import org.cyoda.cloud.api.event.processing.EntityProcessorCalculationResponse;
+import org.cyoda.uuid.SimpleSystemClock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -29,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ProcessingChainTest {
 
+    public static final UUID ENTITY_ID = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
     private ObjectMapper objectMapper;
     private JacksonProcessorSerializer serializer;
     private EntityProcessorCalculationRequest request;
@@ -77,7 +80,7 @@ class ProcessingChainTest {
         request = new EntityProcessorCalculationRequest();
         request.setId("test-request-123");
         request.setRequestId("req-456");
-        request.setEntityId("entity-789");
+        request.setEntityId(ENTITY_ID);
         request.setProcessorId("processor-123");
         request.setProcessorName("TestProcessor");
 
@@ -612,7 +615,7 @@ class ProcessingChainTest {
 
             ObjectNode result = objectMapper.createObjectNode();
             result.put("requestId", context.request().getId());
-            result.put("entityId", context.request().getEntityId());
+            result.put("entityId", context.request().getEntityId().toString());
             result.put("originalName", context.payload().get("name").asText());
             return result;
         };
@@ -628,7 +631,7 @@ class ProcessingChainTest {
 
         JsonNode resultData = response.getPayload().getData();
         assertEquals("test-request-123", resultData.get("requestId").asText());
-        assertEquals("entity-789", resultData.get("entityId").asText());
+        assertEquals(ENTITY_ID.toString(), resultData.get("entityId").asText());
         assertEquals("Fluffy", resultData.get("originalName").asText());
     }
 
@@ -1012,7 +1015,8 @@ class ProcessingChainTest {
         // Given - Create request with metadata in payload
         EntityProcessorCalculationRequest requestWithMeta = new EntityProcessorCalculationRequest();
         requestWithMeta.setId("test-request-123");
-        requestWithMeta.setEntityId("550e8400-e29b-41d4-a716-446655440000");
+        UUID entityId = SimpleSystemClock.INSTANCE.uniqueTimeUUIDinMicros();
+        requestWithMeta.setEntityId(entityId);
 
         // Create test payload with both data and metadata
         ObjectNode testData = objectMapper.createObjectNode();
@@ -1021,7 +1025,7 @@ class ProcessingChainTest {
         testData.put("status", "available");
 
         ObjectNode testMeta = objectMapper.createObjectNode();
-        testMeta.put("id", "550e8400-e29b-41d4-a716-446655440000");
+        testMeta.put("id", entityId.toString());
         testMeta.put("state", "ACTIVE");
         testMeta.put("creationDate", "2023-01-01T00:00:00Z");
 
@@ -1045,7 +1049,7 @@ class ProcessingChainTest {
         assertEquals("available", entity.getStatus());
 
         // Verify metadata
-        assertEquals("550e8400-e29b-41d4-a716-446655440000", entityWithMetadata.metadata().getId().toString());
+        assertEquals(entityId, entityWithMetadata.metadata().getId());
         assertEquals("ACTIVE", entityWithMetadata.metadata().getState());
         assertNotNull(entityWithMetadata.metadata().getCreationDate());
     }

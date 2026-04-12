@@ -10,12 +10,9 @@ import com.java_template.common.util.CyodaExceptionUtil;
 import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.Setter;
+import org.cyoda.cloud.api.common.model.*;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
-import org.cyoda.cloud.api.event.common.condition.Operation;
-import org.cyoda.cloud.api.event.common.condition.QueryCondition;
-import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -199,7 +196,7 @@ public class ExampleEntityController {
             Date pointInTimeDate = pointInTime != null
                 ? Date.from(pointInTime.toInstant())
                 : null;
-            List<org.cyoda.cloud.api.event.common.EntityChangeMeta> changes =
+            List<EntityChangeMeta> changes =
                     entityService.getEntityChangesMetadata(id, pointInTimeDate);
             return ResponseEntity.ok(changes);
         } catch (Exception e) {
@@ -266,14 +263,14 @@ public class ExampleEntityController {
                 ? Date.from(pointInTime.toInstant())
                 : null;
 
-            SimpleCondition categoryCondition = new SimpleCondition()
-                    .withJsonPath("$.category")
-                    .withOperation(Operation.EQUALS)
-                    .withValue(objectMapper.valueToTree(category));
+            SimpleConditionDto categoryCondition = new SimpleConditionDto()
+                    .jsonPath("$.category")
+                    .operation(OperatorTypeDto.EQUALS)
+                    .value(objectMapper.valueToTree(category));
 
-            GroupCondition condition = new GroupCondition()
-                    .withOperator(GroupCondition.Operator.AND)
-                    .withConditions(List.of(categoryCondition));
+            GroupConditionDto condition = new GroupConditionDto()
+                    .operator(GroupOperatorDto.AND)
+                    .conditions(List.of(categoryCondition));
 
             // Use in-memory search for small, bounded result sets
             // inMemory=true loads all results into memory - only use for small result sets
@@ -328,24 +325,24 @@ public class ExampleEntityController {
                 ? Date.from(pointInTime.toInstant())
                 : null;
 
-            List<QueryCondition> conditions = new ArrayList<>();
+            List<QueryConditionDto> conditions = new ArrayList<>();
 
             if (name != null && !name.trim().isEmpty()) {
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$.name")
-                        .withOperation(Operation.CONTAINS)
-                        .withValue(objectMapper.valueToTree(name)));
+                conditions.add(new SimpleConditionDto()
+                        .jsonPath("$.name")
+                        .operation(OperatorTypeDto.CONTAINS)
+                        .value(objectMapper.valueToTree(name)));
             }
 
             if (minAmount != null) {
-                conditions.add(new SimpleCondition()
-                        .withJsonPath("$.amount")
-                        .withOperation(Operation.GREATER_OR_EQUAL)
-                        .withValue(objectMapper.valueToTree(minAmount)));
+                conditions.add(new SimpleConditionDto()
+                        .jsonPath("$.amount")
+                        .operation(OperatorTypeDto.GREATER_OR_EQUAL)
+                        .value(objectMapper.valueToTree(minAmount)));
             }
 
-            com.java_template.common.repository.SearchAndRetrievalParams paginationParams =
-                    com.java_template.common.repository.SearchAndRetrievalParams.builder()
+            SearchAndRetrievalParams paginationParams =
+                    SearchAndRetrievalParams.builder()
                             .pageSize(size)
                             .pageNumber(page)
                             .pointInTime(pointInTimeDate)
@@ -359,9 +356,9 @@ public class ExampleEntityController {
                         modelSpec, ExampleEntity.class, paginationParams);
             } else {
                 // With filters: use paginated search with searchId support
-                GroupCondition condition = new GroupCondition()
-                        .withOperator(GroupCondition.Operator.AND)
-                        .withConditions(conditions);
+                GroupConditionDto condition = new GroupConditionDto()
+                        .operator(GroupOperatorDto.AND)
+                        .conditions(conditions);
 
                 // inMemory=false enables pagination with searchId support
                 pageResult = entityService.search(
@@ -408,28 +405,28 @@ public class ExampleEntityController {
                 : null;
 
             // Build search condition if criteria provided
-            GroupCondition condition = null;
+            GroupConditionDto condition = null;
             if (searchRequest != null) {
-                List<QueryCondition> conditions = new ArrayList<>();
+                List<QueryConditionDto> conditions = new ArrayList<>();
 
                 if (searchRequest.getName() != null && !searchRequest.getName().trim().isEmpty()) {
-                    conditions.add(new SimpleCondition()
-                            .withJsonPath("$.name")
-                            .withOperation(Operation.CONTAINS)
-                            .withValue(objectMapper.valueToTree(searchRequest.getName())));
+                    conditions.add(new SimpleConditionDto()
+                            .jsonPath("$.name")
+                            .operation(OperatorTypeDto.CONTAINS)
+                            .value(objectMapper.valueToTree(searchRequest.getName())));
                 }
 
                 if (searchRequest.getMinAmount() != null) {
-                    conditions.add(new SimpleCondition()
-                            .withJsonPath("$.amount")
-                            .withOperation(Operation.GREATER_OR_EQUAL)
-                            .withValue(objectMapper.valueToTree(searchRequest.getMinAmount())));
+                    conditions.add(new SimpleConditionDto()
+                            .jsonPath("$.amount")
+                            .operation(OperatorTypeDto.GREATER_OR_EQUAL)
+                            .value(objectMapper.valueToTree(searchRequest.getMinAmount())));
                 }
 
                 if (!conditions.isEmpty()) {
-                    condition = new GroupCondition()
-                            .withOperator(GroupCondition.Operator.AND)
-                            .withConditions(conditions);
+                    condition = new GroupConditionDto()
+                            .operator(GroupOperatorDto.AND)
+                            .conditions(conditions);
                 }
             }
 

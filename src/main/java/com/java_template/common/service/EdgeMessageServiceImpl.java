@@ -6,9 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.java_template.common.auth.Authentication;
+import com.java_template.common.config.Config;
 import com.java_template.common.util.HttpUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,12 +35,12 @@ public class EdgeMessageServiceImpl implements EdgeMessageService {
             HttpUtils httpUtils,
             Authentication authentication,
             ObjectMapper objectMapper,
-            @Value("${cyoda.api.url}") String cyodaApiUrl
+            Config configProperties
     ) {
         this.httpUtils = httpUtils;
         this.authentication = authentication;
         this.objectMapper = objectMapper;
-        this.cyodaApiUrl = cyodaApiUrl;
+        this.cyodaApiUrl = configProperties.getCyodaApiUrl();
     }
 
     @Override

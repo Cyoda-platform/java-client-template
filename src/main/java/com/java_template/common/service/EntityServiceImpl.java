@@ -1,5 +1,6 @@
 package com.java_template.common.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.java_template.common.dto.EntityWithMetadata;
@@ -7,13 +8,10 @@ import com.java_template.common.dto.PageResult;
 import com.java_template.common.repository.CrudRepository;
 import com.java_template.common.repository.SearchAndRetrievalParams;
 import com.java_template.common.workflow.CyodaEntity;
+import org.cyoda.cloud.api.common.model.*;
 import org.cyoda.cloud.api.event.common.DataPayload;
 import org.cyoda.cloud.api.event.common.EntityChangeMeta;
 import org.cyoda.cloud.api.event.common.ModelSpec;
-import org.cyoda.cloud.api.event.common.condition.GroupCondition;
-import org.cyoda.cloud.api.event.common.condition.Operation;
-import org.cyoda.cloud.api.event.common.condition.QueryCondition;
-import org.cyoda.cloud.api.event.common.condition.SimpleCondition;
 import org.cyoda.cloud.api.event.entity.EntityDeleteAllResponse;
 import org.cyoda.cloud.api.event.entity.EntityDeleteResponse;
 import org.cyoda.cloud.api.event.entity.EntityTransactionResponse;
@@ -89,14 +87,14 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final Class<T> entityClass,
             @Nullable final Date pointInTime
     ) {
-        SimpleCondition simpleCondition = new SimpleCondition()
-                .withJsonPath("$." + businessIdField)
-                .withOperation(Operation.EQUALS)
-                .withValue(objectMapper.valueToTree(businessId));
+        SimpleConditionDto simpleCondition = new SimpleConditionDto()
+                .jsonPath("$." + businessIdField)
+                .operation(OperatorTypeDto.EQUALS)
+                .value(objectMapper.valueToTree(businessId));
 
-        GroupCondition condition = new GroupCondition()
-                .withOperator(GroupCondition.Operator.AND)
-                .withConditions(List.of(simpleCondition));
+        GroupConditionDto condition = new GroupConditionDto()
+                .operator(GroupOperatorDto.AND)
+                .conditions(List.of(simpleCondition));
 
         PageResult<EntityWithMetadata<T>> result = search(
                 modelSpec,
@@ -135,25 +133,25 @@ public class EntityServiceImpl implements EntityService {
             @NotNull final Class<T> entityClass
     ) {
         // Build a list of SimpleConditions for each business key field
-        List<QueryCondition> simpleConditions = new ArrayList<>();
+        List<QueryConditionDto> simpleConditions = new ArrayList<>();
 
         for (Map.Entry<String, java.util.function.Function<T, Object>> entry : businessIdExtractors.entrySet()) {
             String fieldName = entry.getKey();
             java.util.function.Function<T, Object> extractor = entry.getValue();
             Object value = extractor.apply(entity);
 
-            SimpleCondition condition = new SimpleCondition()
-                    .withJsonPath("$." + fieldName)
-                    .withOperation(Operation.EQUALS)
-                    .withValue(objectMapper.valueToTree(value));
+            SimpleConditionDto condition = new SimpleConditionDto()
+                    .jsonPath("$." + fieldName)
+                    .operation(OperatorTypeDto.EQUALS)
+                    .value(objectMapper.valueToTree(value));
 
             simpleConditions.add(condition);
         }
 
         // Combine all conditions with AND operator
-        GroupCondition groupCondition = new GroupCondition()
-                .withOperator(GroupCondition.Operator.AND)
-                .withConditions(simpleConditions);
+        GroupConditionDto groupCondition = new GroupConditionDto()
+                .operator(GroupOperatorDto.AND)
+                .conditions(simpleConditions);
 
         // Search with the composite condition
         PageResult<EntityWithMetadata<T>> result = search(
@@ -277,7 +275,7 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public <T extends CyodaEntity> PageResult<EntityWithMetadata<T>> search(
             @NotNull final ModelSpec modelSpec,
-            @NotNull final GroupCondition condition,
+            @NotNull final GroupConditionDto condition,
             @NotNull final Class<T> entityClass,
             @NotNull final SearchAndRetrievalParams params
     ) {
@@ -304,7 +302,7 @@ public class EntityServiceImpl implements EntityService {
     @Override
     public <T extends CyodaEntity> Stream<EntityWithMetadata<T>> searchAsStream(
             @NotNull final ModelSpec modelSpec,
-            @NotNull final GroupCondition condition,
+            @NotNull final GroupConditionDto condition,
             @NotNull final Class<T> entityClass,
             @NotNull final SearchAndRetrievalParams params
     ) {
@@ -388,10 +386,6 @@ public class EntityServiceImpl implements EntityService {
         // Get business ID value from entity using reflection-like approach
         String businessIdValue = getBusinessIdValue(entity, businessIdField);
 
-        if (businessIdValue == null) {
-            throw new IllegalStateException("Business ID value is null for field: " + businessIdField);
-        }
-
         // Extract model info from entity
         ModelSpec modelSpec = entity.getModelKey().modelKey();
 
@@ -406,11 +400,21 @@ public class EntityServiceImpl implements EntityService {
         return update(technicalId, entity, transition);
     }
 
-    private <T extends CyodaEntity> String getBusinessIdValue(T entity, String businessIdField) {
+    private <T extends CyodaEntity> @NotNull String getBusinessIdValue(T entity, String businessIdField) {
         // Use Jackson to convert entity to JsonNode and extract the field
         var entityNode = objectMapper.valueToTree(entity);
         var fieldValue = entityNode.get(businessIdField);
-        return fieldValue != null ? fieldValue.asText() : null;
+        if (fieldValue == null) {
+            String entityString;
+            try {
+                entityString = objectMapper.writeValueAsString(entityNode);
+            } catch (JsonProcessingException e) {
+                entityString = "cannot convert entity to JSON: " + e.getMessage();
+            }
+            throw new IllegalStateException("Business ID value is null for field: " + businessIdField +
+                    " for entity " + entityString);
+        }
+        return fieldValue.asText();
     }
 
     @Override
