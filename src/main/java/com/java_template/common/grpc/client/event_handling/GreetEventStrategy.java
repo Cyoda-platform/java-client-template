@@ -49,8 +49,8 @@ public class GreetEventStrategy implements EventHandlingStrategy<BaseEvent>, Gre
 
         log.debug("[IN] Received event {}: \n{}", cloudEventType, cloudEvent.getTextData());
 
-        cloudEventParser.parseCloudEvent(cloudEvent, CalculationMemberGreetEvent.class)
-                .ifPresent(event -> log.info("Received greet event: {}", event));
+        CalculationMemberGreetEvent event = cloudEventParser.parseCloudEvent(cloudEvent, CalculationMemberGreetEvent.class);
+        log.info("Received greet event: {}", event);
 
         return null;
     }

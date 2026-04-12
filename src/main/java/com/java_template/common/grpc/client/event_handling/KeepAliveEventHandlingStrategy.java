@@ -33,15 +33,7 @@ public class KeepAliveEventHandlingStrategy implements EventHandlingStrategy<Eve
     @Override
     public EventAckResponse handleEvent(@NotNull final CloudEvent cloudEvent) {
         eventTracker.trackKeepAlive(System.currentTimeMillis());
-        final var resp = cloudEventParser.parseCloudEvent(
-                cloudEvent,
-                EventAckResponse.class
-        ).orElse(null);
-
-        if (resp == null) {
-            return null;
-        }
-
+        final var resp = cloudEventParser.parseCloudEvent(cloudEvent, EventAckResponse.class);
         resp.setSourceEventId(resp.getId());
         return resp;
     }

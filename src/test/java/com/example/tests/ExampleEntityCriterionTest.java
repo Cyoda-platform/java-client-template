@@ -125,9 +125,8 @@ class ExampleEntityCriterionTest {
         assertNotNull(response);
         assertTrue(response.getSuccess()); // Evaluation succeeded
         assertFalse(response.getMatches()); // But entity doesn't match criteria
-        assertNotNull(response.getWarnings());
-        assertFalse(response.getWarnings().isEmpty());
-        assertTrue(response.getWarnings().getFirst().contains("Entity is not valid"));
+        assertNotNull(response.getReason());
+        assertTrue(response.getReason().contains("Entity is not valid"));
     }
 
     @Test

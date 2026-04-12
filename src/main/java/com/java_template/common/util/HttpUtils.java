@@ -74,7 +74,7 @@ public class HttpUtils {
                     String responseBody = response.body();
 
                     if (statusCode >= 200 && statusCode < 300) {
-                        logger.info("[{}] {} {} succeeded", statusCode, method, url);
+                        logger.debug("[{}] {} {} succeeded", statusCode, method, url);
                     } else if (statusCode >= 300 && statusCode < 400) {
                         logger.info("[{}] {} {} redirect: {}", statusCode, method, url, responseBody);
                     } else if (statusCode >= 400 && statusCode < 500) {

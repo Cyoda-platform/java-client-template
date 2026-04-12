@@ -318,7 +318,7 @@ public interface EntityService {
      */
     java.util.Map<String, Long> getEntityStatsByState(
             @NotNull ModelSpec modelSpec,
-            @NotNull List<String> states,
+            @NotNull java.util.List<String> states,
             @Nullable java.util.Date pointInTime
     );
 

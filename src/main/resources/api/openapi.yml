@@ -45,9 +45,14 @@ paths:
     post:
       summary: Create M2M client
       description: |
-        Creates a new machine-to-machine (M2M)client for API authentication via OAuth 2.0.
+        Creates a new machine-to-machine (M2M) client for API authentication via OAuth 2.0.
 
         The created user will have M2M role permissions, necessary for getting the bearer token.
+
+        When `withAdminRole` is set to `true`, the M2M client will additionally receive the ADMIN role,
+        granting it full access to all ADMIN-level endpoints (e.g., trusted key registration).
+        This requires the `cyoda.security.web.jwt.m2m.admin-role-enabled` feature flag to be enabled;
+        otherwise, a 401 Unauthorized response is returned.
 
         **Authorization Required:** SUPER_USER role
       operationId: createTechnicalUser
@@ -55,6 +60,16 @@ paths:
         - User, Machine
       security:
         - bearerAuth: [ ]
+      parameters:
+        - name: withAdminRole
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            When true, the created M2M client will additionally receive the ADMIN role.
+            Requires the M2M admin role feature flag to be enabled.
       responses:
         '200':
           description: M2M client created successfully
@@ -70,6 +85,18 @@ paths:
                     client_id: "abc523BCD"
                     client_secret: "jsdfkdfj34k5jLK#jlkj"
                     grant_type: "client_credentials"
+                    roles:
+                      - "M2M"
+                SuccessfulCreationWithAdmin:
+                  summary: Successful M2M client creation with ADMIN role
+                  description: Example response when a M2M client with ADMIN role is created
+                  value:
+                    client_id: "abc523BCD"
+                    client_secret: "jsdfkdfj34k5jLK#jlkj"
+                    grant_type: "client_credentials"
+                    roles:
+                      - "M2M"
+                      - "ADMIN"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -234,20 +261,23 @@ paths:
     post:
       summary: Obtain access token for M2M client
       description: |
-        Authenticates a M2M client using client credentials and returns an access token.
+        Authenticates a M2M client and returns an access token.
 
-        This endpoint implements the standard OAuth 2.0 Client Credentials Grant, designed for
-        machine-to-machine authentication. The client must authenticate using HTTP Basic Authentication,
-        where the client_id and client_secret are provided in the Authorization header.
+        Supports two grant types:
 
-        The returned access token can be used to authenticate subsequent API requests using the Bearer token scheme.
+        1. **client_credentials** — Standard OAuth 2.0 Client Credentials Grant for M2M authentication.
+        2. **urn:ietf:params:oauth:grant-type:token-exchange** — RFC 8693 Token Exchange.
+           The M2M client acts on behalf of a user by presenting the user's JWT as `subject_token`.
+
+        In both cases the M2M client authenticates via HTTP Basic Authentication
+        (client_id and client_secret in the Authorization header).
 
         **Note:** This endpoint does not require an existing access token, as it serves as the authentication entry point.
       operationId: getTechnicalUserToken
       tags:
         - User, Machine
       security:
-        - basicAuth: [ ]  # Require HTTP Basic Auth      requestBody:
+        - basicAuth: [ ]  # Require HTTP Basic Auth
       # TODO: this doesn't work with kotlin-spring yet.
       #      x-spring-extra-parameters:
       #        - ServerWebExchange
@@ -260,16 +290,24 @@ paths:
           required: false   # Make it false if your OpenAPI security already marks it required
       requestBody:
         required: true
-        description: OAuth 2.0 token request using client credentials grant
+        description: >
+          OAuth 2.0 token request — either a client_credentials grant
+          or a token-exchange grant with subject_token and subject_token_type
         content:
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/TokenRequest'
             examples:
               ClientCredentials:
-                summary: Token request using Basic Auth
+                summary: Client credentials grant
                 value:
                   grant_type: "client_credentials"
+              TokenExchange:
+                summary: Token exchange grant (on-behalf-of)
+                value:
+                  grant_type: "urn:ietf:params:oauth:grant-type:token-exchange"
+                  subject_token: "eyJhbGciOiJSUzI1NiIsInR..."
+                  subject_token_type: "urn:ietf:params:oauth:token-type:access_token"
       responses:
         '200':
           description: Access token issued successfully
@@ -278,13 +316,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenResponse'
               examples:
-                TokenResponse:
-                  summary: Example token response
-                  description: Successful response containing access token
+                ClientCredentialsResponse:
+                  summary: Client credentials token response
                   value:
                     access_token: "eyJhbGciOiJIUzI1NiIsInR..."
                     token_type: "Bearer"
                     expires_in: 3600
+                TokenExchangeResponse:
+                  summary: Token exchange response
+                  value:
+                    access_token: "eyJhbGciOiJSUzI1NiIsInR..."
+                    token_type: "Bearer"
+                    expires_in: 3600
+                    issued_token_type: "urn:ietf:params:oauth:token-type:access_token"
         '400':
           description: Bad request - Invalid credentials or malformed request
           content:
@@ -296,14 +340,14 @@ paths:
                   summary: Invalid grant type
                   value:
                     error: "unsupported_grant_type"
-                    error_description: "Grant type must be 'client_credentials'"
-                MissingCredentials:
-                  summary: Missing client credentials
+                    error_description: "Grant type must be 'client_credentials' or 'urn:ietf:params:oauth:grant-type:token-exchange'"
+                MissingSubjectToken:
+                  summary: Missing subject_token for token-exchange
                   value:
                     error: "invalid_request"
-                    error_description: "Missing client_id or client_secret"
+                    error_description: "subject_token is required for token-exchange grant"
         '401':
-          description: Unauthorized - Invalid client credentials
+          description: Unauthorized - Invalid client credentials or subject token
           content:
             application/json:
               schema:
@@ -314,6 +358,23 @@ paths:
                   value:
                     error: "invalid_client"
                     error_description: "Client authentication failed"
+                InvalidSubjectToken:
+                  summary: Invalid or expired subject token
+                  value:
+                    error: "invalid_grant"
+                    error_description: "Subject token validation failed"
+        '403':
+          description: Forbidden - Tenant boundary violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                TenantMismatch:
+                  summary: Tenant mismatch between M2M client and subject user
+                  value:
+                    error: "access_denied"
+                    error_description: "Tenant boundary violation — M2M client and subject user belong to different tenants"
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -556,6 +617,7 @@ components:
             - unauthorized_client
             - unsupported_grant_type
             - invalid_scope
+            - access_denied
           example: "invalid_request"
         error_description:
           type: string
@@ -592,10 +654,33 @@ components:
           enum:
             - client_credentials
           example: "client_credentials"
+        client_id_issued_at:
+          type: integer
+          format: int64
+          description: |
+            Time at which the client identifier was issued, as the number of seconds
+            from 1970-01-01T00:00:00Z (Unix epoch) per RFC 7591 Section 3.2.1.
+          example: 1709913600
+        client_secret_expires_at:
+          type: integer
+          format: int64
+          description: |
+            Time at which the client secret will expire, as the number of seconds
+            from 1970-01-01T00:00:00Z (Unix epoch), or 0 if it will not expire.
+            Per RFC 7591 Section 3.2.1, this field is required when a client_secret is issued.
+          example: 0
+        roles:
+          type: array
+          items:
+            type: string
+          description: The roles assigned to the M2M client
+          example: ["M2M"]
       required:
         - client_id
         - client_secret
         - grant_type
+        - client_secret_expires_at
+        - roles
 
     TechnicalUser:
       type: object
@@ -618,22 +703,66 @@ components:
           format: date-time
           description: The date and time when the M2M client was last updated
           example: "2023-04-21T10:02:27.88Z"
+        roles:
+          type: array
+          items:
+            type: string
+          description: The roles assigned to the M2M client
+          example: ["M2M"]
       required:
         - clientId
         - creationDate
         - lastUpdateDate
+        - roles
 
     TokenRequest:
+      description: >
+        OAuth 2.0 token request. Must be one of the supported grant types:
+        client_credentials (RFC 6749) or token-exchange (RFC 8693).
+      oneOf:
+        - $ref: '#/components/schemas/ClientCredentialsTokenRequest'
+        - $ref: '#/components/schemas/TokenExchangeTokenRequest'
+      discriminator:
+        propertyName: grant_type
+        mapping:
+          client_credentials: '#/components/schemas/ClientCredentialsTokenRequest'
+          "urn:ietf:params:oauth:grant-type:token-exchange": '#/components/schemas/TokenExchangeTokenRequest'
+
+    ClientCredentialsTokenRequest:
       type: object
-      description: OAuth 2.0 token request for client credentials grant
+      description: OAuth 2.0 client_credentials grant request (RFC 6749).
+        The client authenticates via Basic Auth; no additional fields are required.
       properties:
         grant_type:
           type: string
           enum: [ client_credentials ]
-          description: Must be 'client_credentials'
-          example: "client_credentials"
+          x-enum-varnames: [ client_credentials ]
+          description: The OAuth 2.0 grant type
       required:
         - grant_type
+
+    TokenExchangeTokenRequest:
+      type: object
+      description: OAuth 2.0 token-exchange grant request (RFC 8693).
+        Exchanges a subject token for a new access token on behalf of the subject.
+      properties:
+        grant_type:
+          type: string
+          enum: [ "urn:ietf:params:oauth:grant-type:token-exchange" ]
+          x-enum-varnames: [ token_exchange ]
+          description: The OAuth 2.0 grant type
+        subject_token:
+          type: string
+          description: The subject token to exchange
+        subject_token_type:
+          type: string
+          enum: [ "urn:ietf:params:oauth:token-type:jwt", "urn:ietf:params:oauth:token-type:access_token" ]
+          x-enum-varnames: [ jwt, access_token ]
+          description: The type of the subject token
+      required:
+        - grant_type
+        - subject_token
+        - subject_token_type
 
     TokenResponse:
       type: object
@@ -667,6 +796,11 @@ components:
           description: The scope of the access token, as per RFC 6749 Section 3.3.
             See https://datatracker.ietf.org/doc/html/rfc6749#section-3.3
           example: "ROLE_M2M"
+        issued_token_type:
+          type: string
+          description: The type of the issued token (present only for token-exchange responses, per RFC 8693)
+          enum: [ "urn:ietf:params:oauth:token-type:access_token" ]
+          x-enum-varnames: [ access_token ]
       required:
         - access_token
         - token_type

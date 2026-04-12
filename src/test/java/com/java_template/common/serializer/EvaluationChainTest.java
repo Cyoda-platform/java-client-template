@@ -576,28 +576,40 @@ class EvaluationChainTest {
     @Test
     @DisplayName("EvaluationChain should handle reason attachment strategies")
     void testReasonAttachmentStrategies() {
-        // Test with toWarnings strategy
         Function<CriterionSerializer.CriterionEvaluationContext, EvaluationOutcome> evaluator =
                 context -> EvaluationOutcome.Fail.businessRuleFailure("Business rule failed");
 
+        // Test with toReason strategy (default)
         EntityCriteriaCalculationResponse response1 = serializer.withRequest(request)
-                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
+                .withReasonAttachment(ReasonAttachmentStrategy.toReason())
                 .evaluate(evaluator)
                 .complete();
 
         assertNotNull(response1);
         assertTrue(response1.getSuccess());
         assertFalse(response1.getMatches());
+        assertNotNull(response1.getReason());
+        assertTrue(response1.getReason().contains("Business rule failed"));
 
-        // Test with none strategy
+        // Test with toWarnings strategy
         EntityCriteriaCalculationResponse response2 = serializer.withRequest(request)
-                .withReasonAttachment(ReasonAttachmentStrategy.none())
+                .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
                 .evaluate(evaluator)
                 .complete();
 
         assertNotNull(response2);
         assertTrue(response2.getSuccess());
         assertFalse(response2.getMatches());
+
+        // Test with none strategy
+        EntityCriteriaCalculationResponse response3 = serializer.withRequest(request)
+                .withReasonAttachment(ReasonAttachmentStrategy.none())
+                .evaluate(evaluator)
+                .complete();
+
+        assertNotNull(response3);
+        assertTrue(response3.getSuccess());
+        assertFalse(response3.getMatches());
     }
 
     @Test

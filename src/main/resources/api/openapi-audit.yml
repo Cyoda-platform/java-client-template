@@ -119,15 +119,15 @@ paths:
                       "items" : [ {
                         "auditEventType" : "System",
                         "severity" : "INFO",
-                        "utcTime" : "2026-02-09T18:07:58.879002Z",
-                        "microsTime" : 1770660478879002,
-                        "doneTime" : "2026-02-09T18:07:58.883Z",
+                        "utcTime" : "2026-03-16T04:52:47.825002Z",
+                        "microsTime" : 1773636767825002,
+                        "doneTime" : "2026-03-16T04:52:47.838Z",
                         "queueName" : "TRANSACTION_EXEC_1_PHASE_VERSION_CHECK",
-                        "shardId" : "4",
+                        "shardId" : "6",
                         "status" : "PROCESSED",
                         "data" : {
                           "core" : {
-                            "userId" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
+                            "userId" : "f821c32a-20f3-11f1-b8a5-ae468cd3ed16",
                             "processIds" : [ {
                               "directProcessKey" : 11,
                               "type" : "DIRECT"
@@ -136,23 +136,23 @@ paths:
                             "workflowExecId" : null,
                             "workflowStackDepth" : 0,
                             "resubmitMetaInfo" : null,
-                            "submittedTransactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
+                            "submittedTransactionId" : "fa90ee60-20f3-11f1-b8a5-ae468cd3ed16",
                             "entitiesCountInTransaction" : 1,
-                            "transactionConsistencyTime" : "43c81586-05e2-11f1-7f7f-7f7f7f7f7f7f",
-                            "transactionSubmitTime" : "441e72f0-05e2-11f1-903f-ae468cd3ed16",
+                            "transactionConsistencyTime" : "fa560836-20f3-11f1-7f7f-7f7f7f7f7f7f",
+                            "transactionSubmitTime" : "fa929c10-20f3-11f1-b8a5-ae468cd3ed16",
                             "parentTransactionsIds" : [ ],
                             "currentExpectedEntityVersion" : null,
                             "transEntityClassIndex" : 1190,
-                            "transEntityIdSerialized" : "DPhBYiRrEbKfj/pEP+BbsQ==",
+                            "transEntityIdSerialized" : "Iit+tjrBEbKqmhrZKARQ9g==",
                             "actionType" : "UPDATE",
                             "eventTypeIndex" : 7
                           },
                           "client" : {
-                            "traceId" : -7320170933065850375,
-                            "traceIdHigh" : 7604928849563958455
+                            "traceId" : -8073209650702103078,
+                            "traceIdHigh" : 7617711911597090194
                           }
                         },
-                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
+                        "entityId" : "222b7eb6-3ac1-11b2-aa9a-1ad9280450f6",
                         "entityModel" : "User.1",
                         "actor" : {
                           "id" : "00000866-0000-1000-8080-808080808080",
@@ -164,8 +164,8 @@ paths:
                         "auditEventType" : "EntityChange",
                         "changeType" : "CREATED",
                         "severity" : "INFO",
-                        "utcTime" : "2026-02-09T18:07:58.879Z",
-                        "microsTime" : 1770660478879000,
+                        "utcTime" : "2026-03-16T04:52:47.825Z",
+                        "microsTime" : 1773636767825000,
                         "changes" : {
                           "after" : {
                             "name" : "Alice",
@@ -173,38 +173,41 @@ paths:
                             "active" : false
                           }
                         },
-                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
-                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
+                        "consistencyTime" : "2026-03-16T04:52:47.427Z",
+                        "entityId" : "222b7eb6-3ac1-11b2-aa9a-1ad9280450f6",
                         "entityModel" : "User.1",
-                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
+                        "transactionId" : "fa90ee60-20f3-11f1-b8a5-ae468cd3ed16",
                         "actor" : {
-                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
+                          "id" : "f821c32a-20f3-11f1-b8a5-ae468cd3ed16",
                           "legalId" : "TEST",
-                          "name" : "TEST_USER"
+                          "name" : "TEST_USER",
+                          "externalId" : "ext-key-TEST_USER"
                         }
                       }, {
                         "auditEventType" : "StateMachine",
                         "state" : "CREATED",
                         "eventType" : "FINISHED",
                         "severity" : "INFO",
-                        "utcTime" : "2026-02-09T18:07:58.869004Z",
-                        "microsTime" : 1770660478869004,
+                        "utcTime" : "2026-03-16T04:52:47.821003Z",
+                        "microsTime" : 1773636767821003,
                         "data" : {
                           "eventType" : "FINISHED",
+                          "state" : "CREATED",
                           "success" : true,
                           "stopReason" : {
                             "type" : "COMPLETED_NO_AUTO_TRANSITIONS",
                             "description" : "Workflow completed - no auto-transitions available from current state"
                           }
                         },
-                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
-                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
+                        "consistencyTime" : "2026-03-16T04:52:47.427Z",
+                        "entityId" : "222b7eb6-3ac1-11b2-aa9a-1ad9280450f6",
                         "entityModel" : "User.1",
-                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
+                        "transactionId" : "fa90ee60-20f3-11f1-b8a5-ae468cd3ed16",
                         "actor" : {
-                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
+                          "id" : "f821c32a-20f3-11f1-b8a5-ae468cd3ed16",
                           "legalId" : "TEST",
-                          "name" : "TEST_USER"
+                          "name" : "TEST_USER",
+                          "externalId" : "ext-key-TEST_USER"
                         },
                         "details" : "State machine finished with result: true. Stop reason: Workflow completed - no auto-transitions available from current state"
                       }, {
@@ -212,21 +215,22 @@ paths:
                         "state" : "CREATED",
                         "eventType" : "TRANSITION_NOT_FOUND",
                         "severity" : "DEBUG",
-                        "utcTime" : "2026-02-09T18:07:58.869003Z",
-                        "microsTime" : 1770660478869003,
+                        "utcTime" : "2026-03-16T04:52:47.821002Z",
+                        "microsTime" : 1773636767821002,
                         "data" : {
                           "eventType" : "TRANSITION_NOT_FOUND",
                           "workflowName" : "Default for 'User.1'",
                           "transition" : ""
                         },
-                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
-                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
+                        "consistencyTime" : "2026-03-16T04:52:47.427Z",
+                        "entityId" : "222b7eb6-3ac1-11b2-aa9a-1ad9280450f6",
                         "entityModel" : "User.1",
-                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
+                        "transactionId" : "fa90ee60-20f3-11f1-b8a5-ae468cd3ed16",
                         "actor" : {
-                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
+                          "id" : "f821c32a-20f3-11f1-b8a5-ae468cd3ed16",
                           "legalId" : "TEST",
-                          "name" : "TEST_USER"
+                          "name" : "TEST_USER",
+                          "externalId" : "ext-key-TEST_USER"
                         },
                         "details" : "State machine transition [] from state [CREATED] of workflow [Default for 'User.1'] not found"
                       }, {
@@ -234,22 +238,23 @@ paths:
                         "state" : "None",
                         "eventType" : "TRANSITION_MADE",
                         "severity" : "DEBUG",
-                        "utcTime" : "2026-02-09T18:07:58.869002Z",
-                        "microsTime" : 1770660478869002,
+                        "utcTime" : "2026-03-16T04:52:47.821001Z",
+                        "microsTime" : 1773636767821001,
                         "data" : {
                           "eventType" : "TRANSITION_MADE",
                           "workflowName" : "Default for 'User.1'",
                           "transition" : "NEW",
                           "newState" : "CREATED"
                         },
-                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
-                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
+                        "consistencyTime" : "2026-03-16T04:52:47.427Z",
+                        "entityId" : "222b7eb6-3ac1-11b2-aa9a-1ad9280450f6",
                         "entityModel" : "User.1",
-                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
+                        "transactionId" : "fa90ee60-20f3-11f1-b8a5-ae468cd3ed16",
                         "actor" : {
-                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
+                          "id" : "f821c32a-20f3-11f1-b8a5-ae468cd3ed16",
                           "legalId" : "TEST",
-                          "name" : "TEST_USER"
+                          "name" : "TEST_USER",
+                          "externalId" : "ext-key-TEST_USER"
                         },
                         "details" : "Making State machine transition[NEW] of workflow[Default for 'User.1']. New state: CREATED"
                       }, {
@@ -257,22 +262,23 @@ paths:
                         "state" : "None",
                         "eventType" : "TRANSITION_MADE",
                         "severity" : "DEBUG",
-                        "utcTime" : "2026-02-09T18:07:58.869001Z",
-                        "microsTime" : 1770660478869001,
+                        "utcTime" : "2026-03-16T04:52:47.821Z",
+                        "microsTime" : 1773636767821000,
                         "data" : {
                           "eventType" : "TRANSITION_MADE",
                           "workflowName" : "Default for 'User.1'",
                           "transition" : "LOOPBACK",
                           "newState" : "None"
                         },
-                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
-                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
+                        "consistencyTime" : "2026-03-16T04:52:47.427Z",
+                        "entityId" : "222b7eb6-3ac1-11b2-aa9a-1ad9280450f6",
                         "entityModel" : "User.1",
-                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
+                        "transactionId" : "fa90ee60-20f3-11f1-b8a5-ae468cd3ed16",
                         "actor" : {
-                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
+                          "id" : "f821c32a-20f3-11f1-b8a5-ae468cd3ed16",
                           "legalId" : "TEST",
-                          "name" : "TEST_USER"
+                          "name" : "TEST_USER",
+                          "externalId" : "ext-key-TEST_USER"
                         },
                         "details" : "Making State machine transition[LOOPBACK] of workflow[Default for 'User.1']. New state: None"
                       }, {
@@ -280,20 +286,21 @@ paths:
                         "state" : "None",
                         "eventType" : "WORKFLOW_FOUND",
                         "severity" : "DEBUG",
-                        "utcTime" : "2026-02-09T18:07:58.869Z",
-                        "microsTime" : 1770660478869000,
+                        "utcTime" : "2026-03-16T04:52:47.82Z",
+                        "microsTime" : 1773636767820000,
                         "data" : {
                           "eventType" : "WORKFLOW_FOUND",
                           "workflowName" : "Default for 'User.1'"
                         },
-                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
-                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
+                        "consistencyTime" : "2026-03-16T04:52:47.427Z",
+                        "entityId" : "222b7eb6-3ac1-11b2-aa9a-1ad9280450f6",
                         "entityModel" : "User.1",
-                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
+                        "transactionId" : "fa90ee60-20f3-11f1-b8a5-ae468cd3ed16",
                         "actor" : {
-                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
+                          "id" : "f821c32a-20f3-11f1-b8a5-ae468cd3ed16",
                           "legalId" : "TEST",
-                          "name" : "TEST_USER"
+                          "name" : "TEST_USER",
+                          "externalId" : "ext-key-TEST_USER"
                         },
                         "details" : "State machine workflow found: Default for 'User.1'"
                       }, {
@@ -301,20 +308,21 @@ paths:
                         "state" : "None",
                         "eventType" : "STARTED",
                         "severity" : "INFO",
-                        "utcTime" : "2026-02-09T18:07:58.861001Z",
-                        "microsTime" : 1770660478861001,
+                        "utcTime" : "2026-03-16T04:52:47.817001Z",
+                        "microsTime" : 1773636767817001,
                         "data" : {
                           "eventType" : "STARTED",
                           "state" : "None"
                         },
-                        "consistencyTime" : "2026-02-09T18:07:58.312Z",
-                        "entityId" : "0cf84162-246b-11b2-9f8f-fa443fe05bb1",
+                        "consistencyTime" : "2026-03-16T04:52:47.427Z",
+                        "entityId" : "222b7eb6-3ac1-11b2-aa9a-1ad9280450f6",
                         "entityModel" : "User.1",
-                        "transactionId" : "441b65b0-05e2-11f1-903f-ae468cd3ed16",
+                        "transactionId" : "fa90ee60-20f3-11f1-b8a5-ae468cd3ed16",
                         "actor" : {
-                          "id" : "3ead796a-05e2-11f1-903f-ae468cd3ed16",
+                          "id" : "f821c32a-20f3-11f1-b8a5-ae468cd3ed16",
                           "legalId" : "TEST",
-                          "name" : "TEST_USER"
+                          "name" : "TEST_USER",
+                          "externalId" : "ext-key-TEST_USER"
                         },
                         "details" : "State machine started"
                       } ]
@@ -586,6 +594,9 @@ components:
         name:
           type: string
           description: Name of the actor
+        externalId:
+          type: string
+          description: External identifier of the actor, if applicable
       required:
         - id
         - legalId

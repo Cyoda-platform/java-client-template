@@ -2,6 +2,7 @@ package com.java_template.common.config;
 
 import com.java_template.common.auth.Authentication;
 import com.java_template.common.grpc.client.ClientAuthorizationInterceptor;
+import com.java_template.common.observability.GrpcObservabilityInterceptor;
 import com.java_template.common.grpc.client.CalculationExecutionStrategy;
 import com.java_template.common.grpc.client.ControlThreadExecutor;
 import com.java_template.common.grpc.client.CriteriaThreadExecutor;
@@ -23,11 +24,11 @@ import java.util.function.Supplier;
 import org.cyoda.cloud.api.grpc.CloudEventsServiceGrpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.lang.Nullable;
 
 
 /**
@@ -49,13 +50,12 @@ public class GrpcClientAutoConfiguration {
 
     @Bean
     public ManagedChannel managedChannel(
-            final ConnectionStateTracker connectionStateTracker,
-            @Value("${connection.grpc.skip-ssl:false}") final boolean grpcSkipSsl
+            final ConnectionStateTracker connectionStateTracker
     ) {
         final ManagedChannel channel = SslUtils.createGrpcChannelBuilder(
                 config.getGrpcAddress(),
                 config.getGrpcServerPort(),
-                grpcSkipSsl,
+                config.isSkipSsl(),
                 config
         ).build();
 
@@ -73,34 +73,49 @@ public class GrpcClientAutoConfiguration {
     @Bean
     public CloudEventsServiceGrpc.CloudEventsServiceStub cloudEventsServiceStub(
             final Authentication authentication,
-            final ManagedChannel managedChannel
+            final ManagedChannel managedChannel,
+            @Nullable final GrpcObservabilityInterceptor observabilityInterceptor
     ) {
         final var authInterceptor = new ClientAuthorizationInterceptor(authentication);
-        return CloudEventsServiceGrpc.newStub(managedChannel)
+        var stub = CloudEventsServiceGrpc.newStub(managedChannel)
                 .withWaitForReady()
                 .withInterceptors(authInterceptor);
+        if (observabilityInterceptor != null) {
+            stub = stub.withInterceptors(observabilityInterceptor);
+        }
+        return stub;
     }
 
     @Bean
     public CloudEventsServiceGrpc.CloudEventsServiceBlockingStub cloudEventsServiceBlockingStub(
             final Authentication authentication,
-            final ManagedChannel managedChannel
+            final ManagedChannel managedChannel,
+            @Nullable final GrpcObservabilityInterceptor observabilityInterceptor
     ) {
         final var authInterceptor = new ClientAuthorizationInterceptor(authentication);
-        return CloudEventsServiceGrpc.newBlockingStub(managedChannel)
+        var stub = CloudEventsServiceGrpc.newBlockingStub(managedChannel)
                 .withWaitForReady()
                 .withInterceptors(authInterceptor);
+        if (observabilityInterceptor != null) {
+            stub = stub.withInterceptors(observabilityInterceptor);
+        }
+        return stub;
     }
 
     @Bean
     public CloudEventsServiceGrpc.CloudEventsServiceFutureStub cloudEventsServiceFutureStub(
             final Authentication authentication,
-            final ManagedChannel managedChannel
+            final ManagedChannel managedChannel,
+            @Nullable final GrpcObservabilityInterceptor observabilityInterceptor
     ) {
         final var authInterceptor = new ClientAuthorizationInterceptor(authentication);
-        return CloudEventsServiceGrpc.newFutureStub(managedChannel)
+        var stub = CloudEventsServiceGrpc.newFutureStub(managedChannel)
                 .withWaitForReady()
                 .withInterceptors(authInterceptor);
+        if (observabilityInterceptor != null) {
+            stub = stub.withInterceptors(observabilityInterceptor);
+        }
+        return stub;
     }
 
     @Bean
@@ -147,10 +162,8 @@ public class GrpcClientAutoConfiguration {
     }
 
     @Bean
-    public EventExecutionRouter eventExecutionRouter(
-            @Value("${execution.mode:platform}") String executionMode
-    ) {
-        boolean useVirtual = "virtual".equals(executionMode);
+    public EventExecutionRouter eventExecutionRouter() {
+        boolean useVirtual = "virtual".equals(config.getExecutionMode());
 
         CalculationExecutionStrategy processorExecutor = new ProcessorThreadExecutor(useVirtual, config.getProcessorThreadPool());
         CalculationExecutionStrategy criteriaExecutor = new CriteriaThreadExecutor(useVirtual, config.getCriteriaThreadPool());

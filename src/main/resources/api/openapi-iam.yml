@@ -182,7 +182,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InvalidateJwtKeyPairRequest'
+              $ref: '#/components/schemas/InvalidateKeyRequest'
             examples:
               ImmediateInvalidation:
                 summary: Immediate invalidation
@@ -241,6 +241,209 @@ paths:
                       "validFrom": "2025-10-15T10:00:00.000Z",
                       "validTo": null
                     }
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /oauth/keys/trusted:
+    post:
+      summary: Register a trusted public key
+      description: |
+        Registers a pre-shared public key for JWT validation. This enables external applications
+        to sign user JWTs that Cyoda can verify without requiring a reachable OIDC discovery endpoint.
+        The key is bound to the caller's tenant (legalEntityId).
+
+        If a key with the same `keyId` already exists and belongs to the caller's tenant, it is
+        replaced atomically (upsert semantics). This makes the endpoint retry-safe during key
+        rotation — a retried request after a partial failure will succeed rather than conflict.
+        If the key belongs to a different tenant, the request is rejected with `409 Conflict`.
+
+        Use `invalidatePrevious` to retire all other active trusted keys for this tenant
+        in a single atomic operation, with an optional grace period (`invalidateGracePeriodSec`)
+        during which the old keys continue to be accepted.
+
+        Requires ADMIN or SUPER_USER role. Disabled by default — enable via
+        `cyoda.security.web.iam.trustedKeyRegistrationEnabled`.
+      operationId: registerTrustedKey
+      tags:
+        - OAuth, Keys
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterTrustedKeyRequest'
+            examples:
+              RSA256Key:
+                summary: Register an RSA-256 public key
+                value: |
+                  {
+                    "keyId": "my-app-key-1",
+                    "jwk": {
+                      "kty": "RSA",
+                      "kid": "my-app-key-1",
+                      "alg": "RS256",
+                      "n": "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM...",
+                      "e": "AQAB"
+                    },
+                    "audience": "human",
+                    "issuers": ["https://my-app.local/"],
+                    "validTo": "2026-10-15T10:00:00.000Z"
+                  }
+      responses:
+        '200':
+          description: Trusted key registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustedKeyResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          description: Feature is disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Key with this keyId belongs to a different tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+    get:
+      summary: List registered trusted keys
+      description: |
+        Returns all trusted public keys registered for the caller's tenant.
+        Requires ADMIN or SUPER_USER role.
+      operationId: listTrustedKeys
+      tags:
+        - OAuth, Keys
+      responses:
+        '200':
+          description: List of trusted keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TrustedKeyResponse'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          description: Feature is disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /oauth/keys/trusted/{keyId}:
+    delete:
+      summary: Delete a trusted public key
+      description: |
+        Deletes a registered trusted public key. The key must belong to the caller's tenant.
+        Requires ADMIN or SUPER_USER role.
+      operationId: deleteTrustedKey
+      tags:
+        - OAuth, Keys
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The key ID of the trusted key to delete
+      responses:
+        '200':
+          description: Trusted key deleted successfully
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /oauth/keys/trusted/{keyId}/invalidate:
+    post:
+      summary: Invalidate a trusted public key
+      description: |
+        Invalidates a registered trusted public key. After invalidation, JWTs signed with the
+        corresponding private key will no longer be accepted for validation (after the grace period).
+        Requires ADMIN or SUPER_USER role.
+      operationId: invalidateTrustedKey
+      tags:
+        - OAuth, Keys
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The key ID of the trusted key to invalidate
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvalidateKeyRequest'
+      responses:
+        '200':
+          description: Trusted key invalidated successfully
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /oauth/keys/trusted/{keyId}/reactivate:
+    post:
+      summary: Reactivate a trusted public key
+      description: |
+        Reactivates a previously invalidated trusted public key, allowing JWTs signed with it to
+        be accepted again. This operation is idempotent.
+        Requires ADMIN or SUPER_USER role.
+
+        **Important**: Reactivation removes the key's expiration entirely (`validTo` is cleared to null),
+        regardless of the original `validTo` value the key was registered with. The key will remain valid
+        indefinitely until explicitly invalidated or deleted again.
+      operationId: reactivateTrustedKey
+      tags:
+        - OAuth, Keys
+      parameters:
+        - name: keyId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The key ID of the trusted key to reactivate
+      responses:
+        '200':
+          description: Trusted key reactivated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrustedKeyResponse'
         '401':
           $ref: '#/components/responses/ErrorResponse'
         '403':
@@ -697,6 +900,111 @@ components:
           nullable: true
           example: "2026-10-15T10:00:00.000Z"
 
+    RegisterTrustedKeyRequest:
+      type: object
+      required:
+        - keyId
+        - jwk
+        - audience
+      properties:
+        keyId:
+          type: string
+          description: Unique key identifier. Will be matched against the `kid` header in JWTs.
+          example: "my-app-key-1"
+        jwk:
+          type: object
+          additionalProperties: true
+          maxProperties: 20
+          description: |
+            A JSON Web Key (JWK) as defined in RFC 7517. Must contain the public key components only.
+            Supported key types: RSA (`kty: "RSA"`), EC (`kty: "EC"`), and OKP/EdDSA (`kty: "OKP"`).
+            See RFC 7517, RFC 7518, and RFC 8037 for field definitions.
+          example:
+            kty: "RSA"
+            kid: "my-app-key-1"
+            alg: "RS256"
+            n: "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM..."
+            e: "AQAB"
+        audience:
+          $ref: '#/components/schemas/KeyPairAudience'
+        issuers:
+          type: array
+          description: |
+            List of allowed issuer URIs. When this parameter is configured, the JWT must contain an iss claim,
+            and its value must match one of the entries in this list.
+          items:
+            type: string
+          example: ["https://my-app.local/"]
+        validFrom:
+          type: string
+          format: date-time
+          description: |
+            When the key becomes valid. Defaults to current time if not specified.
+          example: "2025-10-15T10:00:00.000Z"
+        validTo:
+          type: string
+          format: date-time
+          description: |
+            When the key expires. Defaults to the system-configured maximum validity.
+          example: "2026-10-15T10:00:00.000Z"
+        invalidatePrevious:
+          type: boolean
+          description: |
+            If true, invalidates all other keys for the same audience belonging to the caller's
+            tenant. Enables atomic key rotation.
+          default: false
+          example: false
+        invalidateGracePeriodSec:
+          type: integer
+          format: int64
+          minimum: 0
+          description: |
+            Grace period in seconds for invalidating previous keys (only used when invalidatePrevious is true).
+            Default is 0 (immediate invalidation).
+          example: 3600
+
+    TrustedKeyResponse:
+      type: object
+      required:
+        - keyId
+        - jwk
+        - audience
+        - validFrom
+        - legalEntityId
+      properties:
+        keyId:
+          type: string
+          description: Unique key identifier
+          example: "my-app-key-1"
+        jwk:
+          type: object
+          additionalProperties: true
+          maxProperties: 20
+          description: |
+            The registered public key in JWK format (RFC 7517). Contains only public key components.
+        audience:
+          $ref: '#/components/schemas/KeyPairAudience'
+        issuers:
+          type: array
+          items:
+            type: string
+          example: ["https://my-app.local/"]
+        validFrom:
+          type: string
+          format: date-time
+          description: When this key became valid
+          example: "2025-11-01T10:00:00.000Z"
+        validTo:
+          type: string
+          format: date-time
+          description: When this key expires
+          nullable: true
+          example: "2026-02-01T10:00:00.000Z"
+        legalEntityId:
+          type: string
+          description: The tenant this key is bound to
+          example: "tenant-abc-123"
+
     RegisterOidcProviderRequest:
       type: object
       required:
@@ -732,7 +1040,7 @@ components:
             type: string
           example: ["https://oidc-domain.local/", "https://oidc-domain.local/tenant1"]
 
-    InvalidateJwtKeyPairRequest:
+    InvalidateKeyRequest:
       type: object
       properties:
         gracePeriodSec:

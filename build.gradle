@@ -69,6 +69,12 @@ repositories {
     mavenCentral()
 }
 
+// Separate configuration for the OTel Java agent — kept off the compile/runtime classpath
+// so it can be passed as -javaagent (JVM instrumentation), not a classpath entry.
+configurations {
+    otelAgent
+}
+
 sourceSets {
     main {
         java {
@@ -100,6 +106,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web:3.5.3'
     implementation 'org.springframework.boot:spring-boot-starter' // Version managed by Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client' // Version managed by Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server' // JWT validation; delete when switching to real IdP
     implementation 'org.springframework.boot:spring-boot-starter-validation' // Jakarta validation
     implementation 'org.springframework.data:spring-data-commons' // For Page and Pageable
 
@@ -124,7 +131,15 @@ dependencies {
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.3'
     implementation 'com.fasterxml.uuid:java-uuid-generator:4.0.1'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // OpenTelemetry observability — API and annotations only (agent provides SDK at runtime)
+    implementation 'io.opentelemetry:opentelemetry-api:1.44.1'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.11.0'
+    // OTel Java agent — resolved to a file path for -javaagent, not placed on the classpath
+    otelAgent 'io.opentelemetry.javaagent:opentelemetry-javaagent:2.11.0'
     implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+
+    // JSON structured logging for ELK/Kubernetes (logback encoder)
+    implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
 
     implementation 'com.eaio.uuid:uuid:3.2'
     implementation 'com.beust:jcommander:1.82'
@@ -137,6 +152,8 @@ dependencies {
     testImplementation("io.cucumber:cucumber-junit-platform-engine:7.18.0")
     testImplementation 'org.instancio:instancio-junit:5.5.1'
     testImplementation("org.junit.platform:junit-platform-suite")
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-testing:1.44.1'
+    testImplementation 'org.awaitility:awaitility:4.2.2'
 }
 
 test {
@@ -144,8 +161,11 @@ test {
 
     useJUnitPlatform()
 
-    // Pass system properties to tests (needed for conditional test execution)
+    // Pass system properties to tests (needed for conditional test execution).
+    // Override user.dir so relative File paths in tests resolve against the
+    // subproject directory, not the workspace root where gradlew was invoked.
     systemProperties = System.properties
+    systemProperty 'user.dir', project.projectDir.absolutePath
 }
 
 jsonSchema2Pojo {
@@ -326,6 +346,34 @@ tasks.register('runApp', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     def requestedMain = project.findProperty('mainClass') ?: 'com.java_template.Application'
     mainClass.set(requestedMain.toString())
+    systemProperties = System.properties
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+    // Attach the OTel agent when the observability stack is running locally.
+    // Start the stack first: docker compose -f docker/observability/docker-compose.yml up -d
+    if (project.findProperty('otel') == 'true') {
+        jvmArgs "-javaagent:${configurations.otelAgent.asPath}"
+        environment 'OTEL_SERVICE_NAME', 'java-template-backend'
+        environment 'OTEL_METRICS_EXPORTER', 'prometheus'
+        environment 'OTEL_EXPORTER_PROMETHEUS_PORT', '9464'
+        environment 'OTEL_TRACES_EXPORTER', 'otlp'
+        environment 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT', 'http://localhost:4318'
+        environment 'OTEL_LOGS_EXPORTER', 'none'  // Tempo handles traces only; no log backend in local stack
+        environment 'OTEL_INSTRUMENTATION_GRPC_ENABLED', 'true'
+        environment 'OTEL_INSTRUMENTATION_SPRING_WEB_ENABLED', 'true'
+        environment 'OTEL_INSTRUMENTATION_JDBC_ENABLED', 'true'
+        environment 'OTEL_INSTRUMENTATION_EXECUTOR_ENABLED', 'true'
+    }
+}
+
+tasks.register('runTestApp', JavaExec) {
+    group = 'application'
+    description = 'Run arbitrary test class with Spring Boot context'
+    classpath = sourceSets.test.runtimeClasspath
+    def requestedMain = project.findProperty('mainClass') ?: 'com.java_template.Application'
+    mainClass.set(requestedMain.toString())
+    args = project.findProperty('args')?.toString()?.split(' ') ?: []
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
@@ -343,6 +391,38 @@ tasks.register('validateWorkflowImplementations', JavaExec) {
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
+}
+
+tasks.register('validateFunctionalRequirements', JavaExec) {
+    group = 'validation'
+    description = 'Validate that all processors/criteria in requirements are implemented in workflows. Usage: -Pargs="requirements.md workflow.json" (optional)'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('com.java_template.common.tool.FunctionalRequirementsValidator')
+    if (project.hasProperty('args')) {
+        args project.property('args').toString().split(' ')
+    }
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+}
+
+tasks.register('validateWorkflows', JavaExec) {
+    group = 'validation'
+    description = 'Run complete workflow validation suite'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('com.java_template.common.tool.WorkflowValidationSuite')
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+}
+
+// Prints the resolved OTel agent jar path — use this to configure IntelliJ VM options.
+tasks.register('printOtelAgentPath') {
+    group = 'help'
+    description = 'Print the resolved OTel Java agent jar path for use in IDE run configurations'
+    doLast {
+        println configurations.otelAgent.asPath
+    }
 }
 
 
