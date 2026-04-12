@@ -36,3 +36,6 @@ gradle-app.setting
 .sandbox/
 
 application-*.yml
+
+# Python version manager
+.python-version
