@@ -1,3 +1,6 @@
+# macOS
+.DS_Store
+
 .gradle
 **/build/
 !src/**/build/
@@ -22,3 +25,14 @@ gradle-app.setting
 
 /.idea/**
 /backup/
+
+.playwright-mcp/
+.kotlin/sessions/
+
+.claude/worktrees
+.claude/settings.local.json
+
+# agent-safehouse local settings
+.sandbox/
+
+application-*.yml
