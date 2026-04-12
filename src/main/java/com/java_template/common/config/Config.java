@@ -56,6 +56,13 @@ public class Config {
 
     private boolean includeDefaultOperations = false;
 
+    private boolean skipSsl = false;
+    private String executionMode = "platform";
+    private CyodaLight cyodaLight = new CyodaLight();
+
+    /** Base package scanned for {@link com.java_template.common.workflow.CyodaEntity} implementations. */
+    private String entityBasePackage = "com.java_template.application";
+
     // Getters and setters
 
     public String getCyodaHost() {
@@ -293,6 +300,38 @@ public class Config {
         this.includeDefaultOperations = includeDefaultOperations;
     }
 
+    public boolean isSkipSsl() {
+        return skipSsl;
+    }
+
+    public void setSkipSsl(boolean skipSsl) {
+        this.skipSsl = skipSsl;
+    }
+
+    public String getExecutionMode() {
+        return executionMode;
+    }
+
+    public void setExecutionMode(String executionMode) {
+        this.executionMode = executionMode;
+    }
+
+    public CyodaLight getCyodaLight() {
+        return cyodaLight;
+    }
+
+    public void setCyodaLight(CyodaLight cyodaLight) {
+        this.cyodaLight = cyodaLight;
+    }
+
+    public String getEntityBasePackage() {
+        return entityBasePackage;
+    }
+
+    public void setEntityBasePackage(String entityBasePackage) {
+        this.entityBasePackage = entityBasePackage;
+    }
+
     /**
      * Get list of hosts that should be trusted even with self-signed certificates
      * @return List of trusted hosts
@@ -305,5 +344,49 @@ public class Config {
                 .map(String::trim)
                 .filter(host -> !host.isEmpty())
                 .toList();
+    }
+
+    /**
+     * Configuration for the cyoda-light in-memory digital twin sidecar.
+     * When active, {@link CyodaLightConfigCustomizer} injects property overrides
+     * into the Spring Environment so Config binds directly to the sidecar's endpoints.
+     */
+    public static class CyodaLight {
+        private boolean active = false;
+        private String httpUrl = "http://cyoda-light:8080";
+        private String grpcHost = "cyoda-light";
+        private int grpcPort = 50051;
+
+        public boolean isActive() {
+            return active;
+        }
+
+        public void setActive(boolean active) {
+            this.active = active;
+        }
+
+        public String getHttpUrl() {
+            return httpUrl;
+        }
+
+        public void setHttpUrl(String httpUrl) {
+            this.httpUrl = httpUrl;
+        }
+
+        public String getGrpcHost() {
+            return grpcHost;
+        }
+
+        public void setGrpcHost(String grpcHost) {
+            this.grpcHost = grpcHost;
+        }
+
+        public int getGrpcPort() {
+            return grpcPort;
+        }
+
+        public void setGrpcPort(int grpcPort) {
+            this.grpcPort = grpcPort;
+        }
     }
 }

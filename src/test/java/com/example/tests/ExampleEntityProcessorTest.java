@@ -327,7 +327,7 @@ class ExampleEntityProcessorTest {
 
         // Create metadata with technical ID
         ObjectNode metadataJson = objectMapper.createObjectNode();
-        metadataJson.put("id", UUID.randomUUID().toString());
+        metadataJson.put("id", java.util.UUID.randomUUID().toString());
         metadataJson.put("state", "DRAFT");
 
         // Create payload with entity data and metadata

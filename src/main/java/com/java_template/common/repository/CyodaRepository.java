@@ -9,6 +9,7 @@ import com.google.common.collect.Streams;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.java_template.common.config.Config;
 import com.java_template.common.dto.PageResult;
+import com.java_template.common.exception.CyodaOperationException;
 import com.java_template.common.grpc.client.event_handling.CloudEventBuilder;
 import com.java_template.common.grpc.client.event_handling.CloudEventParser;
 import io.cloudevents.v1.proto.CloudEvent;
@@ -27,6 +28,9 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
+
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 import java.util.*;
@@ -125,7 +129,7 @@ public class CyodaRepository implements CrudRepository {
 
     private CompletableFuture<DataPayload> getById(final UUID entityId, @Nullable final Date pointInTime) {
         return sendAndGet(
-                cloudEventsServiceBlockingStub::entityManage,
+                cloudEventsServiceBlockingStub::entitySearch,
                 new EntityGetRequest().withId(UUID.randomUUID().toString())
                         .withEntityId(entityId)
                         .withPointInTime(pointInTime),
@@ -166,8 +170,11 @@ public class CyodaRepository implements CrudRepository {
 
         return snapshot.thenComposeAsync(snapshotInfo -> {
                     if (snapshotInfo.getSnapshotId() == null) {
-                        logger.error("Snapshot ID not found in response");
-                        return CompletableFuture.completedFuture(null);
+                        throw new CyodaOperationException(
+                                "MISSING_SNAPSHOT_ID",
+                                "Snapshot search returned no snapshot ID",
+                                false
+                        );
                     }
 
                     // Use the snapshot ID from Cyoda as the search ID
@@ -246,7 +253,9 @@ public class CyodaRepository implements CrudRepository {
                 .operator(GroupOperatorDto.AND)
                 .conditions(List.of());
 
-        return findAllByCondition(modelSpec, params.pageSize(), params.pageNumber(), matchAllCondition, params.pointInTime(), params.searchId(), params.awaitLimitMs(), params.pollIntervalMs());
+        return params.inMemory()
+                ? findAllByConditionInMemory(modelSpec, params.pageSize(), matchAllCondition, params.pointInTime())
+                : findAllByCondition(modelSpec, params.pageSize(), params.pageNumber(), matchAllCondition, params.pointInTime(), params.searchId(), params.awaitLimitMs(), params.pollIntervalMs());
     }
 
     @Override
@@ -367,9 +376,25 @@ public class CyodaRepository implements CrudRepository {
     ) {
         try {
             final CloudEvent requestEvent = cloudEventBuilder.buildEvent(baseEvent);
-            return CompletableFuture.supplyAsync(() -> requestAndGetOrThrow(apiCall, requestEvent))
+            // Capture the SecurityContext from the calling thread so that OboAwareAuthentication
+            // can perform the OBO token exchange on the ForkJoinPool thread that executes the gRPC call.
+            // Without this capture, CompletableFuture.supplyAsync() runs on a different thread whose
+            // ThreadLocal is empty, causing a silent fallback to the M2M service-account token.
+            final SecurityContext callerContext = SecurityContextHolder.getContext();
+            return CompletableFuture.supplyAsync(() -> {
+                        SecurityContext previous = SecurityContextHolder.getContext();
+                        SecurityContextHolder.setContext(callerContext);
+                        try {
+                            logger.debug("Sending event: {}", requestEvent);
+                            CloudEvent cloudEvent = requestAndGetOrThrow(apiCall, requestEvent);
+                            logger.debug("Received event: {}", cloudEvent);
+                            return cloudEvent;
+                        } finally {
+                            SecurityContextHolder.setContext(previous);
+                        }
+                    })
                     .thenApply(response -> cloudEventParser.parseCloudEvent(response, responsePayloadType))
-                    .thenApply(this::getOrNull);
+                    .thenApply(this::validateResponse);
         } catch (InvalidProtocolBufferException e) {
             throw new RuntimeException(e);
         }
@@ -382,7 +407,17 @@ public class CyodaRepository implements CrudRepository {
     ) {
         try {
             final var requestEvent = cloudEventBuilder.buildEvent(baseEvent);
-            return CompletableFuture.supplyAsync(() -> requestAndGetOrThrow(apiCall, requestEvent))
+            // Same context-capture pattern as sendAndGet — see comment there.
+            final SecurityContext callerContext = SecurityContextHolder.getContext();
+            return CompletableFuture.supplyAsync(() -> {
+                        SecurityContext previous = SecurityContextHolder.getContext();
+                        SecurityContextHolder.setContext(callerContext);
+                        try {
+                            return requestAndGetOrThrow(apiCall, requestEvent);
+                        } finally {
+                            SecurityContextHolder.setContext(previous);
+                        }
+                    })
                     .thenApply(response -> processCollection(Streams.stream(response), responsePayloadClass));
         } catch (InvalidProtocolBufferException e) {
             throw new RuntimeException(e);
@@ -393,16 +428,10 @@ public class CyodaRepository implements CrudRepository {
             final Stream<CloudEvent> stream,
             final Class<RESPONSE_PAYLOAD_TYPE> payloadType
     ) {
+        // Filter null CloudEvent entries that may arrive from the gRPC streaming iterator
         return stream.filter(Objects::nonNull)
                 .map(elm -> cloudEventParser.parseCloudEvent(elm, payloadType))
-                .map(this::getOrNull)
-                .filter(Objects::nonNull);
-    }
-
-    private <RESPONSE_PAYLOAD_TYPE extends BaseEvent> RESPONSE_PAYLOAD_TYPE getOrNull(
-            final Optional<RESPONSE_PAYLOAD_TYPE> event
-    ) {
-        return event.orElse(null);
+                .map(this::validateResponse);
     }
 
     private <RESPONSE_PAYLOAD_TYPE> RESPONSE_PAYLOAD_TYPE requestAndGetOrThrow(
@@ -414,6 +443,24 @@ public class CyodaRepository implements CrudRepository {
         } catch (Exception e) {
             throw new CompletionException(e);
         }
+    }
+
+    /**
+     * Validates a Cyoda response: logs any warnings, then throws if the operation failed.
+     * Package-private to allow direct unit testing without mocking the full gRPC pipeline.
+     */
+    <T extends BaseEvent> T validateResponse(T response) {
+        if (response.getWarnings() != null && !response.getWarnings().isEmpty()) {
+            response.getWarnings().forEach(w -> logger.warn("Cyoda warning: {}", w));
+        }
+        if (Boolean.FALSE.equals(response.getSuccess())) {
+            org.cyoda.cloud.api.event.common.Error error = response.getError();
+            String code = error != null ? error.getCode() : "UNKNOWN";
+            String message = error != null ? error.getMessage() : "Operation failed with no error details";
+            boolean retryable = error != null ? Optional.ofNullable(error.getRetryable()).orElse(false) : false;
+            throw new CyodaOperationException(code, message, retryable);
+        }
+        return response;
     }
 
     private <PAYLOAD_TYPE> CompletableFuture<EntityTransactionResponse> saveNewEntities(

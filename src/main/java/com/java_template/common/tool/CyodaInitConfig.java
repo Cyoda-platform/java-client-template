@@ -21,6 +21,18 @@ public class CyodaInitConfig {
     )
     private boolean help = false;
 
+    @Parameter(
+            names = {"--workflow-dir"},
+            description = "Absolute path to workflow directory (overrides default classpath loading)"
+    )
+    private String workflowDir = null;
+
+    @Parameter(
+            names = {"--entity-source-dir"},
+            description = "Absolute path to entity source directory (overrides default classpath scanning)"
+    )
+    private String entitySourceDir = null;
+
     /**
      * Creates a default configuration with all options set to false
      */
@@ -50,12 +62,28 @@ public class CyodaInitConfig {
         return help;
     }
 
+    public String workflowDir() {
+        return workflowDir;
+    }
+
+    public String entitySourceDir() {
+        return entitySourceDir;
+    }
+
     public void setRecreateModels(boolean recreateModels) {
         this.recreateModels = recreateModels;
     }
 
     public void setHelp(boolean help) {
         this.help = help;
+    }
+
+    public void setWorkflowDir(String workflowDir) {
+        this.workflowDir = workflowDir;
+    }
+
+    public void setEntitySourceDir(String entitySourceDir) {
+        this.entitySourceDir = entitySourceDir;
     }
 }
 

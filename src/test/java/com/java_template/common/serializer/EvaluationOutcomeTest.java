@@ -1,5 +1,6 @@
 package com.java_template.common.serializer;
 
+import com.java_template.common.serializer.EvaluationOutcome;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

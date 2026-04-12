@@ -20,7 +20,7 @@ import java.util.List;
  * - Lombok @Data usage
 
  * To create a new entity:
- * 1. Copy this file to your entity package (e.g., com.java_template.application.entity.yourname.version_1)
+ * 1. Copy this file to your entity package (e.g., com.riskblocs.application.entity.yourname.version_1)
  * 2. Rename class from ExampleEntity to YourEntityName
  * 3. Update ENTITY_NAME constant
  * 4. Modify fields according to your business requirements

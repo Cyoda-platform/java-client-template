@@ -49,7 +49,6 @@ public class ExampleEntityCriterion implements CyodaCriterion {
 
         return serializer.withRequest(request)
             .evaluateEntity(ExampleEntity.class, this::validateEntity)
-            .withReasonAttachment(ReasonAttachmentStrategy.toWarnings())
             .complete();
     }
 
