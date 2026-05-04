@@ -1,0 +1,31 @@
+{
+  "version": "1",
+  "name": "ChatSessionWorkflow",
+  "desc": "Workflow to manage the lifecycle of a minimal 1:1 anonymous chat session",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        { "name": "create_session", "next": "waiting_for_peer", "manual": true }
+      ]
+    },
+    "waiting_for_peer": {
+      "transitions": [
+        { "name": "join", "next": "connected", "manual": true },
+        { "name": "session_timeout", "next": "ended", "manual": false }
+      ]
+    },
+    "connected": {
+      "transitions": [
+        { "name": "send_message", "next": "connected", "manual": true },
+        { "name": "typing_start", "next": "connected", "manual": true },
+        { "name": "typing_stop", "next": "connected", "manual": true },
+        { "name": "disconnect", "next": "ended", "manual": true }
+      ]
+    },
+    "ended": {
+      "transitions": []
+    }
+  }
+}
