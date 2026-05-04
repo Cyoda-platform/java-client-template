@@ -1,0 +1,10 @@
+{
+  "name": "Message",
+  "modelVersion": 1,
+  "fields": {
+    "senderId": "string",
+    "text": "string",
+    "timestamp": "string",
+    "sessionRoomCode": "string"
+  }
+}
