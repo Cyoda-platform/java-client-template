@@ -1,0 +1,9 @@
+{
+  "name": "Session",
+  "modelVersion": 1,
+  "fields": {
+    "roomCode": "string",
+    "participants": ["string"],
+    "createdAt": "string"
+  }
+}
