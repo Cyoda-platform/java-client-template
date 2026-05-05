@@ -1,0 +1,10 @@
+{
+  "name": "Customer",
+  "modelVersion": 1,
+  "attributes": {
+    "id": {"type": "UUID", "primaryKey": true},
+    "name": {"type": "String", "constraints": ["NOT_BLANK"]},
+    "email": {"type": "String", "constraints": ["EMAIL"]},
+    "phone": {"type": "String"}
+  }
+}
