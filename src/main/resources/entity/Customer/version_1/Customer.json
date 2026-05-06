@@ -1,0 +1,10 @@
+{
+  "name": "Customer",
+  "modelVersion": 1,
+  "fields": [
+    {"name": "id", "type": "uuid", "required": true},
+    {"name": "name", "type": "string", "required": true},
+    {"name": "email", "type": "string", "required": true},
+    {"name": "phone", "type": "string", "required": false}
+  ]
+}
