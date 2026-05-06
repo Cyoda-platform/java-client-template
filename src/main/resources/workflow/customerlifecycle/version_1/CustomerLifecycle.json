@@ -1,0 +1,28 @@
+{
+  "version": "1",
+  "name": "CustomerLifecycle",
+  "desc": "Simple customer lifecycle workflow",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        { "name": "activate", "next": "active", "manual": false },
+        { "name": "archive", "next": "archived", "manual": true }
+      ]
+    },
+    "active": {
+      "transitions": [
+        { "name": "suspend", "next": "suspended", "manual": true },
+        { "name": "archive", "next": "archived", "manual": true }
+      ]
+    },
+    "suspended": {
+      "transitions": [
+        { "name": "reactivate", "next": "active", "manual": true },
+        { "name": "archive", "next": "archived", "manual": true }
+      ]
+    },
+    "archived": { "transitions": [] }
+  }
+}
