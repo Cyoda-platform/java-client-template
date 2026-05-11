@@ -1,0 +1,10 @@
+{
+  "customerId": "CUST-2025-001",
+  "firstName": "John",
+  "lastName": "Anderson",
+  "email": "john.anderson@example.com",
+  "phone": "+1-555-0123",
+  "createdAt": "2025-05-11T10:30:00",
+  "updatedAt": "2025-05-11T10:30:00"
+}
+
