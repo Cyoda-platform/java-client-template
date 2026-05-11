@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "name": "kyc_onboarding",
+  "desc": "KYC onboarding workflow: collect documents, perform identity and AML checks, support manual review, then approve or reject.",
+  "initialState": "created",
+  "active": true,
+  "states": {
+    "created": {
+      "transitions": [
+        { "name": "submit_documents", "next": "documents_submitted", "manual": false }
+      ]
+    },
+    "documents_submitted": {
+      "transitions": [
+        { "name": "start_identity_verification", "next": "identity_verification", "manual": false },
+        { "name": "request_more_info", "next": "created", "manual": true }
+      ]
+    },
+    "identity_verification": {
+      "transitions": [
+        { "name": "identity_verified", "next": "aml_check", "manual": false },
+        { "name": "identity_failed", "next": "manual_review", "manual": true }
+      ]
+    },
+    "aml_check": {
+      "transitions": [
+        { "name": "aml_passed", "next": "approved", "manual": false },
+        { "name": "aml_flagged", "next": "manual_review", "manual": true }
+      ]
+    },
+    "manual_review": {
+      "transitions": [
+        { "name": "approve", "next": "approved", "manual": true },
+        { "name": "reject", "next": "rejected", "manual": true },
+        { "name": "request_additional_docs", "next": "documents_submitted", "manual": true }
+      ]
+    },
+    "approved": {
+      "transitions": [
+        { "name": "activate_account", "next": "completed", "manual": false }
+      ]
+    },
+    "rejected": {
+      "transitions": []
+    },
+    "completed": {
+      "transitions": []
+    }
+  }
+}
