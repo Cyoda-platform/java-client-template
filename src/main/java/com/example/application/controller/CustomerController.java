@@ -233,6 +233,7 @@ public class CustomerController {
 
     /**
      * Update customer (PUT /ui/customers/{id})
+     * Uses "update" transition for manual workflow updates
      */
     @PutMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<Customer>> updateCustomer(
@@ -251,8 +252,9 @@ public class CustomerController {
             customer.setUpdatedAt(OffsetDateTime.now());
             customer.setCreatedAt(current.entity().getCreatedAt());
             customer.setCreatedBy(current.entity().getCreatedBy());
+            customer.setDeleted(current.entity().getDeleted());
 
-            EntityWithMetadata<Customer> response = entityService.update(id, customer);
+            EntityWithMetadata<Customer> response = entityService.update(id, customer, "update");
             logger.info("Customer updated: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -266,6 +268,7 @@ public class CustomerController {
 
     /**
      * Partial update customer (PATCH /ui/customers/{id})
+     * Uses "update" transition for manual workflow updates
      */
     @PatchMapping("/{id}")
     public ResponseEntity<EntityWithMetadata<Customer>> partialUpdateCustomer(
@@ -290,7 +293,7 @@ public class CustomerController {
 
             existing.setUpdatedAt(OffsetDateTime.now());
 
-            EntityWithMetadata<Customer> response = entityService.update(id, existing);
+            EntityWithMetadata<Customer> response = entityService.update(id, existing, "update");
             logger.info("Customer partially updated: {}", id);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -304,6 +307,7 @@ public class CustomerController {
 
     /**
      * Soft delete customer (DELETE /ui/customers/{id})
+     * Uses "soft_delete" transition to move customer to deleted state
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCustomer(@PathVariable UUID id) {
@@ -320,7 +324,7 @@ public class CustomerController {
             customer.setDeleted(true);
             customer.setUpdatedAt(OffsetDateTime.now());
 
-            entityService.update(id, customer);
+            entityService.update(id, customer, "soft_delete");
             logger.info("Customer soft-deleted: {}", id);
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
