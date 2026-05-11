@@ -1,0 +1,50 @@
+{
+  "name": "Customer",
+  "modelVersion": 1,
+  "description": "Customer entity (Standard Profile) with audit fields and soft-delete flag",
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "firstName": {"type": "string"},
+    "lastName": {"type": "string"},
+    "email": {"type": "string", "format": "email"},
+    "phone": {"type": "string"},
+    "address": {
+      "line1": {"type": "string"},
+      "line2": {"type": "string"},
+      "city": {"type": "string"},
+      "state": {"type": "string"},
+      "postalCode": {"type": "string"},
+      "country": {"type": "string"}
+    },
+    "createdAt": {"type": "string", "format": "date-time"},
+    "updatedAt": {"type": "string", "format": "date-time"},
+    "createdBy": {"type": "string"},
+    "updatedBy": {"type": "string"},
+    "deleted": {"type": "boolean", "default": false}
+  },
+  "constraints": {
+    "unique": ["email"]
+  },
+  "examples": {
+    "sample": {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "firstName": "Jane",
+      "lastName": "Doe",
+      "email": "jane.doe@example.com",
+      "phone": "+1-555-0100",
+      "address": {
+        "line1": "123 Main St",
+        "line2": "Apt 4",
+        "city": "Springfield",
+        "state": "IL",
+        "postalCode": "62704",
+        "country": "USA"
+      },
+      "createdAt": "2026-01-01T12:00:00Z",
+      "updatedAt": "2026-01-01T12:00:00Z",
+      "createdBy": "system",
+      "updatedBy": "system",
+      "deleted": false
+    }
+  }
+}
